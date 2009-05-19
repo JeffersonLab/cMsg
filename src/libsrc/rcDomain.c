@@ -127,6 +127,12 @@ int   cmsg_rc_subscribe         (void *domainId, const char *subject, const char
                                  cMsgCallbackFunc *callback, void *userArg,
                                  cMsgSubscribeConfig *config, void **handle);
 int   cmsg_rc_unsubscribe       (void *domainId, void *handle);
+int   cmsg_rc_subscriptionPause (void *domainId, void *handle);
+int   cmsg_rc_subscriptionResume(void *domainId, void *handle);
+int   cmsg_rc_subscriptionQueueClear(void *domainId, void *handle);
+int   cmsg_rc_subscriptionQueueCount(void *domainId, void *handle, int *count);
+int   cmsg_rc_subscriptionQueueIsFull(void *domainId, void *handle, int *full);
+int   cmsg_rc_subscriptionMessagesTotal(void *domainId, void *handle, int *total);
 int   cmsg_rc_subscribeAndGet   (void *domainId, const char *subject, const char *type,
                                  const struct timespec *timeout, void **replyMsg);
 int   cmsg_rc_sendAndGet        (void *domainId, void *sendMsg,
@@ -146,6 +152,9 @@ int   cmsg_rc_getCurrentUDL     (void *domainId, const char **udl);
 static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_reconnect,
                                     cmsg_rc_send, cmsg_rc_syncSend, cmsg_rc_flush,
                                     cmsg_rc_subscribe, cmsg_rc_unsubscribe,
+                                    cmsg_rc_subscriptionPause, cmsg_rc_subscriptionResume,
+                                    cmsg_rc_subscriptionQueueClear, cmsg_rc_subscriptionMessagesTotal,
+                                    cmsg_rc_subscriptionQueueCount, cmsg_rc_subscriptionQueueIsFull,
                                     cmsg_rc_subscribeAndGet, cmsg_rc_sendAndGet,
                                     cmsg_rc_monitor, cmsg_rc_start,
                                     cmsg_rc_stop, cmsg_rc_disconnect,
@@ -1725,6 +1734,288 @@ int cmsg_rc_unsubscribe(void *domainId, void *handle) {
     free(cbarg);
 
     return(err);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine pauses the delivery of messages to the given subscription callback.
+ *
+ * @param domainId id of the domain connection
+ * @param handle void pointer to subscription info obtained from {@link cmsg_cmsg_subscribe}
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the id/handle is bad or handle is NULL
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement pause
+ */
+int cmsg_rc_subscriptionPause(void *domainId, void *handle) {
+
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    cbArg           *cbarg;
+    subscribeCbInfo *cb;
+  
+    /* check args */
+    if (domain == NULL || handle == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+    cbarg = (cbArg *)handle;
+    if (cbarg->domainId != (uintptr_t)domainId) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+       
+    /* convenience variables */
+    cb = cbarg->cb;
+
+    cMsgMutexLock(&cb->mutex);
+    
+    /* tell callback thread to pause */
+    cb->pause = 1;
+
+    cMsgMutexUnlock(&cb->mutex);
+      
+    return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine resumes the delivery of messages to the given subscription callback.
+ *
+ * @param domainId id of the domain connection
+ * @param handle void pointer to subscription info obtained from {@link cmsg_cmsg_subscribe}
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the id/handle is bad or handle is NULL
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement pause
+ */
+int cmsg_rc_subscriptionResume(void *domainId, void *handle) {
+
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    cbArg           *cbarg;
+    subscribeCbInfo *cb;
+    struct timespec wait = {1,0};
+
+    /* check args */
+    if (domain == NULL || handle == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+    cbarg = (cbArg *)handle;
+    if (cbarg->domainId != (uintptr_t)domainId) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+    /* convenience variables */
+    cb = cbarg->cb;
+
+    cMsgMutexLock(&cb->mutex);
+    
+    /* tell callback thread to resume */
+    cb->pause = 0;
+    
+    /* wakeup the paused callback */
+    cMsgLatchCountDown(&cb->pauseLatch, &wait);
+
+    cMsgMutexUnlock(&cb->mutex);
+      
+    return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine returns the number of messages currently in a subscription callback's queue.
+ *
+ * @param domainId id of the domain connection
+ * @param handle void pointer to subscription info obtained from {@link cmsg_cmsg_subscribe}
+ * @param count int pointer filled in with number of messages in subscription callback's queue
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the id/handle is bad or handle is NULL
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement pause
+ */
+int cmsg_rc_subscriptionQueueCount(void *domainId, void *handle, int *count) {
+
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    cbArg           *cbarg;
+    subscribeCbInfo *cb;
+
+    /* check args */
+    if (domain == NULL || handle == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+    cbarg = (cbArg *)handle;
+    if (cbarg->domainId != (uintptr_t)domainId) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+    /* convenience variables */
+    cb = cbarg->cb;
+
+    cMsgMutexLock(&cb->mutex);
+    
+    /* tell callback thread to resume */
+    if (count != NULL) *count = cb->messages;
+    
+    cMsgMutexUnlock(&cb->mutex);
+    
+    return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine returns true(1) if a subscription callback's queue is full, else false(0).
+ *
+ * @param domainId id of the domain connection
+ * @param handle void pointer to subscription info obtained from {@link cmsg_cmsg_subscribe}
+ * @param full int pointer filled in with 1 if subscription callback's queue full, else 0
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the id/handle is bad or handle is NULL
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement pause
+ */
+int cmsg_rc_subscriptionQueueIsFull(void *domainId, void *handle, int *full) {
+
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    cbArg           *cbarg;
+    subscribeCbInfo *cb;
+
+    /* check args */
+    if (domain == NULL || handle == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+    cbarg = (cbArg *)handle;
+    if (cbarg->domainId != (uintptr_t)domainId) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+
+    /* convenience variables */
+    cb = cbarg->cb;
+
+    cMsgMutexLock(&cb->mutex);
+    
+    /* tell callback thread to resume */
+    if (full != NULL) *full = cb->fullQ;
+    
+    cMsgMutexUnlock(&cb->mutex);
+    
+    return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine clears a subscription callback's queue of all messages.
+ *
+ * @param domainId id of the domain connection
+ * @param handle void pointer to subscription info obtained from {@link cmsg_cmsg_subscribe}
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the id/handle is bad or handle is NULL
+ */
+int cmsg_rc_subscriptionQueueClear(void *domainId, void *handle) {
+
+    int i, status;
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    cbArg           *cbarg;
+    subscribeCbInfo *cb;
+    cMsgMessage_t *head;
+    void *p;
+  
+    /* check args */
+    if (domain == NULL || handle == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+    cbarg = (cbArg *)handle;
+    if (cbarg->domainId != (uintptr_t)domainId) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+    /* convenience variables */
+    cb = cbarg->cb;
+
+    cMsgMutexLock(&cb->mutex);
+    
+    head = cb->head;
+    while (head != NULL) {
+        cb->head = cb->head->next;
+        p = (void *)head; /* get rid of compiler warnings */
+        cMsgFreeMessage(&p);
+        cb->messages--;
+        cb->fullQ = 0;
+        head = cb->head;
+    }
+    cb->head = NULL;
+    
+    /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
+    status = pthread_cond_signal(&cb->takeFromQ);
+    if (status != 0) {
+        cmsg_err_abort(status, "Failed callback condition signal in rc subQclear");
+    }
+  
+    cMsgMutexUnlock(&cb->mutex);
+    
+    return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine returns the total number of messages sent to a subscription callback.
+ *
+ * @param domainId id of the domain connection
+ * @param handle void pointer to subscription info obtained from {@link cmsg_cmsg_subscribe}
+ * @param total int pointer filled in with total number of messages sent to a subscription callback
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the id/handle is bad or handle is NULL
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement pause
+ */
+int cmsg_rc_subscriptionMessagesTotal(void *domainId, void *handle, int *total) {
+
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    cbArg           *cbarg;
+    subscribeCbInfo *cb;
+
+    /* check args */
+    if (domain == NULL || handle == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+    cbarg = (cbArg *)handle;
+    if (cbarg->domainId != (uintptr_t)domainId) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+
+    /* convenience variables */
+    cb = cbarg->cb;
+
+    cMsgMutexLock(&cb->mutex);
+    
+    /* tell callback thread to resume */
+    if (total != NULL) *total = cb->msgCount;
+    
+    cMsgMutexUnlock(&cb->mutex);
+    
+    return(CMSG_OK);
 }
 
 

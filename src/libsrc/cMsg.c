@@ -1402,6 +1402,189 @@ int cMsgUnSubscribe(void *domainId, void *handle) {
 
 
 /**
+ * This routine pauses the delivery of messages to the given subscription callback.
+ *
+ * @param domainId domain connection id
+ * @param handle void pointer obtained from cMsgSubscribe
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement this function
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSubscriptionPause
+ */
+int cMsgSubscriptionPause(void *domainId, void *handle) {
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
+  
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->subscriptionPause(domain->implId, handle);
+    cleanupAfterFunc(index);
+  
+    return err;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine resumes the delivery of messages to the given subscription callback.
+ *
+ * @param domainId domain connection id
+ * @param handle void pointer obtained from cMsgSubscribe
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
+ * @returns CMSG_NOT_IMPLEMENTED if the subdomain used does NOT implement this function
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSubscriptionPause
+ */
+int cMsgSubscriptionResume(void *domainId, void *handle) {
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
+  
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->subscriptionResume(domain->implId, handle);
+    cleanupAfterFunc(index);
+  
+    return err;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine returns the number of messages currently in a subscription callback's queue.
+ *
+ * @param domainId domain connection id
+ * @param handle void pointer obtained from cMsgSubscribe
+ * @param count int pointer filled in with number of messages in subscription callback queue
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSubscriptionPause
+ */
+int cMsgSubscriptionQueueCount(void *domainId, void *handle, int *count) {
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
+  
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->subscriptionQueueCount(domain->implId, handle, count);
+    cleanupAfterFunc(index);
+  
+    return err;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine returns true(1) if a subscription callback's queue is full, else false(0).
+ *
+ * @param domainId domain connection id
+ * @param handle void pointer obtained from cMsgSubscribe
+ * @param full int pointer filled in with 1 if subscription callback queue full, else 0
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSubscriptionPause
+ */
+int cMsgSubscriptionQueueIsFull(void *domainId, void *handle, int *full) {
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
+  
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->subscriptionQueueIsFull(domain->implId, handle, full);
+    cleanupAfterFunc(index);
+  
+    return err;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine clears a subscription callback's queue of all messages.
+ *
+ * @param domainId domain connection id
+ * @param handle void pointer obtained from cMsgSubscribe
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if the id/handle is bad or handle is NULL
+ */
+int cMsgSubscriptionQueueClear(void *domainId, void *handle) {
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
+  
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->subscriptionQueueClear(domain->implId, handle);
+    cleanupAfterFunc(index);
+  
+    return err;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine returns the total number of messages sent to a subscription callback.
+ *
+ * @param domainId domain connection id
+ * @param handle void pointer obtained from cMsgSubscribe
+ * @param total int pointer filled in with total number of messages sent to a subscription callback
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgSubscriptionPause
+ */
+int cMsgSubscriptionMessagesTotal(void *domainId, void *handle, int *total) {
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
+  
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    err = domain->functions->subscriptionMessagesTotal(domain->implId, handle, total);
+    cleanupAfterFunc(index);
+  
+    return err;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine gets one message from another cMsg client by sending out
  * an initial message to that responder. It is a synchronous routine that
  * fails when no reply is received with the given timeout. This function
@@ -2064,11 +2247,65 @@ static int registerDynamicDomains(char *domainType) {
   /* get "unsubscribe" function from global symbol table */
   sprintf(functionName, "cmsg_%s_unsubscribe", lowerCase);
   if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
+      free(funcs);
+      free(lowerCase);
+      return(CMSG_ERROR);
   }
   funcs->unsubscribe = (UNSUBSCRIBE_PTR) pValue;
+  
+  /* get "subscriptionPause" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_subscriptionPause", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+      free(funcs);
+      free(lowerCase);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionPause = (UNSUBSCRIBE_PTR) pValue;
+  
+  /* get "subscriptionResume" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_subscriptionResume", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+      free(funcs);
+      free(lowerCase);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionResume = (UNSUBSCRIBE_PTR) pValue;
+  
+  /* get "subscriptionQueueClear" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_subscriptionQueueClear", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+      free(funcs);
+      free(lowerCase);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionQueueClear = (UNSUBSCRIBE_PTR) pValue;
+  
+  /* get "subscriptionQueueCount" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_subscriptionQueueCount", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+      free(funcs);
+      free(lowerCase);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionQueueCount = (SUBSCRIPTION_PTR) pValue;
+  
+  /* get "subscriptionQueueIsFull" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_subscriptionQueueIsFull", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+      free(funcs);
+      free(lowerCase);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionQueueIsFull = (SUBSCRIPTION_PTR) pValue;
+  
+  /* get "subscriptionMessagesTotal" function from global symbol table */
+  sprintf(functionName, "cmsg_%s_subscriptionMessagesTotal", lowerCase);
+  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
+      free(funcs);
+      free(lowerCase);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionMessagesTotal = (SUBSCRIPTION_PTR) pValue;
   
   /* get "subscribeAndGet" function from global symbol table */
   sprintf(functionName, "cmsg_%s_subscribeAndGet", lowerCase);
@@ -2254,12 +2491,78 @@ static int registerDynamicDomains(char *domainType) {
   sprintf(functionName, "cmsg_%s_unsubscribe", lowerCase);
   sym = dlsym(libHandle, functionName);
   if (sym == NULL) {
-    free(funcs);
-    free(lowerCase);
-    dlclose(libHandle);
-    return(CMSG_ERROR);
+      free(funcs);
+      free(lowerCase);
+      dlclose(libHandle);
+      return(CMSG_ERROR);
   }
   funcs->unsubscribe = (UNSUBSCRIBE_PTR) sym;
+
+  /* get "subscriptionPause" function */
+  sprintf(functionName, "cmsg_%s_subscriptionPause", lowerCase);
+  sym = dlsym(libHandle, functionName);
+  if (sym == NULL) {
+      free(funcs);
+      free(lowerCase);
+      dlclose(libHandle);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionPause = (UNSUBSCRIBE_PTR) sym;
+
+  /* get "subscriptionResume" function */
+  sprintf(functionName, "cmsg_%s_subscriptionResume", lowerCase);
+  sym = dlsym(libHandle, functionName);
+  if (sym == NULL) {
+      free(funcs);
+      free(lowerCase);
+      dlclose(libHandle);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionResume = (UNSUBSCRIBE_PTR) sym;
+
+  /* get "subscriptionQueueClear" function */
+  sprintf(functionName, "cmsg_%s_subscriptionQueueClear", lowerCase);
+  sym = dlsym(libHandle, functionName);
+  if (sym == NULL) {
+      free(funcs);
+      free(lowerCase);
+      dlclose(libHandle);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionQueueClear = (UNSUBSCRIBE_PTR) sym;
+
+  /* get "subscriptionQueueCount" function */
+  sprintf(functionName, "cmsg_%s_subscriptionQueueCount", lowerCase);
+  sym = dlsym(libHandle, functionName);
+  if (sym == NULL) {
+      free(funcs);
+      free(lowerCase);
+      dlclose(libHandle);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionQueueCount = (SUBSCRIPTION_PTR) sym;
+
+  /* get "subscriptionQueueIsFull" function */
+  sprintf(functionName, "cmsg_%s_subscriptionQueueIsFull", lowerCase);
+  sym = dlsym(libHandle, functionName);
+  if (sym == NULL) {
+      free(funcs);
+      free(lowerCase);
+      dlclose(libHandle);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionQueueIsFull = (SUBSCRIPTION_PTR) sym;
+
+  /* get "subscriptionMessagesTotal" function */
+  sprintf(functionName, "cmsg_%s_subscriptionMessagesTotal", lowerCase);
+  sym = dlsym(libHandle, functionName);
+  if (sym == NULL) {
+      free(funcs);
+      free(lowerCase);
+      dlclose(libHandle);
+      return(CMSG_ERROR);
+  }
+  funcs->subscriptionMessagesTotal = (SUBSCRIPTION_PTR) sym;
 
   /* get "subscribeAndGet" function */
   sprintf(functionName, "cmsg_%s_subscribeAndGet", lowerCase);

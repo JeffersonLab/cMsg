@@ -81,6 +81,7 @@ typedef struct subscribeCbInfo_t {
   int               threads;  /**< Number of worker threads to run callback if
                                *   config allows parallelizing (mustSerialize = 0). */
   int               started;  /**< Boolean telling if thread started or not. */
+  int               pause;    /**< Boolean telling thread to pause. */
   int               quit;     /**< Boolean telling thread to end. */
   uint64_t          msgCount; /**< Number of messages passed to callback. */
   void             *cbarg;    /**< Pointer to mem that must be freed on disconnect if unsubscribe not done. */
@@ -94,6 +95,7 @@ typedef struct subscribeCbInfo_t {
   pthread_cond_t    checkQ;   /**< Condition variable for callback thread to add worker threads or quit as needed. */
   pthread_cond_t    takeFromQ;/**< Condition variable for removing msg from callback queue. */
   pthread_mutex_t   mutex;    /**< Mutex callback thread is waiting on. */
+  countDownLatch    pauseLatch;  /**< Latch used to pause the callback. */
   struct subscribeCbInfo_t *next; /**< Pointer allows struct to be part of linked list. */
 } subscribeCbInfo;
 

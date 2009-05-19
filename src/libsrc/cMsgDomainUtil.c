@@ -601,6 +601,7 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
     info->fullQ    = 0;
     info->threads  = 0;
     info->messages = 0;
+    info->pause    = 0;
     info->quit     = 0;
     info->msgCount = 0;
     info->callback = NULL;
@@ -617,6 +618,8 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
     info->config.maxThreads    = 20;
     info->config.msgsPerThread = 500;
     info->config.stackSize     = 0;
+
+    cMsgCountDownLatchInit(&info->pauseLatch, 1);
 
     status = pthread_cond_init(&info->addToQ,  NULL);
     if (status != 0) {
@@ -676,6 +679,7 @@ void cMsgCallbackInfoFree(subscribeCbInfo *info) {
       }
   
 #endif
+    cMsgCountDownLatchFree(&info->pauseLatch);
 }
 
 
@@ -1331,7 +1335,8 @@ int cMsgLatchAwait(countDownLatch *latch, const struct timespec *timeout) {
  *
  * @param latch pointer to latch structure
  * @param timeout time to wait for the "cMsgLatchAwait" callers to respond
- *                before returning with a timeout code (0)
+ *                before returning with a timeout code (0), NULL means wait
+ *                forever
  *
  * @returns -1 if the latch is being reset
  * @returns  0 if the "cMsgLatchAwait" callers have not responded before timing out
@@ -1799,9 +1804,10 @@ void *cMsgCallbackWorkerThread(void *arg)
     int *used = workerArg->used, index = workerArg->index;
     pthread_t *threads = workerArg->threads;
     char *subject=workerArg->subject, *type=workerArg->type, *udl=workerArg->udl;
-    int status, empty, state;
+    int latchStatus, status, empty, state;
     cMsgMessage_t *msg;
-    struct timespec wait, timeout;
+    struct timespec timeout = {0,200000000}; /* wait .2 sec before waking up and checking for messages */
+    struct timespec wait, waitOneTic = {0,1}, waitOneSec = {1,0}; /* 1 sec */
 
     /* increase concurrency for this thread for early Solaris */
     int  con;
@@ -1810,10 +1816,6 @@ void *cMsgCallbackWorkerThread(void *arg)
 
     /* release system resources when thread finishes */
     /*pthread_detach(pthread_self());*/
-
-    /* wait .2 sec before waking thread up and checking for messages */
-    timeout.tv_sec  = 0;
-    timeout.tv_nsec = 200000000;
 
     free(arg);
     
@@ -1906,6 +1908,7 @@ void *cMsgCallbackWorkerThread(void *arg)
             cb->head = msg->next;
         }
         cb->messages--;
+        cb->fullQ = 0;
         cb->msgCount++; /* # of msgs passed to callback */
    
         /* wakeup cMsgRunCallbacks thread if trying to add item to full cue */
@@ -1916,8 +1919,44 @@ void *cMsgCallbackWorkerThread(void *arg)
 
         /* unlock mutex */
 /*printf("worker: try release 4, mutex = %p\n", &cb->mutex);*/
-        cMsgMutexUnlock(&cb->mutex);
 /*printf("worker: released 4, mutex = %p\n", &cb->mutex);*/
+
+        /* Pause here if commanded to */
+        /* latch returns -1 if the latch is being reset
+                          0 if the count down has not reached 0 before timing out
+                         +1 if the count down has reached 0  */
+        latchStatus = 0;
+        while (cb->pause && latchStatus == 0) {
+/*printf("TRY PAUSING:\n");*/
+            cMsgMutexUnlock(&cb->mutex);
+            /* Wait for 1 second before waking up and checking if we gotta quit. */
+/*printf("  pause, wait for latch\n");*/
+            latchStatus = cMsgLatchAwait(&cb->pauseLatch, &waitOneSec);
+            /*
+            if (latchStatus == 0) {
+                printf("  pause, latch timed out\n");
+            }
+            else if (latchStatus == 1) {
+                printf("  pause, latch was unlatched by resume\n");
+            }
+            else {
+                printf("  pause, latch was reset\n");
+            }
+            */
+            cMsgMutexLock(&cb->mutex);
+
+            /* quit if commanded to */
+            if (cb->quit) {
+                /*printf("Worker Callback Thd a: #%d quiting\n", index);*/
+                cb->threads--;
+                used[index] = 0;
+                cMsgMutexUnlock(&cb->mutex);
+                goto end;
+            }
+            cMsgLatchReset(&cb->pauseLatch, 1, &waitOneTic);
+        }
+
+        cMsgMutexUnlock(&cb->mutex);
 
         /* run callback */
         msg->context.domain  = (char *) strdup("cMsg");

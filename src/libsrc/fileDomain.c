@@ -62,6 +62,12 @@ int   cmsg_file_subscribe(void *domainId, const char *subject, const char *type,
                           cMsgCallbackFunc *callback, void *userArg,
                           cMsgSubscribeConfig *config, void **handle);
 int   cmsg_file_unsubscribe(void *domainId, void *handle);
+int   cmsg_file_subscriptionPause (void *domainId, void *handle);
+int   cmsg_file_subscriptionResume(void *domainId, void *handle);
+int   cmsg_file_subscriptionQueueClear(void *domainId, void *handle);
+int   cmsg_file_subscriptionQueueCount(void *domainId, void *handle, int *count);
+int   cmsg_file_subscriptionQueueIsFull(void *domainId, void *handle, int *full);
+int   cmsg_file_subscriptionMessagesTotal(void *domainId, void *handle, int *total);
 int   cmsg_file_subscribeAndGet(void *domainId, const char *subject, const char *type,
                                 const struct timespec *timeout, void **replyMsg);
 int   cmsg_file_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
@@ -81,6 +87,9 @@ int   cmsg_file_getCurrentUDL(void *domainId, char **udl);
 static domainFunctions functions = { cmsg_file_connect, cmsg_file_reconnect,
                                      cmsg_file_send, cmsg_file_syncSend, cmsg_file_flush,
                                      cmsg_file_subscribe, cmsg_file_unsubscribe,
+                                     cmsg_file_subscriptionPause, cmsg_file_subscriptionResume,
+                                     cmsg_file_subscriptionQueueClear, cmsg_file_subscriptionMessagesTotal,
+                                     cmsg_file_subscriptionQueueCount, cmsg_file_subscriptionQueueIsFull,
                                      cmsg_file_subscribeAndGet, cmsg_file_sendAndGet,
                                      cmsg_file_monitor, cmsg_file_start,
                                      cmsg_file_stop, cmsg_file_disconnect,
@@ -400,6 +409,54 @@ int cmsg_file_subscribe(void *domainId, const char *subject, const char *type,
 
 
 int cmsg_file_unsubscribe(void *domainId, void *handle) {
+    return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cmsg_file_subscriptionPause (void *domainId, void *handle) {
+  return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cmsg_file_subscriptionResume(void *domainId, void *handle) {
+  return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cmsg_file_subscriptionQueueClear(void *domainId, void *handle) {
+  return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cmsg_file_subscriptionQueueCount(void *domainId, void *handle, int *count) {
+  return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cmsg_file_subscriptionQueueIsFull(void *domainId, void *handle, int *full) {
+  return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+int cmsg_file_subscriptionMessagesTotal(void *domainId, void *handle, int *total) {
   return(CMSG_NOT_IMPLEMENTED);
 }
 

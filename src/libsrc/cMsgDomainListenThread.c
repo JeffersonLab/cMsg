@@ -977,6 +977,7 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                 p = (void *)oldHead; /* get rid of compiler warnings */
                 cMsgFreeMessage(&p);
                 cb->messages--;
+                cb->fullQ = 0;
                 if (cb->head == NULL) break;
               }
 
@@ -995,16 +996,12 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                  * NOTE: The pend thread (which calls this function) has disabled
                  * thread cancellation so we cannot be pthread_cancelled.
                  */
-                cb->fullQ = 1;
+                  /*cb->fullQ = 1;*/
                 cMsgGetAbsoluteTime(&timeout, &wait);
 /*fprintf(stderr, "cMsgRunCallbacks: cue full, start waiting, will UNLOCK cb mutex\n"); */
 /*fprintf(stderr, "cMsgRunCallbacks: cue full (%d, %p), waiting\n", cb->messages, cb);*/
                 status = pthread_cond_timedwait(&cb->takeFromQ, &cb->mutex, &wait);
-                if (status != 0) {
-                    cmsg_err_abort(status, "Failed callback cond wait");
-                }
 /*fprintf(stderr, "cMsgRunCallbacks: done waiting (%p), cb mutex LOCKED\n", cb);*/
-                                    
                 /* if the wait timed out ... */
                 if (status == ETIMEDOUT) {
                   if (cMsgDebug >= CMSG_DEBUG_WARN) {
@@ -1025,7 +1022,7 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                 }
                 /* else woken up 'cause msg taken off cue */
                 else if (cb->messages < cb->config.maxCueSize) {
-                  cb->fullQ = 0;
+                    /*cb->fullQ = 0;*/
                   break;
                 }
               } /* while (cb->messages >= cb->config.maxCueSize) */
@@ -1063,6 +1060,9 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
           }
 
           cb->messages++;
+          if (cb->messages >= cb->config.maxCueSize) {
+              cb->fullQ = 1;
+          }
 /*printf("cMsgRunCallbacks: increase cue size = %d\n", cb->messages);*/
           message->next = NULL;
 

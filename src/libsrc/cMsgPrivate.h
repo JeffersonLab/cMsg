@@ -152,7 +152,10 @@ typedef int (*SUBSCRIBE_PTR)   (void *domainId, const char *subject, const char 
 /** Typedef for a domain's unsubscribe function */  
 typedef int (*UNSUBSCRIBE_PTR) (void *domainId, void *handle);
   
-/** Typedef for a domain's subscribeAndGet function */  
+/** Typedef for a domain's subscription-related function */
+typedef int (*SUBSCRIPTION_PTR) (void *domainId, void *handle, int *val);
+  
+/** Typedef for a domain's subscribeAndGet function */
 typedef int (*SUBSCRIBE_AND_GET_PTR) (void *domainId, const char *subject, const char *type,
                                       const struct timespec *timeout, void **replyMsg);
 
@@ -212,8 +215,26 @@ typedef struct domainFunctions_t {
   /** This function subscribes to messages of the given subject and type. */
   SUBSCRIBE_PTR subscribe;
   
-  /** This functin unsubscribes to messages of the given subject, type and callback. */
+  /** This function unsubscribes to messages of the given subject, type and callback. */
   UNSUBSCRIBE_PTR unsubscribe;
+  
+  /** This function pauses the delivery of messages to a given subscription. */
+  UNSUBSCRIBE_PTR subscriptionPause;
+  
+  /** This function resumes the delivery of messages to a paused subscription. */
+  UNSUBSCRIBE_PTR subscriptionResume;
+  
+  /** This function clears a subscription of all queued messages. */
+  UNSUBSCRIBE_PTR subscriptionQueueClear;
+  
+  /** This function returns the total number of messages sent to a subscription. */
+  SUBSCRIPTION_PTR subscriptionMessagesTotal;
+  
+  /** This function returns the number of messages currently in a subscription's queue. */
+  SUBSCRIPTION_PTR subscriptionQueueCount;
+  
+  /** This function returns true(1) if a subscription's queue is full, else false(0). */
+  SUBSCRIPTION_PTR subscriptionQueueIsFull;
   
   /**
    * This function gets one message from a one-time subscription to the given
