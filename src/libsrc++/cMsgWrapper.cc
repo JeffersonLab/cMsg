@@ -1871,22 +1871,166 @@ void *cMsg::subscribe(const string &subject, const string &type, cMsgCallback &c
  */
 void cMsg::unsubscribe(void *handle) throw(cMsgException) {
 
-  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+    if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
 
 
-  int stat;
+    int stat;
 
 
   // remove subscription from internal list
-  if(!deleteSubscription(myDomainId,handle)) {
-    throw(cMsgException(cMsgPerror(CMSG_BAD_ARGUMENT),CMSG_BAD_ARGUMENT));
-  }
+    if(!deleteSubscription(myDomainId,handle)) {
+        throw(cMsgException(cMsgPerror(CMSG_BAD_ARGUMENT),CMSG_BAD_ARGUMENT));
+    }
 
 
   // unsubscribe
-  if((stat=cMsgUnSubscribe(myDomainId,handle))!=CMSG_OK) {
-    throw(cMsgException(cMsgPerror(stat),stat));
-  }
+    if((stat=cMsgUnSubscribe(myDomainId,handle))!=CMSG_OK) {
+        throw(cMsgException(cMsgPerror(stat),stat));
+    }
+
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+/**
+ * Pause delivery of messages to the given subscription's callback.
+ *
+ * @param handle Subscription handle
+ * @throws cMsgException
+ */
+void cMsg::subscriptionPause(void *handle) throw(cMsgException) {
+
+    if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+    int stat;
+
+    // pause
+    if((stat=cMsgSubscriptionPause(myDomainId,handle))!=CMSG_OK) {
+        throw(cMsgException(cMsgPerror(stat),stat));
+    }
+
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+/**
+ * Resume delivery of messages to the given subscription's callback if paused.
+ *
+ * @param handle Subscription handle
+ * @throws cMsgException
+ */
+void cMsg::subscriptionResume(void *handle) throw(cMsgException) {
+
+    if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+    int stat;
+
+    // resume
+    if((stat=cMsgSubscriptionResume(myDomainId,handle))!=CMSG_OK) {
+        throw(cMsgException(cMsgPerror(stat),stat));
+    }
+
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+/**
+ * Clear all messages from the given subscription callback's queue.
+ *
+ * @param handle Subscription handle
+ * @throws cMsgException
+ */
+void cMsg::subscriptionQueueClear(void *handle) throw(cMsgException) {
+
+    if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+    int stat;
+
+    // clear Q
+    if((stat=cMsgSubscriptionQueueClear(myDomainId,handle))!=CMSG_OK) {
+        throw(cMsgException(cMsgPerror(stat),stat));
+    }
+
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+/**
+ * Return the number of messages currently in the given subscription callback's queue.
+ *
+ * @param handle Subscription handle
+ * @return number of messages currently in the given subscription callback's queue
+ * @throws cMsgException
+ */
+int cMsg::subscriptionQueueCount(void *handle) throw(cMsgException) {
+
+    if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+    int stat, count;
+
+    // get Q count
+    if((stat=cMsgSubscriptionQueueCount(myDomainId,handle,&count))!=CMSG_OK) {
+        throw(cMsgException(cMsgPerror(stat),stat));
+    }
+    return count;
+
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+/**
+ * Return the total number of messages passed to the given subscription's callback.
+ *
+ * @param handle Subscription handle
+ * @return total number of messages passed to the given subscription's callback
+ * @throws cMsgException
+ */
+int cMsg::subscriptionMessagesTotal(void *handle) throw(cMsgException) {
+
+    if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+    int stat, count;
+
+    // total # of messages callback received
+    if((stat=cMsgSubscriptionMessagesTotal(myDomainId,handle,&count))!=CMSG_OK) {
+        throw(cMsgException(cMsgPerror(stat),stat));
+    }
+    return count;
+
+}
+
+
+//-----------------------------------------------------------------------------
+
+
+/**
+ * Returns whether the given subscription callback's queue is full (true) or not.
+ *
+ * @param handle Subscription handle
+ * @return boolean stating whether the given subscription callback's queue is full or not
+ * @throws cMsgException
+ */
+bool cMsg::subscriptionQueueIsFull(void *handle) throw(cMsgException) {
+
+    if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+    int stat, val;
+
+    // Q is full?
+    if((stat=cMsgSubscriptionQueueIsFull(myDomainId,handle,&val))!=CMSG_OK) {
+        throw(cMsgException(cMsgPerror(stat),stat));
+    }
+    return (val == 0 ? false : true);
 
 }
 

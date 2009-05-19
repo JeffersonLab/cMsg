@@ -354,7 +354,13 @@ public:
   virtual void *subscribe(const string &subject, const string &type, cMsgCallback &cb, void *userArg,
                           const cMsgSubscriptionConfig *cfg = NULL) throw(cMsgException);
   virtual void unsubscribe(void *handle) throw(cMsgException);
-  virtual cMsgMessage *sendAndGet(cMsgMessage &sendMsg, const struct timespec *timeout = NULL) 
+  virtual void subscriptionPause(void *handle)         throw(cMsgException);
+  virtual void subscriptionResume(void *handle)        throw(cMsgException);
+  virtual void subscriptionQueueClear(void *handle)    throw(cMsgException);
+  virtual int  subscriptionQueueCount(void *handle)    throw(cMsgException);
+  virtual bool subscriptionQueueIsFull(void *handle)   throw(cMsgException);
+  virtual int  subscriptionMessagesTotal(void *handle) throw(cMsgException);
+  virtual cMsgMessage *sendAndGet(cMsgMessage &sendMsg, const struct timespec *timeout = NULL)
     throw(cMsgException);
   virtual cMsgMessage *sendAndGet(cMsgMessage *sendMsg, const struct timespec *timeout = NULL)
     throw(cMsgException);
