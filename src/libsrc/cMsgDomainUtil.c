@@ -1944,6 +1944,7 @@ void *cMsgCallbackWorkerThread(void *arg)
             }
             */
             cMsgMutexLock(&cb->mutex);
+            cMsgLatchReset(&cb->pauseLatch, 1, &waitOneTic);
 
             /* quit if commanded to */
             if (cb->quit) {
@@ -1953,7 +1954,6 @@ void *cMsgCallbackWorkerThread(void *arg)
                 cMsgMutexUnlock(&cb->mutex);
                 goto end;
             }
-            cMsgLatchReset(&cb->pauseLatch, 1, &waitOneTic);
         }
 
         cMsgMutexUnlock(&cb->mutex);
