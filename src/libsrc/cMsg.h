@@ -144,6 +144,12 @@ int clock_gettime(int dummy, struct timespec *t1);
   int 	cMsgSubscribe         (void *domainId, const char *subject, const char *type, cMsgCallbackFunc *callback,
                                void *userArg, cMsgSubscribeConfig *config, void **handle);
   int 	cMsgUnSubscribe       (void *domainId, void *handle);
+  int   cMsgSubscriptionPause (void *domainId, void *handle);
+  int   cMsgSubscriptionResume(void *domainId, void *handle);
+  int   cMsgSubscriptionQueueClear(void *domainId, void *handle);
+  int   cMsgSubscriptionQueueCount(void *domainId, void *handle, int *count);
+  int   cMsgSubscriptionQueueIsFull(void *domainId, void *handle, int *full);
+  int   cMsgSubscriptionMessagesTotal(void *domainId, void *handle, int *total);
   int   cMsgSendAndGet        (void *domainId, void *sendMsg, const struct timespec *timeout, void **replyMsg);
   int   cMsgSubscribeAndGet   (void *domainId, const char *subject, const char *type,
                                const struct timespec *timeout, void **replyMsg);
