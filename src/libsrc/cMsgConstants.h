@@ -76,10 +76,6 @@
 #define CMSG_CLOUD_ANY      0
 /** Client fails over to local cloud servers first. */
 #define CMSG_CLOUD_LOCAL        1
-/** If a client is connected to a remote server which is a member of a cloud,
- *  once a local cloud server becomes available, immediately force a switch
- *  to the local server even if the original server is healthy. */
-#define CMSG_CLOUD_LOCAL_FORCE   2
 
 
 /* shutdown flags */
