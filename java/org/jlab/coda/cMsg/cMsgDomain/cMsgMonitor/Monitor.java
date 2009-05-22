@@ -166,7 +166,7 @@ System.out.println("CANNOT connect to " + udl);
         comboBox = new JComboBox();
         comboBox.setEditable(true);
         comboBox.addActionListener(al);
-        comboBox.addItem("cMsg://aslan:3456/cMsg/test");
+        comboBox.addItem("cMsg://localhost/cMsg/myNameSpace");
 
         // button for UDL removal
         final JButton removeUDL = new JButton("X");
