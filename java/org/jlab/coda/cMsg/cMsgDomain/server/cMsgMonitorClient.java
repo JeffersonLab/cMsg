@@ -695,7 +695,7 @@ System.out.println("readSocketBytes: client's socket is dead");
         server.nsMonitorXML = xml.toString();
 //System.out.println("       >>XML: NS xml size = " + xml.length());
 
-        xml.insert(0,"<cMsgMonitorData  domain=\"cmsg\">\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\n");
+        xml.insert(0,"<cMsgMonitorData  domain=\"cmsg\">\n\n");
 
         // allow no changes to "bridges" while iterating
         synchronized (server.bridges) {
