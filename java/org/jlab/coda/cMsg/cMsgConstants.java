@@ -82,10 +82,6 @@ public class cMsgConstants {
     /** Failover of client to a server in the cloud will go to a local cloud server first
      *  before others are considered. */
     public static final int    cloudLocal          = 1;
-    /** If a client is connected to a remote server which is a member of a cloud,
-     *  once a local cloud server becomes available, immediately force a switch
-     *  to the local server even if the original server is healthy. */
-    public static final int    cloudLocalForce     = 2;
 
 
     /** No error. */
