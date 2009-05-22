@@ -3029,14 +3029,11 @@ System.out.println("ERROR STRING = " + err);
             if (matcher.group(1).equalsIgnoreCase("local")) {
                 cloud = cMsgConstants.cloudLocal;
             }
-            else if (matcher.group(1).equalsIgnoreCase("localforce")) {
-                cloud = cMsgConstants.cloudLocalForce;
-            }
             else if (matcher.group(1).equalsIgnoreCase("any")) {
                 failover = cMsgConstants.cloudAny;
             }
             else {
-                throw new cMsgException("parseUDL: cloud must be any, local or localforce");
+                throw new cMsgException("parseUDL: cloud must be any or local");
             }
             counter++;
         }
@@ -3126,9 +3123,6 @@ System.out.println("ERROR STRING = " + err);
          * if failover of client to a server in the cloud will go to any of the cloud servers
          * (default). Set to {@link cMsgConstants#cloudLocal} if failover of client to a server
          * in the cloud will go to a local cloud server first before others are considered.
-         * Set to {@link cMsgConstants#cloudLocalForce} if a client is connected to a remote
-         * server which is a member of a cloud, and once a local cloud server becomes available,
-         * immediately switches to the local server even if the original server is healthy.
          */
         int     cloud;
         /**
