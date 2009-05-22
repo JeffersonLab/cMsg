@@ -5400,7 +5400,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
   /* check for room in memory */
   if (len > domain->monitorXMLSize) {
     if (domain->monitorXML != NULL) free(domain->monitorXML);
-    domain->monitorXML = (char *) calloc(1, len+1);
+    domain->monitorXML = (char *) malloc(len+1);
     domain->monitorXMLSize = len;
     if (domain->monitorXML == NULL) {
       return CMSG_OUT_OF_MEMORY;
@@ -5414,6 +5414,9 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
     }
     return CMSG_NETWORK_ERROR;
   }
+
+  /* make sure the string is properly terminated */
+  domain->monitorXML[len] = '\0';
     
   /* read number of items to come */
   if ((err = cMsgTcpRead(domain->keepAliveSocket, &items, sizeof(items))) != sizeof(items)) {
@@ -6723,10 +6726,6 @@ if(dbg) printf("parseUDL: cloud = any\n");
           else if (strcasecmp(buffer, "local") == 0) {
             pUdl->cloud = CMSG_CLOUD_LOCAL;
 if(dbg) printf("parseUDL: cloud = local\n");
-          }
-          else if (strcasecmp(buffer, "localforce") == 0) {
-            pUdl->cloud = CMSG_CLOUD_LOCAL_FORCE;
-if(dbg) printf("parseUDL: cloud = local force\n");
           }
           else {
 if(dbg) printf("parseUDL: cloud = %s, return error\n", buffer);
