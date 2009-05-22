@@ -97,7 +97,7 @@ public class MonitorPanel extends JPanel {
         this.monitor = tabbedPane;
 
         // make a connection to the cMsg server
-        String uniqueName = "monitor_" + (new Date()).getTime();
+        String uniqueName = "monitor_" + System.currentTimeMillis();
         connection = new cMsg(udl, uniqueName, "monitor");
         connection.connect();
 
@@ -119,11 +119,13 @@ public class MonitorPanel extends JPanel {
         /** Message with monitoring data. */
         private cMsgMessage msg;
 
-
         /** This method is executed as a thread. */
         public void run() {
 
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setIgnoringComments(true);
+            factory.setCoalescing(true);
+            factory.setValidating(false);
             DocumentBuilder builder = null;
             try {
                 builder = factory.newDocumentBuilder();
@@ -167,10 +169,14 @@ public class MonitorPanel extends JPanel {
                     // analyze message
                     String xml = msg.getText();
 //System.out.println("msg = \n" + xml);
-                    byte[] buf = xml.getBytes("US-ASCII");
-                    ByteArrayInputStream bais = new ByteArrayInputStream(buf);
-                    document = builder.parse(bais);
-                    SwingUtilities.invokeLater(updateDisplay);
+                    if (xml != null) {
+                        ByteArrayInputStream bais = new ByteArrayInputStream(xml.getBytes("US-ASCII"));
+                        document = builder.parse(bais);
+                        SwingUtilities.invokeLater(updateDisplay);
+                    }
+                    else {
+//System.out.println("msg text is NULL");
+                    }
                 }
                 catch (SAXException sxe) {
                     // Error generated during parsing
@@ -585,6 +591,7 @@ public class MonitorPanel extends JPanel {
                                         try {
                                             jtreeCbNode = (DefaultMutableTreeNode) jtreeNode.getChildAt(index2);
                                             jtreeCbNode.setUserObject(str.toString());
+                                            treeModel.nodeChanged(jtreeCbNode);
                                         }
                                         catch (Exception e) {
                                             // no more kids, ignore exception, add new node
