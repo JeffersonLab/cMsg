@@ -1156,13 +1156,14 @@ public class cMsgMessage implements Cloneable, Serializable {
      * Any binary data is encoded in the base64 format.
      *
      * @param binary includes binary as ASCII if true, else binary is ignored
+     * @param compact if true, do not include attributes with null or default integer values
      * @param noSystemFields if true, do not include system (metadata) payload fields
      *
      * @return message as XML String object
      * @return a blank string if any error occurs
      */
-    public String toString(boolean binary, boolean noSystemFields) {
-        return toStringImpl(0, binary, false, false, false, noSystemFields, null);
+    public String toString(boolean binary, boolean compact, boolean noSystemFields) {
+        return toStringImpl(0, binary, compact, false, false, noSystemFields, null);
     }
 
 
