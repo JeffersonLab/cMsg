@@ -1147,7 +1147,22 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @return a blank string if any error occurs
      */
     public String toString() {
-        return toStringImpl(0, true, false, false, false, null);
+        return toStringImpl(0, true, false, false, false, false, null);
+    }
+
+
+    /**
+     * This method converts the message to a printable string in XML format.
+     * Any binary data is encoded in the base64 format.
+     *
+     * @param binary includes binary as ASCII if true, else binary is ignored
+     * @param noSystemFields if true, do not include system (metadata) payload fields
+     *
+     * @return message as XML String object
+     * @return a blank string if any error occurs
+     */
+    public String toString(boolean binary, boolean noSystemFields) {
+        return toStringImpl(0, binary, false, false, false, noSystemFields, null);
     }
 
 
@@ -1159,6 +1174,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @param compact if true, do not include attributes with null or default integer values
      * @param compactPayload if true includes payload only as a single string (internal format)
      * @param hasName if true, this message is in the payload and has a name
+     * @param noSystemFields if true, do not include system (metadata) payload fields
      * @param pItemName if in payload, name of payload item
      *
      * @return message as XML String object
@@ -1167,7 +1183,7 @@ public class cMsgMessage implements Cloneable, Serializable {
     private String toStringImpl(int margin,
                                 boolean binary, boolean compact,
                                 boolean compactPayload, boolean hasName,
-                                String pItemName) {
+                                boolean noSystemFields, String pItemName) {
         
         StringBuilder sb = new StringBuilder(2048);
 
@@ -1355,7 +1371,7 @@ public class cMsgMessage implements Cloneable, Serializable {
             }
             else {
                 try {
-                    sb.append(payloadToStringImpl(margin+5, binary, compact));
+                    sb.append(payloadToStringImpl(margin+5, binary, compact, noSystemFields));
                 }
                 catch (cMsgException e) {
                     // payload is not expanded
@@ -1382,7 +1398,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @throws cMsgException if payload is not expanded
      */
     public String payloadToString() throws cMsgException {
-        return payloadToStringImpl(0, true, false).toString();
+        return payloadToStringImpl(0, true, false, false).toString();
     }
 
 
@@ -1393,12 +1409,13 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @param margin number of spaces in the indent
      * @param binary includes binary as ASCII if true, else binary is ignored
      * @param compact if true, do not include attributes with null or default integer values
+     * @param noSystemFields if true, do not include system (metadata) payload fields
      *
      * @return payload as XML in StringBuilder object
      * @throws cMsgException if payload is not expanded
      */
-    private StringBuilder payloadToStringImpl(int margin,
-                                              boolean binary, boolean compact) throws cMsgException {
+    private StringBuilder payloadToStringImpl(int margin, boolean binary, boolean compact,
+                                              boolean noSystemFields) throws cMsgException {
 
         // no payload so return
         if (!hasPayload()) {
@@ -1444,6 +1461,11 @@ public class cMsgMessage implements Cloneable, Serializable {
                 name = entry.getKey();
                 item = entry.getValue();
                 typ  = item.getType();
+
+                // filter out system fields (names starting with "cmsg")
+                if (noSystemFields && name.substring(0,4).equalsIgnoreCase("cmsg")) {
+                    continue;
+                }
 
                 switch (typ) {
                     case cMsgConstants.payloadInt8:
@@ -1537,7 +1559,8 @@ public class cMsgMessage implements Cloneable, Serializable {
                    case cMsgConstants.payloadMsg:
                      {   cMsgMessage m = item.getMessage();
                          // recursion
-                         sb.append(m.toStringImpl(margin+offsett.length(), binary, compact, false, true, item.name));
+                         sb.append(m.toStringImpl(margin+offsett.length(), binary, compact,
+                                                  false, true, noSystemFields, item.name));
                      } break;
 
                    //-------
@@ -1551,7 +1574,8 @@ public class cMsgMessage implements Cloneable, Serializable {
                          sb.append(msgs.length); sb.append("\">\n");
                          for (cMsgMessage m : msgs) {
                              // recursion, individual msg in an array has no name of its own
-                             sb.append(m.toStringImpl(margin+5+offsett.length(), binary, compact, false, false, null));
+                             sb.append(m.toStringImpl(margin+5+offsett.length(), binary, compact,
+                                                      false, false, noSystemFields, null));
                          }
                          sb.append(indent); sb.append(offsett);
                          sb.append("</cMsgMessage_array>\n");
