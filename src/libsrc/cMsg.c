@@ -167,10 +167,11 @@ static int   messageStringSize(const void *vmsg, int margin, int binary, int com
 static int   cMsgToStringImpl(const void *vmsg, char **string,
                               int level, int margin, int binary,
                               int compact, int compactPayload,
-                              int hasName, const char *itemName);
+                              int hasName, int noSystemFields,
+                              const char *itemName);
                                                           
 static int   cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, int margin,
-                                     int binary, int compactPayload);
+                                     int binary, int compactPayload, int noSystemFields);
 
 
 
@@ -4708,7 +4709,7 @@ int cMsgGetReceiverTime(const void *vmsg, struct timespec *receiverTime) {
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */   
 int cMsgToString(const void *vmsg, char **string) {
-    return cMsgToStringImpl(vmsg, string, 0, 0, 1, 0, 0, 0, NULL);
+    return cMsgToStringImpl(vmsg, string, 0, 0, 1, 0, 0, 0, 0, NULL);
 }
 
 
@@ -4719,6 +4720,7 @@ int cMsgToString(const void *vmsg, char **string) {
  * @param string is pointer to char* that will hold the malloc'd string
  * @param binary includes binary as ASCII if true, else binary is ignored
  * @param compact if true (!=0), do not include attributes with null or default integer values
+ * @param noSystemFields if true (!=0), do not include system (metadata) payload fields
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if internal payload parsing error,
@@ -4726,8 +4728,8 @@ int cMsgToString(const void *vmsg, char **string) {
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */   
-int cMsgToString2(const void *vmsg, char **string, int binary, int compact) {
-  return cMsgToStringImpl(vmsg, string, 0, 0, binary, compact, 0, 0, NULL);
+int cMsgToString2(const void *vmsg, char **string, int binary, int compact, int noSystemFields) {
+    return cMsgToStringImpl(vmsg, string, 0, 0, binary, compact, 0, 0, noSystemFields, NULL);
 }
 
 
@@ -4738,6 +4740,7 @@ int cMsgToString2(const void *vmsg, char **string, int binary, int compact) {
  * @param string is pointer to char* that will hold the malloc'd string
  * @param binary includes binary as ASCII if true, else binary is ignored
  * @param compact if true (!=0), do not include attributes with null or default integer values
+ * @param noSystemFields if true (!=0), do not include system (metadata) payload fields
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if internal payload parsing error,
@@ -4745,8 +4748,8 @@ int cMsgToString2(const void *vmsg, char **string, int binary, int compact) {
  * @returns CMSG_BAD_ARGUMENT if message is NULL
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */   
-int cMsgPayloadToString(const void *vmsg, char **string, int binary, int compact) {
-  return cMsgPayloadToStringImpl(vmsg, string, 0, 0, binary, compact);
+int cMsgPayloadToString(const void *vmsg, char **string, int binary, int compact, int noSystemFields) {
+    return cMsgPayloadToStringImpl(vmsg, string, 0, 0, binary, compact, noSystemFields);
 }
 
 
@@ -5025,6 +5028,7 @@ char* escapeCdataForXML(char *s) {
  * @param compact if true (!=0), do not include attributes with null or default integer values
  * @param compactPayload if true, includes payload only as a single string (internal format)
  * @param hasName if true, this message is in the payload and has a name
+ * @param noSystemFields if true (!=0), do not include system (metadata) payload fields
  * @param itemName if in payload, name of payload item
  *
  * @returns CMSG_OK if successful
@@ -5036,7 +5040,8 @@ char* escapeCdataForXML(char *s) {
 static int cMsgToStringImpl(const void *vmsg, char **string,
                             int level, int margin, int binary,
                             int compact, int compactPayload,
-                            int hasName, const char *itemName) {
+                            int hasName, int noSystemFields,
+                            const char *itemName) {
 
   time_t now;
   int    j, err, len, slen, count, endian, hasPayload, indentLen, offsetLen;
@@ -5382,7 +5387,7 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
           strncpy(pchar,"</payload>\n",11); pchar+=11;
       }
       else {
-          err = cMsgPayloadToStringImpl(vmsg, &pchar, level+1, margin+5, binary, compact);
+          err = cMsgPayloadToStringImpl(vmsg, &pchar, level+1, margin+5, binary, compact, noSystemFields);
           if (err != CMSG_OK) {
               /* payload is not expanded */
               strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
@@ -5429,6 +5434,7 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
  * @param margin number of spaces in the indent
  * @param binary includes binary as ASCII if true (!=0), else binary is ignored
  * @param compact if true (!=0), do not include attributes with null or default integer values
+ * @param noSystemFields if true (!=0), do not include system (metadata) payload fields
  *
  * @returns CMSG_OK if successful or no payload
  * @returns CMSG_ERROR if internal payload parsing error,
@@ -5437,7 +5443,7 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */   
 static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, int margin,
-                                   int binary, int compact) {
+                                   int binary, int compact, int noSystemFields) {
 
   int i, j, ok, slen, len, count, hasPayload, *types, indentLen, offsetLen, offset5Len, namesLen=0;  
   char *buffer=NULL, *pchar, *name, *indent, *offsett, *offset5, **names;
@@ -5522,6 +5528,11 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
   for (i=0; i<namesLen; i++) {
           
     name = names[i];
+
+    /* filter out system fields (names starting with "cmsg") */
+    if (noSystemFields && (strncasecmp(name, "cmsg", 4) == 0) ) {
+        continue;
+    }
    
     switch (types[i]) {
       case CMSG_CP_INT8:
@@ -5692,7 +5703,8 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
       case CMSG_CP_MSG:
         {const void *m; ok=cMsgGetMessage(msg, name, &m);    if(ok!=CMSG_OK) {
          if(level < 1){free(buffer);} free(offsett);free(offset5);if(margin>0){free(indent);} return(CMSG_ERROR);}
-         ok = cMsgToStringImpl(m, &pchar, level+1, margin+5, binary, compact, 0, 1, name);
+         ok = cMsgToStringImpl(m, &pchar, level+1, margin+5, binary, compact,
+                               0, 1, noSystemFields, name);
          if(ok!=CMSG_OK) {
            if(level < 1){free(buffer);} free(offsett);free(offset5);if(margin>0){free(indent);} return(CMSG_ERROR);}
         } break;
@@ -5709,7 +5721,8 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
          sprintf(pchar,"%d%n",count,&len);                pchar+=len;
          strncpy(pchar,"\">\n",3);                        pchar+=3;
          for(j=0;j<count;j++) {
-           ok = cMsgToStringImpl(m[j], &pchar, level+1, margin+10, binary, compact, 0, 0, NULL);
+           ok = cMsgToStringImpl(m[j], &pchar, level+1, margin+10, binary, compact,
+                                 0, 0, noSystemFields,NULL);
            if(ok!=CMSG_OK) {
                if(level < 1){free(buffer);} free(offsett);free(offset5);if(margin>0){free(indent);} return(CMSG_ERROR);}
          }
