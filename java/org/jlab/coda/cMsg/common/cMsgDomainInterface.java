@@ -75,7 +75,7 @@ public interface cMsgDomainInterface {
      *
      * @param message message to send
      * @param timeout time in milliseconds to wait for a response
-     * @return response from subdomain handler
+     * @return response from subdomain handler (0 for cMsg domain/subdomain)
      * @throws cMsgException
      */
     public int syncSend(cMsgMessage message, int timeout) throws cMsgException;
