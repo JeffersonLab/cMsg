@@ -13,6 +13,8 @@ ifeq ($(BMS_OS), vxworks)
   endif
 endif
 
+LOCAL_DIR = $(notdir $(shell pwd))
+
 # define TOPLEVEL for use in making doxygen docs
 TOPLEVEL = .
 
@@ -58,7 +60,7 @@ doc:
 
 tar:
 	-$(RM) tar/cMsg-3.0.tar.gz;
-	tar -X tar/tarexclude -C .. -c -z -f tar/cMsg-3.0.tar.gz cMsg
+	tar -X tar/tarexclude -C .. -c -z -f tar/cMsg-3.0.tar.gz $(LOCAL_DIR)
 
 # Use this pattern rule for all other targets
 %:
