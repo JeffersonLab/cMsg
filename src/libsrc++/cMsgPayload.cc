@@ -397,10 +397,8 @@ vector<cMsgMessage*> *cMsgMessage::getMessageVector(const string &name) const th
   
 
   // fill new vector with message copies
-  vector<cMsgMessage*> *msgVecP = new vector<cMsgMessage*>(len);
-  for (int i=0; i<len; i++) {
-    msgVecP->push_back(new cMsgMessage(cMsgCopyMessage(vals[i])));
-  }
+  vector<cMsgMessage*> *msgVecP = new vector<cMsgMessage*>;
+  for (int i=0; i<len; i++) msgVecP->push_back(new cMsgMessage(cMsgCopyMessage(vals[i])));
 
   return(msgVecP);
 }
@@ -449,10 +447,8 @@ vector<string> *cMsgMessage::getStringVector(const string &name) const throw(cMs
   }
   
   // copy array values and put into a vector
-  vector<string> *strs = new vector<string>(len);
-  for (int i=0; i<len; i++) {
-    strs->push_back(string(vals[i]));
-  }
+  vector<string> *strs = new vector<string>;
+  for (int i=0; i<len; i++) strs->push_back(string(vals[i]));
   return strs;
 }
 
@@ -519,10 +515,8 @@ vector<float> *cMsgMessage::getFloatVector(const string &name) const throw(cMsgE
     else throw(cMsgException("No payload item of that name")); 
   }
   // put array values into a vector
-  vector<float> *flts = new vector<float>(len);
-  for (int i=0; i<len; i++) {
-    flts->push_back(vals[i]);
-  }
+  vector<float> *flts = new vector<float>;
+  for (int i=0; i<len; i++) flts->push_back(vals[i]);
   return flts;
 }
 
@@ -542,14 +536,12 @@ vector<double> *cMsgMessage::getDoubleVector(const string &name) const throw(cMs
   const double *vals;
   int err = cMsgGetDoubleArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
-    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
+    else throw(cMsgException("No payload item of that name"));
   }
   // put array values into a vector
-  vector<double> *dbls = new vector<double>(len);
-  for (int i=0; i<len; i++) {
-    dbls->push_back(vals[i]);
-  }
+  vector<double> *dbls = new vector<double>;
+  for (int i=0; i<len; i++) dbls->push_back(vals[i]);
   return dbls;
 }
 
@@ -729,10 +721,8 @@ vector<int8_t> *cMsgMessage::getInt8Vector(const string &name) const throw(cMsgE
     else throw(cMsgException("No payload item of that name")); 
   }
   // put array values into a vector
-  vector<int8_t> *ints = new vector<int8_t>(len);
-  for (int i=0; i<len; i++) {
-    ints->push_back(vals[i]);
-  }
+  vector<int8_t> *ints = new vector<int8_t>;
+  for (int i=0; i<len; i++) ints->push_back(vals[i]);
   return ints;
 }
 
@@ -756,10 +746,8 @@ vector<int16_t> *cMsgMessage::getInt16Vector(const string &name) const throw(cMs
     else throw(cMsgException("No payload item of that name")); 
   }
   // put array values into a vector
-  vector<int16_t> *ints = new vector<int16_t>(len);
-  for (int i=0; i<len; i++) {
-    ints->push_back(vals[i]);
-  }
+  vector<int16_t> *ints = new vector<int16_t>;
+  for (int i=0; i<len; i++) ints->push_back(vals[i]);
   return ints;
 }
 
@@ -783,10 +771,8 @@ vector<int32_t> *cMsgMessage::getInt32Vector(const string &name) const throw(cMs
     else throw(cMsgException("No payload item of that name")); 
   }
   // put array values into a vector
-  vector<int32_t> *ints = new vector<int32_t>(len);
-  for (int i=0; i<len; i++) {
-    ints->push_back(vals[i]);
-  }
+  vector<int32_t> *ints = new vector<int32_t>;
+  for (int i=0; i<len; i++) ints->push_back(vals[i]);
   return ints;
 }
 
@@ -810,10 +796,8 @@ vector<int64_t> *cMsgMessage::getInt64Vector(const string &name) const throw(cMs
     else throw(cMsgException("No payload item of that name")); 
   }
   // put array values into a vector
-  vector<int64_t> *ints = new vector<int64_t>(len);
-  for (int i=0; i<len; i++) {
-    ints->push_back(vals[i]);
-  }
+  vector<int64_t> *ints = new vector<int64_t>;
+  for (int i=0; i<len; i++) ints->push_back(vals[i]);
   return ints;
 }
 
@@ -838,10 +822,8 @@ vector<uint8_t> *cMsgMessage::getUint8Vector(const string &name) const throw(cMs
     else throw(cMsgException("No payload item of that name")); 
   }
   // put array values into a vector
-  vector<uint8_t> *ints = new vector<uint8_t>(len);
-  for (int i=0; i<len; i++) {
-    ints->push_back(vals[i]);
-  }
+  vector<uint8_t> *ints = new vector<uint8_t>;
+  for (int i=0; i<len; i++) ints->push_back(vals[i]);
   return ints;
 }
 
@@ -866,10 +848,8 @@ vector<uint16_t> *cMsgMessage::getUint16Vector(const string &name) const throw(c
     else throw(cMsgException("No payload item of that name")); 
   }
   // put array values into a vector
-  vector<uint16_t> *ints = new vector<uint16_t>(len);
-  for (int i=0; i<len; i++) {
-    ints->push_back(vals[i]);
-  }
+  vector<uint16_t> *ints = new vector<uint16_t>;
+  for (int i=0; i<len; i++) ints->push_back(vals[i]);
   return ints;
 }
 
@@ -893,10 +873,8 @@ vector<uint32_t> *cMsgMessage::getUint32Vector(const string &name) const throw(c
     else throw(cMsgException("No payload item of that name")); 
   }
   // put array values into a vector
-  vector<uint32_t> *ints = new vector<uint32_t>(len);
-  for (int i=0; i<len; i++) {
-    ints->push_back(vals[i]);
-  }
+  vector<uint32_t> *ints = new vector<uint32_t>;
+  for (int i=0; i<len; i++) ints->push_back(vals[i]);
   return ints;
 }
 
@@ -920,10 +898,8 @@ vector<uint64_t> *cMsgMessage::getUint64Vector(const string &name) const throw(c
     else throw(cMsgException("No payload item of that name")); 
   }
   // put array values into a vector
-  vector<uint64_t> *ints = new vector<uint64_t>(len);
-  for (int i=0; i<len; i++) {
-    ints->push_back(vals[i]);
-  }
+  vector<uint64_t> *ints = new vector<uint64_t>;
+  for (int i=0; i<len; i++) ints->push_back(vals[i]);
   return ints;
 }
 
