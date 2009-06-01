@@ -24,6 +24,8 @@
  *----------------------------------------------------------------------------*/
 
 
+#include <stdio.h>
+#include <stdlib.h>
 #include "cMsgPrivate.h"
 #include "cMsg.h"
 #include "cMsgNetwork.h"
@@ -35,7 +37,7 @@
 
 
 
-/* Prototypes of the 17 functions which implement the standard cMsg tasks. */
+/* Prototypes of the 25 functions which implement all the cMsg tasks. */
 int   cmsg_dummy_connect(const char *myUDL, const char *myName, const char *myDescription,
               const char *UDLremainder, void **domainId);
 int   cmsg_dummy_reconnect(void *domainId);
@@ -78,9 +80,8 @@ static domainFunctions functions = { cmsg_dummy_connect, cmsg_dummy_reconnect,
                                      cmsg_dummy_monitor, cmsg_dummy_start,
                                      cmsg_dummy_stop, cmsg_dummy_disconnect,
                                      cmsg_dummy_shutdownClients, cmsg_dummy_shutdownServers,
-                                     cmsg_dummy_setShutdownHandler, cmsg_dummy_isConnected
-                                     cmsg_dummy_setUDL, cmsg_dummy_getCurrentUDL
-};
+                                     cmsg_dummy_setShutdownHandler, cmsg_dummy_isConnected,
+                                     cmsg_dummy_setUDL, cmsg_dummy_getCurrentUDL};
 
 
 /* for registering the domain */
@@ -195,8 +196,18 @@ int cmsg_dummy_unsubscribe(void *domainId, void *handle) {
 /*-------------------------------------------------------------------*/
 
 
+int cmsg_dummy_subscriptionPause(void *domainId, void *handle) {
+    printf("Resume subscription callback\n");
+    return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
 int cmsg_dummy_subscriptionResume(void *domainId, void *handle) {
-    return(CMSG_NOT_IMPLEMENTED);
+    printf("Pause subscription callback\n");
+    return(CMSG_OK);
 }
 
 
@@ -204,7 +215,8 @@ int cmsg_dummy_subscriptionResume(void *domainId, void *handle) {
 
 
 int cmsg_dummy_subscriptionQueueClear(void *domainId, void *handle) {
-    return(CMSG_NOT_IMPLEMENTED);
+    printf("Clear subscription queue\n");
+    return(CMSG_OK);
 }
 
 
@@ -212,7 +224,8 @@ int cmsg_dummy_subscriptionQueueClear(void *domainId, void *handle) {
 
 
 int cmsg_dummy_subscriptionQueueCount(void *domainId, void *handle, int *count) {
-    return(CMSG_NOT_IMPLEMENTED);
+    printf("Get current subscription queue size\n");
+    return(CMSG_OK);
 }
 
 
@@ -220,7 +233,8 @@ int cmsg_dummy_subscriptionQueueCount(void *domainId, void *handle, int *count) 
 
 
 int cmsg_dummy_subscriptionQueueIsFull(void *domainId, void *handle, int *full) {
-    return(CMSG_NOT_IMPLEMENTED);
+    printf("Is subscription queue full?\n");
+    return(CMSG_OK);
 }
 
 
@@ -228,7 +242,8 @@ int cmsg_dummy_subscriptionQueueIsFull(void *domainId, void *handle, int *full) 
 
 
 int cmsg_dummy_subscriptionMessagesTotal(void *domainId, void *handle, int *total) {
-    return(CMSG_NOT_IMPLEMENTED);
+    printf("Get total number of messages delivered to subscription callback\n");
+    return(CMSG_OK);
 }
 
 
