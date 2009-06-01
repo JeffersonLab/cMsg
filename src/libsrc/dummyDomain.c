@@ -110,7 +110,7 @@ int cmsg_dummy_getCurrentUDL(void *domainId, char **udl) {
 
 
 int cmsg_dummy_connect(const char *myUDL, const char *myName, const char *myDescription,
-                  const char *UDLremainder, void **domainId) {
+                       const char *UDLremainder, void **domainId) {
   printf("Connect, my name is %s\n", myName);
   return(CMSG_OK);
 }
@@ -138,7 +138,7 @@ int cmsg_dummy_send(void *domainId, void *vmsg) {
 
 
 int cmsg_dummy_syncSend(void *domainId, void *vmsg, int *response) {
-  *response=0;
+  if (response != NULL) *response=0;
   printf("SyncSend\n");
   return(cmsg_dummy_send(domainId, vmsg));
 }
@@ -148,7 +148,7 @@ int cmsg_dummy_syncSend(void *domainId, void *vmsg, int *response) {
 
 
 int cmsg_dummy_subscribeAndGet(void *domainId, const char *subject, const char *type,
-                          const struct timespec *timeout, void **replyMsg) {
+                               const struct timespec *timeout, void **replyMsg) {
   printf("SubscribeAndGet\n");
   return(CMSG_OK);
 }
@@ -158,7 +158,7 @@ int cmsg_dummy_subscribeAndGet(void *domainId, const char *subject, const char *
 
 
 int cmsg_dummy_sendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout,
-                     void **replyMsg) {
+                          void **replyMsg) {
   printf("SendAndGet\n");
   return(CMSG_OK);
 }

@@ -49,8 +49,7 @@ int main(int argc,char **argv) {
   char *myDescription = "Dummy consumer";
   char *subject = "SUBJECT";
   char *type    = "TYPE";
-  char *UDL     = "cMsG:DUmmY://34aslan:3456/cMsg/test";
-  char *UDL2    = "dummy://$blech:2345/";
+  char *UDL     = "cMsG:DUmmY://localhost/cMsg/myNameSpace";
   int   err, debug = 1, response;
   cMsgSubscribeConfig *config;
   void *domainId, *domainId2, *msg;
@@ -68,17 +67,7 @@ int main(int argc,char **argv) {
   }
   
   printf("  connected to, %s\n", UDL);
-  
-  /* connect to cMsg server */
-  err = cMsgConnect(UDL2, myName, myDescription, &domainId2);
-  if (err != CMSG_OK) {
-      if (debug) {
-          printf("cMsgConnect: %s\n",cMsgPerror(err));
-      }
-      exit(1);
-  }
-  printf("  connected to, %s\n", UDL2);
-  
+    
   /* create message */
   msg = cMsgCreateMessage();
   cMsgSetSubject(msg, subject);
