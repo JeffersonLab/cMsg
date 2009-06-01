@@ -123,10 +123,10 @@ static const char *excludedChars = "`\'\"";
 int cMsgDebug = CMSG_DEBUG_ERROR;
 
 /** For domain implementations. */
-extern domainTypeInfo cmsgDomainTypeInfo;
-extern domainTypeInfo fileDomainTypeInfo;
-extern domainTypeInfo   rcDomainTypeInfo;
-/*extern domainTypeInfo   dummyDomainTypeInfo; */
+extern domainTypeInfo  cmsgDomainTypeInfo;
+extern domainTypeInfo  fileDomainTypeInfo;
+extern domainTypeInfo    rcDomainTypeInfo;
+/*extern domainTypeInfo dummyDomainTypeInfo;*/
 
 /**
  * This structure contains the components of a given UDL broken down
@@ -2118,7 +2118,7 @@ static int registerPermanentDomains() {
   /* for dummy domain */
   /*
   dTypeInfo[3].type = (char *)strdup(dummyDomainTypeInfo.type);
-  dTypeInfo[3].functions = fileDomainTypeInfo.functions;
+  dTypeInfo[3].functions = dummyDomainTypeInfo.functions;
   */
   return(CMSG_OK);
 }
