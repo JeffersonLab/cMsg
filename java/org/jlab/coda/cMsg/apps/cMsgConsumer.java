@@ -17,8 +17,8 @@
 package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.common.cMsgCallbackInterface;
-import org.jlab.coda.cMsg.common.cMsgCallbackAdapter;
+import org.jlab.coda.cMsg.cMsgCallbackInterface;
+import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 
 
 /**
