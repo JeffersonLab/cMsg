@@ -17,6 +17,7 @@
 package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
+import org.jlab.coda.cMsg.cMsgCallbackAdapter;
 
 import java.util.Arrays;
 
@@ -193,6 +194,20 @@ public class cMsgProducer {
         return s;
     }
 
+    /**
+     * This class defines the callback to be run when a message matching
+     * our subscription arrives.
+     */
+    class myCallback extends cMsgCallbackAdapter {
+        public void callback(cMsgMessage msg, Object userObject) {
+            // keep track of how many messages we receive
+            //count++;
+
+            System.out.println("Received msg: ");
+            System.out.println(msg.toString(true, false, true));
+        }
+     }
+
 
 
     /**
@@ -203,15 +218,24 @@ public class cMsgProducer {
         if (debug) {
             System.out.println("Running cMsg producer sending to:\n" +
                                  "    subject = " + subject +
-                               "\n    type    = " + type);
+                               "\n    type    = " + type +
+                               "\n    UDL     = " + UDL);
         }
 
         // connect to cMsg server
         cMsg coda = new cMsg(UDL, name, description);
-        coda.connect();
+        try {
+            coda.connect();
+        }
+        catch (cMsgException e) {
+            e.printStackTrace();
+            return;
+        }
 
         // enable message reception
-        coda.start();
+        //cMsgCallbackInterface cb = new myCallback();
+        //cMsgSubscriptionHandle handle  = coda.subscribe(subject, type, cb, null);
+        //coda.start();
 
         // create a message
         cMsgMessage msg = new cMsgMessage();
@@ -246,7 +270,7 @@ public class cMsgProducer {
         // to get better avg statistics. Since the JIT compiler in java
         // takes some time to analyze & compile code, freq may initially be low.
         long ignore=0;
-
+        
         while (true) {
             t1 = System.currentTimeMillis();
             for (int i = 0; i < count; i++) {
