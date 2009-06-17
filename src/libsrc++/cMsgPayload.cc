@@ -374,7 +374,9 @@ cMsgMessage *cMsgMessage::getMessage(const string &name) const throw(cMsgExcepti
   return(new cMsgMessage(newMsgPointer));
 }
 
+
 //-------------------------------------------------------------------
+
 
 /**
  * This method returns the value of the given field as a pointer to a
@@ -386,7 +388,7 @@ cMsgMessage *cMsgMessage::getMessage(const string &name) const throw(cMsgExcepti
  * @return field's value as vector of pointers to cMsgMessage objects
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<cMsgMessage*> *cMsgMessage::getMessageVector(const string &name) const throw(cMsgException) {
+vector<cMsgMessage*> *cMsgMessage::getMessagePVector(const string &name) const throw(cMsgException) {
   int len;
   const void **vals;
   int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -397,10 +399,101 @@ vector<cMsgMessage*> *cMsgMessage::getMessageVector(const string &name) const th
   
 
   // fill new vector with message copies
-  vector<cMsgMessage*> *msgVecP = new vector<cMsgMessage*>;
-  for (int i=0; i<len; i++) msgVecP->push_back(new cMsgMessage(cMsgCopyMessage(vals[i])));
+  vector<cMsgMessage*> *msgPVec = new vector<cMsgMessage*>;
+  for (int i=0; i<len; i++) msgPVec->push_back(new cMsgMessage(cMsgCopyMessage(vals[i])));
 
-  return(msgVecP);
+  return(msgPVec);
+}
+
+
+//-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as a pointer to a
+ * vector of cMsgMessage objects, if its exists. The vector pointer
+ * must be deleted by caller to avoid a memory leak, as do all the messages it 
+ * contains.
+ *
+ * @param name name of field to get
+ * @return field's value as vector of cMsgMessage objects
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+vector<cMsgMessage> *cMsgMessage::getMessageVector(const string &name) const throw(cMsgException) {
+  int len;
+  const void **vals;
+  int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  
+
+  // fill new vector with message copies
+  vector<cMsgMessage> *msgVec = new vector<cMsgMessage>;
+  for (int i=0; i<len; i++) msgVec->push_back(cMsgMessage(cMsgCopyMessage(vals[i])));
+
+  return(msgVec);
+}
+
+
+//-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as a pointer to an
+ * array of pointers to cMsgMessage objects, if it exists. The array
+ * must be deleted by caller to avoid a memory leak, as do all the messages it 
+ * contains.
+ *
+ * @param name name of field to get
+ * @return field's value as array of pointers to cMsgMessage objects
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+cMsgMessage* *cMsgMessage::getMessagePArray(const string &name) const throw(cMsgException) {
+  int len;
+  const void **vals;
+  int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  
+  // create and fill array with pointers to message copies
+  cMsgMessage* *msgPArray = new cMsgMessage*[len];
+  for (int i=0; i<len; i++) msgPArray[i]=(new cMsgMessage(cMsgCopyMessage(vals[i])));
+
+  return(msgPArray);
+}
+
+
+//-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as a pointer to an
+ * array of cMsgMessage objects, if it exists. The array
+ * must be deleted by caller to avoid a memory leak, as do all the messages it 
+ * contains.
+ *
+ * @param name name of field to get
+ * @return field's value as array of cMsgMessage objects
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+cMsgMessage *cMsgMessage::getMessageArray(const string &name) const throw(cMsgException) {
+  int len;
+  const void **vals;
+  int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  
+  // create and fill array with message copies
+  cMsgMessage *msgArray = new cMsgMessage[len];
+  for (int i=0; i<len; i++) msgArray[i]=(cMsgMessage(cMsgCopyMessage(vals[i])));
+
+  return(msgArray);
 }
 
 
@@ -426,11 +519,13 @@ string cMsgMessage::getString(const string &name) const throw(cMsgException) {
   return s;
 }
 
+
 //-------------------------------------------------------------------
+
 
 /**
  * This method returns the value of the given field as a pointer to a
- * vector of strings if its exists. The vector pointer must be deleted
+ * vector of strings if its exists. The vector must be deleted
  * by caller to avoid a memory leak.
  *
  * @param name name of field to get
@@ -451,6 +546,35 @@ vector<string> *cMsgMessage::getStringVector(const string &name) const throw(cMs
   for (int i=0; i<len; i++) strs->push_back(string(vals[i]));
   return strs;
 }
+
+
+//-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as a pointer to an
+ * array of strings if its exists. The array must be deleted
+ * by caller to avoid a memory leak.
+ *
+ * @param name name of field to get
+ * @return field's value as vector of strings
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+string *cMsgMessage::getStringArray(const string &name) const throw(cMsgException) {
+  int len;
+  const char **vals;
+  int err = cMsgGetStringArray(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  
+  // place strings into new array
+  string *strs = new string[len];
+  for (int i=0; i<len; i++) strs[i]=string(vals[i]);
+  return strs;
+}
+
 
 //-------------------------------------------------------------------
 // REALS
@@ -520,7 +644,37 @@ vector<float> *cMsgMessage::getFloatVector(const string &name) const throw(cMsgE
   return flts;
 }
 
+
 //-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as a pointer to an
+ * array of floats if its exists. The vector pointer must be deleted
+ * by caller to avoid a memory leak.
+ *
+ * @param name name of field to get
+ * @return field's value as array of floats
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+float *cMsgMessage::getFloatArray(const string &name) const throw(cMsgException) {
+  int len;
+  const float *vals;
+  int err = cMsgGetFloatArray(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+
+  // copy values into a new array
+  float *flts = new float[len];
+  for (int i=0; i<len; i++) flts[i]=vals[i];
+  return flts;
+}
+
+
+//-------------------------------------------------------------------
+
 
 /**
  * This method returns the value of the given field as a pointer to a
@@ -544,6 +698,36 @@ vector<double> *cMsgMessage::getDoubleVector(const string &name) const throw(cMs
   for (int i=0; i<len; i++) dbls->push_back(vals[i]);
   return dbls;
 }
+
+
+
+//-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as an array
+ * of doubles if its exists. The array must be deleted
+ * by caller to avoid a memory leak.
+ *
+ * @param name name of field to get
+ * @return field's value as array of doubles
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+double *cMsgMessage::getDoubleArray(const string &name) const throw(cMsgException) {
+  int len;
+  const double *vals;
+  int err = cMsgGetDoubleArray(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
+    else throw(cMsgException("No payload item of that name"));
+  }
+
+  // put values into new array
+  double *dbls = new double[len];
+  for (int i=0; i<len; i++) dbls[i]=vals[i];
+  return dbls;
+}
+
 
 //-------------------------------------------------------------------
 // INTS
@@ -726,7 +910,36 @@ vector<int8_t> *cMsgMessage::getInt8Vector(const string &name) const throw(cMsgE
   return ints;
 }
 
+
 //-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as an
+ * array of 8-bit, signed ints if its exists. The array must be deleted
+ * by caller to avoid a memory leak.
+ *
+ * @param name name of field to get
+ * @return field's value as vector of 8 bit, signed ints
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+int8_t *cMsgMessage::getInt8Array(const string &name) const throw(cMsgException) {
+  int len;
+  const int8_t *vals;
+  int err = cMsgGetInt8Array(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  // put values into new array
+  int8_t *ints = new int8_t[len];
+  for (int i=0; i<len; i++) ints[i]=vals[i];
+  return ints;
+}
+
+
+//-------------------------------------------------------------------
+
 
 /**
  * This method returns the value of the given field as a pointer to a
@@ -751,7 +964,36 @@ vector<int16_t> *cMsgMessage::getInt16Vector(const string &name) const throw(cMs
   return ints;
 }
 
+
 //-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as an array
+ * of 16-bit, signed ints if its exists. The array must be deleted
+ * by caller to avoid a memory leak.
+ *
+ * @param name name of field to get
+ * @return field's value as array of 16 bit, signed ints
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+int16_t *cMsgMessage::getInt16Array(const string &name) const throw(cMsgException) {
+  int len;
+  const int16_t *vals;
+  int err = cMsgGetInt16Array(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  // put values into new array
+  int16_t *ints = new int16_t[len];
+  for (int i=0; i<len; i++) ints[i]=vals[i];
+  return ints;
+}
+
+
+//-------------------------------------------------------------------
+
 
 /**
  * This method returns the value of the given field as a pointer to a
@@ -776,7 +1018,36 @@ vector<int32_t> *cMsgMessage::getInt32Vector(const string &name) const throw(cMs
   return ints;
 }
 
+
 //-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as an array
+ * of 32-bit, signed ints if its exists. The array must be deleted
+ * by caller to avoid a memory leak.
+ *
+ * @param name name of field to get
+ * @return field's value as array of 32 bit, signed ints
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+int32_t *cMsgMessage::getInt32Array(const string &name) const throw(cMsgException) {
+  int len;
+  const int32_t *vals;
+  int err = cMsgGetInt32Array(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  // put values into new array
+  int32_t *ints = new int32_t[len];
+  for (int i=0; i<len; i++) ints[i]=vals[i];
+  return ints;
+}
+
+
+//-------------------------------------------------------------------
+
 
 /**
  * This method returns the value of the given field as a pointer to a
@@ -801,7 +1072,36 @@ vector<int64_t> *cMsgMessage::getInt64Vector(const string &name) const throw(cMs
   return ints;
 }
 
+
 //-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as an array
+ * of 64-bit, signed ints if its exists. The array must be deleted
+ * by caller to avoid a memory leak.
+ *
+ * @param name name of field to get
+ * @return field's value as array of 64 bit, signed ints
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+int64_t *cMsgMessage::getInt64Array(const string &name) const throw(cMsgException) {
+  int len;
+  const int64_t *vals;
+  int err = cMsgGetInt64Array(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  // put values into new array 
+  int64_t *ints = new int64_t[len];
+  for (int i=0; i<len; i++) ints[i]=vals[i];
+  return ints;
+}
+
+
+//-------------------------------------------------------------------
+
 
 /**
  * This method returns the value of the given field as a pointer to a
@@ -827,7 +1127,37 @@ vector<uint8_t> *cMsgMessage::getUint8Vector(const string &name) const throw(cMs
   return ints;
 }
 
+
 //-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as an array
+ * of 8-bit, unsigned ints if its exists. The array must be deleted
+ * by caller to avoid a memory leak.
+ *
+ * @param name name of field to get
+ *
+ * @return field's value as array of 8 bit, unsigned ints
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+uint8_t *cMsgMessage::getUint8Array(const string &name) const throw(cMsgException) {
+  int len;
+  const uint8_t *vals;
+  int err = cMsgGetUint8Array(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  // put values into new array
+  uint8_t *ints = new uint8_t[len];
+  for (int i=0; i<len; i++) ints[i]=vals[i];
+  return ints;
+}
+
+
+//-------------------------------------------------------------------
+
 
 /**
  * This method returns the value of the given field as a pointer to a
@@ -853,7 +1183,37 @@ vector<uint16_t> *cMsgMessage::getUint16Vector(const string &name) const throw(c
   return ints;
 }
 
+
 //-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as an array
+ * of 16-bit, unsigned ints if its exists. The array must be deleted
+ * by caller to avoid a memory leak.
+ *
+ * @param name name of field to get
+ *
+ * @return field's value as array of 16 bit, unsigned ints
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+uint16_t *cMsgMessage::getUint16Array(const string &name) const throw(cMsgException) {
+  int len;
+  const uint16_t *vals;
+  int err = cMsgGetUint16Array(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  // put values into new array
+  uint16_t *ints = new uint16_t[len];
+  for (int i=0; i<len; i++) ints[i]=vals[i];
+  return ints;
+}
+
+
+//-------------------------------------------------------------------
+
 
 /**
  * This method returns the value of the given field as a pointer to a
@@ -878,7 +1238,36 @@ vector<uint32_t> *cMsgMessage::getUint32Vector(const string &name) const throw(c
   return ints;
 }
 
+
 //-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as a array
+ * of 32-bit, unsigned ints if its exists. The array must be deleted
+ * by caller to avoid a memory leak.
+ *
+ * @param name name of field to get
+ * @return field's value as array of 32 bit, unsigned ints
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+uint32_t *cMsgMessage::getUint32Array(const string &name) const throw(cMsgException) {
+  int len;
+  const uint32_t *vals;
+  int err = cMsgGetUint32Array(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  // put values into new array
+  uint32_t *ints = new uint32_t[len];
+  for (int i=0; i<len; i++) ints[i]=vals[i];
+  return ints;
+}
+
+
+//-------------------------------------------------------------------
+
 
 /**
  * This method returns the value of the given field as a pointer to a
@@ -902,6 +1291,35 @@ vector<uint64_t> *cMsgMessage::getUint64Vector(const string &name) const throw(c
   for (int i=0; i<len; i++) ints->push_back(vals[i]);
   return ints;
 }
+
+
+
+//-------------------------------------------------------------------
+
+
+/**
+ * This method returns the value of the given field as an array
+ * of 64-bit, unsigned ints if its exists. The array must be deleted
+ * by caller to avoid a memory leak.
+ *
+ * @param name name of field to get
+ * @return field's value as array of 64 bit, unsigned ints
+ * @throws cMsgException if no payload/field exists or field is not right type
+ */   
+uint64_t *cMsgMessage::getUint64Array(const string &name) const throw(cMsgException) {
+  int len;
+  const uint64_t *vals;
+  int err = cMsgGetUint64Array(myMsgPointer, name.c_str(), &vals, &len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
+    else throw(cMsgException("No payload item of that name")); 
+  }
+  // put values into new array 
+  uint64_t *ints = new uint64_t[len];
+  for (int i=0; i<len; i++) ints[i]=vals[i];
+  return ints;
+}
+
 
 //-------------------------------------------------------------------
 // ADD METHODS
@@ -1167,6 +1585,7 @@ void cMsgMessage::add(const string &name, const cMsgMessage *msg) {
 
 //-------------------------------------------------------------------
 
+
 /**
  * This method adds an array of cMsg messages to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
@@ -1206,31 +1625,76 @@ void cMsgMessage::add(const string &name, const cMsgMessage *msg, int len) {
 #endif
 }
 
+
 //-------------------------------------------------------------------
 
+
 /**
- * This method adds a named vector of cMsgMessage objects to the compound payload of a message.
+ * This method adds an array of cMsg messages to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
  * or contain white space or quotes.
  *
  * @param name name of field to add
- * @param vector of cMsgMessage pointers to add (copy)
+ * @param msg  array of pointers to cMsgMessage objects to add
+ * @param len number of objects from array to add
+ *
+ * @throws cMsgException if no memory, name already used, improper name, msg is null, len < 1
+ */   
+void cMsgMessage::add(const string &name, const cMsgMessage* *msg, int len) {
+  if (msg == NULL) throw (cMsgException("msg arg is null"));
+  if (len < 1) throw (cMsgException("len < 1"));
+  
+#ifdef linux
+  const void *msgs[len];
+#else
+  const void **msgs = (const void **)malloc(len*sizeof(void *));
+  if (msgs == NULL) throw(cMsgException("No memory available"));
+#endif
+
+  for (int i=0; i<len; i++) {
+    msgs[i] = msg[i]->myMsgPointer;
+  }
+
+  int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, len);
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
+    else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
+    else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
+    else throw(cMsgException("Error")); 
+  }
+  
+#ifndef linux
+  free(msgs);
+#endif
+}
+
+
+//-------------------------------------------------------------------
+
+
+/**
+ * This method adds a named vector of pointers to cMsgMessage objects to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param vector of pointers to cMsgMessage to add (copy)
  *
  * @throws cMsgException if no memory, name already used, improper name
  */   
-void cMsgMessage::add(const string &name, const vector<cMsgMessage*> &msgVec) {
+void cMsgMessage::add(const string &name, const vector<cMsgMessage*> &msgPVec) {
 #ifdef linux
-    const void *msgs[msgVec.size()];
+    const void *msgs[msgPVec.size()];
 #else
-    const void **msgs = (const void **)malloc(msgVec.size()*sizeof(void *));
+    const void **msgs = (const void **)malloc(msgPVec.size()*sizeof(void *));
     if (msgs == NULL) throw(cMsgException("No memory available"));
 #endif
   
-  for (vector<cMsgMessage>::size_type i=0; i < msgVec.size(); i++) {
-    msgs[i] = msgVec[i]->myMsgPointer;
+  for (vector<cMsgMessage*>::size_type i=0; i < msgPVec.size(); i++) {
+    msgs[i] = msgPVec[i]->myMsgPointer;
   }
   
-  int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, msgVec.size());
+  int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, msgPVec.size());
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
@@ -1253,11 +1717,68 @@ void cMsgMessage::add(const string &name, const vector<cMsgMessage*> &msgVec) {
  * or contain white space or quotes.
  *
  * @param name name of field to add
- * @param pointer to vector of cMsgMessage pointers to add (copy)
+ * @param vector of cMsgMessage objects to add (copy)
  *
  * @throws cMsgException if no memory, name already used, improper name
  */   
-void cMsgMessage::add(const string &name, const vector<cMsgMessage*> *msgVec) {
+void cMsgMessage::add(const string &name, const vector<cMsgMessage> &msgVec) {
+#ifdef linux
+    const void *msgs[msgVec.size()];
+#else
+    const void **msgs = (const void **)malloc(msgVec.size()*sizeof(void *));
+    if (msgs == NULL) throw(cMsgException("No memory available"));
+#endif
+  
+  for (vector<cMsgMessage>::size_type i=0; i < msgVec.size(); i++) {
+    msgs[i] = msgVec[i].myMsgPointer;
+  }
+  
+  int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, msgVec.size());
+  if (err != CMSG_OK) {
+    if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
+    else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
+    else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available")); 
+    else throw(cMsgException("Error")); 
+  }
+  
+#ifndef linux
+  free(msgs);
+#endif
+}
+
+
+//-------------------------------------------------------------------
+
+
+/**
+ * This method adds a named vector of pointers to cMsgMessage objects to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param pointer to vector of pointers to cMsgMessage to add (copy)
+ *
+ * @throws cMsgException if no memory, name already used, improper name
+ */   
+void cMsgMessage::add(const string &name, const vector<cMsgMessage*> *msgPVec) {
+  add(name,*msgPVec);
+}
+
+
+//-------------------------------------------------------------------
+
+
+/**
+ * This method adds a named vector of cMsgMessage objects to the compound payload of a message.
+ * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
+ * or contain white space or quotes.
+ *
+ * @param name name of field to add
+ * @param pointer to vector of cMsgMessage objects to add (copy)
+ *
+ * @throws cMsgException if no memory, name already used, improper name
+ */   
+void cMsgMessage::add(const string &name, const vector<cMsgMessage> *msgVec) {
   add(name,*msgVec);
 }
 

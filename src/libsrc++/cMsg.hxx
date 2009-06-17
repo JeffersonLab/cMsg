@@ -178,35 +178,54 @@ public:
   virtual void getBinaryArray(const string &name, const char ***vals, int **lens, int **endians, int &count)
                const throw(cMsgException);
 
-  virtual cMsgMessage *getMessage(const string &name)       const throw(cMsgException);
-  virtual vector<cMsgMessage*> *getMessageVector(const string &name) const throw(cMsgException);
+  virtual cMsgMessage          *getMessage(const string &name)        const throw(cMsgException);
+  virtual vector<cMsgMessage>  *getMessageVector(const string &name)  const throw(cMsgException);
+  virtual vector<cMsgMessage*> *getMessagePVector(const string &name) const throw(cMsgException);
+  virtual cMsgMessage          *getMessageArray (const string &name)  const throw(cMsgException);
+  virtual cMsgMessage*         *getMessagePArray (const string &name) const throw(cMsgException);
 
   virtual string          getString(const string &name)       const throw(cMsgException);
   virtual vector<string> *getStringVector(const string &name) const throw(cMsgException);
+  virtual string         *getStringArray(const string &name)  const throw(cMsgException);
   
-  virtual float  getFloat(const string &name)                 const throw(cMsgException);
-  virtual double getDouble(const string &name)                const throw(cMsgException);
+  virtual float           getFloat(const string &name)        const throw(cMsgException);
   virtual vector<float>  *getFloatVector(const string &name)  const throw(cMsgException);
+  virtual float          *getFloatArray(const string &name)   const throw(cMsgException);
+
+  virtual double          getDouble(const string &name)       const throw(cMsgException);
   virtual vector<double> *getDoubleVector(const string &name) const throw(cMsgException);
+  virtual double         *getDoubleArray(const string &name)  const throw(cMsgException);
   
-  virtual int8_t   getInt8(const string &name)   const throw(cMsgException);
-  virtual int16_t  getInt16(const string &name)  const throw(cMsgException);
-  virtual int32_t  getInt32(const string &name)  const throw(cMsgException);
-  virtual int64_t  getInt64(const string &name)  const throw(cMsgException);
-  virtual uint8_t  getUint8(const string &name)  const throw(cMsgException);
-  virtual uint16_t getUint16(const string &name) const throw(cMsgException);
-  virtual uint32_t getUint32(const string &name) const throw(cMsgException);
-  virtual uint64_t getUint64(const string &name) const throw(cMsgException);
-  
+  virtual int8_t            getInt8  (const string &name)      const throw(cMsgException);
+  virtual int16_t           getInt16 (const string &name)      const throw(cMsgException);
+  virtual int32_t           getInt32 (const string &name)      const throw(cMsgException);
+  virtual int64_t           getInt64 (const string &name)      const throw(cMsgException);
+
   virtual vector<int8_t>   *getInt8Vector (const string &name) const throw(cMsgException);
   virtual vector<int16_t>  *getInt16Vector(const string &name) const throw(cMsgException);
   virtual vector<int32_t>  *getInt32Vector(const string &name) const throw(cMsgException);
   virtual vector<int64_t>  *getInt64Vector(const string &name) const throw(cMsgException);
 
+  virtual int8_t           *getInt8Array  (const string &name) const throw(cMsgException);
+  virtual int16_t          *getInt16Array (const string &name) const throw(cMsgException);
+  virtual int32_t          *getInt32Array (const string &name) const throw(cMsgException);
+  virtual int64_t          *getInt64Array (const string &name) const throw(cMsgException);
+
+
+  virtual uint8_t           getUint8 (const string &name)       const throw(cMsgException);
+  virtual uint16_t          getUint16(const string &name)       const throw(cMsgException);
+  virtual uint32_t          getUint32(const string &name)       const throw(cMsgException);
+  virtual uint64_t          getUint64(const string &name)       const throw(cMsgException);
+  
   virtual vector<uint8_t>  *getUint8Vector (const string &name) const throw(cMsgException);
   virtual vector<uint16_t> *getUint16Vector(const string &name) const throw(cMsgException);
   virtual vector<uint32_t> *getUint32Vector(const string &name) const throw(cMsgException);
   virtual vector<uint64_t> *getUint64Vector(const string &name) const throw(cMsgException);
+
+  virtual uint8_t          *getUint8Array  (const string &name) const throw(cMsgException);
+  virtual uint16_t         *getUint16Array (const string &name) const throw(cMsgException);
+  virtual uint32_t         *getUint32Array (const string &name) const throw(cMsgException);
+  virtual uint64_t         *getUint64Array (const string &name) const throw(cMsgException);
   
 
   //
@@ -225,10 +244,13 @@ public:
   virtual void add(const string &name, const vector<string> *strs);
 
   virtual void add(const string &name, const cMsgMessage &msg);
-  virtual void add(const string &name, const cMsgMessage *msg);
-  virtual void add(const string &name, const cMsgMessage *msg, int len);
-  virtual void add(const string &name, const vector<cMsgMessage*> &msgVec);
-  virtual void add(const string &name, const vector<cMsgMessage*> *msgVec);
+  virtual void add(const string &name, const cMsgMessage  *msg);
+  virtual void add(const string &name, const cMsgMessage  *msg, int len);
+  virtual void add(const string &name, const cMsgMessage* *msg, int len);
+  virtual void add(const string &name, const vector<cMsgMessage> &msgVec);
+  virtual void add(const string &name, const vector<cMsgMessage> *msgVec);
+  virtual void add(const string &name, const vector<cMsgMessage*> &msgPVec);
+  virtual void add(const string &name, const vector<cMsgMessage*> *msgPVec);
 
   virtual void add(const string &name, float val);
   virtual void add(const string &name, double val);
