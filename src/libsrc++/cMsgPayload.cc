@@ -155,7 +155,7 @@ namespace cmsg {
             if (err == CMSG_BAD_ARGUMENT)
                 throw(cMsgException("Name is null"));
             else
-                throw(cMsgException("No payload item of that name"));
+              throw(cMsgException(string("No payload item named ") + name));
         }
         return type;
     }
@@ -316,7 +316,7 @@ void cMsgMessage::getBinary(const string &name, const char **val, int &len, int 
     int err = cMsgGetBinary(myMsgPointer, name.c_str(), val, &len, &endian);
     if (err != CMSG_OK) {
         if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
-        else throw(cMsgException("No payload item of that name"));
+        else throw(cMsgException(string("No payload item named ") + name));
     }
     return;
 }
@@ -340,7 +340,7 @@ void cMsgMessage::getBinaryArray(const string &name, const char ***vals,
     int err = cMsgGetBinaryArray(myMsgPointer, name.c_str(), vals, lens, endians, &count);
     if (err != CMSG_OK) {
         if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
-        else throw(cMsgException("No payload item of that name"));
+        else throw(cMsgException(string("No payload item named ") + name));
     }
     return;
 }
@@ -363,7 +363,7 @@ cMsgMessage *cMsgMessage::getMessage(const string &name) const throw(cMsgExcepti
   int err = cMsgGetMessage(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
 
   // copy message
@@ -394,7 +394,7 @@ vector<cMsgMessage*> *cMsgMessage::getMessagePVector(const string &name) const t
   int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   
 
@@ -425,7 +425,7 @@ vector<cMsgMessage> *cMsgMessage::getMessageVector(const string &name) const thr
   int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   
 
@@ -456,7 +456,7 @@ cMsgMessage* *cMsgMessage::getMessagePArray(const string &name) const throw(cMsg
   int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   
   // create and fill array with pointers to message copies
@@ -486,7 +486,7 @@ cMsgMessage *cMsgMessage::getMessageArray(const string &name) const throw(cMsgEx
   int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   
   // create and fill array with message copies
@@ -513,7 +513,7 @@ string cMsgMessage::getString(const string &name) const throw(cMsgException) {
   int err = cMsgGetString(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   string s(val);
   return s;
@@ -538,7 +538,7 @@ vector<string> *cMsgMessage::getStringVector(const string &name) const throw(cMs
   int err = cMsgGetStringArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   
   // copy array values and put into a vector
@@ -566,7 +566,7 @@ string *cMsgMessage::getStringArray(const string &name) const throw(cMsgExceptio
   int err = cMsgGetStringArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   
   // place strings into new array
@@ -592,7 +592,7 @@ float cMsgMessage::getFloat(const string &name) const throw(cMsgException) {
   int err = cMsgGetFloat(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   return val;
 }
@@ -611,7 +611,7 @@ double cMsgMessage::getDouble(const string &name) const throw(cMsgException) {
   int err = cMsgGetDouble(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   return val;
 }
@@ -636,7 +636,7 @@ vector<float> *cMsgMessage::getFloatVector(const string &name) const throw(cMsgE
   int err = cMsgGetFloatArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put array values into a vector
   vector<float> *flts = new vector<float>;
@@ -663,7 +663,7 @@ float *cMsgMessage::getFloatArray(const string &name) const throw(cMsgException)
   int err = cMsgGetFloatArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
 
   // copy values into a new array
@@ -691,7 +691,7 @@ vector<double> *cMsgMessage::getDoubleVector(const string &name) const throw(cMs
   int err = cMsgGetDoubleArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
-    else throw(cMsgException("No payload item of that name"));
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put array values into a vector
   vector<double> *dbls = new vector<double>;
@@ -719,7 +719,7 @@ double *cMsgMessage::getDoubleArray(const string &name) const throw(cMsgExceptio
   int err = cMsgGetDoubleArray(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
-    else throw(cMsgException("No payload item of that name"));
+    else throw(cMsgException(string("No payload item named ") + name));
   }
 
   // put values into new array
@@ -745,7 +745,7 @@ int8_t cMsgMessage::getInt8(const string &name) const throw(cMsgException) {
   int err = cMsgGetInt8(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   return val;
 }
@@ -764,7 +764,7 @@ int16_t cMsgMessage::getInt16(const string &name) const throw(cMsgException) {
   int err = cMsgGetInt16(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   return val;
 }
@@ -783,7 +783,7 @@ int32_t cMsgMessage::getInt32(const string &name) const throw(cMsgException) {
   int err = cMsgGetInt32(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   return val;
 }
@@ -802,7 +802,7 @@ int64_t cMsgMessage::getInt64(const string &name) const throw(cMsgException) {
   int err = cMsgGetInt64(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   return val;
 }
@@ -821,7 +821,7 @@ uint8_t cMsgMessage::getUint8(const string &name) const throw(cMsgException) {
   int err = cMsgGetUint8(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   return val;
 }
@@ -840,7 +840,7 @@ uint16_t cMsgMessage::getUint16(const string &name) const throw(cMsgException) {
   int err = cMsgGetUint16(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   return val;
 }
@@ -859,7 +859,7 @@ uint32_t cMsgMessage::getUint32(const string &name) const throw(cMsgException) {
   int err = cMsgGetUint32(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   return val;
 }
@@ -878,7 +878,7 @@ uint64_t cMsgMessage::getUint64(const string &name) const throw(cMsgException) {
   int err = cMsgGetUint64(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   return val;
 }
@@ -902,7 +902,7 @@ vector<int8_t> *cMsgMessage::getInt8Vector(const string &name) const throw(cMsgE
   int err = cMsgGetInt8Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put array values into a vector
   vector<int8_t> *ints = new vector<int8_t>;
@@ -929,7 +929,7 @@ int8_t *cMsgMessage::getInt8Array(const string &name) const throw(cMsgException)
   int err = cMsgGetInt8Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put values into new array
   int8_t *ints = new int8_t[len];
@@ -956,7 +956,7 @@ vector<int16_t> *cMsgMessage::getInt16Vector(const string &name) const throw(cMs
   int err = cMsgGetInt16Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put array values into a vector
   vector<int16_t> *ints = new vector<int16_t>;
@@ -983,7 +983,7 @@ int16_t *cMsgMessage::getInt16Array(const string &name) const throw(cMsgExceptio
   int err = cMsgGetInt16Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put values into new array
   int16_t *ints = new int16_t[len];
@@ -1010,7 +1010,7 @@ vector<int32_t> *cMsgMessage::getInt32Vector(const string &name) const throw(cMs
   int err = cMsgGetInt32Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put array values into a vector
   vector<int32_t> *ints = new vector<int32_t>;
@@ -1037,7 +1037,7 @@ int32_t *cMsgMessage::getInt32Array(const string &name) const throw(cMsgExceptio
   int err = cMsgGetInt32Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put values into new array
   int32_t *ints = new int32_t[len];
@@ -1064,7 +1064,7 @@ vector<int64_t> *cMsgMessage::getInt64Vector(const string &name) const throw(cMs
   int err = cMsgGetInt64Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put array values into a vector
   vector<int64_t> *ints = new vector<int64_t>;
@@ -1091,7 +1091,7 @@ int64_t *cMsgMessage::getInt64Array(const string &name) const throw(cMsgExceptio
   int err = cMsgGetInt64Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put values into new array 
   int64_t *ints = new int64_t[len];
@@ -1119,7 +1119,7 @@ vector<uint8_t> *cMsgMessage::getUint8Vector(const string &name) const throw(cMs
   int err = cMsgGetUint8Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put array values into a vector
   vector<uint8_t> *ints = new vector<uint8_t>;
@@ -1147,7 +1147,7 @@ uint8_t *cMsgMessage::getUint8Array(const string &name) const throw(cMsgExceptio
   int err = cMsgGetUint8Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put values into new array
   uint8_t *ints = new uint8_t[len];
@@ -1175,7 +1175,7 @@ vector<uint16_t> *cMsgMessage::getUint16Vector(const string &name) const throw(c
   int err = cMsgGetUint16Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put array values into a vector
   vector<uint16_t> *ints = new vector<uint16_t>;
@@ -1203,7 +1203,7 @@ uint16_t *cMsgMessage::getUint16Array(const string &name) const throw(cMsgExcept
   int err = cMsgGetUint16Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put values into new array
   uint16_t *ints = new uint16_t[len];
@@ -1230,7 +1230,7 @@ vector<uint32_t> *cMsgMessage::getUint32Vector(const string &name) const throw(c
   int err = cMsgGetUint32Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put array values into a vector
   vector<uint32_t> *ints = new vector<uint32_t>;
@@ -1257,7 +1257,7 @@ uint32_t *cMsgMessage::getUint32Array(const string &name) const throw(cMsgExcept
   int err = cMsgGetUint32Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put values into new array
   uint32_t *ints = new uint32_t[len];
@@ -1284,7 +1284,7 @@ vector<uint64_t> *cMsgMessage::getUint64Vector(const string &name) const throw(c
   int err = cMsgGetUint64Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put array values into a vector
   vector<uint64_t> *ints = new vector<uint64_t>;
@@ -1312,7 +1312,7 @@ uint64_t *cMsgMessage::getUint64Array(const string &name) const throw(cMsgExcept
   int err = cMsgGetUint64Array(myMsgPointer, name.c_str(), &vals, &len);
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type")); 
-    else throw(cMsgException("No payload item of that name")); 
+    else throw(cMsgException(string("No payload item named ") + name));
   }
   // put values into new array 
   uint64_t *ints = new uint64_t[len];
