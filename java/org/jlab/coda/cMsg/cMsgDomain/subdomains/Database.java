@@ -1,6 +1,5 @@
 // to do:
 
-//  add byte[][] to payload
 //  check for nulls
 //  exceptions, synchronized?
 
@@ -514,7 +513,11 @@ public class Database extends cMsgSubdomainAdapter {
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
-                //  ???  need byte[][]
+                {
+                    byte[][] a = new byte[nrow][];
+                    for(int i=0; i<nrow; i++) a[i]=(byte[])(ala[i]);
+                    msg.addPayloadItem(new cMsgPayloadItem(name,a));
+                }
                 break;
 
             default:
