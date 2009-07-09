@@ -1,6 +1,6 @@
 //  cMsgStringTest.cc
 //
-//  tests string representation
+//  Tests various things
 //
 //  E.Wolin, 18-nov-2008
 
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
     m.setType(type);
     m.setUserInt(userInt);
     m.setText(text);
-    m.setByteArray(bytes, sizeof(bytes));
+//     m.setByteArray(bytes, sizeof(bytes));
 
 
     // add payload
@@ -68,26 +68,68 @@ int main(int argc, char **argv) {
     m.add("aFloat",float(234.0));
     m.add("aDouble",double(345.0));
     m.add("aString","this is a payload string");
-    m.add("binaryBytes",(int8_t*)bytes,16);
-    m.add("binaryShorts",(int16_t*)bytes,8);
-    m.add("binaryInts",(int32_t*)bytes,4);
-    m.add("binaryLongs",(int64_t*)bytes,2);
+
+    uint16_t inta[] = {1,2,3,4,5,6,7,8,9,10};
+    m.add("array",inta,sizeof(inta)/sizeof(uint16_t));
+
+    uint16_t *ia = m.getUint16Array(string("array"));
+    for(int i=0; i<10; i++) cout << ia[i] << "   ";
+    cout << endl;
 
 
-    // create copy of message and add to payload
-    cMsgMessage m1(m);
-    m.add("copy_of_message",m1);
+    double d1 = m.getDouble("dbl");
+    cout << d1 << endl;
+
+
+    double d[] = {1.1,2.2,3.3,4.4,5.5,6.6,7.7,8.8,9.9,10.10};
+    m.add("dbl",d,sizeof(d)/sizeof(double));
+
+    double *dd = m.getDoubleArray(string("dbl"));
+    for(int i=0; i<10; i++) cout << dd[i] << "   ";
+    cout << endl;
+    
+    vector<double> *vd = m.getDoubleVector("dbl");
+    for(int i=0; i<10; i++) cout << (*vd)[i] << "   ";
+    cout << endl;
+
+    string s[] = {"hello","there"};
+    m.add("sarray",s,2);
+
+    string *ss = m.getStringArray("sarray");
+    for(int i=0; i<2; i++) cout << ss[i] << "   ";
+    cout << endl;
+
+    vector<string> vs;
+    vs.push_back("goodbye");
+    vs.push_back("now");
+    m.add("vs",vs);
+
+    vector<string> *vss = m.getStringVector("vs");
+    for(int i=0; i<2; i++) cout << (*vss)[i] << "   ";
+    cout << endl;
+
+
+//     m.add("binaryBytes",(int8_t*)bytes,16);
+//     m.add("binaryShorts",(int16_t*)bytes,8);
+//     m.add("binaryInts",(int32_t*)bytes,4);
+//     m.add("binaryLongs",(int64_t*)bytes,2);
+
+
+//     // create copy of message and add to payload
+//     cMsgMessage m1(m);
+//     m.add("copy_of_message",m1);
+
 
 //     m.add("anotherInt",321);
 //     m.add("theMessage",m);
 
 
     // print message in xml
-    cout << "message toString: " << endl << m.toString() << endl;
+    cout << endl << "Message toString: " << endl << m.toString() << endl;
 
 
-    // print payload in internal format
-    cout << endl << "payload in internal format: " << endl << m.payloadGetText() << endl;
+//     // print payload in internal format
+//     cout << endl << "payload in internal format: " << endl << m.payloadGetText() << endl;
 
 
   } catch (cMsgException e) {
