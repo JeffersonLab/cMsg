@@ -696,7 +696,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
     public void run() {
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println(">>     DSS:Running Domain Server");
+            System.out.println(">>    DSS:Running Domain Server");
         }
 
         int n, bytes, tcpPort;
@@ -712,7 +712,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
                 udpChannel.configureBlocking(false);
                 // register the channel with the selector for reading
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println(">>     DSS: Registering udp socket");
+                    System.out.println(">>    DSS: Registering udp socket");
                 }
                 udpChannel.register(selector, SelectionKey.OP_READ);
             }
@@ -730,7 +730,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
                     for (Iterator it = clients2register.keySet().iterator(); it.hasNext();) {
                         clientData = (cMsgClientData)it.next();
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println(">>     DSS: Registering client " + clientData.getName() + " with selector");
+                            System.out.println(">>    DSS: Registering client " + clientData.getName() + " with selector");
                         }
                         clientData.getMessageChannel().register(selector, SelectionKey.OP_READ, clientData);
                         it.remove();
@@ -1491,7 +1491,7 @@ System.out.println("Call deleteClient 3");
             try {
                 // If not in a cMsg server cloud, just call subdomain handler.
                 if (nameServer.standAlone || nameServer.bridges.size() < 1) {
-//System.out.println(">>     DSS: call regular cmsg subdomain sub&Get");
+//System.out.println(">>    DSS: call regular cmsg subdomain sub&Get");
                     info.subdomainHandler.handleSubscribeAndGetRequest(holder.subject,
                                                                   holder.type,
                                                                   holder.id);

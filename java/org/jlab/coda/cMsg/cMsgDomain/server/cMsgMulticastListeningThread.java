@@ -84,7 +84,7 @@ class cMsgMulticastListeningThread extends Thread {
     public void run() {
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println(">>      MC: Running cMsgNameserver Multicast Listening Thread");
+            System.out.println(">>     MC: Running cMsgNameserver Multicast Listening Thread");
         }
 
         // create a packet to be written into
