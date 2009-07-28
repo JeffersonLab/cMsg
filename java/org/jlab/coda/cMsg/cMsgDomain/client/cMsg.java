@@ -441,14 +441,14 @@ public class cMsg extends cMsgDomainAdapter {
                 // If we're connected, and already using the UDL at the head of the list, return.
                 // Else, disconnect from the current server and reconnect using the first UDL.
                 if (!connected) {
-System.out.println("connect: disconnected so doing a connect");
+//System.out.println("connect: disconnected so doing a connect");
                     if (!mayConnect) {
                         // We're here because disconnect was called and localDisconnect has not
                         // been run yet (keepalive thread has not yet detected server cutoff),
                         // so mayConnect is false. Run it now instead of waiting
                         // for the keepalive thread to run it. This will kill the current keepalive
                         // thread (& other threads) and pave the way for a new connection.
-System.out.println("connect: disconnected, localDisconnect has not been run yet, so do it");
+//System.out.println("connect: disconnected, localDisconnect has not been run yet, so do it");
                         localDisconnect(false);
                     }
                 }
@@ -456,10 +456,10 @@ System.out.println("connect: disconnected, localDisconnect has not been run yet,
                     if (currentParsedUDL != null &&
                        !currentParsedUDL.mustMulticast &&
                         currentParsedUDL.UDL.equals(failoverUdls.get(0).UDL)) {
-System.out.println("connect: we're already connected to this UDL and we're not multicasting, so return");
+//System.out.println("connect: we're already connected to this UDL and we're not multicasting, so return");
                         return;
                     }
-System.out.println("connect: doing a reconnect");
+//System.out.println("connect: doing a reconnect");
 //System.out.print("connect: doing a reconnect, waiting for you to kill server ... ");
 //                    for (int i=0; i<6; i++) {
 //                        try { Thread.sleep(1000); }
@@ -504,7 +504,7 @@ System.out.println("connect: doing a reconnect");
                         restoreSubscriptions();
 
                         mayConnect = false;
-System.out.println("connect: Done!");
+//System.out.println("connect: Done!");
                         return;
                     }
                     catch (cMsgException e) {
@@ -601,14 +601,14 @@ System.out.println("connect: Done!");
                 }
             }
             catch (InterruptedException e) {
-                System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout specified)");
+System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout specified)");
             }
         }
         // wait forever
         else {
             try { multicastResponse.await(); response = true;}
             catch (InterruptedException e) {
-                System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT specified)");
+System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT specified)");
             }
         }
 
@@ -978,7 +978,7 @@ System.out.println("connect: Done!");
                 domainOut.flush();
             }
             catch (IOException e) {
-                System.out.println("disconnect: IO error");
+System.out.println("disconnect: IO error");
             }
             finally {
                 socketLock.unlock();
@@ -2722,7 +2722,7 @@ System.out.println("connect: Done!");
             // read error string
             in.readFully(buf, 0, len);
             String err = new String(buf, 0, len, "US-ASCII");
-System.out.println("ERROR STRING = " + err);
+//System.out.println("ERROR STRING = " + err);
 
             throw new cMsgException("Error from server: " + err);
         }
@@ -3286,18 +3286,18 @@ System.out.println("ERROR STRING = " + err);
                         try {
                             // quit thread
                             if (killThread) {
-System.out.println("keepAliveThread" + this + ": been told to die, return");
+//System.out.println("keepAliveThread" + this + ": been told to die, return");
                                 return;
                             }
                             getMonitorInfo();
                         }
                         catch (InterruptedIOException e) {
-System.out.println("keepAliveThread: interrupted IO with cMsg server, try reading monitor info again");
+//System.out.println("keepAliveThread: interrupted IO with cMsg server, try reading monitor info again");
                         }
                     }
                 }
                 catch (IOException e) { }
-System.out.println("keepAliveThread" + this + ": IO Exception with cMsg server, try grabbing connectLock");
+//System.out.println("keepAliveThread" + this + ": IO Exception with cMsg server, try grabbing connectLock");
 //System.out.println("keepAliveThread" + this + ": wait for 3 seconds");
 //                try { Thread.sleep(3000); }
 //                catch (InterruptedException e) {
