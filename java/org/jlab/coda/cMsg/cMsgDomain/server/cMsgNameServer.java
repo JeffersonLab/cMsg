@@ -794,7 +794,8 @@ public class cMsgNameServer extends Thread {
         }
         connectionThread = new cMsgConnectionHandler(this, debug);
         connectionThread.start();
-System.out.println("  cMsg server sucessfully started on " + (new Date()));  // this line in by Elliott Wolin's request
+        // next line in by Elliott Wolin's request
+System.out.println(">> **** cMsg server sucessfully started on " + (new Date()) + " **** <<");
     }
 
 
@@ -1788,7 +1789,7 @@ System.out.println("Main server IO error");
                                       add.getAddress().getHostAddress(),
                                       subdomainType, UDLRemainder, UDL, description);
             if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("name server try to register " + name);
+                System.out.println(">> NS: name server try to register " + name);
             }
 
             try {
