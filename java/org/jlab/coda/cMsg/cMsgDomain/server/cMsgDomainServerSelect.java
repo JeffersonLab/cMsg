@@ -696,7 +696,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
     public void run() {
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println(">>    DSS:Running Domain Server");
+            System.out.println(">>    DSS: Running Domain Server");
         }
 
         int n, bytes, tcpPort;
