@@ -724,7 +724,9 @@ public class cMsgNameServer extends Thread {
         start();
 //System.out.println("startServer; IN");
         if (standAlone) {
-//System.out.println("Server is STANDING ALONE");
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println(">> NS: Running in stand-alone mode");
+            }
             // if we're not joining a cloud, and we're not letting anyone join us
             cloudStatus = NONCLOUD;
             // allow client connections
@@ -744,8 +746,10 @@ public class cMsgNameServer extends Thread {
             for (String s : strs) {
                 if (s.length() < 1) continue;
                 try {
-//System.out.println("Adding server " + s);
                     serverSet.add(cMsgUtilities.constructServerName(s));
+                    if (debug >= cMsgConstants.debugInfo) {
+                        System.out.println(">> NS: Joined server " + s + " in a cloud");
+                    }
                 }
                 catch (cMsgException e) {
 //System.out.println("Server to join not in \"host:port\" format:\n" + e.getMessage());
@@ -770,21 +774,27 @@ public class cMsgNameServer extends Thread {
         }
 
         // start UDP listening thread
-//System.out.println("Start Multicast thd on port " );
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println(">> NS: Start multicast thd on port "  + multicastPort);
+        }
         multicastThread = new cMsgMulticastListeningThread(port, multicastPort, multicastSocket,
                                                            clientPassword, debug);
         multicastThread.start();
 
         // Start thread to gather monitor info
-//System.out.println("Start KA monitor thread");
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println(">> NS: Start keepalive/monitoring thread ");
+        }
         monitorThread = new cMsgMonitorClient(this, debug);
         monitorThread.start();
 
         // Start domain server connection thread
-//System.out.println("Start connection handling thread");
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println(">> NS: Start connection handling thread");
+        }
         connectionThread = new cMsgConnectionHandler(this, debug);
         connectionThread.start();
-//System.out.println("startServer; Done");
+System.out.println("  cMsg server sucessfully started");  // this line in by Elliott Wolin's request
     }
 
 
