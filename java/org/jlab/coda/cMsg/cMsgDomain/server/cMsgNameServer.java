@@ -794,7 +794,7 @@ public class cMsgNameServer extends Thread {
         }
         connectionThread = new cMsgConnectionHandler(this, debug);
         connectionThread.start();
-System.out.println("  cMsg server sucessfully started");  // this line in by Elliott Wolin's request
+System.out.println("  cMsg server sucessfully started on " + (new Date()));  // this line in by Elliott Wolin's request
     }
 
 
