@@ -512,7 +512,7 @@ public class cMsgServerClient extends cMsg {
 
                 // null namespace means default namespace
                 if (namespace == null) {
-                    namespace = "/defaultNamespace";
+                    namespace = "/default";
                 }
 
                 // add to callback list if subscription to same subject/type exists
@@ -537,18 +537,18 @@ public class cMsgServerClient extends cMsg {
 
                             // for each callback listed ...
                             for (cMsgCallbackThread cbt : sub.getCallbacks()) {
-                                // Unlike the regular subscribe, here we allow duplicate identical
-                                // subscriptions. The reason is that "subscribeAndGet" is implemented
+                                // Here we allow duplicate identical subscriptions.
+                                // The reason is that "subscribeAndGet" is implemented
                                 // for other servers in the cloud as a "subscribe".
                                 //
                                 // It is possible to for 2 different thds of a client to each do an
-                                // identical subscribeAndGet. This results in 2 identical subscriptions
-                                // which would normally not be permitted but in this case we must.
+                                // identical subscribeAndGet. This results in 2 identical subscriptions.
                                 //
                                 // This method is also used to implement the client's regular subscribes
                                 // on other cloud servers. In this case, the client calls the regular
-                                // subscribe which will not allow duplicate subscriptions. Thus, passing
-                                // that on to other servers will also NOT result in duplicate subscriptions.
+                                // subscribe which will not allow duplicate subscriptions to reach server.
+                                // Thus, passing that on to other servers will also NOT result in duplicate
+                                // subscriptions.
                                 if ((cbt.getCallback() == cb) && (cbt.getUserObject() == userObj)) {
                                     // increment a count which will be decremented during an unsubscribe
 //System.out.println("bridge cli sub: count = " + cbt.getCount() + " -> " +
@@ -662,7 +662,7 @@ public class cMsgServerClient extends cMsg {
 
             // null namespace means default namespace
             if (namespace == null) {
-                namespace = "/defaultNamespace";
+                namespace = "/default";
             }
 
             boolean foundMatch = false;
