@@ -298,7 +298,7 @@ public class cMsg extends cMsgSubdomainAdapter {
      * This method gives this subdomain handler the appropriate part
      * of the UDL the client used to talk to the domain server.
      * In the cMsg subdomain of the cMsg domain, each client sends messages to a namespace.
-     * If no namespace is specified, the namespace is "/defaultNamespace".
+     * If no namespace is specified, the namespace is "/default".
      * The namespace is specified in the client supplied UDL as follows:
      *     cMsg:cMsg://<host>:<port>/cMsg/<namespace>
      * A single beginning forward slash is enforced in a namespace.
@@ -313,7 +313,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 
         // if no namespace specified, set to default
         if (UDLRemainder == null || UDLRemainder.length() < 1) {
-            namespace = "/defaultNamespace";
+            namespace = "/default";
             if (debug >= cMsgConstants.debugInfo) {
                System.out.println("setUDLRemainder:  namespace = " + namespace);
             }
@@ -347,7 +347,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 
         // if namespace is blank, use default
         if (s.equals("")) {
-            namespace = "/defaultNamespace";
+            namespace = "/default";
         }
         else {
             namespace = "/" + s;
