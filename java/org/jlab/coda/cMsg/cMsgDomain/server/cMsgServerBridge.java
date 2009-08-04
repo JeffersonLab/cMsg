@@ -471,7 +471,7 @@ class cMsgServerBridge {
 
 
     /**
-     * Method to remove a previous subscribeAndGet ton another cMsg server.
+     * Method to remove a previous subscribeAndGet on another cMsg server.
      * This method is only called when a subscribeAndGet times out and the
      * server must be told to forget about the subscribeAndGet call.
      *
