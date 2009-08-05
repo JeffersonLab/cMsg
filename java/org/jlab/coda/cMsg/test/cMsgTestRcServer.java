@@ -35,6 +35,9 @@ public class cMsgTestRcServer {
     private int rcClientTcpPort;
     private CountDownLatch latch;
     private int count;
+    private boolean debug;
+    private String UDL;
+
 
     class MulticastCallback extends cMsgCallbackAdapter {
          public void callback(cMsgMessage msg, Object userObject) {
@@ -63,13 +66,54 @@ public class cMsgTestRcServer {
     }
 
 
-    public cMsgTestRcServer() {
+    /** Constructor. */
+    cMsgTestRcServer(String[] args) {
+        decodeCommandLine(args);
         latch = new CountDownLatch(1);
     }
 
 
+    /**
+     * Method to decode the command line used to start this application.
+     * @param args command line arguments
+     */
+    private void decodeCommandLine(String[] args) {
+        // loop over all args
+        for (int i = 0; i < args.length; i++) {
+
+            if (args[i].equalsIgnoreCase("-h")) {
+                usage();
+                System.exit(-1);
+            }
+            else if (args[i].equalsIgnoreCase("-u")) {
+                UDL = args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-debug")) {
+                debug = true;
+            }
+            else {
+                usage();
+                System.exit(-1);
+            }
+        }
+
+        return;
+    }
+
+
+    /** Method to print out correct program command line usage. */
+    private static void usage() {
+        System.out.println("\nUsage:\n\n" +
+                "   java cMsgTestRcServer\n" +
+                "        [-u <UDL>]           set UDL to start multicast domain server\n" +
+                "        [-debug]             turn on printout\n" +
+                "        [-h]                 print this help\n");
+    }
+
+
     public static void main(String[] args) throws cMsgException {
-        cMsgTestRcServer server = new cMsgTestRcServer();
+        cMsgTestRcServer server = new cMsgTestRcServer(args);
         server.run();
     }
 
@@ -80,18 +124,19 @@ public class cMsgTestRcServer {
 
         //---------------------------------------------------------------------------------------
         // RC Multicast domain UDL is of the form:
-        //       cMsg:rcm://<udpPort>?expid=<expid>
+        //       cMsg:rcm://<udpPort>/<expid>?multicastTO=<timeout>
         //
         // The intial cMsg:rcm:// is stripped off by the top layer API
         //
         // Remember that for this domain:
-        // 1) udp listening port is optional and defaults to cMsgNetworkConstants.rcMulticastPort
-        // 2) the experiment id is given by the optional parameter expid. If none is
-        //    given, the environmental variable EXPID is used. if that is not defined,
-        //    an exception is thrown.
+        // 1) udp listening port is optional and defaults to MsgNetworkConstants.rcMulticastPort
+        // 2) the experiment id is required If none is given, an exception is thrown
+        // 3) the multicast timeout is in seconds and sets the time of sending out multicasts
+        //     trying to locate other rc multicast servers already running on its port. Default
+        //     is 2 seconds
         //---------------------------------------------------------------------------------------
 
-        String UDL = "cMsg:rcm://?expid=carlExp";
+        if (UDL == null)  UDL = "cMsg:rcm://carlExp";
 
         // start up rc multicast server
         cMsg cmsg = new cMsg(UDL, "multicast listener", "udp trial");
@@ -102,13 +147,14 @@ public class cMsgTestRcServer {
             return;
         }
 
-        // enable message reception
-        cmsg.start();
-
         // create a callback for when a client connects to the rc multicast server
         MulticastCallback cb = new MulticastCallback();
         // subject and type are ignored in this domain
         cmsg.subscribe("sub", "type", cb, null);
+        
+        // enable message reception
+        cmsg.start();
+
 
         // wait for first incoming message from rc client
         try { latch.await(); }
