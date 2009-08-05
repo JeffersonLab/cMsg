@@ -350,16 +350,14 @@ public class RCMulticast extends cMsgDomainAdapter {
     /**
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      * RC Multicast domain UDL is of the form:<p>
-     *       cMsg:rcm://&lt;udpPort&gt;?expid=&lt;expid&gt;&multicastTO=&lt;timeout&gt;<p>
+     *       cMsg:rcm://&lt;udpPort&gt;/&lt;expid&gt;?multicastTO=&lt;timeout&gt;<p>
      *
      * The intial cMsg:rcm:// is stripped off by the top layer API
      *
      * Remember that for this domain:<p>
      * <ul>
      * <li>udp listening port is optional and defaults to MsgNetworkConstants.rcMulticastPort<p>
-     * <li>the experiment id is given by the optional parameter expid. If none is
-     *     given, the environmental variable EXPID is used. if that is not defined,
-     *     an exception is thrown<p>
+     * <li>the experiment id is required If none is given, an exception is thrown<p>
      * <li>the multicast timeout is in seconds and sets the time of sending out multicasts
      *     trying to locate other rc multicast servers already running on its port. Default
      *     is 2 seconds<p>
@@ -374,21 +372,24 @@ public class RCMulticast extends cMsgDomainAdapter {
             throw new cMsgException("invalid UDL");
         }
 
-        Pattern pattern = Pattern.compile("(\\d+)?/?(.*)");
+        Pattern pattern = Pattern.compile("(\\d+)?/([^?&]+)(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
-        String udlPort, remainder;
+        String udlPort, udlExpid, remainder;
 
         if (matcher.find()) {
             // port
             udlPort = matcher.group(1);
+            // port
+            udlExpid = matcher.group(2);
             // remainder
-            remainder = matcher.group(2);
+            remainder = matcher.group(3);
 
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("\nparseUDL: " +
-                               "\n  port = " + udlPort +
-                               "\n  junk = " + remainder);
+                        "\n  port  = " + udlPort +
+                        "\n  expid = " + udlExpid +
+                        "\n  junk  = " + remainder);
             }
         }
         else {
@@ -432,6 +433,15 @@ public class RCMulticast extends cMsgDomainAdapter {
             throw new cMsgException("parseUDL: illegal port number");
         }
 
+
+        // if no expid, return
+        if (udlExpid == null) {
+            throw new cMsgException("parseUDL: must specify the EXPID");
+        }
+        expid = udlExpid;
+//System.out.println("expid = " + expid);
+
+
         // any remaining UDL is ...
         if (remainder == null) {
             UDLremainder = "";
@@ -444,22 +454,6 @@ public class RCMulticast extends cMsgDomainAdapter {
         if (remainder == null) {
             return;
         }
-
-        // look for ?expid=value& or &expid=value&
-        pattern = Pattern.compile("[\\?&]expid=([\\w\\-]+)", Pattern.CASE_INSENSITIVE);
-        matcher = pattern.matcher(remainder);
-        if (matcher.find()) {
-            expid = matcher.group(1);
-//System.out.println("parsed expid = " + expid);
-        }
-        else {
-            expid = System.getenv("EXPID");
-            if (expid == null) {
-             throw new cMsgException("Experiment ID is unknown");
-            }
-//System.out.println("env expid = " + expid);
-        }
-
 
         // now look for ?multicastTO=value& or &multicastTO=value&
         pattern = Pattern.compile("[\\?&]multicastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
