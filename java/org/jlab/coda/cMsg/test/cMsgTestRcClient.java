@@ -26,12 +26,57 @@ import org.jlab.coda.cMsg.cMsgCallbackInterface;
 public class cMsgTestRcClient {
 
     private cMsg cmsg;
+    private boolean debug;
+    private String UDL;
 
+
+    /** Constructor. */
+    cMsgTestRcClient(String[] args) {
+        decodeCommandLine(args);
+    }
 
     public static void main(String[] args) throws cMsgException {
-         cMsgTestRcClient client = new cMsgTestRcClient();
-         client.run();
+        cMsgTestRcClient client = new cMsgTestRcClient(args);
+        client.run();
      }
+
+    /**
+     * Method to decode the command line used to start this application.
+     * @param args command line arguments
+     */
+    private void decodeCommandLine(String[] args) {
+        // loop over all args
+        for (int i = 0; i < args.length; i++) {
+
+            if (args[i].equalsIgnoreCase("-h")) {
+                usage();
+                System.exit(-1);
+            }
+            else if (args[i].equalsIgnoreCase("-u")) {
+                UDL= args[i + 1];
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-debug")) {
+                debug = true;
+            }
+            else {
+                usage();
+                System.exit(-1);
+            }
+        }
+
+        return;
+    }
+
+
+    /** Method to print out correct program command line usage. */
+    private static void usage() {
+        System.out.println("\nUsage:\n\n" +
+                "   java cMsgTestRcClient\n" +
+                "        [-u <UDL>]           set UDL to connect to cMsg\n" +
+                "        [-debug]             turn on printout\n" +
+                "        [-h]                 print this help\n");
+    }
 
 
     /**
@@ -103,7 +148,7 @@ public class cMsgTestRcClient {
           *    timeout while waiting for the rc server to send a special (tcp)
           *    concluding connect message
           */
-         String UDL = "cMsg:rc://?expid=carlExp&multicastTO=5&connectTO=5";
+         //String UDL = "cMsg:rc://?expid=carlExp&multicastTO=5&connectTO=5";
 
          cmsg = new cMsg(UDL, "java rc client", "rc trial");
          cmsg.connect();
