@@ -109,7 +109,7 @@ class rcListeningThread extends Thread {
 
         try {
             // Put our special #s, UDP listening port, and host into byte array
-            out.writeInt(cMsgNetworkConstants.magicNumbers[0]);    // instead if 0xc0da
+            out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
             out.writeInt(multicastPort);
@@ -146,7 +146,7 @@ class rcListeningThread extends Thread {
                 packet.setLength(2048);
                 multicastSocket.receive(packet);
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("RECEIVED RC DOMAIN MULTICAST PACKET !!!");
+                    System.out.println("     ***** RECEIVED RC DOMAIN MULTICAST PACKET !!!");
                 }
 
                 if (killThread) { return; }
