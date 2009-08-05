@@ -430,53 +430,56 @@ public class RunControl extends cMsgDomainAdapter {
     }
 
 
-
-
     /**
-      * Method to parse the Universal Domain Locator (UDL) into its various components.
-      *
-      * Runcontrol domain UDL is of the form:<p>
-      *        cMsg:rc://&lt;host&gt;:&lt;port&gt;/?expid=&lt;expid&gt;&multicastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;<p>
-      *
-      * Remember that for this domain:
-      * 1) port is optional with a default of {@link cMsgNetworkConstants#rcMulticastPort}
-      * 2) host is optional with a default of {@link cMsgNetworkConstants#rcMulticast}
-      *    and may be "multicast" (same as default), "localhost" or in dotted decimal form
-      * 3) the experiment id or expid is optional, it is taken from the
-      *    environmental variable EXPID
-      * 4) multicastTO is the time to wait in seconds before connect returns a
-      *    timeout when a rc multicast server does not answer
-      * 5) connectTO is the time to wait in seconds before connect returns a
-      *    timeout while waiting for the rc server to send a special (tcp)
-      *    concluding connect message
-      *
-      *
-      * @param udlRemainder partial UDL to parse
-      * @throws cMsgException if udlRemainder is null
-      */
-     void parseUDL(String udlRemainder) throws cMsgException {
+     * Method to parse the Universal Domain Locator (UDL) into its various components.
+     *
+     * Runcontrol domain UDL is of the form:<p>
+     *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;?multicastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;</b><p>
+     *
+     * For the cMsg domain the UDL has the more specific form:<p>
+     *   <b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ...</b><p>
+     *
+     * Remember that for this domain:
+     *<ul>
+     *<li>1) host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
+     *<li>2) port is optional with a default of {@link cMsgNetworkConstants#rcMulticastPort}<p>
+     *<li>3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
+     *<li>4) multicastTO is the time to wait in seconds before connect returns a
+     *       timeout when a rc multicast server does not answer<p>
+     *<li>5) connectTO is the time to wait in seconds before connect returns a
+     *       timeout while waiting for the rc server to send a special (tcp)
+     *       concluding connect message<p>
+     *</ul><p>
+     *
+     * @param udlRemainder partial UDL to parse
+     * @throws cMsgException if udlRemainder is null
+     */
+    void parseUDL(String udlRemainder) throws cMsgException {
 
         if (udlRemainder == null) {
             throw new cMsgException("invalid UDL");
         }
 
-        Pattern pattern = Pattern.compile("([^:/?]+)?:?(\\d+)?/?(.*)");
+        Pattern pattern = Pattern.compile("([^:/?]+):?(\\d+)?/([^?&]+)(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
-        String udlHost, udlPort, remainder;
+        String udlHost, udlPort, udlExpid, remainder;
 
         if (matcher.find()) {
             // host
             udlHost = matcher.group(1);
             // port
             udlPort = matcher.group(2);
+            // expid
+            udlExpid = matcher.group(3);
             // remainder
-            remainder = matcher.group(3);
+            remainder = matcher.group(4);
 
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("\nparseUDL: " +
                                    "\n  host      = " + udlHost +
                                    "\n  port      = " + udlPort +
+                                   "\n  expid     = " + udlExpid +
                                    "\n  remainder = " + remainder);
             }
         }
@@ -485,51 +488,54 @@ public class RunControl extends cMsgDomainAdapter {
         }
 
         // if host given ...
-        if (udlHost != null) {
-            // if the host is "localhost", find the actual, fully qualified  host name
+        if (udlHost == null) {
+            throw new cMsgException("parseUDL: must specify a host (or multicast, localhost)");
+        }
+
+        // if the host is "localhost", find the actual, fully qualified  host name
+        if (udlHost.equalsIgnoreCase("multicast")) {
+            udlHost = cMsgNetworkConstants.rcMulticast;
+//System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
+        }
+        else {
             if (udlHost.equalsIgnoreCase("localhost")) {
                 try {
                     udlHost = InetAddress.getLocalHost().getCanonicalHostName();
+//System.out.println("Will unicast to host " + udlHost);
+                    if (debug >= cMsgConstants.debugWarn) {
+                        System.out.println("parseUDL: codaComponent host given as \"localhost\", substituting " +
+                                udlHost);
+                    }
                 }
                 catch (UnknownHostException e) {
-                    udlHost = null;
+                    udlHost = cMsgNetworkConstants.rcMulticast;
+//System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
                 }
-
-                if (debug >= cMsgConstants.debugWarn) {
-                    System.out.println("parseUDL: codaComponent host given as \"localhost\", substituting " +
-                                       udlHost);
-                }
-            }
-            else if (udlHost.equalsIgnoreCase("multicast")) {
-                udlHost = cMsgNetworkConstants.rcMulticast;
             }
             else {
                 try {
-                    udlHost = InetAddress.getByName(udlHost).getCanonicalHostName();
+                    if (InetAddress.getByName(udlHost).isMulticastAddress()) {
+//System.out.println("Will multicast to " + udlHost);
+                    }
+                    else {
+                        udlHost = InetAddress.getByName(udlHost).getCanonicalHostName();
+//System.out.println("Will unicast to host " + udlHost);
+                    }
                 }
                 catch (UnknownHostException e) {
-                    udlHost = null;
+                    udlHost = cMsgNetworkConstants.rcMulticast;
+//System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
                 }
             }
+        }
 
-            // If the host is NOT given we multicast on local subnet.
-            // If the host is     given we unicast to this particular host.
-            if (udlHost != null) {
-                // Note that a null arg to getByName gives the loopback address
-                // so we need to rule that out.
-                try { rcMulticastServerAddress = InetAddress.getByName(udlHost); }
-                catch (UnknownHostException e) {}
-            }
-//System.out.println("Will unicast to host " + udlHost);
+        try {
+            rcMulticastServerAddress = InetAddress.getByName(udlHost);
         }
-        else {
-//System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
-            try {
-                rcMulticastServerAddress = InetAddress.getByName(cMsgNetworkConstants.rcMulticast); }
-            catch (UnknownHostException e) {
-                e.printStackTrace();
-            }
+        catch (UnknownHostException e) {
+            throw new cMsgException("parseUDL: cannot find host", e);
         }
+
 
         // get multicast server port or guess if it's not given
         if (udlPort != null && udlPort.length() > 0) {
@@ -553,24 +559,16 @@ public class RunControl extends cMsgDomainAdapter {
         }
 //System.out.println("Port = " + rcMulticastServerPort);
 
+        // if no expid to parse, return
+        if (udlExpid == null) {
+            throw new cMsgException("parseUDL: must specify the EXPID");
+        }
+        expid = udlExpid;
+//System.out.println("expid = " + expid);
+
         // if no remaining UDL to parse, return
         if (remainder == null) {
             return;
-        }
-
-        // look for ?expid=value& or &expid=value&
-        pattern = Pattern.compile("[\\?&]expid=([\\w\\-]+)", Pattern.CASE_INSENSITIVE);
-        matcher = pattern.matcher(remainder);
-        if (matcher.find()) {
-            expid = matcher.group(1);
-//System.out.println("parsed expid = " + expid);
-        }
-        else {
-            expid = System.getenv("EXPID");
-            if (expid == null) {
-             throw new cMsgException("Experiment ID is unknown");
-            }
-//System.out.println("env expid = " + expid);
         }
 
         // now look for ?multicastTO=value& or &multicastTO=value&
