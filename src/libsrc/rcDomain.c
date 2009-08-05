@@ -2344,21 +2344,24 @@ int cmsg_rc_shutdownServers(void *domainId, const char *server, int flag) {
 /**
  * This routine parses, using regular expressions, the RC domain
  * portion of the UDL sent from the next level up" in the API.
- * The full RC domain UDL is of the form:<p>
- * cMsg:rc://&lt;host&gt;:&lt;port&gt;/?expid=&lt;expid&gt;&multicastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;<p>
- * The UDL parsed in this function is only the "remainder" - that is,
- * everything past the initial "cMsg:rc://" .
+ *
+ * Runcontrol domain UDL is of the form:<p>
+ *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;?multicastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;</b><p>
+ *
+ * For the cMsg domain the UDL has the more specific form:<p>
+ *   <b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ...</b><p>
+ *
  * Remember that for this domain:
- * 1) port is optional with a default of RC_MULTICAST_PORT
- * 2) host is optional with a default of RC_MULTICAST_ADDR
- *    and may be "multicast" (same as default), "localhost" or in dotted decimal form
- * 3) the experiment id or expid is optional, it is taken from the
- *    environmental variable EXPID
- * 4) multicastTO is the time to wait in seconds before connect returns a
- *    timeout when a rc multicast server does not answer
- * 5) connectTO is the time to wait in seconds before connect returns a
- *    timeout while waiting for the rc server to send a special (tcp)
- *    concluding connect message
+ *<ul>
+ *<li>1) host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
+ *<li>2) port is optional with a default of {@link RC_MULTICAST_PORT}<p>
+ *<li>3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
+ *<li>4) multicastTO is the time to wait in seconds before connect returns a
+ *       timeout when a rc multicast server does not answer<p>
+ *<li>5) connectTO is the time to wait in seconds before connect returns a
+ *       timeout while waiting for the rc server to send a special (tcp)
+ *       concluding connect message<p>
+ *</ul><p>
  *
  * 
  * @param UDLR  udl to be parsed
@@ -2388,8 +2391,8 @@ static int parseUDL(const char *UDLR,
     size_t     len, bufLength;
     char       *udlRemainder, *val;
     char       *buffer;
-    const char *pattern = "([^:/?]+)?:?([0-9]+)?/?(.*)";
-    regmatch_t matches[6]; /* we have 6 potential matches: 1 whole, 5 sub */
+    const char *pattern = "([^:/?]+):?([0-9]+)?/([^?&]+)(.*)";
+    regmatch_t matches[5]; /* we have 5 potential matches: 1 whole, 4 sub */
     regex_t    compiled;
     
     if (UDLR == NULL) {
@@ -2422,7 +2425,7 @@ static int parseUDL(const char *UDLR,
     }
     
     /* find matches */
-    err = cMsgRegexec(&compiled, udlRemainder, 6, matches, 0);
+    err = cMsgRegexec(&compiled, udlRemainder, 5, matches, 0);
     if (err != 0) {
         /* no match */
         free(udlRemainder);
@@ -2433,7 +2436,7 @@ static int parseUDL(const char *UDLR,
     /* free up memory */
     cMsgRegfree(&compiled);
             
-    /* find host name, default = RC_MULTICAST_ADDR (multicast) */
+    /* find host name, default => multicast */
     index = 1;
     if (matches[index].rm_so > -1) {
        buffer[0] = 0;
@@ -2455,8 +2458,10 @@ static int parseUDL(const char *UDLR,
         }
     }
     else {
-        buffer[0] = 0;
-        strcat(buffer, RC_MULTICAST_ADDR);
+        free(udlRemainder);
+        free(buffer);
+/*printf("parseUDL: host required in UDL\n");*/
+        return (CMSG_BAD_FORMAT);
     }
     
     if (host != NULL) {
@@ -2484,6 +2489,7 @@ static int parseUDL(const char *UDLR,
 
     if (Port < 1024 || Port > 65535) {
       if (host != NULL) free((void *) *host);
+      free(udlRemainder);
       free(buffer);
       return (CMSG_OUT_OF_RANGE);
     }
@@ -2491,7 +2497,26 @@ static int parseUDL(const char *UDLR,
     if (port != NULL) {
       *port = Port;
     }
-/*printf("parseUDL: port = %hu\n", Port );*/
+/*printf("parseUDL: port = %hu\n", Port);*/
+
+    /* find expid */
+    index++;
+    buffer[0] = 0;
+    if (matches[index].rm_so < 0) {
+        free(udlRemainder);
+        free(buffer);
+/*printf("parseUDL: expid required in UDL\n");*/
+        return (CMSG_BAD_FORMAT);
+    }
+    else {
+        len = matches[index].rm_eo - matches[index].rm_so;
+        strncat(buffer, udlRemainder+matches[index].rm_so, len);
+                
+        if (expid != NULL) {
+            *expid = (char *) strdup(buffer);
+        }
+    }
+/*printf("parseUDL: expid = %s\n", buffer);*/
 
     /* find remainder */
     index++;
@@ -2500,7 +2525,7 @@ static int parseUDL(const char *UDLR,
         /* no match */
         len = 0;
         if (remainder != NULL) {
-          *remainder = NULL;
+            *remainder = NULL;
         }
     }
     else {
@@ -2508,43 +2533,16 @@ static int parseUDL(const char *UDLR,
         strncat(buffer, udlRemainder+matches[index].rm_so, len);
                 
         if (remainder != NULL) {
-          *remainder = (char *) strdup(buffer);
-        }        
+            *remainder = (char *) strdup(buffer);
+        }
 /*printf("parseUDL: remainder = %s, len = %d\n", buffer, len);*/
     }
 
-    /* find expid parameter in the junk if it exists*/
     len = strlen(buffer);
     while (len > 0) {
-
-        /* look for ?expid=value& or &expid=value& */
-        pattern = "expid=([a-zA-Z0-9_\\-]+)&?";
-
-        /* compile regular expression */
-        cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
-
-        /* find matches */
         val = strdup(buffer);
-        err = cMsgRegexec(&compiled, val, 2, matches, 0);
-        
-        /* if there's a match ... */
-        if (err == 0) {
-            /* find expid */
-            if (matches[1].rm_so >= 0) {
-               buffer[0] = 0;
-               len = matches[1].rm_eo - matches[1].rm_so;
-               strncat(buffer, val+matches[1].rm_so, len);
-               if (expid != NULL) {
-                 *expid = (char *) strdup(buffer);
-               }
-/*printf("parseUDL: expid = %s\n", buffer);*/
-            }
-        }
-                
-         /* free up memory */
-        cMsgRegfree(&compiled);
-       
-        /* now look for ?multicastTO=value& or &multicastTO=value& */
+
+        /* look for ?multicastTO=value& or &multicastTO=value& */
         pattern = "multicastTO=([0-9]+)&?";
 
         /* compile regular expression */
