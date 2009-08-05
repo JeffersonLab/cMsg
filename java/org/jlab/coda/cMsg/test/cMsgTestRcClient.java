@@ -131,66 +131,70 @@ public class cMsgTestRcClient {
 
     public void run() throws cMsgException {
 
-         System.out.println("Starting RC domain test client");
+        System.out.println("Starting RC domain test client");
 
-         /* Runcontrol domain UDL is of the form:
-          *        cMsg:rc://<host>:<port>/?expid=<expid>&multicastTO=<timeout>&connectTO=<timeout>
-          *
-          * Remember that for this domain:
-          * 1) port is optional with a default of cMsgNetworkConstants.rcMulticastPort
-          * 2) host is optional with a default of cMsgNetworkConstants.rcMulticast
-          *    and may be "localhost" or in dotted decimal form
-          * 3) the experiment id or expid is optional, it is taken from the
-          *    environmental variable EXPID
-          * 4) multicastTO is the time to wait in seconds before connect returns a
-          *    timeout when a rc multicast server does not answer
-          * 5) connectTO is the time to wait in seconds before connect returns a
-          *    timeout while waiting for the rc server to send a special (tcp)
-          *    concluding connect message
-          */
-         //String UDL = "cMsg:rc://?expid=carlExp&multicastTO=5&connectTO=5";
+       /* Runcontrol domain UDL is of the form:
+        *        cMsg:rc://<host>:<port>/<expid>?multicastTO=<timeout>&connectTO=<timeout>
+        *
+        * Remember that for this domain:
+        * 1) host is required and may also be "multicast", "localhost", or in dotted decimal form
+        * 2) port is optional with a default of {@link cMsgNetworkConstants#rcMulticastPort}
+        * 3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID
+        * 4) multicastTO is the time to wait in seconds before connect returns a
+        *       timeout when a rc multicast server does not answer
+        * 5) connectTO is the time to wait in seconds before connect returns a
+        *       timeout while waiting for the rc server to send a special (tcp)
+        *       concluding connect message
+        */
+        if (UDL == null) UDL = "cMsg:rc:/multicast/carlExp&multicastTO=5&connectTO=5";
 
-         cmsg = new cMsg(UDL, "java rc client", "rc trial");
-         cmsg.connect();
+        cmsg = new cMsg(UDL, "java rc client", "rc trial");
+        cmsg.connect();
 
-         // enable message reception
-         cmsg.start();
+        // enable message reception
+        cmsg.start();
 
-         // subscribe to subject/type to receive from RC Server send
-         cMsgCallbackInterface cb = new myCallback();
-         cMsgSubscriptionHandle unsub = cmsg.subscribe("rcSubject", "rcType", cb, null);
+        // subscribe to subject/type to receive from RC Server send
+        cMsgCallbackInterface cb = new myCallback();
+        cMsgSubscriptionHandle unsub = cmsg.subscribe("rcSubject", "rcType", cb, null);
 
-         // subscribe to subject/type to receive from RC Server sendAndGet
-         cMsgCallbackInterface cb2 = new sAndGCallback();
-         cMsgSubscriptionHandle unsub2 = cmsg.subscribe("sAndGSubject", "sAndGType", cb2, null);
+        // subscribe to subject/type to receive from RC Server sendAndGet
+        cMsgCallbackInterface cb2 = new sAndGCallback();
+        cMsgSubscriptionHandle unsub2 = cmsg.subscribe("sAndGSubject", "sAndGType", cb2, null);
 
-         try {Thread.sleep(1000); }
-         catch (InterruptedException e) {}
+        try {
+            Thread.sleep(1000);
+        }
+        catch (InterruptedException e) {
+        }
 
-         // send stuff to RC Server
-         cMsgMessage msg = new cMsgMessage();
-         msg.setSubject("subby");
-         msg.setType("typey");
-         msg.setText("Send with TCP");
-         cMsgPayloadItem item = new cMsgPayloadItem("severity", "really severe");
-         msg.addPayloadItem(item);
+        // send stuff to RC Server
+        cMsgMessage msg = new cMsgMessage();
+        msg.setSubject("subby");
+        msg.setType("typey");
+        msg.setText("Send with TCP");
+        cMsgPayloadItem item = new cMsgPayloadItem("severity", "really severe");
+        msg.addPayloadItem(item);
 
-         System.out.println("Send subby, typey with TCP");
-         cmsg.send(msg);
+        System.out.println("Send subby, typey with TCP");
+        cmsg.send(msg);
 
-         msg.setText("Send with UDP");
-         msg.setReliableSend(false);
-         System.out.println("Send subby, typey with UDP");
-         cmsg.send(msg);
+        msg.setText("Send with UDP");
+        msg.setReliableSend(false);
+        System.out.println("Send subby, typey with UDP");
+        cmsg.send(msg);
 
-         System.out.println("Sleep for 4 sec");
-         try {Thread.sleep(4000); }
-         catch (InterruptedException e) {}
+        System.out.println("Sleep for 4 sec");
+        try {
+            Thread.sleep(4000);
+        }
+        catch (InterruptedException e) {
+        }
 
-         cmsg.stop();
-         cmsg.unsubscribe(unsub);
-         cmsg.unsubscribe(unsub2);
-         cmsg.disconnect();
+        cmsg.stop();
+        cmsg.unsubscribe(unsub);
+        cmsg.unsubscribe(unsub2);
+        cmsg.disconnect();
 
-     }
+    }
 }
