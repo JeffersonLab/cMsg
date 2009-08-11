@@ -137,7 +137,7 @@ public class cMsgTestRcServer {
         //     is 2 seconds
         //---------------------------------------------------------------------------------------
 
-        if (UDL == null)  UDL = "cMsg:rcm:///testExpid";
+        if (UDL == null)  UDL = "cMsg:rcm:///testExpid?multicastTO=1";
 
         // start up rc multicast server
         cMsg cmsg = new cMsg(UDL, "multicast listener", "udp trial");
