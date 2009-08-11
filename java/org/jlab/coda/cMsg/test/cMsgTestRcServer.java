@@ -128,7 +128,8 @@ public class cMsgTestRcServer {
         //
         // The intial cMsg:rcm:// is stripped off by the top layer API
         //
-        // Remember that for this domain:
+        // Remember that for this domain:<p>
+        //
         // 1) udp listening port is optional and defaults to MsgNetworkConstants.rcMulticastPort
         // 2) the experiment id is required If none is given, an exception is thrown
         // 3) the multicast timeout is in seconds and sets the time of sending out multicasts
@@ -136,7 +137,7 @@ public class cMsgTestRcServer {
         //     is 2 seconds
         //---------------------------------------------------------------------------------------
 
-        if (UDL == null)  UDL = "cMsg:rcm://carlExp";
+        if (UDL == null)  UDL = "cMsg:rcm:///testExpid";
 
         // start up rc multicast server
         cMsg cmsg = new cMsg(UDL, "multicast listener", "udp trial");
