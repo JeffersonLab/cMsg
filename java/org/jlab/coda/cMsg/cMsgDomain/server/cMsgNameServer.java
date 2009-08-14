@@ -490,9 +490,16 @@ public class cMsgNameServer extends Thread {
             // Practically that means other multicasts, broadcasts or unicasts to
             // that port will get through. We'll have to implement our own filter.
             multicastSocket = new MulticastSocket(udpPort);
-            multicastSocket.joinGroup(InetAddress.getByName(cMsgNetworkConstants.cMsgMulticast));
             multicastSocket.setReceiveBufferSize(65535);
             multicastSocket.setReuseAddress(true);
+            // If using standalone laptop, this call throws an exception:
+            // java.net.SocketException: No such device. This catch allows
+            // usage with messed up / nonexistant network.
+            try {
+                multicastSocket.joinGroup(InetAddress.getByName(cMsgNetworkConstants.cMsgMulticast));
+            } catch (IOException e) {
+                System.out.println("Cannot join multicast group cause network messed up");
+            }
 //System.out.println("Created UDP multicast listening socket at port " + udpPort);
         }
         catch (IOException e) {
