@@ -19,5 +19,5 @@ fileList = ['cMsg.c',
 env.AppendUnique(CPPPATH = ['.', '#src/regexp'])
 cmsgLib = env.SharedLibrary(target = 'cmsg'+debugSuffix, source = fileList)
 
-env.Alias("install", env.Install(target = incDir, source = 'cMsg.h'))
+env.Alias("install", env.Install(target = incDir, source = ['cMsg.h','cMsgConstants.h']))
 env.Alias("install", env.Install(target = libDir, source = cmsgLib))
