@@ -6320,7 +6320,7 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
 static int parseUDL(const char *UDL, parsedUDL *pUdl) {
 
     int        i, err, error, Port, index;
-    int        dbg=0, mustMulticast = 0;
+    int        dbg=1, mustMulticast = 0;
     size_t     len, bufLength;
     char       *p, *udl, *udlLowerCase, *udlRemainder, *remain;
     char       *buffer;
@@ -6423,12 +6423,26 @@ if(dbg) printf("parseUDL: host = localhost\n");
             pUdl->isLocal = 1;
         }
         else {
-          if (cMsgNodeIsLocal(buffer, &pUdl->isLocal) != CMSG_OK) {
-            /* error */
-            free(udl);
-            free(buffer);
-            return (CMSG_BAD_FORMAT);
-          }
+if(dbg) printf("parseUDL: host = %s, test to see if it is local\n", buffer);
+            if (cMsgNodeIsLocal(buffer, &pUdl->isLocal) != CMSG_OK) {
+                /* Could not find the given host. One possible reason
+                 * is that the fully qualified name was used but this host is now
+                 * on a different (home?) network. Try using the unqualified name
+                 * before declaring failure.
+                 */
+                char *pend;
+                if ( (pend = strchr(buffer, '.')) != NULL) {
+                    /* shorten up the string */
+                    *pend = '\0';
+if(dbg) printf("parseUDL: host = %s, test to see if unqualified host is local\n", buffer);
+                    if (cMsgNodeIsLocal(buffer, &pUdl->isLocal) != CMSG_OK) {
+                        /* error */
+                        free(udl);
+                        free(buffer);
+                        return (CMSG_BAD_FORMAT);
+                    }
+                }
+            }
         }
         
         pUdl->nameServerHost = (char *)strdup(buffer);
