@@ -847,14 +847,20 @@ const char *cMsgHstrerror(int err)
 }
 
 
-/******************************************************
- * Find out if node1 and node2 are the same machine.
- * 
+/**
+ * This routine finds out if the two given nodes are the same machine.
  * Comparison of names can be risky as there can be more than one name
  * for a domain (as in cebaf.gov & jlab.org) or more that one name
  * for any host. Do a complete comparison by comparing the binary
  * address values.
- ******************************************************/
+ *
+ * @param node1 first node
+ * @param node2 second node
+ * @param same pointer filled in with 1 if same, else 0
+ *
+ * @returns CMSG_BAD_ARGUMENT if any arg is NULL
+ * @returns CMSG_ERROR if error finding host
+ */
 int cMsgNodeSame(const char *node1, const char *node2, int *same)
 {
 #ifdef VXWORKS
@@ -862,7 +868,7 @@ int cMsgNodeSame(const char *node1, const char *node2, int *same)
 
   if ((node1 == NULL) || (node2 == NULL) || same == NULL) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgNodeSame: bad argument(s)\n");
-    return CMSG_ERROR;
+    return CMSG_BAD_ARGUMENT;
   }
     
   /* do a quick check of name against name, it may work */
@@ -895,7 +901,7 @@ int cMsgNodeSame(const char *node1, const char *node2, int *same)
   
   if ((node1 == NULL) || (node2 == NULL) || same == NULL) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgNodeSame: bad argument(s)\n");
-    return CMSG_ERROR;
+    return CMSG_BAD_ARGUMENT;
   }
   
   /* do a quick check of name against name, it may work */
@@ -943,10 +949,16 @@ int cMsgNodeSame(const char *node1, const char *node2, int *same)
 }
 
 
-/******************************************************
- * Find out if "host" is on the same node that this
- * routine is being executed on.
- ******************************************************/
+/**
+ * This routine finds out if the given host is the same as the
+ * local host or not.
+ *
+ * @param host hostname
+ * @param isLocal pointer filled in with 1 if local host, else 0
+ *
+ * @returns CMSG_ERROR if could not find the host
+ * @returns CMSG_BAD_ARGUMENT if either argument is NULL
+ */
 int cMsgNodeIsLocal(const char *host, int *isLocal)
 {
 #ifdef VXWORKS
@@ -955,7 +967,7 @@ int cMsgNodeIsLocal(const char *host, int *isLocal)
 
   if (host == NULL || isLocal == NULL) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgNodeIsLocal: bad argument(s)\n");
-    return CMSG_ERROR;
+    return CMSG_BAD_ARGUMENT;
   }
 
   hostAddr1 = hostGetByName((char *)host);
@@ -978,21 +990,29 @@ int cMsgNodeIsLocal(const char *host, int *isLocal)
 #else
   struct utsname myname;
   int status, same=0;
+  int debugTemp, debug=1;
+  
+  debugTemp = cMsgDebug;
+  if (debug) cMsgDebug = CMSG_DEBUG_INFO;
   
   if (host == NULL || isLocal == NULL) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgNodeIsLocal: bad argument(s)\n");
-    return CMSG_ERROR;
+    cMsgDebug = debugTemp;
+    return CMSG_BAD_ARGUMENT;
   }
 
   /* find out the name of the machine we're on */
   if (uname(&myname) < 0) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgNodeIsLocal: cannot find hostname\n");
+    cMsgDebug = debugTemp;
     return CMSG_ERROR;
   }
   
+  printf("cMsgNodeIsLocal:  call cMsgNodeSame\n");
   if ( (status = cMsgNodeSame(host, myname.nodename, &same)) != CMSG_OK) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgNodeIsLocal: error in cMsgNodeSame\n");
-    return CMSG_ERROR;
+    cMsgDebug = debugTemp;
+    return status;
   }
   
   if (same)
