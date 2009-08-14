@@ -20,7 +20,7 @@ import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.cMsgShutdownHandlerInterface;
 
 /**
- * This is an example class which creates a cMsg client that shutsdown
+ * This is an example class which creates a cMsg client that shuts down
  * other specified cMsg clients (possibly including itself).
  * In the cMsg domain the name of clients to be shutdown implements a
  * simple wildcard matching scheme where "*" means any or no characters,
