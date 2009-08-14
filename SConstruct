@@ -75,6 +75,7 @@ is64bits = False
 if platform == 'Linux':
     if machine == 'x86_64':
         is64bits = True
+        print 'Found 64 bit system'
 elif platform == 'Darwin' or platform == 'SunOS':
     ccflags = '-xarch=amd64'
     if platform == 'Darwin':
