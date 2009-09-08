@@ -1789,7 +1789,10 @@ System.out.println("Call deleteClient 3");
                 //System.out.println("text = " + msg.getText());
                 index += lengthText;
             }
-
+            else {
+                msg.setText("");
+            }
+ 
             // read binary array, copy the data? BUGBUG
             if (lengthBinary > 0) {
                 try {
