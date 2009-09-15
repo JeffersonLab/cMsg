@@ -17,5 +17,5 @@ for fileName in ccfileList:
                                           '#src/libsrc/'+archDir,
                                           '#src/libsrc++/'+archDir],
                                CPPPATH = ['.', '#src/regexp', '#src/libsrc', '#src/libsrc++'])
-    env.Alias('examples', env.Install(target = binDir, source = compiledFile))
+    env.Alias('install', env.Install(target = binDir, source = compiledFile))
 
