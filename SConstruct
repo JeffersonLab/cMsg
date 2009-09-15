@@ -169,7 +169,7 @@ execLibs = ['']
 # If using vxworks
 if useVxworks:
     print "\nDoing vxworks\n"
-    osname = platform + '-vxppc'
+    osname = 'vxworks-ppc'
 
     if platform == 'Linux':
         vxbase = os.getenv('WIND_BASE', '/site/vxworks/5.5/ppc')
@@ -228,7 +228,7 @@ else:
     if not is64bits and not use32bits:
         use32bits = True
 
-if is64bits and use32bits:
+if is64bits and use32bits and not useVxworks:
     osname = osname + '-32'
 
 print "OSNAME = ", osname
