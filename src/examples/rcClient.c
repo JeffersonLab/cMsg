@@ -79,20 +79,21 @@ int main(int argc,char **argv) {
   char *myName   = "C rc client";
   char *myDescription = "rc trial";
   
-  /* RC domain UDL is of the form:
+ /* RC domain UDL is of the form:
   *        cMsg:rc://<host>:<port>/?expid=<expid>&broadcastTO=<timeout>&connectTO=<timeout>
   *
+  *
   * Remember that for this domain:
-  * 1) port is optional with a default of RC_MULTICAST_PORT (45200)
-  * 2) host is optional with a default of RC_MULTICAST_ADDR (239.210.0.0)
-  *    and may be "localhost" or in dotted decimal form
-  * 3) the experiment id or expid is optional, it is taken from the
-  *    environmental variable EXPID
-  * 4) broadcastTO is the time to wait in seconds before connect returns a
-  *    timeout when a rc broadcast server does not answer
-  * 5) connectTO is the time to wait in seconds before connect returns a
-  *    timeout while waiting for the rc server to send a special (tcp)
-  *    concluding connect message
+  *<ul>
+  *<li>1) host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
+  *<li>2) port is optional with a default of {@link RC_MULTICAST_PORT}<p>
+  *<li>3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
+  *<li>4) multicastTO is the time to wait in seconds before connect returns a
+  *       timeout when a rc multicast server does not answer<p>
+  *<li>5) connectTO is the time to wait in seconds before connect returns a
+  *       timeout while waiting for the rc server to send a special (tcp)
+  *       concluding connect message<p>
+  *</ul><p>
   */
   char *UDL = "cMsg:rc://?expid=carlExp&multicastTO=5&connectTO=5";
 

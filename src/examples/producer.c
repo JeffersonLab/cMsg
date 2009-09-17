@@ -47,7 +47,7 @@ static void usage() {
     printf("                  -s sets the subscription subject\n");
     printf("                  -t sets the subscription type\n");
     printf("                  -udp sends messages with UDP instead of TCP\n");
-    printf("                  -delay sets the delay between sends in seconds\n");
+    printf("                  -delay sets the delay between sends in millisec\n");
 }
 
 /******************************************************************/
@@ -56,10 +56,10 @@ static void callback(void *msg, void *arg) {
   char *p;
 
   count++;
-  
-  cMsgToString(msg, &p);
-  printf("XML message:\n%s", p);
-  free(p);
+  printf("X\n");
+   cMsgToString2(msg, &p, 0, 0, 1);
+   printf("XML message:\n%s", p);
+   free(p);
 
   /*
   printf("\nCallback msg payload:\n");
@@ -92,6 +92,7 @@ int main(int argc,char **argv) {
   char *bytes         = NULL;
   char *UDL           = "cMsg://localhost/cMsg/myNameSpace";
   char *p;
+  char *jj[] = {"k","j","l"};
   int   i, j, err, udp=0, payload=0, receives=0, debug=0, msgSize=0, mainloops=2000;
   int8_t    i1vals[3];
   int16_t   i2vals[3];
@@ -105,7 +106,7 @@ int main(int argc,char **argv) {
   float      fvals[3];
   double     dvals[3];
   char       binArray[256], *bins[3], b1[3], b2[3], b3[3];
-  int        sizes[3], endians[3];
+  int        switcher=0, sizes[3], endians[3];
   cMsgSubscribeConfig *config;
   void *unSubHandle;
 
@@ -120,6 +121,8 @@ int main(int argc,char **argv) {
     for (i=1; i<argc; i++) {
 
         if (strcmp("-delay", argv[i]) == 0) {
+            long nsec, sec;
+            
             if (argc < i+2) {
                 usage();
                 return(-1);
@@ -131,8 +134,13 @@ int main(int argc,char **argv) {
                 usage();
                 return(-1);
             }
-            sleeep.tv_sec = delay;
-            /*printf("Delay = %d\n", delay);*/
+            
+            sec  =  delay/1000L;
+            nsec = (delay - sec*1000L)*1000000L;
+            
+            sleeep.tv_sec  = sec;
+            sleeep.tv_nsec = nsec;
+            printf("Delay sec = %ld, nsec = %ld\n", sec, nsec);
         }
         else if (strcmp("-a", argv[i]) == 0) {
             if (argc < i+2) {
@@ -263,7 +271,7 @@ int main(int argc,char **argv) {
   cMsgSetType(msg, type);       /* allocating mem here */
   cMsgSetText(msg, "~!@#$%^&*()_-+=,.<>?/|\\;:[]{}`");
   /*cMsgSetText(msg, "A<![CDATA[B]]><![CDATA[C]]>]]>D");*/
-  cMsgSetHistoryLengthMax(msg, 0); /* no history by default */
+  cMsgSetHistoryLengthMax(msg, 3); /* no history by default */
 
   if (udp) {
     cMsgSetReliableSend(msg, 0);
@@ -399,6 +407,13 @@ int main(int argc,char **argv) {
       for (i=0; i < loops; i++) {
           /* send msg */
           /* err = cMsgSyncSend(domainId, msg, NULL, &response); */
+/*          if (udp && switcher%2 == 0) {
+              cMsgSetReliableSend(msg, 0);
+          }
+          else {
+              cMsgSetReliableSend(msg, 1);
+          }
+          switcher++;*/
           err = cMsgSend(domainId, msg);
           if (err != CMSG_OK) {
               printf("cMsgSend: err = %d, %s\n",err, cMsgPerror(err));

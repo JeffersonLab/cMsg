@@ -26,7 +26,7 @@ int main(int argc,char **argv) {
   char *myDescription = "C-monitor";
   char *UDL = "cMsg:cMsg://localhost/cMsg/test";
   char *text;
-  int err, debug=1,loops=10;
+  int err, debug=1,loops=20;
   void *domainId;
   void *msg;
     
