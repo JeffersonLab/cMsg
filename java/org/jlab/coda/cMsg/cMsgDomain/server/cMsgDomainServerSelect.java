@@ -534,17 +534,17 @@ class cMsgDomainServerSelect extends Thread {
      * @param cd client data object
      */
     synchronized void deleteClient(cMsgClientData cd) {
-System.out.println("DELETING CLIENT " + cd.getName());
+//System.out.println("deleteClient: deleting client " + cd.getName());
 //        Thread.dumpStack();
         // remove from hashmap (otherwise the cMsgMonitorClient object will try to run this method)
         removeClient(cd);
 
         // Go through Q and remove out-dated requests (from this client).
         // Do NOT remove any "send"s since they are always valid.
-//System.out.println("buffer size = " + bufferQ.size());
+//System.out.println("deleteClient: buffer size = " + bufferQ.size());
         int msgId;
         cMsgHolder hldr;
-//System.out.println("Before request removal Q size = " + bufferQ.size());
+//System.out.println("deleteClient: Before request removal Q size = " + bufferQ.size());
         for (Iterator it = bufferQ.iterator(); it.hasNext();) {
             // pick out requests from current client
             hldr = (cMsgHolder)it.next();
@@ -552,6 +552,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
             msgId = cMsgUtilities.bytesToInt(hldr.array, 0);
             // remove any non-sends
             if (msgId != cMsgConstants.msgSendRequest) {
+//System.out.println("    **** remove client's (non-send) msg from Q");
                 it.remove();
             }
         }
@@ -607,7 +608,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
                 for (Iterator it = nameServer.subscriptions.iterator(); it.hasNext();) {
                     sub = (cMsgServerSubscribeInfo) it.next();
                     if (sub.info == cd) {
-//System.out.println("    **** Removing subs of " + info.getName() + " from subscriptions");
+//System.out.println("    **** Removing subs of " + cd.getName() + " from subscriptions");
                         it.remove();
                     }
                 }
@@ -654,7 +655,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
             // If there are none, continue on, else wait.
             for (cMsgHolder holder : bufferQ) {
                 if (cd == holder.data) {
-//System.out.println("\n*** WAITING ***\n");
+//System.out.println("    **** WAITING for client's sends to process before shutting down subdomain handler ****");
                     try { Thread.sleep(1); }
                     catch (InterruptedException e) {}
                     continue iter;
@@ -664,7 +665,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
 
         // tell client's subdomain handler to shutdown
         if (cd.calledSubdomainShutdown.compareAndSet(false,true)) {
-//System.out.println("Try calling subdh handleClientShutdown method");
+//System.out.println("    **** Try calling subdh handleClientShutdown method");
             try {cd.subdomainHandler.handleClientShutdown();}
             catch (cMsgException e) { e.printStackTrace(); }
         }
@@ -686,7 +687,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
 //System.out.println("DELETING CLIENT End, clients.size = " + clients.size() + ", cli2reg,sz = " +
 //clients2register.size());
 
-//System.out.println("\nDomain Server: EXITING deleteClient for " + cd.getName() + "\n" );
+//System.out.println("\n    **** EXITING deleteClient for " + cd.getName() + "\n" );
     }
 
 
@@ -699,7 +700,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
             System.out.println(">>    DSS: Running Domain Server");
         }
 
-        int n, bytes, tcpPort;
+        int n, bytes=-1, tcpPort;
         SelectableChannel selChannel;
         SocketChannel sockChannel;
         cMsgClientData clientData;
@@ -708,13 +709,16 @@ System.out.println("DELETING CLIENT " + cd.getName());
         try {
             // No UDP use if we're handling a server client
             if (!noUdp) {
-                // set nonblocking mode for the udp socket
-                udpChannel.configureBlocking(false);
-                // register the channel with the selector for reading
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println(">>    DSS: Registering udp socket");
+                try {
+                    // set nonblocking mode for the udp socket
+                    udpChannel.configureBlocking(false);
+                    // register the channel with the selector for reading
+                    if (debug >= cMsgConstants.debugInfo) {
+                        System.out.println(">>    DSS: Registering udp socket");
+                    }
+                    udpChannel.register(selector, SelectionKey.OP_READ);
                 }
-                udpChannel.register(selector, SelectionKey.OP_READ);
+                catch (IOException e) { /* should never happen */ }
             }
 
             // direct byte Buffer for UDP IO use
@@ -732,14 +736,21 @@ System.out.println("DELETING CLIENT " + cd.getName());
                         if (debug >= cMsgConstants.debugInfo) {
                             System.out.println(">>    DSS: Registering client " + clientData.getName() + " with selector");
                         }
-                        clientData.getMessageChannel().register(selector, SelectionKey.OP_READ, clientData);
+
+                        try {
+                            clientData.getMessageChannel().register(selector, SelectionKey.OP_READ, clientData);
+                        }
+                        catch (ClosedChannelException e) { /* if we can't register it, client is dead already */ }
+                        catch (IllegalArgumentException e) { /* never happen */ }
+                        catch (IllegalBlockingModeException e) { /* never happen */}
+
                         it.remove();
                     }
                 }
 
                 // first check to see if we've been commanded to die
                 if (killMainThread) {
-                    selector.close();
+//System.out.println(">>    DSS: ending main thread 1");
                     return;
                 }
 
@@ -774,8 +785,17 @@ System.out.println("DELETING CLIENT " + cd.getName());
                             if (clientData.readingSize) {
 //System.out.println("  try reading size");
                                 clientData.buffer.limit(4);
-                                bytes = sockChannel.read(clientData.buffer);
+                                try {
+                                    bytes = sockChannel.read(clientData.buffer);
+                                }
+                                catch (IOException e) {
+                                    // client has died
+                                    deleteClient(clientData);
+                                    it.remove();
+                                    continue;
+                                }
 //System.out.println("  done reading size, bytes = " + bytes);
+
                                 // for End-of-stream ...
                                 if (bytes == -1) {
                                     // error handling
@@ -805,7 +825,16 @@ System.out.println("DELETING CLIENT " + cd.getName());
 //System.out.println("  try reading rest of buffer");
 //System.out.println("  buffer capacity = " + info.buffer.capacity() + ", limit = " +
 //                      info.buffer.limit() + ", position = " + info.buffer.position() );
-                                bytes = sockChannel.read(clientData.buffer);
+                                try {
+                                    bytes = sockChannel.read(clientData.buffer);
+                                }
+                                catch (IOException e) {
+                                    // client has died
+                                    deleteClient(clientData);
+                                    it.remove();
+                                    continue;
+                                }
+
                                 // for End-of-stream ...
                                 if (bytes == -1) {
                                     // error handling
@@ -832,6 +861,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
                                     }
                                     catch (InterruptedException e) {
                                         if (killMainThread) {
+//System.out.println(">>    DSS: ending main thread 2");
                                             return;
                                         }
                                     }
@@ -849,10 +879,18 @@ System.out.println("DELETING CLIENT " + cd.getName());
                             try {
 //System.out.println("  UDP client " + info.getName() + " is UDP readable");
                                 udpBuffer.clear();
-                                udpSender = (InetSocketAddress)udpChannel.receive(udpBuffer);
+                                // receive blocks here
+                                try {
+                                    udpSender = (InetSocketAddress)udpChannel.receive(udpBuffer);
+                                }
+                                catch (IOException e) {
+                                    it.remove();
+                                    continue;
+                                }
                                 udpBuffer.flip();
                                 if (udpBuffer.limit() < 20) {
 //System.out.println("  CAUGHT SMALL BUFFER, limit = " + udpBuffer.limit());
+                                    it.remove();
                                     continue;
                                 }
                                 if (udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[0] ||
@@ -864,10 +902,6 @@ System.out.println("DELETING CLIENT " + cd.getName());
                                     it.remove();
                                     continue;
                                 }
-                                java.nio.BufferUnderflowException ex;
-//                                else {
-//                                    System.out.println("passed magic # test");
-//                                }
 
                                 // Find out which client this UDP packet came from.
                                 // Since it's a UDP socket we're reading, unlike TCP,
@@ -879,6 +913,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
                                 if (clientData == null) {
                                     // there is no match with current clients so ignore it
 //System.out.println("  UDP host/port does NOT match current clients, ignore it");
+                                    it.remove();
                                     continue;
                                 }
 
@@ -899,6 +934,7 @@ System.out.println("DELETING CLIENT " + cd.getName());
                                 }
                                 catch (InterruptedException e) {
                                     if (killMainThread) {
+//System.out.println(">>    DSS: ending main thread 3");
                                         return;
                                     }
                                 }
@@ -927,6 +963,10 @@ System.out.println("DELETING CLIENT " + cd.getName());
             catch (IOException e) { }
 //System.out.println("DSS selector closed for " + info.getName());
         }
+//System.out.println(">>    DSS: ending main thread, run shutdown");
+
+        // if we're here there are major problems so just shutdown
+        shutdown();
 
         return;
     }
