@@ -1645,6 +1645,7 @@ System.out.println("Main server IO error");
         private void handleRegularClient() throws IOException {
 //System.out.println("getClientInfo: IN");
             InetSocketAddress add = (InetSocketAddress)(channel.socket().getRemoteSocketAddress());
+//debug =  cMsgConstants.debugInfo;
 //            if (debug >= cMsgConstants.debugInfo) {
 //                System.out.println("connecting client:\n  client sending addr = " + add);
 //                System.out.println("  client host = " +  add.getHostName());
@@ -1803,7 +1804,7 @@ System.out.println("Main server IO error");
                 registerClient();
             }
             catch (cMsgException ex) {
-//System.out.println("ERROR coming back to client, failed to register");
+//System.out.println("ERROR coming back to client, failed to register at " + (new Date()));
                 // send int error code to client
                 out.writeInt(ex.getReturnCode());
                 // send error string to client
@@ -1890,18 +1891,24 @@ System.out.println("Main server IO error");
             }
 
             // Run through all existing domain server select objects and remove the
-            // excess -- those not serving any clients over a given limit.
+            // excess -- too many that are not serving any clients (or are dead).
             int dsLimit = 20;
             cMsgDomainServerSelect ds;
             synchronized (availableDomainServers) {
                 if (availableDomainServers.size() > 0) {
                     for (ListIterator it = availableDomainServers.listIterator(); it.hasNext();) {
                         ds = (cMsgDomainServerSelect)it.next();
-                        if (ds.numberOfClients() < 1) {
+                        // thread died, get rid of it (should never happen)
+                        if (!ds.isAlive()) {
+                            it.remove();
+                            ds.shutdown();
+//System.out.println("REMOVED EXISTING DEAD Subdomain Server Select Object");
+                        }
+                        else if (ds.numberOfClients() < 1) {
                             if (dsLimit-- > 0) continue;
                             it.remove();
                             ds.shutdown();
-//System.out.println("REMOVE EXISTING EMPTY Subdomain Server Select Object");
+//System.out.println("REMOVED EXISTING EMPTY Subdomain Server Select Object");
                         }
                     }
                 }
@@ -1919,7 +1926,7 @@ System.out.println("Main server IO error");
                     if (availableDomainServers.size() > 0) {
                         for (ListIterator it = availableDomainServers.listIterator(); it.hasNext();) {
                             ds = (cMsgDomainServerSelect)it.next();
-                            if (ds.numberOfClients() < clientsMax) {
+                            if (ds.numberOfClients() < clientsMax && ds.isAlive()) {
                                 dsServer = ds;
                                 ds.setClientsMax(clientsMax);
                                 // Take this domain server out of list so other clients cannot use
@@ -1948,7 +1955,7 @@ System.out.println("Main server IO error");
                     if (availableDomainServers.size() > 0) {
                         for (ListIterator it = availableDomainServers.listIterator(); it.hasNext();) {
                             ds = (cMsgDomainServerSelect)it.next();
-                            if (ds.numberOfClients() < 1) {
+                            if (ds.numberOfClients() < 1 && ds.isAlive()) {
                                 dsServer = ds;
                                 ds.setClientsMax(1);
                                 it.remove();
@@ -1982,7 +1989,7 @@ System.out.println("Main server IO error");
 //System.out.println("registerClient: client did not make connections to domain server, throw exception");
                     // failed to get proper connections from client, so abort
                     try {
-                        if (info.keepAliveChannel    != null) {
+                        if (info.keepAliveChannel != null) {
                             info.keepAliveChannel.close();
                         }
                         if (info.getMessageChannel() != null) {
@@ -2259,7 +2266,7 @@ System.out.println("Main server IO error");
                         }
 
                         // FINALLY, REGISTER CLIENT!!!
-//System.out.println(">> NS: TRY REGISTERING CLIENT (in subdomain handler)");
+System.out.println(">> NS: TRY REGISTERING CLIENT (in subdomain handler)");
                         subdomainHandler.registerClient(info);
                     }
                     finally {
