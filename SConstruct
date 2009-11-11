@@ -157,6 +157,10 @@ if debug:
     # compile with -g and add debugSuffix to all executable names
     env.Append(CCFLAGS = '-g', PROGSUFFIX = debugSuffix)
 
+elif useVxworks:
+    # no optimization for vxworks
+    junk = 'rt'
+
 elif platform == 'SunOS':
     env.Append(CCFLAGS = '-xO3')
 
@@ -185,8 +189,15 @@ if useVxworks:
         print '\nVxworks compilation not allowed on ' + platform + '\n'
         raise SystemExit
                     
-    env.Append(CPPPATH = vxbase + '/target/h')
+    env.Replace(SHLIBSUFFIX = '.o')
+    # get rid of -shared and use -r
+    env.Replace(SHLINKFLAGS = '-r')
+    # redefine SHCFLAGS/SHCCFLAGS to get rid of -fPIC (in Linux)
+    env.Replace(SHCFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
+    env.Replace(SHCCFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
+    env.Append(CFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
     env.Append(CCFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
+    env.Append(CPPPATH = vxbase + '/target/h')
     env.Append(CPPDEFINES = ['CPU=PPC604', 'VXWORKS', '_GNU_TOOL', 'VXWORKSPPC', 'POSIX_MISTAKE'])
     env['CC']     = 'ccppc'
     env['CXX']    = 'g++ppc'
