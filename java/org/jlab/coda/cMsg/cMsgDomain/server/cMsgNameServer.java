@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
@@ -156,6 +157,12 @@ public class cMsgNameServer extends Thread {
      * This is subdomain independent and applies to the server as a whole.
      */
     String clientPassword;
+
+    /**
+     * Unique key sent to connecting clients for ID purposes
+     * (so this server can identify its responses).
+     */
+    private AtomicInteger clientKey = new AtomicInteger(0);
 
     //--------------------------------------------------------
     // The following class members are associated with the
@@ -1277,8 +1284,13 @@ System.out.println("Main server IO error");
                         return;
                     }
 
+                    // Create unique id number to send to client which it sends back in its
+                    // reponse to this server's communication in order to identify itself.
+                    int uniqueKey = clientKey.incrementAndGet();
+
                     // Create object which holds all data concerning server client
-                    info = new cMsgClientData(name, nsTcpPort, nsMulticastPort, clientHost, myClientPassword);
+                    info = new cMsgClientData(name, nsTcpPort, nsMulticastPort,
+                                              clientHost, myClientPassword, uniqueKey);
 
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println(">> NS: try to register " + name);
@@ -1475,6 +1487,9 @@ System.out.println("Main server IO error");
             // send ok back as acknowledgment
             out.writeInt(cMsgConstants.ok);
 
+            // send unique id number which client sends back to server in order to identify itself
+            out.writeInt(info.clientKey);
+
             // send cMsg domain host & port contact info back to client
             out.writeInt(domainServerPort);
             out.writeInt(info.getDomainHost().length());
@@ -1603,27 +1618,17 @@ System.out.println("Main server IO error");
             // Create a domain server thread, and get back its host & port
             cMsgDomainServerSelect dsServer = new cMsgDomainServerSelect(cMsgNameServer.this, 1, debug, true);
 
-            // accept 2 permanent connections from client
-            synchronized (connectionThread) {
-                // get ready to accept a couple connections from client
-                connectionThread.allowConnections(info);
-                // send client info about connecting to domain server and
-                // about other servers in the cloud
-                replyToServerClient();
-                // client should make a couple connections to domain server (1 sec timeout)
-                if (!connectionThread.gotConnections()) {
-                    try {
-                        if (info.keepAliveChannel    != null) {
-                            info.keepAliveChannel.close();
-                        }
-                        if (info.getMessageChannel() != null) {
-                            info.getMessageChannel().close();
-                        }
-                    }
-                    catch (IOException e) {}
-                    // failed to get proper connections from server client, so abort
-                    throw new cMsgException("server client did not make connections to domain server");
-                }
+            // get ready to accept a couple connections from client
+            connectionThread.allowConnections(info);
+
+            // send client info about connecting to domain server and
+            // about other servers in the cloud
+            replyToServerClient();
+
+            // client should respond by making 2 connections to domain server (20 sec timeout)
+            if (!connectionThread.gotConnections(info, 20)) {
+                // failed to get proper connections from server client, so abort
+                throw new cMsgException("server client did not make connections to domain server");
             }
 
             // kill this thread too if name server thread quits
@@ -1645,13 +1650,13 @@ System.out.println("Main server IO error");
         private void handleRegularClient() throws IOException {
 //System.out.println("getClientInfo: IN");
             InetSocketAddress add = (InetSocketAddress)(channel.socket().getRemoteSocketAddress());
-//debug =  cMsgConstants.debugInfo;
-//            if (debug >= cMsgConstants.debugInfo) {
-//                System.out.println("connecting client:\n  client sending addr = " + add);
-//                System.out.println("  client host = " +  add.getHostName());
-//                System.out.println("  client addr = " +  add.getAddress().getHostAddress());
-//                System.out.println("  client sending port = " +  add.getPort());
-//            }
+debug =  cMsgConstants.debugInfo;
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("connecting client:\n  client sending addr = " + add);
+                System.out.println("  client host = " +  add.getHostName());
+                System.out.println("  client addr = " +  add.getAddress().getHostAddress());
+                System.out.println("  client sending port = " +  add.getPort());
+            }
 
             // is client low/med/high throughput ?
             regime = in.readInt();
@@ -1686,66 +1691,66 @@ System.out.println("Main server IO error");
             // read password
             String password = new String(bytes, offset, lengthPassword, "US-ASCII");
             offset += lengthPassword;
-//            if (debug >= cMsgConstants.debugInfo) {
-//                System.out.println("  password = " + password);
-//            }
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  password = " + password);
+            }
 
             // read domain
             String domainType = new String(bytes, offset, lengthDomainType, "US-ASCII");
             offset += lengthDomainType;
-//            if (debug >= cMsgConstants.debugInfo) {
-//                System.out.println("  domain = " + domainType);
-//            }
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  domain = " + domainType);
+            }
 
             // read subdomain
             String subdomainType = new String(bytes, offset, lengthSubdomainType, "US-ASCII");
             offset += lengthSubdomainType;
-//            if (debug >= cMsgConstants.debugInfo) {
-//                System.out.println("  subdomain = " + subdomainType);
-//            }
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  subdomain = " + subdomainType);
+            }
 
             // Elliott wanted this printed out
-//            if (debug >= cMsgConstants.debugInfo) {
-//                System.out.println("  server port = " + port);
-//            }
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  server port = " + port);
+            }
 
             // read UDL remainder
             String UDLRemainder = new String(bytes, offset, lengthUDLRemainder, "US-ASCII");
             offset += lengthUDLRemainder;
-//            if (debug >= cMsgConstants.debugInfo) {
-//                System.out.println("  remainder = " + UDLRemainder);
-//            }
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  remainder = " + UDLRemainder);
+            }
 
             // read host
             String host = new String(bytes, offset, lengthHost, "US-ASCII");
             offset += lengthHost;
-//            if (debug >= cMsgConstants.debugInfo) {
-//                System.out.println("  host = " + host);
-//            }
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  host = " + host);
+            }
 
             // read name
             String name = new String(bytes, offset, lengthName, "US-ASCII");
             offset += lengthName;
-//            if (debug >= cMsgConstants.debugInfo) {
-//                System.out.println("  name = " + name);
-//            }
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  name = " + name);
+            }
 
             // read UDL
             String UDL = new String(bytes, offset, lengthUDL, "US-ASCII");
             offset += lengthUDL;
-//            if (debug >= cMsgConstants.debugInfo) {
-//                System.out.println("  UDL = " + UDL);
-//            }
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  UDL = " + UDL);
+            }
 
             // read description
             String description = new String(bytes, offset, lengthDescription, "US-ASCII");
-//            if (debug >= cMsgConstants.debugInfo) {
-//                System.out.println("  description = " + description);
-//            }
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  description = " + description);
+            }
 
             // if this is not the domain of server the client is expecting, return an error
             if (!domainType.equalsIgnoreCase(this.domain)) {
-//System.out.println("ERROR coming back to client, bad domain");
+System.out.println("ERROR coming back to client, bad domain");
                 // send error to client
                 out.writeInt(cMsgConstants.errorWrongDomainType);
                 // send error string to client
@@ -1791,11 +1796,16 @@ System.out.println("Main server IO error");
                 }
             }
 
+            // Create unique id number to send to client which it sends back in its
+            // reponse to this server's communication in order to identify itself.
+            int uniqueKey = clientKey.incrementAndGet();
+
             // Try to register this client. If the cMsg system already has a
             // client by this name, it will fail.
             info = new cMsgClientData(name, port, domainServerPort, host,
                                       add.getAddress().getHostAddress(),
-                                      subdomainType, UDLRemainder, UDL, description);
+                                      subdomainType, UDLRemainder, UDL,
+                                      description, uniqueKey);
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println(">> NS: name server try to register " + name);
             }
@@ -1804,7 +1814,8 @@ System.out.println("Main server IO error");
                 registerClient();
             }
             catch (cMsgException ex) {
-//System.out.println("ERROR coming back to client, failed to register at " + (new Date()));
+System.out.println("ERROR coming back to client, failed to register at " + (new Date()));
+                ex.printStackTrace();
                 // send int error code to client
                 out.writeInt(ex.getReturnCode());
                 // send error string to client
@@ -1977,41 +1988,33 @@ System.out.println("Main server IO error");
 //System.out.println("Create new Subdomain Server Object for " + info.getName());
             }
 
-//System.out.println("registerClient: make 2 connections");
-            // accept 2 permanent connections from client
-            synchronized (connectionThread) {
-                // get ready to accept a couple connections from client
-                connectionThread.allowConnections(info);
-                // send client info about domain server
-                sendClientConnectionInfo(subdomainHandler);
-                // client should make a couple connections to domain server (1 sec timeout)
-                if (!connectionThread.gotConnections()) {
-//System.out.println("registerClient: client did not make connections to domain server, throw exception");
-                    // failed to get proper connections from client, so abort
-                    try {
-                        if (info.keepAliveChannel != null) {
-                            info.keepAliveChannel.close();
-                        }
-                        if (info.getMessageChannel() != null) {
-                            info.getMessageChannel().close();
-                        }
-                        subdomainHandler.handleClientShutdown();
-                        deliverer.close();
-                    }
-                    catch (IOException e) {}
-                    throw new cMsgException("client did not make connections to domain server");
-                }
+System.out.println("registerClient: try making 2 connections");
+            // get ready to accept 2 permanent connections from client
+            connectionThread.allowConnections(info);
+
+            // send client info about domain server
+            sendClientConnectionInfo(info, subdomainHandler);
+
+            // client should respond by making 2 connections to domain server (20 sec timeout)
+            if (!connectionThread.gotConnections(info, 20)) {
+System.out.println("registerClient: took too long (> 20 sec) for client to make 2 connections to server");
+                // failed to get proper connections from client, so abort
+                subdomainHandler.handleClientShutdown();
+                deliverer.close();
+                throw new cMsgException("client did not make connections to domain server");
             }
-//System.out.println("registerClient: got 2 connections");
+System.out.println("registerClient: made 2 connections");
 
             // Start the domain server's threads.
             if (regime != cMsgConstants.regimeHigh) {
                 // if threads haven't been started yet ...
+System.out.println("registerClient: is dsServer thread alive ?? = " + dsServer.isAlive());
                 if (!dsServer.isAlive()) {
 //System.out.println("registerClient: STARTING UP DSS threads !!!");
                     // kill this thread too if name server thread quits
                     dsServer.setDaemon(true);
                     dsServer.addClient(info); /* deliverer gets message channel */
+System.out.println("registerClient: about to call startTHreads, is dsServer thread alive ?? = " + dsServer.isAlive());
                     dsServer.startThreads();
                     // store ref to this domain server
                     domainServersSelect.put(dsServer, "");
@@ -2039,10 +2042,11 @@ System.out.println("Main server IO error");
          * and about the domain server port. The client should then make 2 permanent
          * connections to the domain server.
          *
+         * @param cd client data object
          * @param handler subdomain handler object
          * @throws IOException if problems with socket communication
          */
-        private void sendClientConnectionInfo(cMsgSubdomainInterface handler)
+        private void sendClientConnectionInfo(cMsgClientData cd, cMsgSubdomainInterface handler)
                 throws IOException {
 
             // send ok back as acknowledgment
@@ -2059,6 +2063,9 @@ System.out.println("Main server IO error");
             atts[5] = handler.hasUnsubscribe() ? (byte) 1 : (byte) 0;
             atts[6] = handler.hasShutdown() ? (byte) 1 : (byte) 0;
             out.write(atts);
+
+            // send unique id number which client sends back to server in order to identify itself
+            out.writeInt(cd.clientKey);
 
             // send cMsg domain host & port contact info back to client
             out.writeInt(info.getDomainPort());

@@ -229,6 +229,9 @@ public class cMsg extends cMsgDomainAdapter {
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
     AtomicInteger uniqueId;
 
+    /** Unique id sent by server to use in our responses. */
+    int uniqueClientKey;
+
     /** The subdomain server object or client handler implements {@link #send}. */
     boolean hasSend;
 
@@ -819,6 +822,8 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
             domainOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
             domainOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             domainOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+            // send our server-given id
+            domainOut.writeInt(uniqueClientKey);
             domainOut.flush();
 
             // launch thread to start listening on receive end of "sending" socket
@@ -850,6 +855,8 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
             kaOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
             kaOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             kaOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+            // send our server-given id
+            kaOut.writeInt(uniqueClientKey);
             kaOut.flush();
 
             // Create thread to handle dead server with failover capability.
@@ -1211,6 +1218,8 @@ System.out.println("disconnect: IO error");
             domainOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
             domainOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             domainOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+            // send our server-given id
+            domainOut.writeInt(uniqueClientKey);
             domainOut.flush();
 
             // launch thread to start listening on receive end of "sending" socket
@@ -1237,10 +1246,12 @@ System.out.println("disconnect: IO error");
 
             // send magic #s to foil port-scanning
             DataOutputStream kaOut = new DataOutputStream(new BufferedOutputStream(
-                    keepAliveSocket.getOutputStream()));
+                                                                   keepAliveSocket.getOutputStream()));
             kaOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
             kaOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             kaOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+            // send our server-given id
+            kaOut.writeInt(uniqueClientKey);
             kaOut.flush();
 
             // updateServer thread exists, but replace socket
@@ -1445,7 +1456,18 @@ System.out.println("disconnect: IO error");
 
 
     /**
-     * Method to send a message to the domain server over UDP for further distribution.
+     * Method to send a message to the domain server over UDP for further distribution.<p>
+     * NOTE: IP datagrams can hold up to 65535 bytes of payload.
+     * Ethernet frames cannot carry more than 1,500 bytes of payload. So when a UDP packet is
+     * transported over an Ethernet LAN, it may take several Ethernet packets to do it.
+     * IP datagrams larger than the MTU of the link layer are fragmented and sent in multiple
+     * link data units (packets). UDP datagrams can be up to 65535 bytes long (header + payload).
+     * Each UDP datagram maps onto one IP datagram, which is broken into as many fragments as
+     * needed by the link layer at each link along the route. Neither IP nor UDP support
+     * retransmission. A dropped or damaged fragment will cause the entire IP datagram,
+     * and consequently the UDP datagram, to be dropped. UDP does support reassembly of the
+     * datagram, however, through the underlying IP datagram support. In IPv6, it is possible
+     * to have jumbograms, datagrams with more than 65,535 bytes.
      *
      * @param message message to send
      * @throws cMsgException if there are communication problems with the server;
@@ -2740,6 +2762,9 @@ System.out.println("disconnect: IO error");
         hasSubscribe       = (buf[4] == (byte)1);
         hasUnsubscribe     = (buf[5] == (byte)1);
         hasShutdown        = (buf[6] == (byte)1);
+
+        // Read unique id number assigned to us by server
+        uniqueClientKey     = in.readInt();
 
         // Read ports & length of host name.
         domainServerPort    = in.readInt();

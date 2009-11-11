@@ -18,14 +18,15 @@ package org.jlab.coda.cMsg.cMsgDomain.server;
 
 import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgNetworkConstants;
+import org.jlab.coda.cMsg.cMsgException;
 
 import java.nio.channels.*;
 import java.nio.ByteBuffer;
-import java.net.Socket;
 import java.net.InetSocketAddress;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Iterator;
 
 /**
@@ -34,35 +35,43 @@ import java.util.Iterator;
  */
 class cMsgConnectionHandler extends Thread {
 
-    /**
-     * Object containing information about the client this object is connected to.
-     * Certain members of info can only be filled in by this thread,
-     * such as the listening port & host.
-     */
-    cMsgClientData info;
+    /** Convenient storage class. */
+    private class clientInfoStorage {
+        /** How many connections have been made for this client now? */
+        int connectionsMade;
+
+        /** Did attempt to make connections time out? */
+        boolean timedOut;
+
+        /** Object containing information about the client now trying to connect to this server. */
+        cMsgClientData info;
+
+        /** Use this object to signal caller that both the client's connections have been made.  */
+        CountDownLatch finishedConnectionsLatch = new CountDownLatch(1);
+    }
+
+
+    /** Map in which to store the clients currently trying to connect and their associated info. */
+    ConcurrentHashMap<Integer, clientInfoStorage> clients = new ConcurrentHashMap<Integer, clientInfoStorage>(100);
 
     /** Name server object. */
     cMsgNameServer nameServer;
 
-    /** Debug level. */
-    int debug;
-
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
 
-    /** Which connection are we making now? A zero value prevents spurious connections from doing evil. */
-    int connectionNumber;
-
-    /** Kill this thread if true. */
+     /** Kill this thread if true. */
     volatile boolean killThisThread;
 
+    /** Debug level. */
+    int debug;
+
+
     /**
-     * Use this to signal that this server's listening thread has been started
-     * so bridges may be created.
+     * Constructor.
+     * @param nameServer server which contains this object.
+     * @param debug debug level which controls debugging output.
      */
-    CountDownLatch finishedConnectionsLatch;
-
-
     public cMsgConnectionHandler(cMsgNameServer nameServer, int debug) {
         this.nameServer = nameServer;
         this.debug = debug;
@@ -74,68 +83,89 @@ class cMsgConnectionHandler extends Thread {
         this.interrupt();
     }
 
-    /**
-     * This method makes 2 connections to a client. It returns when the connections are complete
-     * with a timeout of 1 second. Be sure to call this method before finishing the server
-     * response to the initial client communication so it can be waiting for the expected
-     * client connections.
-     *
-     * @param info client info object
-     * @return true if connections made, else false
-     */
-    synchronized public boolean makeConnections(cMsgClientData info) {
-        this.info = info;
-        connectionNumber = 1;
-        finishedConnectionsLatch = new CountDownLatch(1);
-        try {
-            boolean ok = finishedConnectionsLatch.await(1, TimeUnit.SECONDS);
-            connectionNumber = 0;
-            return ok;
-        }
-        catch (InterruptedException e) {}
-        connectionNumber = 0;
-        return false;
-    }
-
 
     /**
      * This method allows 2 connections from a client to begin.
-     * It should be used in conjunction with {@link #gotConnections}, and
-     * both of these methods should be used while being simultaneously
-     * synchronized or protected by the same lock.
-     * Be sure to call this method before finishing the name server response to
-     * the initial client communication so it can be waiting for the expected
-     * client connections. 
+     * It should be used in conjunction with {@link #gotConnections} which notifies
+     * caller that connections were made or timeout occurred.<p>
+     * Be sure to call this method <b>before</b> sending the name server response to the
+     * the initial client communication.
      *
      * @param info client info object
      */
-    synchronized public void allowConnections(cMsgClientData info) {
-        this.info = info;
-        connectionNumber = 1;
-        finishedConnectionsLatch = new CountDownLatch(1);
+    public void allowConnections(cMsgClientData info) {
+        // create object to store data of interest
+        clientInfoStorage storage = new clientInfoStorage();
+        storage.info = info;
+
+        // store that object for later retrieval
+        clients.put(info.clientKey, storage);
     }
 
 
     /**
      * This method determines whether or not 2 connections from a client were made
      * after the process was initialized by the method {@link #allowConnections}.
-     * Both of these methods should be used while being simultaneously
-     * synchronized or protected by the same lock.
-     * This method returns when the connections are complete (timeout of 1 second).
-     * Be sure to call this method after finishing the name server response to the
+     * This method returns when the connections are complete or after the timeout period
+     * (whichever is sooner).<p>
+     * Be sure to call this method <b>after</b> finishing the name server response to the
      * initial client communication.
      *
-     * @return true if connections made, else false
+     * @param info client info object
+     * @param secondsToWait number of seconds to wait for connections to be made before returning false
+     * @return {@code true} if connections made, else {@code false}
      */
-    synchronized public boolean gotConnections() {
+    public boolean gotConnections(cMsgClientData info, int secondsToWait) {
+
+        boolean gotConnections = false;
+
+        clientInfoStorage storage = clients.get(info.clientKey);
+        if (storage == null) {
+            return false;
+        }
+
         try {
-            boolean ok = finishedConnectionsLatch.await(1, TimeUnit.SECONDS);
-            connectionNumber = 0;
-            return ok;
+            // wait for notification that both connections are complete
+            gotConnections = storage.finishedConnectionsLatch.await(secondsToWait, TimeUnit.SECONDS);
         }
         catch (InterruptedException e) {}
-        connectionNumber = 0;
-        return false;
+
+        // if we've timed out or been interrupted, clean up after ourselves
+        if (!gotConnections) {
+            cleanupConnections(storage);
+        }
+
+        return gotConnections;
+    }
+
+
+    /**
+     * Cleanup debris when connections are not made, partially made,
+     * or {@link #gotConnections} has timed out.
+     * @param storage object storing client info
+     */
+    public void cleanupConnections(clientInfoStorage storage) {
+        if (storage == null) return;
+
+        // coordinate use of "storage" with server thread
+        synchronized (storage) {
+            clients.remove(storage.info.clientKey);
+            storage.timedOut = true;
+
+            if (storage.info.getMessageChannel() != null) {
+                try {
+                    storage.info.getMessageChannel().close();
+                }
+                catch (IOException e) { }
+            }
+
+            if (storage.info.keepAliveChannel != null) {
+                try {
+                    storage.info.keepAliveChannel.close();
+                }
+                catch (IOException e) { }
+            }
+        }
     }
 
 
@@ -179,9 +209,6 @@ class cMsgConnectionHandler extends Thread {
             System.exit(-1);
         }
 
-        // Direct buffer for reading 3 magic ints with nonblocking IO
-        int BYTES_TO_READ = 12;
-        ByteBuffer buffer = ByteBuffer.allocateDirect(BYTES_TO_READ);
 
         try {
 
@@ -200,121 +227,83 @@ class cMsgConnectionHandler extends Thread {
                     // get an iterator of selected keys (ready sockets)
                     Iterator it = selector.selectedKeys().iterator();
 
-                     // look at each key
-                    keyLoop:
-                     while (it.hasNext()) {
-                         SelectionKey key = (SelectionKey) it.next();
+                    // look at each key
+                    while (it.hasNext()) {
 
-                        // is this a new connection coming in?
+                        SelectionKey key = (SelectionKey) it.next();
+                        it.remove();
+
                         if (!key.isValid()) {
                             return;
                         }
 
+                        // is this a new connection coming in?
                         if (key.isAcceptable()) {
-                            
-                            ServerSocketChannel server = (ServerSocketChannel) key.channel();
                             // accept the connection from the client
-                            SocketChannel channel = server.accept();
-
-                            // Check to see if this is a legitimate rc server client or some imposter.
-                            // Don't want to block on read here since it may not be a real client
-                            // and may block forever - tying up the server.
-                            int bytes, bytesRead=0, loops=0;
-                            buffer.clear();
-                            buffer.limit(BYTES_TO_READ);
-                            channel.configureBlocking(false);
-
-                            // read magic numbers
-                            while (bytesRead < BYTES_TO_READ) {
-//System.out.println("  try reading rest of Buffer");
-//System.out.println("  Buffer capacity = " + buffer.capacity() + ", limit = " + buffer.limit()
-//                    + ", position = " + buffer.position() );
-                                bytes = channel.read(buffer);
-                                // for End-of-stream ...
-                                if (bytes == -1) {
-                                    it.remove();
-                                    channel.close();
-                                    continue keyLoop;
-                                }
-                                bytesRead += bytes;
-//System.out.println("  bytes read = " + bytesRead);
-
-                                // if we've read everything, look to see if it's sent the magic #s
-                                if (bytesRead >= BYTES_TO_READ) {
-                                    buffer.flip();
-                                    int magic1 = buffer.getInt();
-                                    int magic2 = buffer.getInt();
-                                    int magic3 = buffer.getInt();
-                                    if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
-                                        magic2 != cMsgNetworkConstants.magicNumbers[1] ||
-                                        magic3 != cMsgNetworkConstants.magicNumbers[2])  {
-//System.out.println("ConnectionHandler:  Magic numbers did NOT match");
-                                        it.remove();
-                                        channel.close();
-                                        continue keyLoop;
-                                    }
-                                }
-                                else {
-                                    // give client 10 loops (.1 sec) to send its stuff, else no deal
-                                    if (++loops > 10) {
-//System.out.println("ConnectionHandler:  Client taking too long to send 3 ints, terminate connection");
-                                        it.remove();
-                                        channel.close();
-                                        continue keyLoop;
-                                    }
-                                    try { Thread.sleep(10); }
-                                    catch (InterruptedException e) { }
-                                }
-                            }
-
-//System.out.println("ConnectionHandler:  Magic numbers did match");
-                            // set socket options
-                            Socket socket = channel.socket();
-                            // Set tcpNoDelay so no packets are delayed
-                            socket.setTcpNoDelay(true);
-
-//System.out.println(">>    CCH: new connection, num = " + connectionNumber);
-
-                            // The 1st connection is for a client request handling thread
-                            if (connectionNumber == 1) {
-                                // set recv buffer size
-                                socket.setReceiveBufferSize(131072);
-//System.out.println(">>    CCH: channel 1 = " + channel);
-                                // save it in info object
-                                info.setMessageChannel(channel);
-                                // record when client connected
-                                info.monData.birthday = System.currentTimeMillis();
-                                // next connection should be 2nd from this client
-                                connectionNumber = 2;
-                                if (debug >= cMsgConstants.debugInfo) {
-                                    System.out.println(">>    CCH: new connection 1 from " + info.getName());
-                                }
-                           }
-                            // The 2nd connection is for a keep alive thread
-                            else if (connectionNumber == 2) {
-                                // set recv buffer size
-                                socket.setReceiveBufferSize(4096);
-                                // save it in info object
-                                info.keepAliveChannel = channel;
-//System.out.println(">>    CCH: channel 2 = " + channel);
-                                // if there is a spurious connection to this port, ignore it
-                                connectionNumber = 0;
-                                // done with this client
-                                finishedConnectionsLatch.countDown();
-                                if (debug >= cMsgConstants.debugInfo) {
-                                    System.out.println(">>    CCH: new connection 2 from " + info.getName());
-                                }
-                            }
-                            // spurious connection (ie. port-scanning)
-                            else if (connectionNumber == 0) {
-                                channel.close();
-                                if (debug >= cMsgConstants.debugInfo) {
-                                    System.out.println(">>    CCH: attempt at spurious connection");
-                                }
-                            }
+                            SocketChannel sc = ((ServerSocketChannel) key.channel()).accept();
+                            sc.configureBlocking( false );
+                            sc.socket().setTcpNoDelay( true ); // stop Nagling, send all data immediately
+                            sc.register( selector, SelectionKey.OP_READ );
+//System.out.println(">>    CCH: register new client connection");
                         }
 
-                        it.remove();
+                        // is this a channel open for reading?
+                        else if (key.isReadable()) {
+
+                            SocketChannel channel = (SocketChannel) key.channel();
+                            clientInfoStorage storage = null;
+                            try {
+                                storage = readIncomingMessage(key);
+                                // if read not complete ...
+                                if (storage == null) {
+                                    continue;
+                                }
+                            }
+                            catch (Exception e) {
+                                channel.close(); // this will cancel key
+                                continue;
+                            }
+
+//System.out.println(">>    CCH: new connection, num = " + storage.connectionsMade);
+
+                            // Synchronization is used to coordinate with the gotConnections()
+                            // method which may be in the process of timing out for this client.
+                            synchronized (storage) {
+                                // if this client has already timeout, forget about it
+                                if (!storage.timedOut) {
+                                    // record connection just made
+                                    storage.connectionsMade++;
+
+                                    // The 1st connection is for sending client requests
+                                    // and receiving response messages.
+                                    if (storage.connectionsMade == 1) {
+                                        // set recv buffer size
+                                        channel.socket().setReceiveBufferSize(131072);
+//System.out.println(">>    CCH: channel 1 = " + channel);
+                                        // save it in info object
+                                        storage.info.setMessageChannel(channel);
+                                        // record when client connected
+                                        storage.info.monData.birthday = System.currentTimeMillis();
+                                    }
+                                    // The 2nd connection is for a keep-alive/monitoring-data messages
+                                    else if (storage.connectionsMade == 2) {
+                                        // set recv buffer size
+                                        channel.socket().setReceiveBufferSize(4096);
+                                        // save it in info object
+                                        storage.info.keepAliveChannel = channel;
+//System.out.println(">>    CCH: channel 2 = " + channel);
+                                        // report back that connections from this client are done
+                                        storage.finishedConnectionsLatch.countDown();
+                                        // clean up
+                                        clients.remove(storage.info.clientKey);
+                                    }
+                                }
+                            }
+
+                            // Don't need to listen to channel (here) anymore.
+                            // These channels are used by other threads.
+                            key.cancel();
+                        }
                     }
                 }
                 catch (IOException ex) { }
@@ -325,5 +314,85 @@ class cMsgConnectionHandler extends Thread {
             try {selector.close();}      catch (IOException e) { }
         }
     }
+
+
+
+
+    /**
+     * An intelligent read-into-bytebuffer method that seamlessly copes with partial reads.
+     *
+     * NOTE: this server REQUIRES that all incoming messages be preceded by a 3 "magic" ints
+     * which comprise the magic password and must also include the key sent from the cMsgNameServer
+     * to the client before trying to connect here.
+     *
+     * @param key key from return of "select" call
+     * @return client info storage object if finished reading, else null
+     * @throws IOException
+     * @throws cMsgException if client sends magic numbers that are wrong or client key that is bad
+     */
+    private clientInfoStorage readIncomingMessage( SelectionKey key ) throws IOException, cMsgException {
+
+        // The number of bytes to read from a client initially
+        int BYTES_TO_READ = 16;
+
+        SocketChannel channel = (SocketChannel) key.channel();
+
+        // Fetch the buffer we were using on a previous partial read,
+        // or create a new one from scratch.
+        ByteBuffer buffer = (ByteBuffer) key.attachment();
+        if (buffer == null) {
+            buffer = ByteBuffer.allocate(BYTES_TO_READ);
+            key.attach(buffer);
+            buffer.clear();
+            buffer.limit(BYTES_TO_READ);
+        }
+
+        // Check to see if this is a legitimate client or some imposter.
+        // Don't want to block on read since it may not be a real client
+        // and may block forever - tying up the server.
+
+        // read data
+        int bytesRead = channel.read(buffer);
+
+        // if end-of-stream ...
+        if (bytesRead == -1) {
+            throw new IOException("Socket lost connection during read operation");
+        }
+
+//System.out.println("readIncomingMessage:  bytes read = " + bytesRead + ", position = " + buffer.position());
+
+        // if read all necessary data ...
+        if (buffer.position() >= BYTES_TO_READ) {
+
+            // look to see if client's sent the right magic #s
+            buffer.flip();
+
+            int magic1 = buffer.getInt();
+            int magic2 = buffer.getInt();
+            int magic3 = buffer.getInt();
+
+            if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
+                magic2 != cMsgNetworkConstants.magicNumbers[1] ||
+                magic3 != cMsgNetworkConstants.magicNumbers[2])  {
+
+                throw new cMsgException("Wrong magic numbers sent from client");
+            }
+
+            // look to see if client's sent a good client key
+            int uniqueClientKey = buffer.getInt();
+
+            clientInfoStorage storage = clients.get(uniqueClientKey);
+            if (storage == null) {
+                throw new cMsgException("Bad key sent from client or timed out");
+            }
+
+            return storage;
+        }
+
+        // try reading more later
+        return null;
+    }
+
+
 
 }

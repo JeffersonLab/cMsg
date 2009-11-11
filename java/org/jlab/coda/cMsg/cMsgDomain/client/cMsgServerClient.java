@@ -257,6 +257,8 @@ public class cMsgServerClient extends cMsg {
                 domainOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 domainOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 domainOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                // send our server-given id
+                domainOut.writeInt(uniqueClientKey);
                 domainOut.flush();
 
                 // launch thread to start listening on receive end of "sending" socket
@@ -286,6 +288,8 @@ public class cMsgServerClient extends cMsg {
                 kaOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 kaOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 kaOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                // send our server-given id
+                kaOut.writeInt(uniqueClientKey);
                 kaOut.flush();
 
                 // Create thread to send periodic keep alives and handle dead server
@@ -977,6 +981,9 @@ public class cMsgServerClient extends cMsg {
             ex.setReturnCode(error);
             throw ex;
         }
+
+        // Read unique id number assigned to us by server
+        uniqueClientKey  = in.readInt();
 
         // read port & length of host name
         domainServerPort = in.readInt();
