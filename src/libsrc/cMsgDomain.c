@@ -202,7 +202,7 @@ static int  getMonitorInfo(cMsgDomainInfo *domain);
 static int  partialShutdown(void *domainId);
 static int  totalShutdown(void *domainId);
 static int  connectDirect(cMsgDomainInfo *domain, void *domainId);
-static int  talkToNameServer(cMsgDomainInfo *domain, int serverfd);
+static int  talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueClientKey);
 static int  parseUDL(const char *UDL,parsedUDL *parsedUdl);
 static int  unSendAndGet(cMsgDomainInfo *domain, int id);
 static int  unSubscribeAndGet(cMsgDomainInfo *domain, const char *subject,
@@ -1327,10 +1327,11 @@ static void *multicastThd(void *arg) {
  */   
 static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
 
-  int err, serverfd, sendLen, status, outGoing[3];
+  int err, serverfd, sendLen, status, uniqueClientKey, outGoing[4];
   const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
   struct sockaddr_in  servaddr;
-
+cMsgDebug = CMSG_DEBUG_INFO;
+  
   /* Block SIGPIPE for this and all spawned threads. */
   cMsgBlockSignals(domain);
   
@@ -1353,7 +1354,7 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
   }
   
   /* get host & port (domain->sendHost,sendPort) to send messages to */
-  err = talkToNameServer(domain, serverfd);
+  err = talkToNameServer(domain, serverfd, &uniqueClientKey);
   if (err != CMSG_OK) {
     cMsgRestoreSignals(domain);
     close(serverfd);
@@ -1376,6 +1377,12 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
                              domain->sendHost,
                              domain->sendPort);
   }
+
+  /*-----------------------------------------------------*/
+  /* Create 2 permanent connections to cMsg server,      */
+  /* and follow that by launching 2 threads to handle    */
+  /* communication on both sockets.                      */
+  /*-----------------------------------------------------*/
   
   /* create sending & receiving socket and store (128K rcv buf, 128K send buf) */
   if ( (err = cMsgTcpConnect(domain->sendHost,
@@ -1386,10 +1393,16 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
     return(err);
   }  
 
-  /* first send magic #s to server which identifies us as real cMsg client */
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "connectDirect: created sending/receiving socket fd = %d\n", domain->sendSocket);
+  }
+
+  /* first send magic #s to server which identifies us as real cMsg client, then our server-given id */
   outGoing[0] = htonl(CMSG_MAGIC_INT1);
   outGoing[1] = htonl(CMSG_MAGIC_INT2);
   outGoing[2] = htonl(CMSG_MAGIC_INT3);
+  outGoing[3] = htonl(uniqueClientKey);
+
   /* send data over TCP socket */
   sendLen = cMsgTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
   if (sendLen != sizeof(outGoing)) {
@@ -1399,24 +1412,8 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
   }
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: created sending/receiving socket fd = %d\n", domain->sendSocket);
+    fprintf(stderr, "connectDirect: sent magic numbers over sending/receiving socket fd = %d\n", domain->sendSocket);
   }  
-
-  /* launch pend thread and start listening on send socket */
-  status = pthread_create(&domain->pendThread, NULL,
-                          cMsgClientListeningThread, domainId);
-  if (status != 0) {
-    cmsg_err_abort(status, "Creating message listening thread");
-  }
-  
-  /*
-   * This thread DOES NOT NEED to be running before we talk to
-   * the name server. threadArg is used in cMsgClientListeningThread
-   * and its cleanup handler, so do NOT free its memory!
-   */  
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: created listening thread\n");
-  }
 
   /* create keep alive socket and store (default send & rcv buf sizes) */
   if ( (err = cMsgTcpConnect(domain->sendHost,
@@ -1424,32 +1421,47 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
                               0, 0, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
     close(domain->sendSocket);
-    pthread_cancel(domain->pendThread);
-    sched_yield();
+    /*pthread_cancel(domain->pendThread);*/
+    /*sched_yield();*/
     /* Wait until the threads are really dead, cause on return from this function,
      * domain gets freed immediately and will cause seg fault if cleanup still
      * going on. */
-    pthread_join(domain->pendThread, NULL);
+    /*pthread_join(domain->pendThread, NULL);*/
     return(err);
   }
 
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "connectDirect: created keepalive socket fd = %d\n",domain->keepAliveSocket );
+  }
+  
   /* send magic #s over TCP socket */
   sendLen = cMsgTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
   if (sendLen != sizeof(outGoing)) {
     cMsgRestoreSignals(domain);
     close(domain->sendSocket);
     close(domain->keepAliveSocket);
-    pthread_cancel(domain->pendThread);
+/*    pthread_cancel(domain->pendThread);
     sched_yield();
-    pthread_join(domain->pendThread, NULL);
+    pthread_join(domain->pendThread, NULL);*/
     return(CMSG_NETWORK_ERROR);
   }
   
-
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: created keepalive socket fd = %d\n",domain->keepAliveSocket );
+      fprintf(stderr, "connectDirect: sent magic numbers over keepalive socket fd = %d\n",domain->keepAliveSocket );
   }
   
+  /* create pend thread and start listening on send socket */
+  status = pthread_create(&domain->pendThread, NULL,
+                           cMsgClientListeningThread, domainId);
+  if (status != 0) {
+      cmsg_err_abort(status, "Creating message listening thread");
+  }
+  
+  /* The following thread DOES NOT NEED to be running before we talk to the name server. */
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+      fprintf(stderr, "connectDirect: created listening thread\n");
+  }
+
   /* create thread to read periodic keep alives (monitor data) from server */
   status = pthread_create(&domain->keepAliveThread, NULL, keepAliveThread, domainId);
   if (status != 0) {
@@ -1460,9 +1472,8 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
     fprintf(stderr, "connectDirect: created keep alive thread\n");
   }
 
-
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: created update server thread\n");
+    fprintf(stderr, "connectDirect: creating update server thread\n");
   }
   
   /* create thread to send periodic keep alives (monitor data) to server */
@@ -1472,7 +1483,7 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
   }
      
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: created update server thread\n");
+    fprintf(stderr, "connectDirect: created update server thread, will create UDP socket\n");
   }
 
 
@@ -1562,7 +1573,10 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
     return(CMSG_SOCKET_ERROR);
   }
 #endif
-  
+   if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "connectDirect: created UDP socket = %d, done w/connect\n", domain->sendUdpSocket);
+   }
+ 
   return(CMSG_OK);
 }
 
@@ -1588,7 +1602,7 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
 static int reconnect(void *domainId) {
 
     intptr_t index;
-    int i, err, serverfd, status, tblSize, sendLen, outGoing[3];
+    int i, err, serverfd, status, tblSize, sendLen, uniqueClientKey, outGoing[4];
     getInfo *info;
     const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
     struct sockaddr_in  servaddr;
@@ -1618,7 +1632,7 @@ static int reconnect(void *domainId) {
   }
 
   /* get host & port (domain->sendHost,sendPort) to send messages to */
-  err = talkToNameServer(domain, serverfd);
+  err = talkToNameServer(domain, serverfd, &uniqueClientKey);
   if (err != CMSG_OK) {
     close(serverfd);
     return(err);
@@ -1646,10 +1660,11 @@ static int reconnect(void *domainId) {
     return(err);
   }
 
-  /* first send magic #s to server which identifies us as real cMsg client */
+  /* first send magic #s to server which identifies us as real cMsg client, then our server-given id */
   outGoing[0] = htonl(CMSG_MAGIC_INT1);
   outGoing[1] = htonl(CMSG_MAGIC_INT2);
   outGoing[2] = htonl(CMSG_MAGIC_INT3);
+  outGoing[3] = htonl(uniqueClientKey);
   /* send data over TCP socket */
   sendLen = cMsgTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
   if (sendLen != sizeof(outGoing)) {
@@ -5159,23 +5174,25 @@ int cmsg_cmsg_shutdownServers(void *domainId, const char *server, int flag) {
  *
  * @param domain  pointer to element in domain info array
  * @param serverfd  socket to send to cMsg name server
- * @param failoverIndex  index into the array of parsed UDLs of the current UDL.
+ * @param uniqueClientKey pointer to int which gets filled in with unique id sent by server
+ *                        to use in response communications
  * 
  * @returns CMSG_OK if successful
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  * @returns CMSG_NETWORK_ERROR if error in communicating with the server (can't read or write)
  *
  */
-static int talkToNameServer(cMsgDomainInfo *domain, int serverfd) {
+static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueClientKey) {
 
   int  err, lengthDomain, lengthSubdomain, lengthRemainder, lengthPassword;
   int  lengthHost, lengthName, lengthUDL, lengthDescription;
-  int  outGoing[15], inComing[3];
+  int  outGoing[15], inComing[4];
   char temp[CMSG_MAXHOSTNAMELEN], atts[7];
   const char *domainType = "cMsg";
   struct iovec iov[9];
   parsedUDL *pUDL = &domain->currentUDL;
-
+cMsgDebug = CMSG_DEBUG_INFO;
+  
   /* first send magic #s to server which identifies us as real cMsg client */
   outGoing[0] = htonl(CMSG_MAGIC_INT1);
   outGoing[1] = htonl(CMSG_MAGIC_INT2);
@@ -5336,7 +5353,15 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd) {
   if (atts[6] == 1) domain->hasShutdown        = 1;
   
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "talkToNameServer: read port and length of host from server\n");
+      fprintf(stderr, "talkToNameServer: read subdomain handler attributes = \n");
+      fprintf(stderr, "                  hasSend = %d\n", domain->hasSend);
+      fprintf(stderr, "                  hasSyncSend = %d\n", domain->hasSyncSend);
+      fprintf(stderr, "                  hasSubscribeAndGet = %d\n", domain->hasSubscribeAndGet);
+      fprintf(stderr, "                  hasSendAndGet = %d\n", domain->hasSendAndGet);
+      fprintf(stderr, "                  hasSubscribe = %d\n", domain->hasSubscribe);
+      fprintf(stderr, "                  hasUnsubscribe = %d\n", domain->hasUnsubscribe);
+      fprintf(stderr, "                  hasShutdown = %d\n", domain->hasShutdown);
+      fprintf(stderr, "talkToNameServer: read port and length of host from server\n");
   }
   
   /* read port & length of host name to send to*/
@@ -5346,9 +5371,13 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd) {
     }
     return(CMSG_NETWORK_ERROR);
   }
-  domain->sendPort    = ntohl(inComing[0]);
-  domain->sendUdpPort = ntohl(inComing[1]);
-  lengthHost          = ntohl(inComing[2]);
+  
+  if (uniqueClientKey != NULL) {
+    *uniqueClientKey  = ntohl(inComing[0]);
+  }
+  domain->sendPort    = ntohl(inComing[1]);
+  domain->sendUdpPort = ntohl(inComing[2]);
+  lengthHost          = ntohl(inComing[3]);
 
   if (cMsgDebug >= CMSG_DEBUG_INFO) {
     fprintf(stderr, "talkToNameServer: port = %d, host len = %d\n",
