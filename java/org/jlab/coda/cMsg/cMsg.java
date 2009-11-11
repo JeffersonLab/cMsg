@@ -96,7 +96,7 @@ public class cMsg {
 
 
     /**
-     * Constructor which automatically tries to connect to the UDL (domain) specified.
+     * Constructor which creates the object used to connect to the UDL (domain) specified.
      *
      * @param UDL semicolon separated list of Uniform Domain Locators. These UDLs have different specifics
      *            in each domain. In the cMsg domain each of the UDLs specifies a server to connect to
