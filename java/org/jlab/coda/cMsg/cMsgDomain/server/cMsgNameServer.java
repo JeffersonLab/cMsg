@@ -1298,14 +1298,32 @@ System.out.println("Main server IO error");
 
                     // Register this client. If this cMsg server already has a
                     // client by this name (it never should), it will fail.
-                    registerServer();
+                    try {
+                        registerServer();
+                    }
+                    catch (cMsgException ex) {
+System.out.println("SENDING RESPONSE BACK TO CLIENT, ERROR !!!");
+                        // Depending on where in "registerServer" the exception occurs,
+                        // the client may or may not be able to receive the data sent below.
+                        
+                        // send int error code to client
+                        out.writeInt(ex.getReturnCode());
+                        // send error string to client
+                        out.writeInt(ex.getMessage().length());
+                        try {
+                            out.write(ex.getMessage().getBytes("US-ASCII"));
+                        }
+                        catch (UnsupportedEncodingException e) {
+                        }
+
+                        out.flush();
+                    }
                 }
                 finally {
                     // At this point release the "cloud" lock
                     cloudLock.unlock();
                 }
             }
-            catch (cMsgException ex) { }
             catch (IOException ex)   { }
         }
 
