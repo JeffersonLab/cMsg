@@ -156,7 +156,7 @@ class cMsgServerCloudJoiner extends Thread {
                         // If we have not yet connected to the very first incloud server
                         // (given on command line), then exit with error.
                         if (nameServer.getCloudStatus() == cMsgNameServer.NONCLOUD) {
-//System.out.println("      << JR: Cannot connect to given server: " + server + ", so continue");
+//System.out.println("    << JR: Cannot connect to given server: " + server + ", so continue");
 //                            System.out.println(e.getMessage());
                             continue;
                         }
