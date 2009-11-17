@@ -1302,7 +1302,6 @@ System.out.println("Main server IO error");
                         registerServer();
                     }
                     catch (cMsgException ex) {
-System.out.println("SENDING RESPONSE BACK TO CLIENT, ERROR !!!");
                         // Depending on where in "registerServer" the exception occurs,
                         // the client may or may not be able to receive the data sent below.
                         
@@ -1666,15 +1665,14 @@ System.out.println("SENDING RESPONSE BACK TO CLIENT, ERROR !!!");
          * @throws IOException if problems with socket communication
          */
         private void handleRegularClient() throws IOException {
-//System.out.println("getClientInfo: IN");
+
             InetSocketAddress add = (InetSocketAddress)(channel.socket().getRemoteSocketAddress());
-debug =  cMsgConstants.debugInfo;
-            if (debug >= cMsgConstants.debugInfo) {
-                System.out.println("connecting client:\n  client sending addr = " + add);
-                System.out.println("  client host = " +  add.getHostName());
-                System.out.println("  client addr = " +  add.getAddress().getHostAddress());
-                System.out.println("  client sending port = " +  add.getPort());
-            }
+//            if (debug >= cMsgConstants.debugInfo) {
+//                System.out.println("connecting client:\n  client sending addr = " + add);
+//                System.out.println("  client host = " +  add.getHostName());
+//                System.out.println("  client addr = " +  add.getAddress().getHostAddress());
+//                System.out.println("  client sending port = " +  add.getPort());
+//            }
 
             // is client low/med/high throughput ?
             regime = in.readInt();
@@ -1768,7 +1766,7 @@ debug =  cMsgConstants.debugInfo;
 
             // if this is not the domain of server the client is expecting, return an error
             if (!domainType.equalsIgnoreCase(this.domain)) {
-System.out.println("ERROR coming back to client, bad domain");
+//System.out.println("ERROR coming back to client, bad domain");
                 // send error to client
                 out.writeInt(cMsgConstants.errorWrongDomainType);
                 // send error string to client
@@ -1832,7 +1830,7 @@ System.out.println("ERROR coming back to client, bad domain");
                 registerClient();
             }
             catch (cMsgException ex) {
-System.out.println("ERROR coming back to client, failed to register at " + (new Date()));
+//System.out.println("ERROR coming back to client, failed to register at " + (new Date()));
                 ex.printStackTrace();
                 // send int error code to client
                 out.writeInt(ex.getReturnCode());
@@ -2006,7 +2004,6 @@ System.out.println("ERROR coming back to client, failed to register at " + (new 
 //System.out.println("Create new Subdomain Server Object for " + info.getName());
             }
 
-System.out.println("registerClient: try making 2 connections");
             // get ready to accept 2 permanent connections from client
             connectionThread.allowConnections(info);
 
@@ -2015,24 +2012,21 @@ System.out.println("registerClient: try making 2 connections");
 
             // client should respond by making 2 connections to domain server (20 sec timeout)
             if (!connectionThread.gotConnections(info, 20)) {
-System.out.println("registerClient: took too long (> 20 sec) for client to make 2 connections to server");
+//System.out.println("registerClient: took too long (> 20 sec) for client to make 2 connections to server");
                 // failed to get proper connections from client, so abort
                 subdomainHandler.handleClientShutdown();
                 deliverer.close();
                 throw new cMsgException("client did not make connections to domain server");
             }
-System.out.println("registerClient: made 2 connections");
 
             // Start the domain server's threads.
             if (regime != cMsgConstants.regimeHigh) {
                 // if threads haven't been started yet ...
-System.out.println("registerClient: is dsServer thread alive ?? = " + dsServer.isAlive());
                 if (!dsServer.isAlive()) {
 //System.out.println("registerClient: STARTING UP DSS threads !!!");
                     // kill this thread too if name server thread quits
                     dsServer.setDaemon(true);
                     dsServer.addClient(info); /* deliverer gets message channel */
-System.out.println("registerClient: about to call startTHreads, is dsServer thread alive ?? = " + dsServer.isAlive());
                     dsServer.startThreads();
                     // store ref to this domain server
                     domainServersSelect.put(dsServer, "");
