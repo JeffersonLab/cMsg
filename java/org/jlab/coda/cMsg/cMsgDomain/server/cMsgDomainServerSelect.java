@@ -313,11 +313,11 @@ class cMsgDomainServerSelect extends Thread {
     synchronized private void removeClient(cMsgClientData info) {
         String s = clients.remove(info);
         if (s != null) {
-            //System.out.println("removeClient: value removed = " + s);
+//System.out.println("removeClient: value removed = " + s);
             makeDomainServerAvailable();
         }
         else {
-            //System.out.println("removeClient: NOTHING removed");
+//System.out.println("removeClient: NOTHING removed");
         }
     }
 
@@ -534,7 +534,7 @@ class cMsgDomainServerSelect extends Thread {
      * @param cd client data object
      */
     synchronized void deleteClient(cMsgClientData cd) {
-//System.out.println("deleteClient: deleting client " + cd.getName());
+//System.out.println("    **** deleteClient: deleting client " + cd.getName());
 //        Thread.dumpStack();
         // remove from hashmap (otherwise the cMsgMonitorClient object will try to run this method)
         removeClient(cd);
@@ -639,10 +639,10 @@ class cMsgDomainServerSelect extends Thread {
 
             if (debug >= cMsgConstants.debugInfo) {
                 if (b != null && cDat != null) {
-                    System.out.println(">>    DS: DELETED server client FROM BRIDGES AND NAMESERVERS");
+                    System.out.println("    **** DELETED server client FROM BRIDGES AND NAMESERVERS");
                 }
                 else {
-                    System.out.println(">>    DS: COULD NOT DELETE Client FROM BRIDGES AND/OR NAMESERVERS");
+                    System.out.println("    **** COULD NOT DELETE Client FROM BRIDGES AND/OR NAMESERVERS");
                 }
             }
         }
@@ -1146,7 +1146,7 @@ class cMsgDomainServerSelect extends Thread {
 
                         case cMsgConstants.msgDisconnectRequest: // client disconnecting
                             // BUGBUG if no clients left, then what? shutdown domain server?
-System.out.println("Call deleteClient 0");
+//System.out.println("Call deleteClient 0");
                             deleteClient(info);
                             break;
                             // need to shutdown this domain server
@@ -1266,17 +1266,17 @@ System.out.println("Call deleteClient 0");
                                 System.out.println("dServer handleClient: can't understand your message " + info.getName());
                             }
 //System.out.println("Remove connection to client " + info.getName() + " since unknown command received");
-System.out.println("Call deleteClient 1");
+//System.out.println("Call deleteClient 1");
                             deleteClient(info);
                     }
                 }
                 catch (cMsgException ex) {
-System.out.println("Call deleteClient 2");
+//System.out.println("Call deleteClient 2");
                     ex.printStackTrace();
                     deleteClient(info);
                 }
                 catch (IOException ex) {
-System.out.println("Call deleteClient 3");
+//System.out.println("Call deleteClient 3");
                     deleteClient(info);
                 }
             }
