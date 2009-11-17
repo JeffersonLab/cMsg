@@ -403,7 +403,7 @@ public class cMsg extends cMsgSubdomainAdapter {
         synchronized (clients) {
             for (cMsgClientInfo ci : clients) {
                 if ( info.getName().equals(ci.getName()) ) {
-//System.out.println("Already a client by the name of " + info.getName());
+//System.out.println("cmsg subdomain handler: Already a client by the name of " + info.getName());
                     // There already is a client by this name.
                     // Check to see if the namespace is the same as well.
                     if (namespace.equals(ci.getNamespace())) {
