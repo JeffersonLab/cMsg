@@ -250,8 +250,27 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             buffer.flip();
         }
 
+        // Write info to client.
+        // NOTE: If vxworks client, its death will not be detected
+        // when writing, so be careful not to get stuck in infinite
+        // loop.
+        int bytesWritten = 0, totalBytesWritten = 0, tries = 0;
+
         while (buffer.hasRemaining()) {
-            channel.write(buffer);
+            bytesWritten = channel.write(buffer);
+            totalBytesWritten += bytesWritten;
+            // client may be dead so bail
+            if (bytesWritten < 1 && totalBytesWritten < 1) {
+                throw new IOException("Client is presumed dead");
+            }
+            // don't wait more than .1 sec total before giving up on writing
+            else if (totalBytesWritten < buffer.limit()) {
+                if  (++tries > 9) {
+                    throw new IOException("Client is presumed dead");
+                }
+                try { Thread.sleep(10); }
+                catch (InterruptedException e) {}
+            }
         }
 
         return;
@@ -347,8 +366,27 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
         catch (UnsupportedEncodingException e) {/* never happen */}
         buffer.flip();
 
+        // Write info to client.
+        // NOTE: If vxworks client, its death will not be detected
+        // when writing, so be careful not to get stuck in infinite
+        // loop.
+        int bytesWritten = 0, totalBytesWritten = 0, tries = 0;
+
         while (buffer.hasRemaining()) {
-            channel.write(buffer);
+            bytesWritten = channel.write(buffer);
+            totalBytesWritten += bytesWritten;
+            // client may be dead so bail
+            if (bytesWritten < 1 && totalBytesWritten < 1) {
+                throw new IOException("Client is presumed dead");
+            }
+            // don't wait more than .1 sec total before giving up on writing
+            else if (totalBytesWritten < buffer.limit()) {
+                if  (++tries > 9) {
+                    throw new IOException("Client is presumed dead");
+                }
+                try { Thread.sleep(10); }
+                catch (InterruptedException e) {}
+            }
         }
 
         return;
@@ -456,13 +494,32 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
 
         }
 
+        // Write info to client.
+        // NOTE: If vxworks client, its death will not be detected
+        // when writing, so be careful not to get stuck in infinite
+        // loop.
+        int bytesWritten = 0, totalBytesWritten = 0, tries = 0;
+
         while (buffer.hasRemaining()) {
 //System.out.println("deliverer (NIO) : try writing buffer, chan open (" + channel.isOpen() +
 //                    "), connected (" + channel.isConnected() + ")");
-            channel.write(buffer);
+            bytesWritten = channel.write(buffer);
+            totalBytesWritten += bytesWritten;
+            // client may be dead so bail
+            if (bytesWritten < 1 && totalBytesWritten < 1) {
+                throw new IOException("Client is presumed dead");
+            }
+            // don't wait more than .1 sec total before giving up on writing
+            else if (totalBytesWritten < buffer.limit()) {
+                if  (++tries > 9) {
+                    throw new IOException("Client is presumed dead");
+                }
+                try { Thread.sleep(10); }
+                catch (InterruptedException e) {}
+            }
         }
 //System.out.println("deliverer (NIO) : done sending msg");
-
+     
         return;
     }
 
