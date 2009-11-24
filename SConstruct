@@ -285,13 +285,8 @@ Help('install             install libs & headers\n')
 # use "examples" on command line to install executable examples
 Help('examples            install executable examples\n')
 
-# create needed install directories
-if not os.path.exists(incDir):
-    Execute(Mkdir(incDir))
-if not os.path.exists(libDir):
-    Execute(Mkdir(libDir))
-if not os.path.exists(binDir):
-    Execute(Mkdir(binDir))
+# not necessary to create install directories explicitly
+# (done automatically during install)
 
 #########################
 # Tar file
