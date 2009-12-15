@@ -961,6 +961,13 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
      * @param userCalledDisconnect set disconnectCalled to this value
      */
     private void disconnect(boolean userCalledDisconnect) {
+        // The user calling disconnect means all msg flow to callbacks is stopped.
+        // This only comes into play once connect (on this same object) is called
+        // again and this forces the user to call start() again to get msgs flowing.
+        if (userCalledDisconnect) {
+            stop();
+        }
+
         // cannot run this simultaneously with any other public method
         connectLock.lock();
 
