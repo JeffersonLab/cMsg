@@ -249,7 +249,7 @@ public class Database extends cMsgSubdomainAdapter {
     /**
      * Executes sql statement in message text field, returns resultset as payload arrays.
      *
-     * @param message Message to respond to
+     * @param msg Message to respond to
      * @throws cMsgException if error reading database or delivering message to client
      */
     synchronized public void handleSendAndGetRequest(cMsgMessageFull msg) throws cMsgException {
