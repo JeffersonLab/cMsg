@@ -35,7 +35,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     protected volatile boolean connected;
 
     /** Boolean indicating whether this client's callbacks are active or not. */
-    protected boolean receiving;
+    protected volatile boolean receiving;
 
     /**
      * The Uniform Domain Locator which tells the location of a domain. It is of the
