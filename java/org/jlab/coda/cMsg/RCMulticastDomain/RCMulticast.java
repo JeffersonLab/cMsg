@@ -17,7 +17,6 @@
 package org.jlab.coda.cMsg.RCMulticastDomain;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.common.cMsgGetHelper;
 import org.jlab.coda.cMsg.common.*;
 
 import java.net.*;
@@ -26,7 +25,6 @@ import java.util.regex.Matcher;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
 import java.util.*;
@@ -46,9 +44,6 @@ public class RCMulticast extends cMsgDomainAdapter {
     /** The local port used temporarily while multicasting for other rc multicast servers. */
     int localTempPort;
 
-    /** Socket over which to UDP multicast to and check for other rc multicast servers. */
-    DatagramSocket udpSocket;
-
     /** Signal to coordinate the multicasting and waiting for responses. */
     CountDownLatch multicastResponse = new CountDownLatch(1);
 
@@ -58,13 +53,26 @@ public class RCMulticast extends cMsgDomainAdapter {
     /** Runcontrol's experiment id. */
     String expid;
 
-    /** Timeout in milliseconds to wait for server to respond to multicasts. Default is 2 sec. */
-    int multicastTimeout = 2000;
-
+    /** Only allow response to rc clients if server is properly started. */
     volatile boolean acceptingClients;
 
+    /** Only allow response to rc clients if we have a subscription to pass client info to. */
+    volatile boolean hasSubscription;
+
+    /**
+      * Collection of all of this server's subscriptions which are
+      * {@link cMsgSubscription} objects. This set is synchronized.
+      */
+     Set<cMsgSubscription> subscriptions;
+
+    /** Socket over which to UDP multicast to and check for other rc multicast servers. */
+    private MulticastSocket multicastSocket;
+
+    /** Timeout in milliseconds to wait for server to respond to multicasts. Default is 2 sec. */
+    private int multicastTimeout = 2000;
+
     /** Thread that listens for UDP multiunicasts to this server and responds. */
-    rcListeningThread listener;
+    private rcListeningThread listener;
 
     /**
      * This lock is for controlling access to the methods of this class.
@@ -74,27 +82,13 @@ public class RCMulticast extends cMsgDomainAdapter {
     private final ReentrantReadWriteLock methodLock = new ReentrantReadWriteLock();
 
     /** Lock for calling {@link #connect} or {@link #disconnect}. */
-    Lock connectLock = methodLock.writeLock();
+    private Lock connectLock = methodLock.writeLock();
 
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
-    Lock notConnectLock = methodLock.readLock();
+    private Lock notConnectLock = methodLock.readLock();
 
     /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
-    Lock subscribeLock = new ReentrantLock();
-
-   /**
-     * Collection of all of this server's subscriptions which are
-     * {@link cMsgSubscription} objects. This set is synchronized.
-     */
-    Set<cMsgSubscription> subscriptions;
-
-    /**
-     * Collection of all of this server's {@link #subscribeAndGet} calls currently in execution.
-     * SubscribeAndGets are very similar to subscriptions and can be thought of as
-     * one-shot subscriptions. This set is synchronized and contains objects of class
-     * {@link org.jlab.coda.cMsg.common.cMsgGetHelper}.
-     */
-    Set<cMsgGetHelper> subscribeAndGets;
+    private Lock subscribeLock = new ReentrantLock();
 
     /**
      * HashMap of all of this server's callback threads (keys) and their associated
@@ -106,10 +100,10 @@ public class RCMulticast extends cMsgDomainAdapter {
     private Map<Object, cMsgSubscription> unsubscriptions;
 
 
+
     public RCMulticast() throws cMsgException {
         domain = "rcm";
         subscriptions    = new HashSet<cMsgSubscription>(20);
-        subscribeAndGets = Collections.synchronizedSet(new HashSet<cMsgGetHelper>(20));
         unsubscriptions  = Collections.synchronizedMap(new HashMap<Object, cMsgSubscription>(20));
 
         // store our host's name
@@ -214,8 +208,8 @@ public class RCMulticast extends cMsgDomainAdapter {
                 out.close();
 
                 // create socket to send multicasts to other RCMulticast servers
-                udpSocket = new DatagramSocket();
-                localTempPort = udpSocket.getLocalPort();
+                multicastSocket = new MulticastSocket();
+                localTempPort = multicastSocket.getLocalPort();
 
                 InetAddress rcServerMulticastAddress=null;
                 try {rcServerMulticastAddress = InetAddress.getByName(cMsgNetworkConstants.rcMulticast); }
@@ -230,7 +224,7 @@ public class RCMulticast extends cMsgDomainAdapter {
                 listener.killThread();
                 try { out.close();} catch (IOException e1) {}
                 try {baos.close();} catch (IOException e1) {}
-                if (udpSocket != null) udpSocket.close();
+                if (multicastSocket != null) multicastSocket.close();
 
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("I/O Error: " + e);
@@ -259,7 +253,7 @@ public class RCMulticast extends cMsgDomainAdapter {
 //                   " host " + respondingHost + " with EXPID = " + expid);
                 // stop listening thread
                 listener.killThread();
-                udpSocket.close();
+                multicastSocket.close();
                 try {Thread.sleep(500);}
                 catch (InterruptedException e) {}
 
@@ -272,7 +266,7 @@ public class RCMulticast extends cMsgDomainAdapter {
             // Releasing the socket after above line diminishes the chance that
             // a client on the same host will grab that port and be filtered
             // out as being this same server's multicast.
-            udpSocket.close();
+            multicastSocket.close();
 
             // reclaim memory
             multicastResponse = null;
@@ -540,6 +534,9 @@ public class RCMulticast extends cMsgDomainAdapter {
                 // client listening thread may be interating thru subscriptions concurrently
                 // and we're changing the set structure
                 subscriptions.add(newSub);
+
+                // once we have a subscription we can respond to clients
+                hasSubscription = true;
             }
         }
         finally {
@@ -567,13 +564,6 @@ public class RCMulticast extends cMsgDomainAdapter {
             throw new cMsgException("argument is null");
         }
 
-        cMsgSubscription sub = unsubscriptions.remove(obj);
-        // already unsubscribed
-        if (sub == null) {
-            return;
-        }
-        cMsgCallbackThread cbThread = (cMsgCallbackThread) obj;
-
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
         // cannot run this simultaneously with subscribe or itself
@@ -588,11 +578,24 @@ public class RCMulticast extends cMsgDomainAdapter {
             // If there are still callbacks left,
             // don't unsubscribe for this subject/type.
             synchronized (subscriptions) {
-                cbThread.dieNow(false);
-                sub.getCallbacks().remove(cbThread);
-                if (sub.numberOfCallbacks() < 1) {
-                    subscriptions.remove(sub);
+                cMsgSubscription sub = unsubscriptions.remove(obj);
+
+                // if not already unsubscribed. do so
+                if (sub != null) {
+                    cMsgCallbackThread cbThread = (cMsgCallbackThread) obj;
+                    cbThread.dieNow(false);
+                    sub.getCallbacks().remove(cbThread);
+                    if (sub.numberOfCallbacks() < 1) {
+                        subscriptions.remove(sub);
+                    }
                 }
+
+                // If there are no more subscriptions, we may not respond to clients
+                // (since they will stop multicasting/searching for server).
+                if (subscriptions.size() < 1) {
+                    hasSubscription = false;
+                }
+
             }
         }
         finally {
@@ -604,72 +607,6 @@ public class RCMulticast extends cMsgDomainAdapter {
 
 
 //-----------------------------------------------------------------------------
-
-
-    /**
-     * This method is like a one-time subscribe. The rc server grabs an incoming
-     * message and sends that to the caller. In this domain, subject and type are
-     * ignored.
-     *
-     * @param subject ignored
-     * @param type ignored
-     * @param timeout {@inheritDoc}
-     * @return {@inheritDoc}
-     * @throws cMsgException if there are communication problems with rc client;
-     *                       subject and/or type is null or blank
-     * @throws TimeoutException if timeout occurs
-     */
-    public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
-            throws cMsgException, TimeoutException {
-
-
-        cMsgGetHelper helper = null;
-
-        // cannot run this simultaneously with connect or disconnect
-        notConnectLock.lock();
-
-        try {
-            if (!connected) {
-                throw new cMsgException("not connected to rc client");
-            }
-
-            // create cMsgGetHelper object (not callback thread object)
-            helper = new cMsgGetHelper();
-
-            // keep track of get calls
-            subscribeAndGets.add(helper);
-        }
-        // release lock 'cause we can't block connect/disconnect forever
-        finally {
-            notConnectLock.unlock();
-        }
-
-        // WAIT for the msg-receiving thread to wake us up
-        try {
-            synchronized (helper) {
-                if (timeout > 0) {
-                    helper.wait(timeout);
-                }
-                else {
-                    helper.wait();
-                }
-            }
-        }
-        catch (InterruptedException e) {
-        }
-
-        // Check the message stored for us in helper.
-        if (helper.isTimedOut()) {
-            // remove the get
-            subscribeAndGets.remove(helper);
-            throw new TimeoutException();
-        }
-
-        // If msg is received, server has removed subscription from his records.
-        // Client listening thread has also removed subscription from client's
-        // records (subscribeAndGets HashSet).
-        return helper.getMessage();
-    }
 
 
 
@@ -700,7 +637,7 @@ public class RCMulticast extends cMsgDomainAdapter {
 
                     try {
 //System.out.println("  Send multicast packet to RC Multicast server");
-                        udpSocket.send(packet);
+                        multicastSocket.send(packet);
                     }
                     catch (IOException e) {
                         e.printStackTrace();

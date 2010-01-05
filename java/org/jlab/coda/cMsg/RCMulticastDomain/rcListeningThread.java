@@ -17,7 +17,6 @@
 package org.jlab.coda.cMsg.RCMulticastDomain;
 
 import org.jlab.coda.cMsg.*;
-import org.jlab.coda.cMsg.common.cMsgGetHelper;
 import org.jlab.coda.cMsg.common.cMsgCallbackThread;
 import org.jlab.coda.cMsg.common.cMsgSubscription;
 import org.jlab.coda.cMsg.common.cMsgMessageFull;
@@ -108,7 +107,7 @@ class rcListeningThread extends Thread {
         DataOutputStream out       = new DataOutputStream(baos);
 
         try {
-            // Put our special #s, UDP listening port, and host into byte array
+            // Put our special #s, UDP listening port, host, & expid into byte array
             out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
@@ -265,11 +264,15 @@ class rcListeningThread extends Thread {
                 }
                 // if multicast from client ...
                 else if (msgType == cMsgNetworkConstants.rcDomainMulticastClient) {
-                    // Send a reply - some integer, our multicast port, host,
+                    // Send a reply - some integers, our multicast port, host,
                     // and expid so the client can filter out any rogue responses.
-                    // All we want to communicate is that the client
-                    // was heard and can now stop multicasting.
-                    if (!server.acceptingClients) {
+                    // All we want to communicate is that the client was heard and
+                    // can now stop multicasting.
+                    // HOWEVER, we cannot send a reply (and have the clients stop muliticasting
+                    // and looking for the server) and NOT have an active subscription waiting on
+                    // this end to process the client's request. So before we accept a client, make
+                    // sure we are able to process the connection.
+                    if (!server.acceptingClients || !server.hasSubscription || !server.isReceiving()) {
 //System.out.println("Server is not accepting clients right now, ignore multicast");
                         continue;
                     }
@@ -345,39 +348,18 @@ class rcListeningThread extends Thread {
 
 
     /**
-     * This method runs all callbacks - each in their own thread -
-     * for server subscribe and subscribeAndGet calls. In this domain
-     * there is no matching of subject and type, all messages are sent
-     * to all callbacks.
+     * This method runs all callbacks - each in their own thread - for server subscribe calls.
+     * In this domain there is no matching of subject and type, all messages are sent to all callbacks.
      *
      * @param msg incoming message
      */
     private void runCallbacks(cMsgMessageFull msg) {
 
-        // handle subscribeAndGets
-        Set<cMsgGetHelper> set1 = server.subscribeAndGets;
-
-        synchronized (set1) {
-            if (set1.size() > 0) {
-                // for each subscribeAndGet called by this server ...
-                for (cMsgGetHelper helper : set1) {
-                    helper.setTimedOut(false);
-                    helper.setMessage(msg.copy());
-                    // Tell the subscribeAndGet-calling thread to wakeup
-                    // and retrieve the held msg
-                    synchronized (helper) {
-                        helper.notify();
-                    }
-                }
-                server.subscribeAndGets.clear();
-            }
-        }
-
         // handle subscriptions
-        Set<cMsgSubscription> set2 = server.subscriptions;
+        Set<cMsgSubscription> set = server.subscriptions;
 
-        synchronized (set2) {
-            if (set2.size() > 0) {
+        synchronized (set) {
+            if (set.size() > 0) {
                 // if callbacks have been stopped, return
                 if (!server.isReceiving()) {
                     if (debug >= cMsgConstants.debugInfo) {
@@ -388,7 +370,7 @@ class rcListeningThread extends Thread {
 
                 // set is NOT modified here
                 // for each subscription of this server ...
-                for (cMsgSubscription sub : set2) {
+                for (cMsgSubscription sub : set) {
                     // run through all callbacks
                     for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
                         // The callback thread copies the message given
