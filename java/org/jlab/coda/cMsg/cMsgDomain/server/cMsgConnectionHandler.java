@@ -118,9 +118,9 @@ class cMsgConnectionHandler extends Thread {
     public boolean gotConnections(cMsgClientData info, int secondsToWait) {
 
         boolean gotConnections = false;
-
-System.out.println(">>    CCH: gotConnections: client " + info.getName() + " has key = " + info.clientKey);
-        clientInfoStorage storage = clients.get(info.clientKey);
+        int clientKey = info.clientKey;
+System.out.println(">>    CCH: gotConnections: client " + info.getName() + " has key = " + clientKey);
+        clientInfoStorage storage = clients.get(clientKey);
 System.out.println(">>    CCH: gotConnections: retrieved storage object = " + storage);
         if (storage == null) {
 System.out.println(">>    CCH: gotConnections: storage = null so return immediately");
@@ -137,6 +137,10 @@ System.out.println(">>    CCH: gotConnections: wait for connections to be made f
         // if we've timed out or been interrupted, clean up after ourselves
         if (!gotConnections) {
             cleanupConnections(storage);
+        }
+        // else general clean up
+        else {
+            clients.remove(clientKey);
         }
 
 System.out.println(">>    CCH: gotConnections: successful");
@@ -303,7 +307,7 @@ System.out.println(">>    CCH: error, close channel");
                                         // report back that connections from this client are done
                                         storage.finishedConnectionsLatch.countDown();
                                         // clean up
-                                        clients.remove(storage.info.clientKey);
+                                        //clients.remove(storage.info.clientKey);
                                     }
                                 }
                             }
