@@ -88,6 +88,11 @@ public class cMsgNameServer extends Thread {
      */
     private cMsgMonitorClient monitorThread;
 
+    /**
+     * Use this to signal the point at which all of this object's vital threads have been
+     * successfully started (after calling {@link #startServer(String, boolean)}) .
+     */
+    CountDownLatch threadsStartedSignal = new CountDownLatch(3);
 
     /**
      * Set of all active cMsgDomainServer objects. It is implemented as a HashMap
@@ -808,8 +813,26 @@ public class cMsgNameServer extends Thread {
         }
         connectionThread = new cMsgConnectionHandler(this, debug);
         connectionThread.start();
+
+        // Wait until all necessary threads have successfully started before returning,
+        // otherwise we may have a race condition where a client is attempting
+        // to connect while necessary threads in this object are still being started.
+        try {
+            boolean everythingStarted = threadsStartedSignal.await(30L, TimeUnit.SECONDS);
+            if (!everythingStarted) {
+                System.out.println(">> **** cMsg server NOT started due to theads taking too long to start **** <<");
+                shutdown();
+                return;
+            }
+        }
+        catch (InterruptedException e) {
+            System.out.println(">> **** cMsg server NOT started due to interrupt **** <<");
+            shutdown();
+            return;
+        }
+
         // next line in by Elliott Wolin's request
-System.out.println(">> **** cMsg server sucessfully started on " + (new Date()) + " **** <<");
+System.out.println(">> **** cMsg server sucessfully started at " + (new Date()) + " **** <<");
     }
 
 
@@ -999,6 +1022,9 @@ System.out.println(">> **** cMsg server sucessfully started on " + (new Date()) 
         int BYTES_TO_READ = 12;
         ByteBuffer buffer = ByteBuffer.allocateDirect(BYTES_TO_READ > respond.length ?
                                                       BYTES_TO_READ : respond.length);
+
+        // tell startServer that this thread has started
+        threadsStartedSignal.countDown();
 
         Selector selector = null;
 

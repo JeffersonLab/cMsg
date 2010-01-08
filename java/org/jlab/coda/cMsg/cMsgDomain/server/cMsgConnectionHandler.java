@@ -209,6 +209,8 @@ class cMsgConnectionHandler extends Thread {
             System.exit(-1);
         }
 
+        // tell startServer that this thread has started
+        nameServer.threadsStartedSignal.countDown();
 
         try {
 
