@@ -1865,6 +1865,7 @@ System.out.println("Main server IO error");
             // Create unique id number to send to client which it sends back in its
             // reponse to this server's communication in order to identify itself.
             int uniqueKey = clientKey.incrementAndGet();
+System.out.println("\n>> NS: assigning key = " + uniqueKey + " to " + name + "\n");
 
             // Try to register this client. If the cMsg system already has a
             // client by this name, it will fail.

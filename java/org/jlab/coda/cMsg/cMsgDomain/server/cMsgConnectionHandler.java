@@ -119,13 +119,17 @@ class cMsgConnectionHandler extends Thread {
 
         boolean gotConnections = false;
 
+System.out.println(">>    CCH: gotConnections: client " + info.getName() + " has key = " + info.clientKey);
         clientInfoStorage storage = clients.get(info.clientKey);
+System.out.println(">>    CCH: gotConnections: retrieved storage object = " + storage);
         if (storage == null) {
+System.out.println(">>    CCH: gotConnections: storage = null so return immediately");
             return false;
         }
 
         try {
             // wait for notification that both connections are complete
+System.out.println(">>    CCH: gotConnections: wait for connections to be made for " + info.getName());
             gotConnections = storage.finishedConnectionsLatch.await(secondsToWait, TimeUnit.SECONDS);
         }
         catch (InterruptedException e) {}
@@ -135,6 +139,7 @@ class cMsgConnectionHandler extends Thread {
             cleanupConnections(storage);
         }
 
+System.out.println(">>    CCH: gotConnections: sucdessful");
         return gotConnections;
     }
 
