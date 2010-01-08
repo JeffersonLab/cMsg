@@ -210,7 +210,7 @@ class cMsgConnectionHandler extends Thread {
         }
 
         // tell startServer that this thread has started
-        nameServer.threadsStartedSignal.countDown();
+        nameServer.preConnectionThreadsStartedSignal.countDown();
 
         try {
 

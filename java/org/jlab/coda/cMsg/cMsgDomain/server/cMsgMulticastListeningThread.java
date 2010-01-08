@@ -33,6 +33,9 @@ import java.io.UnsupportedEncodingException;
  */
 class cMsgMulticastListeningThread extends Thread {
 
+    /** Name server object. */
+    cMsgNameServer server;
+
     /** cMsg name server's main TCP listening port. */
      private int serverTcpPort;
 
@@ -63,13 +66,15 @@ class cMsgMulticastListeningThread extends Thread {
     /**
      * Constructor.
      *
+     * @param nameServer the cMsg name server that started this thread
      * @param port cMsg name server's main tcp listening port
      * @param socket udp socket on which to receive multicasts from cMsg clients
      * @param password cMsg server's client password
      * @param debug cMsg server's debug level
      */
-    public cMsgMulticastListeningThread(int port, int multicastPort,
+    public cMsgMulticastListeningThread(cMsgNameServer nameServer, int port, int multicastPort,
                                         MulticastSocket socket, String password, int debug) {
+        server          = nameServer;
         multicastSocket = socket;
         serverTcpPort   = port;
         serverUdpPort   = multicastPort;
@@ -127,6 +132,11 @@ class cMsgMulticastListeningThread extends Thread {
                 System.out.println("I/O Error: " + e);
             }
         }
+        
+        // Tell whoever is waiting for this thread to start, that
+        // it has now started.
+        server.listeningThreadsStartedSignal.countDown();
+
 
         // listen for multicasts and interpret packets
         try {

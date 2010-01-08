@@ -20,7 +20,6 @@ import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgConstants;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -86,7 +85,7 @@ class cMsgServerCloudJoiner extends Thread {
         // before going out and connecting to servers that will turn
         // around and connect back to this one.
         try {
-            nameServer.listeningThreadStartedSignal.await();
+            nameServer.listeningThreadsStartedSignal.await();
         }
         catch (InterruptedException e) {
         }
@@ -231,7 +230,7 @@ class cMsgServerCloudJoiner extends Thread {
             // Set our new status as part of our own cloud
             nameServer.setCloudStatus(cMsgNameServer.INCLOUD);
             // Allow client and server connections
-            nameServer.allowConnectionsSignal.countDown();
+            nameServer.allowConnectionsCloudSignal.countDown();
             return;
         }
 
@@ -476,7 +475,7 @@ class cMsgServerCloudJoiner extends Thread {
         nameServer.setCloudStatus(cMsgNameServer.INCLOUD);
 
         // Allow client and server connections
-        nameServer.allowConnectionsSignal.countDown();
+        nameServer.allowConnectionsCloudSignal.countDown();
 
     }
 

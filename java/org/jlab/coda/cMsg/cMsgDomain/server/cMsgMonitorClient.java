@@ -92,7 +92,7 @@ class cMsgMonitorClient extends Thread {
     public void run() {
 
         // tell startServer that this thread has started
-        server.threadsStartedSignal.countDown();
+        server.preConnectionThreadsStartedSignal.countDown();
 
         // There is a problem with vxWorks clients in that its sockets are
         // global and do not close when the client disappears. In fact, the

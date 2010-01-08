@@ -89,10 +89,18 @@ public class cMsgNameServer extends Thread {
     private cMsgMonitorClient monitorThread;
 
     /**
-     * Use this to signal the point at which all of this object's vital threads have been
-     * successfully started (after calling {@link #startServer(String, boolean)}) .
+     * There are 2 threads which must be running before client connections are allowed.
+     * Use this object to signal the point at which both of these threads have been
+     * successfully started (during {@link #startServer(String, boolean)}) .
      */
-    CountDownLatch threadsStartedSignal = new CountDownLatch(3);
+    CountDownLatch preConnectionThreadsStartedSignal = new CountDownLatch(2);
+
+    /**
+     * There are 2 threads which must be running before client connections are allowed.
+     * Use this object to signal the point at which both of these threads have been
+     * successfully started (during {@link #startServer(String, boolean)}) .
+     */
+    CountDownLatch postConnectionThreadsStartedSignal = new CountDownLatch(2);
 
     /**
      * Set of all active cMsgDomainServer objects. It is implemented as a HashMap
@@ -190,16 +198,16 @@ public class cMsgNameServer extends Thread {
     volatile cMsgServerBridge bridgeBeingCreated;
 
     /**
-     * Use this to signal that this server's listening thread has been started
-     * so bridges may be created.
+     * Use this to signal that this server's listening threads have been started
+     * so bridges may be created and clients may connect.
      */
-    CountDownLatch listeningThreadStartedSignal = new CountDownLatch(1);
+    CountDownLatch listeningThreadsStartedSignal = new CountDownLatch(2);
 
     /**
      * Use this to signal the point at which other servers and clients
-     * are allowed to connect to this server.
+     * are allowed to connect to this server due to server cloud issues.
      */
-    CountDownLatch allowConnectionsSignal = new CountDownLatch(1);
+    CountDownLatch allowConnectionsCloudSignal = new CountDownLatch(1);
 
     /** Server is in the server cloud. */
     static final byte INCLOUD  = 0;
@@ -739,9 +747,41 @@ public class cMsgNameServer extends Thread {
      *                   allow any server to join this one
      */
     public void startServer(String serverToJoin, boolean standAlone) {
-        // start this server
+
+        // Start thread to gather monitor info
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println(">> NS: Start keepalive/monitoring thread ");
+        }
+        monitorThread = new cMsgMonitorClient(this, debug);
+        monitorThread.start();
+
+        // Start domain server connection thread
+        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println(">> NS: Start connection handling thread");
+        }
+        connectionThread = new cMsgConnectionHandler(this, debug);
+        connectionThread.start();
+
+        // Wait until these 2 threads have successfully started before continuing,
+        // otherwise we may have a race condition where a client connecting while
+        // these threads are still being started.
+        try {
+            boolean threadsStarted = preConnectionThreadsStartedSignal.await(20L, TimeUnit.SECONDS);
+            if (!threadsStarted) {
+                System.out.println(">> **** cMsg server NOT started due to theads taking too long to start **** <<");
+                shutdown();
+                return;
+            }
+        }
+        catch (InterruptedException e) {
+            System.out.println(">> **** cMsg server NOT started due to interrupt **** <<");
+            shutdown();
+            return;
+        }
+
+        // start this name server accepting client connections
         start();
-//System.out.println("startServer; IN");
+
         if (standAlone) {
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println(">> NS: Running in stand-alone mode");
@@ -749,7 +789,7 @@ public class cMsgNameServer extends Thread {
             // if we're not joining a cloud, and we're not letting anyone join us
             cloudStatus = NONCLOUD;
             // allow client connections
-            allowConnectionsSignal.countDown();
+            allowConnectionsCloudSignal.countDown();
         }
         // Create a bridge to another server (if specified) which
         // will also generate a connection to this server from that
@@ -779,7 +819,7 @@ public class cMsgNameServer extends Thread {
                 // since we're not joining a cloud, then we're by definition the nucleas of one
                 cloudStatus = INCLOUD;
                 // allow client connections
-                allowConnectionsSignal.countDown();
+                allowConnectionsCloudSignal.countDown();
             }
             else {
                 new cMsgServerCloudJoiner(this, port, multicastPort, serverSet, debug);
@@ -789,38 +829,25 @@ public class cMsgNameServer extends Thread {
             // if we're not joining a cloud, then we're by definition the nucleas of one
             cloudStatus = INCLOUD;
             // allow client connections
-            allowConnectionsSignal.countDown();
+            allowConnectionsCloudSignal.countDown();
         }
 
-        // start UDP listening thread
+        // start UDP listening thread for multicasters trying to connect
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println(">> NS: Start multicast thd on port "  + multicastPort);
         }
-        multicastThread = new cMsgMulticastListeningThread(port, multicastPort, multicastSocket,
+        multicastThread = new cMsgMulticastListeningThread(this, port, multicastPort, multicastSocket,
                                                            clientPassword, debug);
         multicastThread.start();
 
-        // Start thread to gather monitor info
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println(">> NS: Start keepalive/monitoring thread ");
-        }
-        monitorThread = new cMsgMonitorClient(this, debug);
-        monitorThread.start();
-
-        // Start domain server connection thread
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println(">> NS: Start connection handling thread");
-        }
-        connectionThread = new cMsgConnectionHandler(this, debug);
-        connectionThread.start();
-
-        // Wait until all necessary threads have successfully started before returning,
-        // otherwise we may have a race condition where a client is attempting
-        // to connect while necessary threads in this object are still being started.
+        // Wait until these 2 listening threads have successfully started before continuing.
+        // The Afecs platform starts a cmsg name server and immediately does a connect to it
+        // in the same JVM. In such cases we need to avoid a race condition whereby a client
+        // connects while these threads are still being started.
         try {
-            boolean everythingStarted = threadsStartedSignal.await(30L, TimeUnit.SECONDS);
-            if (!everythingStarted) {
-                System.out.println(">> **** cMsg server NOT started due to theads taking too long to start **** <<");
+            boolean threadsStarted = listeningThreadsStartedSignal.await(20L, TimeUnit.SECONDS);
+            if (!threadsStarted) {
+                System.out.println(">> **** cMsg server NOT started due to listening theads taking too long to start **** <<");
                 shutdown();
                 return;
             }
@@ -1023,9 +1050,6 @@ System.out.println(">> **** cMsg server sucessfully started at " + (new Date()) 
         ByteBuffer buffer = ByteBuffer.allocateDirect(BYTES_TO_READ > respond.length ?
                                                       BYTES_TO_READ : respond.length);
 
-        // tell startServer that this thread has started
-        threadsStartedSignal.countDown();
-
         Selector selector = null;
 
         try {
@@ -1045,7 +1069,7 @@ System.out.println(">> **** cMsg server sucessfully started at " + (new Date()) 
             // which is waiting must first create a bridge to another
             // server who then must make a reciprocal connection to this
             // server (right here as a matter of fact).
-            listeningThreadStartedSignal.countDown();
+            listeningThreadsStartedSignal.countDown();
 
             while (true) {
                 // 3 second timeout
@@ -1486,7 +1510,7 @@ System.out.println("Main server IO error");
                     try {
                         // Wait here up to 5 sec if the connecting server is not allowed to connect.
 //System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connection");
-                        if (!allowConnectionsSignal.await(5L, TimeUnit.SECONDS)) {
+                        if (!allowConnectionsCloudSignal.await(5L, TimeUnit.SECONDS)) {
                             cMsgException ex = new cMsgException("nameserver not in server cloud - timeout error");
                             ex.setReturnCode(cMsgConstants.errorTimeout);
                             throw ex;
@@ -1921,7 +1945,7 @@ System.out.println("Main server IO error");
                 // has joined the cloud of cMsg subdomain name servers).
                 try {
                     // If we've timed out ...
-                    if (!allowConnectionsSignal.await(5L, TimeUnit.SECONDS)) {
+                    if (!allowConnectionsCloudSignal.await(5L, TimeUnit.SECONDS)) {
                         cMsgException ex = new cMsgException("nameserver not in server cloud - timeout error");
                         ex.setReturnCode(cMsgConstants.errorTimeout);
                         throw ex;
