@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Iterator;
 
 /**
@@ -60,7 +61,13 @@ class cMsgConnectionHandler extends Thread {
     /** Server channel (contains socket). */
     private ServerSocketChannel serverChannel;
 
-     /** Kill this thread if true. */
+    /**
+     * Unique key sent to connecting clients for ID purposes
+     * (so this object can identify its responses).
+     */
+    private AtomicInteger clientKey = new AtomicInteger(0);
+
+    /** Kill this thread if true. */
     volatile boolean killThisThread;
 
     /** Debug level. */
@@ -83,6 +90,25 @@ class cMsgConnectionHandler extends Thread {
         this.interrupt();
     }
 
+    /**
+     * Get a unique key to use as client identification which is used
+     * in forming the 2 permanent client connections using this object.
+     *
+     * @return unique key
+     */
+    synchronized public int getUniqueKey() {
+        int uniqueKey;
+
+        // check to see if key is already an entry in the hash table (highly unlikely)
+        while (true) {
+            uniqueKey = clientKey.incrementAndGet();
+            if (!clients.containsKey(uniqueKey)) {
+                break;
+            }
+        }
+
+        return uniqueKey;
+    }
 
     /**
      * This method allows 2 connections from a client to begin.
@@ -119,17 +145,14 @@ class cMsgConnectionHandler extends Thread {
 
         boolean gotConnections = false;
         int clientKey = info.clientKey;
-System.out.println(">>    CCH: gotConnections: client " + info.getName() + " has key = " + clientKey);
+
         clientInfoStorage storage = clients.get(clientKey);
-System.out.println(">>    CCH: gotConnections: retrieved storage object = " + storage);
         if (storage == null) {
-System.out.println(">>    CCH: gotConnections: storage = null so return immediately");
             return false;
         }
 
         try {
             // wait for notification that both connections are complete
-System.out.println(">>    CCH: gotConnections: wait for connections to be made for " + info.getName());
             gotConnections = storage.finishedConnectionsLatch.await(secondsToWait, TimeUnit.SECONDS);
         }
         catch (InterruptedException e) {}
@@ -143,7 +166,6 @@ System.out.println(">>    CCH: gotConnections: wait for connections to be made f
             clients.remove(clientKey);
         }
 
-System.out.println(">>    CCH: gotConnections: successful");
         return gotConnections;
     }
 
@@ -218,7 +240,7 @@ System.out.println(">>    CCH: gotConnections: successful");
             System.exit(-1);
         }
 
-        // tell startServer that this thread has started
+        // tell startServer() that this thread has started
         nameServer.preConnectionThreadsStartedSignal.countDown();
 
         try {
@@ -271,7 +293,6 @@ System.out.println(">>    CCH: gotConnections: successful");
                                 }
                             }
                             catch (Exception e) {
-System.out.println(">>    CCH: error, close channel");
                                 channel.close(); // this will cancel key
                                 continue;
                             }
@@ -306,8 +327,6 @@ System.out.println(">>    CCH: error, close channel");
 //System.out.println(">>    CCH: channel 2 = " + channel);
                                         // report back that connections from this client are done
                                         storage.finishedConnectionsLatch.countDown();
-                                        // clean up
-                                        //clients.remove(storage.info.clientKey);
                                     }
                                 }
                             }
@@ -394,7 +413,6 @@ System.out.println(">>    CCH: error, close channel");
             int uniqueClientKey = buffer.getInt();
 
             clientInfoStorage storage = clients.get(uniqueClientKey);
-System.out.println("      readIncomingMessage:  client key = " + uniqueClientKey + ", storage = " + storage);
             if (storage == null) {
                 throw new cMsgException("Bad key sent from client or timed out");
             }

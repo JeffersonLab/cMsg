@@ -24,7 +24,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.nio.channels.Selector;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
@@ -79,8 +78,8 @@ public class cMsgNameServer extends Thread {
     /** Thread which receives client multicasts. */
     private cMsgMulticastListeningThread multicastThread;
 
-    /** Thread which handles the permanen client connections. */
-    private cMsgConnectionHandler connectionThread;
+    /** Thread which handles the permanent client connections. */
+    private cMsgConnectionHandler connectionHandler;
 
     /**
      * Thread which monitors the health of clients. It also sends and receives
@@ -170,12 +169,6 @@ public class cMsgNameServer extends Thread {
      * This is subdomain independent and applies to the server as a whole.
      */
     String clientPassword;
-
-    /**
-     * Unique key sent to connecting clients for ID purposes
-     * (so this server can identify its responses).
-     */
-    private AtomicInteger clientKey = new AtomicInteger(0);
 
     //--------------------------------------------------------
     // The following class members are associated with the
@@ -759,8 +752,8 @@ public class cMsgNameServer extends Thread {
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println(">> NS: Start connection handling thread");
         }
-        connectionThread = new cMsgConnectionHandler(this, debug);
-        connectionThread.start();
+        connectionHandler = new cMsgConnectionHandler(this, debug);
+        connectionHandler.start();
 
         // Wait until these 2 threads have successfully started before continuing,
         // otherwise we may have a race condition where a client connecting while
@@ -877,7 +870,7 @@ System.out.println(">> **** cMsg server sucessfully started at " + (new Date()) 
         // Shutdown UDP listening thread
         multicastThread.killThread();
         // Shutdown connecting new clients thread
-        connectionThread.killThread();
+        connectionHandler.killThread();
         // Shutdown monitoring clients thread
         monitorThread.killThread();
 
@@ -1336,7 +1329,7 @@ System.out.println("Main server IO error");
 
                     // Create unique id number to send to client which it sends back in its
                     // reponse to this server's communication in order to identify itself.
-                    int uniqueKey = clientKey.incrementAndGet();
+                    int uniqueKey = connectionHandler.getUniqueKey();
 
                     // Create object which holds all data concerning server client
                     info = new cMsgClientData(name, nsTcpPort, nsMulticastPort,
@@ -1686,14 +1679,14 @@ System.out.println("Main server IO error");
             cMsgDomainServerSelect dsServer = new cMsgDomainServerSelect(cMsgNameServer.this, 1, debug, true);
 
             // get ready to accept a couple connections from client
-            connectionThread.allowConnections(info);
+            connectionHandler.allowConnections(info);
 
             // send client info about connecting to domain server and
             // about other servers in the cloud
             replyToServerClient();
 
             // client should respond by making 2 connections to domain server (20 sec timeout)
-            if (!connectionThread.gotConnections(info, 20)) {
+            if (!connectionHandler.gotConnections(info, 20)) {
                 // failed to get proper connections from server client, so abort
                 throw new cMsgException("server client did not make connections to domain server");
             }
@@ -1864,8 +1857,7 @@ System.out.println("Main server IO error");
 
             // Create unique id number to send to client which it sends back in its
             // reponse to this server's communication in order to identify itself.
-            int uniqueKey = clientKey.incrementAndGet();
-System.out.println("\n>> NS: assigning key = " + uniqueKey + " to " + name + "\n");
+            int uniqueKey = connectionHandler.getUniqueKey();
 
             // Try to register this client. If the cMsg system already has a
             // client by this name, it will fail.
@@ -2056,13 +2048,13 @@ System.out.println("\n>> NS: assigning key = " + uniqueKey + " to " + name + "\n
             }
 
             // get ready to accept 2 permanent connections from client
-            connectionThread.allowConnections(info);
+            connectionHandler.allowConnections(info);
 
             // send client info about domain server
             sendClientConnectionInfo(info, subdomainHandler);
 
             // client should respond by making 2 connections to domain server (20 sec timeout)
-            if (!connectionThread.gotConnections(info, 20)) {
+            if (!connectionHandler.gotConnections(info, 20)) {
 //System.out.println("registerClient: took too long (> 20 sec) for client to make 2 connections to server");
                 // failed to get proper connections from client, so abort
                 subdomainHandler.handleClientShutdown();
