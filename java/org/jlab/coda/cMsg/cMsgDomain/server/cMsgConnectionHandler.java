@@ -139,7 +139,7 @@ System.out.println(">>    CCH: gotConnections: wait for connections to be made f
             cleanupConnections(storage);
         }
 
-System.out.println(">>    CCH: gotConnections: sucdessful");
+System.out.println(">>    CCH: gotConnections: successful");
         return gotConnections;
     }
 
@@ -267,6 +267,7 @@ System.out.println(">>    CCH: gotConnections: sucdessful");
                                 }
                             }
                             catch (Exception e) {
+System.out.println(">>    CCH: error, close channel");
                                 channel.close(); // this will cancel key
                                 continue;
                             }
@@ -389,6 +390,7 @@ System.out.println(">>    CCH: gotConnections: sucdessful");
             int uniqueClientKey = buffer.getInt();
 
             clientInfoStorage storage = clients.get(uniqueClientKey);
+System.out.println("      readIncomingMessage:  client key = " + uniqueClientKey + ", storage = " + storage);
             if (storage == null) {
                 throw new cMsgException("Bad key sent from client or timed out");
             }
