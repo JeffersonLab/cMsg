@@ -1,5 +1,21 @@
 # scons build file for cmsg
-Import('env', 'libDir', 'incDir', 'debugSuffix')
+    
+Import('env', 'libDir', 'incDir', 'archIncDir', 'debugSuffix')
+import os
+from os import sep
+
+headerList = ['cMsg.h',
+              'cMsgConstants.h',
+              'cMsgDomain.h',
+              'cMsgNetwork.h',
+              'cMsgPrivate.h']
+
+linkList = [archIncDir + sep + 'cMsg.h',
+            archIncDir + sep + 'cMsgConstants.h',
+            archIncDir + sep + 'cMsgDomain.h',
+            archIncDir + sep + 'cMsgNetwork.h',
+            archIncDir + sep + 'cMsgPrivate.h']
+
 
 fileList = ['cMsg.c',
            'cMsgCompoundPayload.c',
@@ -19,6 +35,7 @@ fileList = ['cMsg.c',
 
 env.AppendUnique(CPPPATH = ['.', '#src/regexp'])
 cmsgLib = env.SharedLibrary(target = 'cmsg'+debugSuffix, source = fileList)
-
-env.Alias("install", env.Install(target = incDir, source = ['cMsg.h','cMsgConstants.h']))
+env.Alias("install", env.Install(target = incDir, source = headerList))
 env.Alias("install", env.Install(target = libDir, source = cmsgLib))
+# create symbolic links to installed header files
+env.Alias("install", env.CreateSymbolicLinks(target = linkList, source = env.Install(target = incDir, source = headerList)))

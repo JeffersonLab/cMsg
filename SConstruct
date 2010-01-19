@@ -16,6 +16,7 @@
 import os
 import string
 import SCons.Node.FS
+from os import access, F_OK, sep, symlink, lstat
 
 os.umask(022)
 
@@ -33,6 +34,49 @@ osname   = platform + '-' +  machine
 # This allows us to get to the vxworks compiler for example.
 # So for vxworks, make sure the tools are in your PATH
 env = Environment(ENV = {'PATH' : os.environ['PATH']})
+
+####################################################################################
+# Create a Builder to install symbolic links, where "source" is list of node objects
+# of the existing files, and "target" is a list of node objects of link files.
+# NOTE: link file must have same name as its source file.
+####################################################################################
+def buildSymbolicLinks(target, source, env):    
+    # For each file to create a link for ...
+    for s in source:
+        filename = os.path.basename(str(s))
+
+        # is there a corresponding link to make?
+        makeLink = False
+        for t in target:
+            linkname = os.path.basename(str(t))
+            if not linkname == filename:
+                continue
+            else :
+                makeLink = True
+                break
+
+        # go to next source since no corresponding link
+        if not makeLink:
+            continue
+        
+        # If link exists don't recreate it
+        try:
+            # Test if the symlink exists
+            lstat(str(t))
+        except OSError:
+            # OK, symlink doesn't exist so create it
+            pass
+        else:
+            continue
+
+        print "Create link = " + str(t)
+        symlink(str(s), str(t))
+
+    return None
+
+
+symLinkBuilder = Builder(action = buildSymbolicLinks)
+env.Append(BUILDERS = {'CreateSymbolicLinks' : symLinkBuilder})
 
 ################################
 # 64 or 32 bit operating system?
@@ -271,6 +315,7 @@ else:
 # set our install directories
 libDir = prefix + "/" + osname + '/lib'
 binDir = prefix + "/" + osname + '/bin'
+archIncDir = prefix + "/" + osname + '/include'
 incDir = prefix + '/include'
 print 'binDir = ', binDir
 print 'libDir = ', libDir
@@ -321,7 +366,7 @@ Help('tar                 create tar file (in ./tar)\n')
 ######################################################
 
 # make available to lower level scons files
-Export('env incDir libDir binDir archDir execLibs tarfile debugSuffix')
+Export('env incDir libDir binDir archIncDir archDir execLibs tarfile debugSuffix')
 
 # run lower level build files
 env.SConscript('src/regexp/SConscript',   variant_dir='src/regexp/'+archDir,   duplicate=0)
