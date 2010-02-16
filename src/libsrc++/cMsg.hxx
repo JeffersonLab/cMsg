@@ -50,7 +50,7 @@ using namespace std;
 /**
  * Exception includes description and return code.
  */
-class cMsgException : public exception {
+class cMsgException : public std::exception {
 
 public:
   cMsgException(void);
