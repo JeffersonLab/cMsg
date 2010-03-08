@@ -228,7 +228,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
         /** This method is executed as a thread which runs the callback method */
         public void run() {
             int empty;
-            cMsgMessageFull message;
+            cMsgMessageFull message, msgCopy;
 
             while (true) {
                 empty = 0;
@@ -252,7 +252,6 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                     // a memory leak for a timeout in a LinkedBlockingQueue.
                     try {
                         message = messageQueue.poll(200, TimeUnit.MILLISECONDS);
-                        if (message != null) message.setContext(context);
                     }
                     catch (InterruptedException e) {
                     }
@@ -278,7 +277,9 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 }
                 // run callback with copied msg so multiple callbacks don't clobber each other
                 msgCount++;
-                callback.callback(message.copy(), arg);
+                msgCopy = message.copy();
+                msgCopy.setContext(context);
+                callback.callback(msgCopy, arg);
             }
         }
     }
