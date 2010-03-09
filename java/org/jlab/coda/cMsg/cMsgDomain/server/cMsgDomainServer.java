@@ -613,8 +613,10 @@ class cMsgDomainServer extends Thread {
             //System.out.println("type = " + msg.getType());
 
             // read payload text
-            msg.setPayloadText(new String(buf, bufIndex += lengthType, lengthPayloadTxt, "US-ASCII"));
-            //System.out.println("payload text = " + msg.getPayloadText());
+            if (lengthPayloadTxt > 0) {
+                msg.setPayloadText(new String(buf, bufIndex += lengthType, lengthPayloadTxt, "US-ASCII"));
+                //System.out.println("payload text = " + msg.getPayloadText());
+            }
 
             // read text
             msg.setText(new String(buf, bufIndex += lengthPayloadTxt, lengthText, "US-ASCII"));
@@ -958,9 +960,11 @@ class cMsgDomainServer extends Thread {
             offset += lengthType;
 
             // read payload text
-            msg.setPayloadText(new String(bytes, offset, lengthPayloadTxt, "US-ASCII"));
-            //System.out.println("payload text = " + msg.getPayloadText());
-            offset += lengthPayloadTxt;
+            if (lengthPayloadTxt > 0) {
+                msg.setPayloadText(new String(bytes, offset, lengthPayloadTxt, "US-ASCII"));
+                //System.out.println("payload text = " + msg.getPayloadText());
+                offset += lengthPayloadTxt;
+            }
 
             // read text
             msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));
@@ -1053,8 +1057,10 @@ class cMsgDomainServer extends Thread {
             }
 
             // read payload text
-            msg.setPayloadText(new String(bytes, offset, lengthPayloadTxt, "US-ASCII"));
-            offset += lengthPayloadTxt;
+            if (lengthPayloadTxt > 0) {
+                msg.setPayloadText(new String(bytes, offset, lengthPayloadTxt, "US-ASCII"));
+                offset += lengthPayloadTxt;
+            }
 
             // read text
             msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));

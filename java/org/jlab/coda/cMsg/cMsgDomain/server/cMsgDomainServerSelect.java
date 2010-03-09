@@ -1477,9 +1477,6 @@ class cMsgDomainServerSelect extends Thread {
                 index += lengthPayloadTxt;
                 msg.setPayloadText(s);
             }
-            else {
-                msg.setPayloadText("");
-            }
 
             // read text
             if (lengthText > 0) {
