@@ -1897,7 +1897,6 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @return creator of this message.
      */
     public String getPayloadText() {
-        if (payloadText != null && payloadText.length() < 1) return null;
         return payloadText;
     }
 
