@@ -326,9 +326,11 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
             // if messages may not be skipped ...
             if (!callback.maySkipMessages()) {
                 try {
-                    // Block trying to put msg on queue. That should propagate
+                    // Block trying to put msg on queue. That will propagate
                     // back pressure through the whole cmsg system.
-                    messageQueue.put(message);
+                    while (!messageQueue.offer(message, 10, TimeUnit.SECONDS)) {
+                        System.out.println("Cannot place incoming message on full queue, wait 10 seconds");
+                    }
                 }
                 catch (InterruptedException e) {
                 }
