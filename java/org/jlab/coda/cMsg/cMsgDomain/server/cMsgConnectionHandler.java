@@ -321,7 +321,8 @@ class cMsgConnectionHandler extends Thread {
                                     // The 2nd connection is for a keep-alive/monitoring-data messages
                                     else if (storage.connectionsMade == 2) {
                                         // set recv buffer size
-                                        channel.socket().setReceiveBufferSize(4096);
+                                        channel.socket().setReceiveBufferSize(8192);
+                                        channel.socket().setSendBufferSize(8192);
                                         // save it in info object
                                         storage.info.keepAliveChannel = channel;
 //System.out.println(">>    CCH: channel 2 = " + channel);
