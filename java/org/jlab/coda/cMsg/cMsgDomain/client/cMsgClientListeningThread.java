@@ -54,7 +54,7 @@ class cMsgClientListeningThread extends Thread {
     private Socket socket;
 
     /** Socket input stream associated with channel. */
-    DataInputStream  in;
+    DataInputStream in;
 
     /** Allocate byte array once (used for reading in data) for efficiency's sake. */
     byte[] bytes = new byte[65536];
@@ -84,7 +84,7 @@ class cMsgClientListeningThread extends Thread {
         debug = client.getDebug();
 
         // buffered communication streams for efficiency
-        in  = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 65536));
+        in = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 65536));
         // die if no more non-daemon thds running
         setDaemon(true);
     }
@@ -104,7 +104,7 @@ class cMsgClientListeningThread extends Thread {
     /**
      * If reconnecting to another server as part of a failover, we must change to
      * another channel.
-     * BUGBUG How do we call this while waiting on read???
+     * TODO: How do we call this while waiting on read???
      *
      * @param sock main communication socket with server
      * @throws IOException if channel is closed
@@ -252,6 +252,114 @@ class cMsgClientListeningThread extends Thread {
 
     /**
      * This method reads an incoming message from the server.
+     * Currently not used.
+     *
+     * @param array array of data to parse for message
+     * @return message read from channel
+     * @throws IOException if error parsing array
+     */
+    private cMsgMessageFull readIncomingMessage(byte[] array) throws IOException {
+
+        // create a message
+        cMsgMessageFull msg = new cMsgMessageFull();
+
+        // already read msgId
+        int index = 4;
+
+        msg.setVersion(cMsgUtilities.bytesToInt(array, index));     index += 4;
+                                                                    index += 4;  // skip 4 bytes
+        msg.setUserInt(cMsgUtilities.bytesToInt(array, index));     index += 4;
+        // mark the message as having been sent over the wire & having expanded payload
+        msg.setInfo(cMsgUtilities.bytesToInt(array, index) | cMsgMessage.wasSent | cMsgMessage.expandedPayload); index += 4;
+
+        // time message was sent = 2 ints (hightest byte first)
+        // in milliseconds since midnight GMT, Jan 1, 1970
+        long time = ((long) cMsgUtilities.bytesToInt(array, index) << 32) |
+                    ((long) cMsgUtilities.bytesToInt(array, index+4) & 0x00000000FFFFFFFFL);
+        msg.setSenderTime(new Date(time));
+        index += 8;
+
+        // user time
+        time = ((long) cMsgUtilities.bytesToInt(array, index) << 32) |
+               ((long) cMsgUtilities.bytesToInt(array, index+4) & 0x00000000FFFFFFFFL);
+        msg.setUserTime(new Date(time));
+        index += 8;
+
+        msg.setSysMsgId(cMsgUtilities.bytesToInt(array, index));    index += 4;
+        msg.setSenderToken(cMsgUtilities.bytesToInt(array, index)); index += 4;
+
+        // String lengths
+        int lengthSender      = cMsgUtilities.bytesToInt(array, index);    index += 4;
+        int lengthSenderHost  = cMsgUtilities.bytesToInt(array, index);    index += 4;
+        int lengthSubject     = cMsgUtilities.bytesToInt(array, index);    index += 4;
+        int lengthType        = cMsgUtilities.bytesToInt(array, index);    index += 4;
+        int lengthPayloadTxt  = cMsgUtilities.bytesToInt(array, index);    index += 4;
+        int lengthText        = cMsgUtilities.bytesToInt(array, index);    index += 4;
+        int lengthBinary      = cMsgUtilities.bytesToInt(array, index);    index += 4;
+
+        // read sender
+        msg.setSender(new String(array, index, lengthSender, "US-ASCII"));
+        //System.out.println("sender = " + msg.getSender());
+        index += lengthSender;
+
+        // read senderHost
+        msg.setSenderHost(new String(array, index, lengthSenderHost, "US-ASCII"));
+        //System.out.println("senderHost = " + msg.getSenderHost());
+        index += lengthSenderHost;
+
+        // read subject
+        msg.setSubject(new String(array, index, lengthSubject, "US-ASCII"));
+        //System.out.println("subject = " + msg.getSubject());
+        index += lengthSubject;
+
+        // read type
+        msg.setType(new String(array, index, lengthType, "US-ASCII"));
+        //System.out.println("type = " + msg.getType());
+        index += lengthType;
+
+        // read payload text
+        if (lengthPayloadTxt > 0) {
+            String s = new String(array, index, lengthPayloadTxt, "US-ASCII");
+            // setting the payload text is done by setFieldsFromText
+//System.out.println("payload text = " + s);
+            index += lengthPayloadTxt;
+            try {
+                msg.setFieldsFromText(s, cMsgMessage.allFields);
+            }
+            catch (cMsgException e) {
+                System.out.println("msg payload is in the wrong format: " + e.getMessage());
+            }
+        }
+
+        // read text
+        if (lengthText > 0) {
+            msg.setText(new String(array, index, lengthText, "US-ASCII"));
+            index += lengthText;
+            //System.out.println("text = " + msg.getText());
+        }
+
+        // read binary array
+        if (lengthBinary > 0) {
+            try {
+                msg.setByteArray(array, index, lengthBinary);
+            }
+            catch (cMsgException e) {
+            }
+        }
+
+        // fill in message object's members
+        msg.setDomain(domainType);
+        msg.setReceiver(client.getName());
+        msg.setReceiverHost(client.getHost());
+        msg.setReceiverTime(new Date()); // current time
+//System.out.println("MESSAGE RECEIVED");
+
+        return msg;
+    }
+
+
+    /**
+     * This method reads an incoming message from the server.
      *
      * @return message read from channel
      * @throws IOException if socket read or write error
@@ -261,6 +369,7 @@ class cMsgClientListeningThread extends Thread {
         // create a message
         cMsgMessageFull msg = new cMsgMessageFull();
         msg.setVersion(in.readInt());
+
         // second incoming integer is for future use
         in.skipBytes(4);
         msg.setUserInt(in.readInt());
@@ -284,7 +393,6 @@ class cMsgClientListeningThread extends Thread {
         int lengthPayloadText = in.readInt();
         int lengthText        = in.readInt();
         int lengthBinary      = in.readInt();
-        //acknowledge = in.readInt() == 1;
 
         // bytes expected
         int stringBytesToRead = lengthSender + lengthSenderHost + lengthSubject +
@@ -321,7 +429,7 @@ class cMsgClientListeningThread extends Thread {
         if (lengthPayloadText > 0) {
             String s = new String(bytes, offset, lengthPayloadText, "US-ASCII");
             // setting the payload text is done by setFieldsFromText
-            //System.out.println("payload text = " + s);
+//System.out.println("payload text = " + s);
             offset += lengthPayloadText;
             try {
                 msg.setFieldsFromText(s, cMsgMessage.allFields);
@@ -447,7 +555,6 @@ class cMsgClientListeningThread extends Thread {
             for (cMsgSubscription sub : map.keySet()) {
                 // if subject & type of incoming message match those in subscription ...
                 if (sub.matches(msg.getSubject(), msg.getType())) {
-                    //if (cMsgMessageMatcher.matches(msg.getSubject(), msg.getType(), sub)) {
                     // run through all callbacks
                     for (cMsgCallbackThread cbThread : sub.getCallbacks()) {
                         // The callback thread copies the message given
