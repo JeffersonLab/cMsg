@@ -2302,150 +2302,157 @@ public class cMsgMessage implements Cloneable, Serializable {
         int index1, index2, firstIndex;
         boolean debug = false;
 
-        if (text == null) throw new cMsgException("bad argument");
+        try {
+
+            if (text == null) throw new cMsgException("bad argument");
 //System.out.println("Text to decode:\n" + text + "\n\n");
-        // read number of fields to come
-        index1 = 0;
-        index2 = text.indexOf('\n');
-        if (index2 < 1) throw new cMsgException("bad format1");
+            // read number of fields to come
+            index1 = 0;
+            index2 = text.indexOf('\n');
+            if (index2 < 1) throw new cMsgException("bad format1");
 
-        String sub = text.substring(index1, index2);
-        int fields = Integer.parseInt(sub);
+            String sub = text.substring(index1, index2);
+            int fields = Integer.parseInt(sub);
 
-        if (fields < 1) throw new cMsgException("bad format2");
-        if (debug) System.out.println("# fields = " + fields);
+            if (fields < 1) throw new cMsgException("bad format2");
+            if (debug) System.out.println("# fields = " + fields);
 
-        // get rid of any existing payload
-        resetPayload();
+            // get rid of any existing payload
+            resetPayload();
 
-        String name, tokens[];
-        int dataType, count, noHeaderLen=0, headerLen, totalItemLen;
-        boolean ignore, isSystem;
+            String name, tokens[];
+            int dataType, count, noHeaderLen=0, headerLen, totalItemLen;
+            boolean ignore, isSystem;
 
-        // loop through all fields in payload
-        for (int i = 0; i < fields; i++) {
+            // loop through all fields in payload
+            for (int i = 0; i < fields; i++) {
 
-if (debug) System.out.println("index1 = " + index1 + ", index2 = " + index2);
-            firstIndex = index1 = index2 + 1;
-            index2 = text.indexOf('\n', index1);
-if (debug) System.out.println("index1 = " + index1 + ", index2 = " + index2);
-            if (index2 < 1) throw new cMsgException("bad format3");
-            sub = text.substring(index1, index2);
-if (debug) System.out.println("Header text = " + sub);
+                if (debug) System.out.println("index1 = " + index1 + ", index2 = " + index2);
+                firstIndex = index1 = index2 + 1;
+                index2 = text.indexOf('\n', index1);
+                if (debug) System.out.println("index1 = " + index1 + ", index2 = " + index2);
+                if (index2 < 1) throw new cMsgException("bad format3");
+                sub = text.substring(index1, index2);
+                if (debug) System.out.println("Header text = " + sub);
 
-            // dissect line into 5 separate values
-            tokens = sub.split(" ");
-            //if (tokens.length != 5) throw new cMsgException("bad format4");
-if (debug) System.out.println("# items on headler line = " + tokens.length);
-            name        = tokens[0];
-            dataType    = Integer.parseInt(tokens[1]);
-            count       = Integer.parseInt(tokens[2]);
-            isSystem    = Integer.parseInt(tokens[3]) != 0;
-            // There may be extra spaces between these last two values.
-            // This must be accounted for as zero-len strings
-            // are included as tokens.
-            for (int j=4; j<tokens.length; j++) {
-                if (tokens[j].length() < 1) continue;
-                noHeaderLen = Integer.parseInt(tokens[j]);
-            }
-
-            // length of header line
-            headerLen = index2 - index1 + 1;
-            // length of whole item in chars
-            totalItemLen = headerLen + noHeaderLen;
-
-if (debug) System.out.println("FIELD #" + i + ": name = " + name + ", type = " + dataType +
-                    ", count = " + count + ", isSys = " + isSystem + ", len header = " + headerLen +
-                    ", len noheader = " + noHeaderLen + ", sub len = " + sub.length());
-
-            if (name.length() < 1 || count < 1 || noHeaderLen < 1 ||
-                    dataType < cMsgConstants.payloadStr ||
-                    dataType > cMsgConstants.payloadBinA) throw new cMsgException("bad format5");
-
-            // ignore certain fields (by convention, system fields start with "cmsg")
-            ignore = isSystem;                  // by default ignore system fields, flag == payloadFieldsOnly
-            if (flag == systemFieldsOnly)  ignore = !ignore;  // only set system fields
-            else if (flag == allFields)    ignore = false;    // deal with all fields
-
-            /* skip over fields to be ignored */
-            if (ignore) {
-                for (int j = 0; j < count; j++) {
-                    // Skip over field
-                    index1 = ++index2 + headerLen;
-                    index2 = text.indexOf('\n', index1);
-                    if (index2 < 1 && i != fields - 1) throw new cMsgException("bad format6");
-if (debug) System.out.println("  skipped field");
+// dissect line into 5 separate values
+                tokens = sub.split(" ");
+                //if (tokens.length != 5) throw new cMsgException("bad format4");
+                if (debug) System.out.println("# items on headler line = " + tokens.length);
+                name        = tokens[0];
+                dataType    = Integer.parseInt(tokens[1]);
+                count       = Integer.parseInt(tokens[2]);
+                isSystem    = Integer.parseInt(tokens[3]) != 0;
+                // There may be extra spaces between these last two values.
+                // This must be accounted for as zero-len strings
+                // are included as tokens.
+                for (int j=4; j<tokens.length; j++) {
+                    if (tokens[j].length() < 1) continue;
+                    noHeaderLen = Integer.parseInt(tokens[j]);
                 }
-                continue;
-            }
 
-            // move past header line to beginning of value part */
-            index1 = index2 + 1;
+                // length of header line
+                headerLen = index2 - index1 + 1;
+                // length of whole item in chars
+                totalItemLen = headerLen + noHeaderLen;
 
-            // string
-            if (dataType == cMsgConstants.payloadStr) {
-                addStringFromText(name, isSystem, text, index1, firstIndex, noHeaderLen);
-            }
-            // string array
-            else if (dataType == cMsgConstants.payloadStrA) {
-                addStringArrayFromText(name, count, isSystem, text, index1, firstIndex, noHeaderLen);
-            }
-            // binary data
-            else if (dataType == cMsgConstants.payloadBin) {
-                addBinaryFromText(name, count, isSystem, text, index1, firstIndex, noHeaderLen);
-            }
-            // arrays of binary data
-            else if (dataType == cMsgConstants.payloadBinA) {
-                addBinaryArrayFromText(name, count, isSystem, text, index1, firstIndex, noHeaderLen);
-            }
-            // double or float
-            else if (dataType == cMsgConstants.payloadDbl ||
-                     dataType == cMsgConstants.payloadFlt) {
-                addRealFromText(name, dataType, isSystem, text, index1, firstIndex, noHeaderLen);
-            }
-            // double or float array
-            else if (dataType == cMsgConstants.payloadDblA ||
-                     dataType == cMsgConstants.payloadFltA) {
-                addRealArrayFromText(name, dataType, count, isSystem, text, index1, firstIndex, noHeaderLen);
-            }
-            // all ints
-            else if (dataType == cMsgConstants.payloadInt8   || dataType == cMsgConstants.payloadInt16  ||
-                     dataType == cMsgConstants.payloadInt32  || dataType == cMsgConstants.payloadInt64  ||
-                     dataType == cMsgConstants.payloadUint8  || dataType == cMsgConstants.payloadUint16 ||
-                     dataType == cMsgConstants.payloadUint32 || dataType == cMsgConstants.payloadUint64)  {
+                if (debug) System.out.println("FIELD #" + i + ": name = " + name + ", type = " + dataType +
+                        ", count = " + count + ", isSys = " + isSystem + ", len header = " + headerLen +
+                        ", len noheader = " + noHeaderLen + ", sub len = " + sub.length());
 
-                addIntFromText(name, dataType, isSystem, text, index1, firstIndex, noHeaderLen);
-            }
-            // all int arrays
-            else if (dataType == cMsgConstants.payloadInt8A   || dataType == cMsgConstants.payloadInt16A  ||
-                     dataType == cMsgConstants.payloadInt32A  || dataType == cMsgConstants.payloadInt64A  ||
-                     dataType == cMsgConstants.payloadUint8A  || dataType == cMsgConstants.payloadUint16A ||
-                     dataType == cMsgConstants.payloadUint32A || dataType == cMsgConstants.payloadUint64A)  {
+                if (name.length() < 1 || count < 1 || noHeaderLen < 1 ||
+                        dataType < cMsgConstants.payloadStr ||
+                        dataType > cMsgConstants.payloadBinA) throw new cMsgException("bad format5");
 
-                addIntArrayFromText(name, dataType, count, isSystem, text, index1, firstIndex, noHeaderLen);
-            }
-            // cMsg messages
-            else if (dataType == cMsgConstants.payloadMsg || dataType == cMsgConstants.payloadMsgA) {
-                cMsgMessage[] newMsgs = new cMsgMessage[count];
-                for (int j = 0; j < count; j++) {
-                    // create a single message
-                    newMsgs[j] = new cMsgMessage();
-                    // call to setFieldsFromText to fill msg's fields
-                    index1 += newMsgs[j].setFieldsFromText(text.substring(index1), allFields);
-                    newMsgs[j].setExpandedPayload(true);
+                // ignore certain fields (by convention, system fields start with "cmsg")
+                ignore = isSystem;                  // by default ignore system fields, flag == payloadFieldsOnly
+                if (flag == systemFieldsOnly)  ignore = !ignore;  // only set system fields
+                else if (flag == allFields)    ignore = false;    // deal with all fields
+
+                /* skip over fields to be ignored */
+                if (ignore) {
+                    for (int j = 0; j < count; j++) {
+                        // Skip over field
+                        index1 = ++index2 + headerLen;
+                        index2 = text.indexOf('\n', index1);
+                        if (index2 < 1 && i != fields - 1) throw new cMsgException("bad format6");
+                        if (debug) System.out.println("  skipped field");
+                    }
+                    continue;
                 }
-                addMessagesFromText(name, dataType, isSystem, newMsgs, text,
-                                    firstIndex, noHeaderLen, totalItemLen);
-            }
 
-            else {
-                throw new cMsgException("bad format7");
-            }
+                // move past header line to beginning of value part */
+                index1 = index2 + 1;
 
-            // go to the next line
-            index2 = firstIndex + totalItemLen - 1;
+                // string
+                if (dataType == cMsgConstants.payloadStr) {
+                    addStringFromText(name, isSystem, text, index1, firstIndex, noHeaderLen);
+                }
+                // string array
+                else if (dataType == cMsgConstants.payloadStrA) {
+                    addStringArrayFromText(name, count, isSystem, text, index1, firstIndex, noHeaderLen);
+                }
+                // binary data
+                else if (dataType == cMsgConstants.payloadBin) {
+                    addBinaryFromText(name, count, isSystem, text, index1, firstIndex, noHeaderLen);
+                }
+                // arrays of binary data
+                else if (dataType == cMsgConstants.payloadBinA) {
+                    addBinaryArrayFromText(name, count, isSystem, text, index1, firstIndex, noHeaderLen);
+                }
+                // double or float
+                else if (dataType == cMsgConstants.payloadDbl ||
+                        dataType == cMsgConstants.payloadFlt) {
+                    addRealFromText(name, dataType, isSystem, text, index1, firstIndex, noHeaderLen);
+                }
+                // double or float array
+                else if (dataType == cMsgConstants.payloadDblA ||
+                        dataType == cMsgConstants.payloadFltA) {
+                    addRealArrayFromText(name, dataType, count, isSystem, text, index1, firstIndex, noHeaderLen);
+                }
+                // all ints
+                else if (dataType == cMsgConstants.payloadInt8   || dataType == cMsgConstants.payloadInt16  ||
+                        dataType == cMsgConstants.payloadInt32  || dataType == cMsgConstants.payloadInt64  ||
+                        dataType == cMsgConstants.payloadUint8  || dataType == cMsgConstants.payloadUint16 ||
+                        dataType == cMsgConstants.payloadUint32 || dataType == cMsgConstants.payloadUint64)  {
 
-        } // for each field
+                    addIntFromText(name, dataType, isSystem, text, index1, firstIndex, noHeaderLen);
+                }
+                // all int arrays
+                else if (dataType == cMsgConstants.payloadInt8A   || dataType == cMsgConstants.payloadInt16A  ||
+                        dataType == cMsgConstants.payloadInt32A  || dataType == cMsgConstants.payloadInt64A  ||
+                        dataType == cMsgConstants.payloadUint8A  || dataType == cMsgConstants.payloadUint16A ||
+                        dataType == cMsgConstants.payloadUint32A || dataType == cMsgConstants.payloadUint64A)  {
+
+                    addIntArrayFromText(name, dataType, count, isSystem, text, index1, firstIndex, noHeaderLen);
+                }
+                // cMsg messages
+                else if (dataType == cMsgConstants.payloadMsg || dataType == cMsgConstants.payloadMsgA) {
+                    cMsgMessage[] newMsgs = new cMsgMessage[count];
+                    for (int j = 0; j < count; j++) {
+                        // create a single message
+                        newMsgs[j] = new cMsgMessage();
+                        // call to setFieldsFromText to fill msg's fields
+                        index1 += newMsgs[j].setFieldsFromText(text.substring(index1), allFields);
+                        newMsgs[j].setExpandedPayload(true);
+                    }
+                    addMessagesFromText(name, dataType, isSystem, newMsgs, text,
+                                        firstIndex, noHeaderLen, totalItemLen);
+                }
+
+                else {
+                    throw new cMsgException("bad format7");
+                }
+
+                // go to the next line
+                index2 = firstIndex + totalItemLen - 1;
+
+            } // for each field
+
+        }
+        catch (NumberFormatException e) {
+            throw new cMsgException(e);
+        }
 
         return (index2 + 1);
     }
