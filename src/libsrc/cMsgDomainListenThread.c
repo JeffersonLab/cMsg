@@ -1005,7 +1005,7 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
                 /* if the wait timed out ... */
                 if (status == ETIMEDOUT) {
                   if (cMsgDebug >= CMSG_DEBUG_WARN) {
-                    fprintf(stderr, "cMsgRunCallbacks: waited 10 seconds for cue to empty\n");
+                      fprintf(stderr, "cMsgRunCallbacks: cannot place incoming message on full queue, wait 10 seconds\n");
                   }
                 }
                 /* else if error */
