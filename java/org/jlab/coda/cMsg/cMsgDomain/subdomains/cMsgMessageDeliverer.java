@@ -164,12 +164,12 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
         // Set tcpNoDelay so no packets are delayed
         channel.socket().setTcpNoDelay(true);
         // set buffer size
-        channel.socket().setSendBufferSize(65535);
+        channel.socket().setSendBufferSize(131072);
 
         if (blocking) {
             channel.configureBlocking(true);
             ByteChannel bc = cMsgUtilities.wrapChannel(channel);
-            out = new DataOutputStream(new BufferedOutputStream(Channels.newOutputStream(bc), 65535));
+            out = new DataOutputStream(new BufferedOutputStream(Channels.newOutputStream(bc), 131072));
         }
     }
 
@@ -514,11 +514,14 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             if (bytesWritten < 1 && totalBytesWritten < 1) {
                 throw new IOException("Client is presumed dead");
             }
-            // don't wait more than .1 sec total before giving up on writing
+            // Keep trying to write. Throwing an error before finishing
+            // the write will cause massive chaos in the client. It's
+            // better to be deadlocked then cause exceptions and seg faults.
             else if (totalBytesWritten < buffer.limit()) {
-                if  (++tries > 9) {
-                    throw new IOException("Client is presumed dead");
-                }
+//                if  (++tries > 9) {
+//System.out.println("deliverer (NIO) : Cannot deliver full MSG");
+//                    throw new IOException("Client is dead or deadlocked");
+//                }
                 try { Thread.sleep(10); }
                 catch (InterruptedException e) {}
             }
