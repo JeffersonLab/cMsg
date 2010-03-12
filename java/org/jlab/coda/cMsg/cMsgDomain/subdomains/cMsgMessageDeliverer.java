@@ -265,9 +265,9 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             }
             // don't wait more than .1 sec total before giving up on writing
             else if (totalBytesWritten < buffer.limit()) {
-                if  (++tries > 9) {
-                    throw new IOException("Client is presumed dead");
-                }
+//                if  (++tries > 9) {
+//                    throw new IOException("Client is presumed dead or deadlocked");
+//                }
                 try { Thread.sleep(10); }
                 catch (InterruptedException e) {}
             }
@@ -381,9 +381,9 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             }
             // don't wait more than .1 sec total before giving up on writing
             else if (totalBytesWritten < buffer.limit()) {
-                if  (++tries > 9) {
-                    throw new IOException("Client is presumed dead");
-                }
+//                if  (++tries > 9) {
+//                    throw new IOException("Client is presumed dead or deadlocked");
+//                }
                 try { Thread.sleep(10); }
                 catch (InterruptedException e) {}
             }
