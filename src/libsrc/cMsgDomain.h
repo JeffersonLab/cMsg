@@ -159,6 +159,7 @@ typedef struct getInfo_t {
  */
 typedef struct parsedUDL_t {
   int   nameServerPort;    /**< TCP port of name server. */
+  int   domainServerPort;  /**< TCP port of domain server. */
   int   nameServerUdpPort; /**< UDP port of name server. */
   int   mustMulticast;     /**< 1 if UDL specifies multicasting to find server, else 0. */
   int   timeout;           /**< time in seconds to wait for a multicast response. */
