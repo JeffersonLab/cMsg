@@ -807,8 +807,8 @@ class cMsgDomainServerSelect extends Thread {
                                 // if we've read 4 bytes ...
                                 if (clientData.buffer.position() > 3) {
                                     clientData.buffer.flip();
-                                    clientData.size = clientData. buffer.getInt();
-//System.out.println("  read size = " + info.size);
+                                    clientData.size = clientData.buffer.getInt();
+//System.out.println("  read size = " + clientData.size);
                                     clientData.buffer.clear();
                                     if (clientData.size > clientData.buffer.capacity()) {
 //System.out.println("  create new, large direct bytebuffer");
@@ -823,8 +823,8 @@ class cMsgDomainServerSelect extends Thread {
                             // read the rest of the data
                             if (!clientData.readingSize) {
 //System.out.println("  try reading rest of buffer");
-//System.out.println("  buffer capacity = " + info.buffer.capacity() + ", limit = " +
-//                      info.buffer.limit() + ", position = " + info.buffer.position() );
+//System.out.println("  buffer capacity = " + clientData.buffer.capacity() + ", limit = " +
+//                      clientData.buffer.limit() + ", position = " + clientData.buffer.position() );
                                 try {
                                     bytes = sockChannel.read(clientData.buffer);
                                 }
@@ -844,7 +844,7 @@ class cMsgDomainServerSelect extends Thread {
                                     continue;
                                 }
                                 clientData.bytesRead += bytes;
-//System.out.println("  bytes read = " + info.bytesRead);
+//System.out.println("  bytes read = " + clientData.bytesRead);
 
                                 // if we've read everything ...
                                 if (clientData.bytesRead >= clientData.size) {
@@ -855,7 +855,7 @@ class cMsgDomainServerSelect extends Thread {
                                         clientData.buffer.get(b, 0, clientData.bytesRead);
 //System.out.println("  read request, putting buffer in Q");
 //                                        if (bufferQ.remainingCapacity() == 0) {
-//                                            System.out.println("   " + info.getName() + " has a FULL Q -> blocking");
+//                                            System.out.println("   " + clientData.getName() + " has a FULL Q -> blocking");
 //                                        }
                                         bufferQ.put(new cMsgHolder(b, clientData, false));
                                     }
@@ -877,7 +877,7 @@ class cMsgDomainServerSelect extends Thread {
                         // UDP channel being read
                         else {
                             try {
-//System.out.println("  UDP client " + info.getName() + " is UDP readable");
+//System.out.println("  UDP client " + clientData.getName() + " is UDP readable");
                                 udpBuffer.clear();
                                 // receive blocks here
                                 try {
@@ -918,7 +918,7 @@ class cMsgDomainServerSelect extends Thread {
                                 }
 
                                 clientData.size = udpBuffer.getInt();
-//System.out.println("  read size in UDP = " + info.size);
+//System.out.println("  read size in UDP = " + clientData.size);
                                 // if packet is too big, ignore it
                                 if (4 + clientData.size > udpBuffer.capacity()) {
                                     it.remove();
@@ -1140,8 +1140,10 @@ class cMsgDomainServerSelect extends Thread {
 
 
 
-                        case cMsgConstants.msgMonitorRequest: // client requesting monitor data   BUGBUG
-                            sendMonitorData(info, nameServer.fullMonitorXML);
+                        case cMsgConstants.msgMonitorRequest:
+                            // Client requesting monitor data function is now obsolete, but is used to test
+                            // client communication with server when using ssh tunnels.
+//System.out.println("GOT monitor request from client " + info.getName());
                             break;
 
                         case cMsgConstants.msgDisconnectRequest: // client disconnecting
@@ -1390,31 +1392,6 @@ class cMsgDomainServerSelect extends Thread {
             finally {
                 nameServer.subscribeLock.unlock();
             }
-        }
-
-
-        /**
-         * This method returns a monitoring data to the client.
-         *
-         * @param xml data string in xml format
-         * @throws IOException If socket read or write error
-         */
-        private void sendMonitorData(cMsgClientData info, String xml) throws IOException {
-            // send the time in milliseconds as 2, 32 bit integers
-            long now = new Date().getTime();
-            info.streamToClient.writeInt((int) (now >>> 32)); // higher 32 bits
-            info.streamToClient.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
-
-            // send length of xml string to come
-            info.streamToClient.writeInt(xml.length());
-
-            // send xml string
-            try {
-                info.streamToClient.write(xml.getBytes("US-ASCII"));
-            }
-            catch (UnsupportedEncodingException e) {}
-
-            info.streamToClient.flush();
         }
 
 

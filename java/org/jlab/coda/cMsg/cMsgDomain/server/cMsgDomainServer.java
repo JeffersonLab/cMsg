@@ -763,8 +763,9 @@ class cMsgDomainServer extends Thread {
                             requestType = SEQUENTIAL;
                             break;
 
-                        case cMsgConstants.msgMonitorRequest: // client requesting monitor data
-                            sendMonitorData(nameServer.fullMonitorXML);
+                        case cMsgConstants.msgMonitorRequest:
+                            // Client requesting monitor data function is now obsolete, but is used to test
+                            // client communication with server when using ssh tunnels.
                             break;
 
                         case cMsgConstants.msgDisconnectRequest: // client disconnecting
@@ -874,32 +875,6 @@ class cMsgDomainServer extends Thread {
                     shutdown();
                 }
             }
-        }
-
-
-        /**
-         * This method returns a monitoring data to the client.
-         *
-         * @param xml data string in xml format
-         * @throws IOException If socket read or write error
-         */
-        private void sendMonitorData(String xml) throws IOException {
-            // send the time in milliseconds as 2, 32 bit integers
-            long now = System.currentTimeMillis();
-
-            info.streamToClient.writeInt((int) (now >>> 32)); // higher 32 bits
-            info.streamToClient.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
-
-            // send length of xml string to come
-            info.streamToClient.writeInt(xml.length());
-
-            // send xml string
-            try {
-                info.streamToClient.write(xml.getBytes("US-ASCII"));
-            }
-            catch (UnsupportedEncodingException e) {}
-
-            info.streamToClient.flush();
         }
 
 
