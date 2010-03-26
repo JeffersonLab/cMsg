@@ -203,9 +203,6 @@ public class cMsgServerClient extends cMsg {
             }
             catch (IOException e) {
                 try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
-//                if (debug >= cMsgConstants.debugError) {
-//                    e.printStackTrace();
-//                }
                 throw new cMsgException("connect: cannot create socket to name server", e);
             }
 
@@ -224,10 +221,6 @@ public class cMsgServerClient extends cMsg {
             catch (IOException e) {
                 // undo everything we've just done
                 try {nsSocket.close();} catch (IOException e1) {}
-
-//                if (debug >= cMsgConstants.debugError) {
-//                    e.printStackTrace();
-//                }
                 throw new cMsgException("connect: cannot talk to name server");
             }
 
@@ -238,7 +231,6 @@ public class cMsgServerClient extends cMsg {
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("connect: cannot close channel to name server, continue on");
-//                    e.printStackTrace();
                 }
             }
 
@@ -259,59 +251,70 @@ public class cMsgServerClient extends cMsg {
                 domainOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 // send our server-given id
                 domainOut.writeInt(uniqueClientKey);
+                domainOut.writeInt(1);
                 domainOut.flush();
-
-                // launch thread to start listening on receive end of "sending" socket
-                listeningThread = new cMsgClientListeningThread(this, domainOutSocket);
-                listeningThread.start();
+                // Expecting one byte in return to confirm connection and make ssh port
+                // forwarding fails in a timely way if no server on the other end.
+                if (domainOutSocket.getInputStream().read() < 1) {
+                    throw new IOException("connectToDomainServer; failed to create message channel to domain server");
+                }
             }
             catch (IOException e) {
                 // undo everything we've just done so far
                 try {if (domainOutSocket != null) domainOutSocket.close();} catch (IOException e1) {}
-                if (listeningThread != null) listeningThread.killThread();
-
-//                if (debug >= cMsgConstants.debugError) {
-//                    e.printStackTrace();
-//                }
-                throw new cMsgException("connect: cannot create channel to domain server", e);
+                throw new cMsgException("connect: cannot create message channel to domain server", e);
             }
 
 
             // create keepAlive socket
+            DataOutputStream kaOut;
             try {
                 keepAliveSocket = new Socket(domainServerHost, domainServerPort);
                 keepAliveSocket.setTcpNoDelay(true);
 
                 // send magic #s to foil port-scanning
-                DataOutputStream kaOut = new DataOutputStream(new BufferedOutputStream(
+                kaOut = new DataOutputStream(new BufferedOutputStream(
                                                               keepAliveSocket.getOutputStream()));
                 kaOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 kaOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 kaOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 // send our server-given id
                 kaOut.writeInt(uniqueClientKey);
+                kaOut.writeInt(2);
                 kaOut.flush();
+                // Expecting one byte in return to confirm connection and make ssh port
+                // forwarding fails in a timely way if no server on the other end.
+                if (keepAliveSocket.getInputStream().read() < 1) {
+                    throw new IOException("connectToDomainServer; failed to create keepalive channel to domain server");
+                }
+            }
+            catch (IOException e) {
+                // undo everything we've just done so far
+                try { domainOutSocket.close(); } catch (IOException e1) {}
+                try { if (keepAliveSocket != null) keepAliveSocket.close(); } catch (IOException e1) {}
+                throw new cMsgException("connect: cannot create keepAlive channel to domain server", e);
+            }
+
+
+            try {
+                // launch thread to start listening on receive end of "sending" socket
+                listeningThread = new cMsgClientListeningThread(this, domainOutSocket);
+                listeningThread.start();
 
                 // Create thread to send periodic keep alives and handle dead server
                 // but with no failover capability.
                 keepAliveThread = new KeepAlive(keepAliveSocket);
                 keepAliveThread.start();
+                
                 // Create thread to send periodic monitor data / keep alives
                 updateServerThread = new UpdateServer(kaOut);
                 updateServerThread.start();
             }
             catch (IOException e) {
-                // undo everything we've just done so far
-                listeningThread.killThread();
-                try { domainOutSocket.close(); } catch (IOException e1) {}
-                try { if (keepAliveSocket != null) keepAliveSocket.close(); } catch (IOException e1) {}
+                if (listeningThread != null)    listeningThread.killThread();
                 if (keepAliveThread != null)    keepAliveThread.killThread();
                 if (updateServerThread != null) updateServerThread.killThread();
-
-//                if (debug >= cMsgConstants.debugError) {
-//                    e.printStackTrace();
-//                }
-                throw new cMsgException("connect: cannot create keepAlive channel to domain server", e);
+                throw new cMsgException("connect: cannot launch threads", e);
             }
 
             connected = true;

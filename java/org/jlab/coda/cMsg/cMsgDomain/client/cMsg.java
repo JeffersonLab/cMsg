@@ -752,7 +752,7 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
 
 
     /**
-     * Method to make the actual connection to the domain server from this client.
+     * Method to make the actual connection to the name & domain servers from this client.
      * Only called by method protected with connectLock (write lock), so no mutex
      * protection needed. Only called if not already connected.
      *
@@ -804,127 +804,388 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
             }
         }
 
+        connectToDomainServer(false);
+    }
 
-        // create request sending/receiving (to domain) socket
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * Method to reconnect to another server if the existing connection dies.
+     * @throws cMsgException
+     */
+    private void reconnect() throws cMsgException {
+
+        // KeepAlive & serverUpdate thread needs to keep running.
+        // Keep all existing callback threads for the subscribes.
+
+        // wakeup all syncSends - they can't be saved
+        for (cMsgGetHelper helper : syncSends.values()) {
+            helper.setErrorCode(cMsgConstants.errorAbort);
+            synchronized (helper) {
+                helper.notify();
+            }
+        }
+
+        // wakeup all subscribeAndGets - they can't be saved
+        for (cMsgGetHelper helper : subscribeAndGets.values()) {
+            helper.setMessage(null);
+            helper.setErrorCode(cMsgConstants.errorServerDied);
+            synchronized (helper) {
+                helper.notify();
+            }
+        }
+
+        // wakeup all existing sendAndGets - they can't be saved
+        for (cMsgGetHelper helper : sendAndGets.values()) {
+            helper.setMessage(null);
+            helper.setErrorCode(cMsgConstants.errorServerDied);
+            synchronized (helper) {
+                helper.notify();
+            }
+        }
+
+        // Empty hash tables for subAndGets, sendAndGets, and syncSends
+        syncSends.clear();
+        sendAndGets.clear();
+        subscribeAndGets.clear();
+
+        // close all our streams and sockets
+        try {domainOut.close();}       catch (IOException e) {}
+        try {domainOutSocket.close();} catch (IOException e) {}
+        try {keepAliveSocket.close();} catch (IOException e) {}
+        // object never created for server client
+        if  (sendUdpSocket != null) sendUdpSocket.close();
+
+         // shutdown listening thread (since socket needs to change)
+        listeningThread.killThread();
+
+        // connect & talk to cMsg name server to check if name is unique
+        Socket nsSocket = null;
         try {
-            // Do NOT use SocketChannel objects to establish communications. The socket obtained
-            // from a SocketChannel object has its input and outputstreams synchronized - making
-            // simultaneous reads and writes impossible!!
-            // SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-//System.out.println("connect: try creating channel to connection handler");
-            domainOutSocket = new Socket(domainServerHost, domainServerPort);
-//System.out.println("connect: created channel to connection handler");
-            domainOutSocket.setTcpNoDelay(true);
-            domainOutSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
-            domainOut = new DataOutputStream(new BufferedOutputStream(domainOutSocket.getOutputStream(),
-                                                                      cMsgNetworkConstants.bigBufferSize));
-            // send magic #s to foil port-scanning
-            domainOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
-            domainOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
-            domainOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-            // send our server-given id
-            domainOut.writeInt(uniqueClientKey);
-            domainOut.flush();
-
-            // launch thread to start listening on receive end of "sending" socket
-            listeningThread = new cMsgClientListeningThread(this, domainOutSocket);
-            listeningThread.start();
+//System.out.println("reconnect:  try connecting to host " + nameServerHost + " and port " + nameServerTcpPort);
+            nsSocket = new Socket(currentParsedUDL.nameServerHost, currentParsedUDL.nameServerTcpPort);
+            // Set tcpNoDelay so no packets are delayed
+            nsSocket.setTcpNoDelay(true);
+            // no need to set buffer sizes
+        }
+        catch (UnresolvedAddressException e) {
+//System.out.println("reconnect:  cannot create socket to name server, unresolved addr");
+            try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
+            throw new cMsgException("reconnect: cannot create socket to name server", e);
         }
         catch (IOException e) {
-            // undo everything we've just done so far
-            try {if (domainOutSocket != null) domainOutSocket.close();} catch (IOException e1) {}
-            if (listeningThread != null) listeningThread.killThread();
-
-            if (debug >= cMsgConstants.debugError) {
-                e.printStackTrace();
-            }
-            throw new cMsgException("connect: cannot create channel to domain server", e);
+//System.out.println("reconnect:  cannot create socket to name server");
+            try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
+            throw new cMsgException("reconnect: cannot create socket to name server", e);
         }
 
-
-        // create keepAlive socket
+        // get host & port to send messages & other info from name server
         try {
-//System.out.println("connect: try creating channel to connection handler");
-            keepAliveSocket = new Socket(domainServerHost, domainServerPort);
-//System.out.println("connect: created KA channel to connection handler");
-            keepAliveSocket.setTcpNoDelay(true);
-            keepAliveSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
-            // send magic #s to foil port-scanning
-            DataOutputStream kaOut = new DataOutputStream(new BufferedOutputStream(
-                    keepAliveSocket.getOutputStream()));
-            kaOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
-            kaOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
-            kaOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-            // send our server-given id
-            kaOut.writeInt(uniqueClientKey);
-            kaOut.flush();
-
-            // Create thread to handle dead server with failover capability.
-            keepAliveThread = new KeepAlive(keepAliveSocket);
-//System.out.println("connectDirect: create new KA thd, id = " + keepAliveThread);
-            keepAliveThread.start();
-            // Create thread to send periodic monitor data / keep alives
-            updateServerThread = new UpdateServer(kaOut);
-//System.out.println("connectDirect: create new updateServer thd, id = " + updateServerThread);
-            updateServerThread.start();
+//System.out.println("reconnect: talk to name server");
+            talkToNameServerFromClient(nsSocket);
         }
         catch (IOException e) {
-            // undo everything we've just done so far
-            listeningThread.killThread();
-            try { domainOutSocket.close(); } catch (IOException e1) {}
-            try { if (keepAliveSocket != null) keepAliveSocket.close(); } catch (IOException e1) {}
-            if (keepAliveThread != null)    keepAliveThread.killThread();
-            if (updateServerThread != null) updateServerThread.killThread();
-
+            try {
+                nsSocket.close();} catch (IOException e1) {}
             if (debug >= cMsgConstants.debugError) {
                 e.printStackTrace();
             }
-            throw new cMsgException("connect: cannot create keepAlive channel to domain server", e);
+            throw new cMsgException("reconnect: cannot talk to name server", e);
         }
-//System.out.println("connect: created channel to keep alive handler");
 
-
-        // create udp socket to send messages on
+        // done talking to server
         try {
-            sendUdpSocket = new DatagramSocket();
-            InetAddress addr = InetAddress.getByName(domainServerHost);
-            // connect for speed and to keep out unwanted packets
-            sendUdpSocket.connect(addr, domainServerUdpPort);
-            sendUdpSocket.setSendBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
-            sendUdpPacket = new DatagramPacket(new byte[0], 0, addr, domainServerUdpPort);
-            // System.out.println("udp socket connected to host = " + domainServerHost +
-            // " and port = " + domainServerUdpPort);
+            nsSocket.close();
         }
-        catch (UnknownHostException e) {
-            listeningThread.killThread();
-            keepAliveThread.killThread();
-            updateServerThread.killThread();
-            try {
-                keepAliveSocket.close();} catch (IOException e1) {}
-            try {domainOutSocket.close();} catch (IOException e1) {}
-            if (sendUdpSocket != null) sendUdpSocket.close();
-
+        catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {
+                System.out.println("reconnect: cannot close socket to name server, continue on");
                 e.printStackTrace();
             }
-            throw new cMsgException("connect: cannot create udp socket to domain server", e);
         }
-        catch (SocketException e) {
-            listeningThread.killThread();
-            keepAliveThread.killThread();
-            updateServerThread.killThread();
-            try {
-                keepAliveSocket.close();} catch (IOException e1) {}
-            try {domainOutSocket.close();} catch (IOException e1) {}
-            if (sendUdpSocket != null) sendUdpSocket.close();
 
-            if (debug >= cMsgConstants.debugError) {
-                e.printStackTrace();
+        connectToDomainServer(true);
+
+        return;
+    }
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * This method does the work of making 2 socket connections to the domain server
+     * (inside cmsg name server). It also creates a UDP socket for the udpSend method.
+     * This method does some tricky things due to the fact that users want to connect to
+     * cMsg servers through ssh tunnels.
+     *
+     * @param reconnecting <code>true</code> if reconnecting, else <code>false</code>
+     * @throws cMsgException if cannot make connections to domain server
+     */
+    private void connectToDomainServer(boolean reconnecting) throws cMsgException {
+
+        //--------------------------------------------------------------------------------------------
+        // We need to do some tricky things due to the fact that people want to connect to
+        // a cMsg server through SSH tunnels. The original connection to the cMsg name server is
+        // not a big deal as host & port are spelled out in the UDL. However, the connection to
+        // the domain server must also go through an ssh tunnel. Thus, we cannot use the
+        // domainServerHost and domainServerPort returned by the nameserver since we need to use
+        // some local host & port specified when creating the tunnels.
+        // The strategy here is to test the following options:
+        //      option 1) use host originally specified in UDL since that's the one that found
+        //                the server and pair that with a domain port specified explicitly in the UDL, or
+        //      option 2) use original host and name server port + 1, or
+        //      option 3) use host & port returned by name server (no SSH tunnels used)
+        // in that order.
+        //--------------------------------------------------------------------------------------------
+
+        int[] ports =    {currentParsedUDL.domainServerTcpPort,
+                         (currentParsedUDL.nameServerTcpPort + 1),
+                          domainServerPort};
+
+        String[] hosts = {currentParsedUDL.nameServerHost,
+                          currentParsedUDL.nameServerHost,
+                          domainServerHost};
+
+        // We can simplify the logic if we can determine if a particular option
+        // means we're tunneling or not. Assuming we actually make a connection
+        // for a particular option, we can draw the following conclusions:
+        boolean[] isSshTunneling = new boolean[ports.length];
+
+        InetAddress serverAddr = null;
+        try { serverAddr = InetAddress.getByName(domainServerHost); }
+        catch (UnknownHostException e) { }
+
+        for (int i=0; i < ports.length; i++) {
+            // assume no ssh tunneling
+            isSshTunneling[i] = false;
+
+            // multicasting bypasses tunneling
+            if (currentParsedUDL.mustMulticast) {
+                isSshTunneling[i] = false;
             }
-            throw new cMsgException("connect: cannot create udp socket to domain server", e);
+            // 3rd option cannot be tunneling
+            else if (i == 2) {
+                isSshTunneling[i] = false;
+            }
+            // If the server's actual domain port is different than the one
+            // we used to connect to the domain server, assume tunneling.
+            else if (ports[i] != domainServerPort) {
+                isSshTunneling[i] = true;
+            }
+            // If we can't resolve the server's host, we're probably tunneling
+            // since we should not have been able to connect to the name server
+            // in the first place (which we just did).
+            else if (serverAddr == null) {
+                isSshTunneling[i] = true;
+            }
+            // If the actual host the server is running on is different than
+            // the one we used to connect, assume tunneling.
+            else if (serverAddr != null) {
+                try {
+                    InetAddress addr = InetAddress.getByName(hosts[i]);
+                    if (!serverAddr.getCanonicalHostName().equals(addr.getCanonicalHostName())) {
+                        isSshTunneling[i] = true;
+                    }
+                }
+                catch (UnknownHostException e) {
+                    // If we can't resolve the host name specified on the UDL, we never should
+                    // have been able to connect in the first place for option 1 & 2 !??
+                    // Don't know what's going on here since it should never happen, so do nothing.
+                    // We already took care of option 3 in previous else.
+                }
+            }
         }
 
-//System.out.println("connectDirect: connected = true");
+
+        int index = 0;
+        // if no domain server port explicitly given in UDL, skip option #1
+        if (currentParsedUDL.domainServerTcpPort < 1) {
+            index = 1;
+        }
+
+        // see if we can connect using 1 of the 3 possible means
+        do {
+
+            try {
+
+                domainOutSocket = null;
+                keepAliveSocket = null;
+
+                for (int i=index; i < ports.length; i++) {
+                    try {
+                        //-----------------------------------------------------------------------------------
+                        // Do NOT use SocketChannel objects to establish communications.  The socket obtained
+                        // from a SocketChannel object has its input and output streams synchronized - making
+                        // simultaneous reads and writes impossible !!!
+                        //-----------------------------------------------------------------------------------
+                        domainOutSocket = new Socket(hosts[i], ports[i]);
+                        keepAliveSocket = new Socket(hosts[i], ports[i]);
+
+                        // if successful, try out the new connection and make sure it works
+                        index = i;
+//System.out.println("connectToDomainServer: connection with method #" + (i + 1) + " to host " +
+//                     hosts[i] + " and port " + ports[i]);
+                        break;
+                    }
+                    catch (IOException e) {
+                        try {if (domainOutSocket != null) domainOutSocket.close();} catch (IOException e1) {}
+                        try {if (keepAliveSocket != null) keepAliveSocket.close();} catch (IOException e1) {}
+//System.out.println("connectToDomainServer: failed connection with method #" + (i + 1) + " to host " +
+//                    hosts[i] + " and port " + ports[i]);
+                        if (debug >= cMsgConstants.debugError) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+
+                if (domainOutSocket == null || keepAliveSocket == null) {
+                    throw new cMsgException("connectToDomainServer: cannot create channels to domain server");
+                }
+//System.out.println("connectToDomainServer: created socket to connection handler with method #" + (index + 1));
+
+                // create request sending/receiving (to domain) socket
+                try {
+                    domainOutSocket.setTcpNoDelay(true);
+                    domainOutSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                    domainOut = new DataOutputStream(new BufferedOutputStream(domainOutSocket.getOutputStream(),
+                                                                              cMsgNetworkConstants.bigBufferSize));
+                    // send magic #s to foil port-scanning
+                    domainOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+                    domainOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+                    domainOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                    // send our server-given id
+                    domainOut.writeInt(uniqueClientKey);
+                    domainOut.writeInt(1);
+                    domainOut.flush();
+                    // Expecting one byte in return to confirm connection and make ssh port
+                    // forwarding fails in a timely way if no server on the other end.
+                    if (domainOutSocket.getInputStream().read() < 1) {
+                        throw new IOException("connectToDomainServer; failed to create message channel to domain server");
+                    }
+                }
+                catch (IOException e) {
+                    // undo everything we've just done so far
+                    try {domainOutSocket.close();} catch (IOException e1) {}
+
+                    if (debug >= cMsgConstants.debugError) {
+                        e.printStackTrace();
+                    }
+                    throw new cMsgException("connectToDomainServer: cannot create channel to domain server", e);
+                }
+
+
+                // create keepAlive socket
+                DataOutputStream kaOut;
+                try {
+                    keepAliveSocket.setTcpNoDelay(true);
+                    keepAliveSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                    if (reconnecting) {
+                        if (keepAliveThread != null) keepAliveThread.changeChannels(keepAliveSocket);
+                    }
+
+                    // send magic #s to foil port-scanning
+                    kaOut = new DataOutputStream(new BufferedOutputStream(keepAliveSocket.getOutputStream()));
+                    kaOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+                    kaOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+                    kaOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                    // send our server-given id
+                    kaOut.writeInt(uniqueClientKey);
+                    kaOut.writeInt(2);
+                    kaOut.flush();
+                    // Expecting one byte in return to confirm connection and make ssh port
+                    // forwarding fails in a timely way if no server on the other end.
+                    if (keepAliveSocket.getInputStream().read() < 1) {
+                        throw new IOException("connectToDomainServer; failed to create keepalive channel to domain server");
+                    }
+                    if (reconnecting) {
+                        // updateServer thread exists, but replace socket
+                        if (updateServerThread != null) updateServerThread.changeSockets(kaOut);
+                    }
+                }
+                catch (IOException e) {
+                    // undo everything we've just done so far
+                    try { domainOutSocket.close(); } catch (IOException e1) {}
+                    try { keepAliveSocket.close(); } catch (IOException e1) {}
+
+                    if (debug >= cMsgConstants.debugError) {
+                        e.printStackTrace();
+                    }
+                    throw new cMsgException("connectToDomainServer: cannot create keepAlive channel to domain server", e);
+                }
+//System.out.println("connectToDomainServer: created keepalive socket to connection handler with method #" + (index + 1));
+
+
+                //-----------------------------------------------------------------------------------
+                // If we're tunneling, we do NOT want to create a udp socket - just ignore it,
+                // but the user should never use it.
+                //-----------------------------------------------------------------------------------
+                if (!isSshTunneling[index]) {
+                    try {
+                        sendUdpSocket = new DatagramSocket();
+                        // connect for speed and to keep out unwanted packets
+                        sendUdpSocket.connect(serverAddr, domainServerUdpPort);
+                        sendUdpSocket.setSendBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
+                        sendUdpPacket = new DatagramPacket(new byte[0], 0, serverAddr, domainServerUdpPort);
+                        // System.out.println("udp socket connected to host = " + domainServerHost +
+                        // " and port = " + domainServerUdpPort);
+                    }
+                    catch (SocketException e) {
+                        try {keepAliveSocket.close();} catch (IOException e1) {}
+                        try {domainOutSocket.close();} catch (IOException e1) {}
+                        if  (sendUdpSocket != null) sendUdpSocket.close();
+
+                        if (debug >= cMsgConstants.debugError) {
+                            e.printStackTrace();
+                        }
+                        throw new cMsgException("connectToDomainServer: cannot create udp socket to domain server", e);
+                    }
+//System.out.println("connectToDomainServer: made it past UDP stuff with method #" + (index + 1));
+                }
+
+                try {
+                    // Create thread to start listening on receive end of "sending" socket
+                    listeningThread = new cMsgClientListeningThread(this, domainOutSocket);
+                    listeningThread.start();
+
+                    if (!reconnecting) {
+                        // Create thread to handle dead server with failover capability.
+                        keepAliveThread = new KeepAlive(keepAliveSocket);
+                        keepAliveThread.start();
+
+                        // Create thread to send periodic monitor data / keep alives
+                        updateServerThread = new UpdateServer(kaOut);
+                        updateServerThread.start();
+                    }
+                }
+                catch (IOException e) {
+                    e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                    if (listeningThread != null) listeningThread.killThread();
+                    if (!reconnecting) {
+                        if (keepAliveThread    != null) keepAliveThread.killThread();
+                        if (updateServerThread != null) updateServerThread.killThread();
+                    }
+                }
+
+            }
+            catch (cMsgException e) {
+                // if the last option failed, propagate exception
+                if (index >= ports.length - 1) {
+                    throw new cMsgException(e);
+                }
+                continue;
+            }
+
+            // if we managed to get here, the connections were successful
+            domainServerPort = ports[index];
+            domainServerHost = hosts[index];
+            break;
+
+        } while (index++ < ports.length - 1);
+
+//System.out.println("connectToDomainServer: connected = true");
         connected = true;
     }
 
@@ -972,6 +1233,7 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
         connectLock.lock();
 
         try {
+System.out.println("disconnect: CONNECTED = FALSE");
             connected = false;
 
             // if we already called disconnect, wait for it to take place in keepalive thread
@@ -1100,7 +1362,7 @@ System.out.println("disconnect: IO error");
 
             disconnectCalled = false;
             //resubscriptionsComplete = false;
-            
+
             // allow connect to work again
             mayConnect = true;
         }
@@ -1109,211 +1371,6 @@ System.out.println("disconnect: IO error");
         }
 
 //System.out.println("\nReached end of disconnect method");
-    }
-
-
-//-----------------------------------------------------------------------------
-
-
-    /**
-     * Method to reconnect to another server if the existing connection dies.
-     *
-     */
-    private void reconnect() throws cMsgException {
-
-        // KeepAlive & serverUpdate thread needs to keep running.
-        // Keep all existing callback threads for the subscribes.
-
-        // wakeup all syncSends - they can't be saved
-        for (cMsgGetHelper helper : syncSends.values()) {
-            helper.setErrorCode(cMsgConstants.errorAbort);
-            synchronized (helper) {
-                helper.notify();
-            }
-        }
-
-        // wakeup all subscribeAndGets - they can't be saved
-        for (cMsgGetHelper helper : subscribeAndGets.values()) {
-            helper.setMessage(null);
-            helper.setErrorCode(cMsgConstants.errorServerDied);
-            synchronized (helper) {
-                helper.notify();
-            }
-        }
-
-        // wakeup all existing sendAndGets - they can't be saved
-        for (cMsgGetHelper helper : sendAndGets.values()) {
-            helper.setMessage(null);
-            helper.setErrorCode(cMsgConstants.errorServerDied);
-            synchronized (helper) {
-                helper.notify();
-            }
-        }
-
-        // Empty hash tables for subAndGets, sendAndGets, and syncSends
-        syncSends.clear();
-        sendAndGets.clear();
-        subscribeAndGets.clear();
-
-        // close all our streams and sockets
-        try {domainOut.close();}       catch (IOException e) {}
-        try {domainOutSocket.close();} catch (IOException e) {}
-        try {keepAliveSocket.close();} catch (IOException e) {}
-        // object never created for server client
-        if  (sendUdpSocket != null) sendUdpSocket.close();
-
-         // shutdown listening thread (since socket needs to change)
-        listeningThread.killThread();
-
-        // connect & talk to cMsg name server to check if name is unique
-        Socket nsSocket = null;
-        try {
-//System.out.println("reconnect:  try connecting to host " + nameServerHost + " and port " + nameServerTcpPort);
-            nsSocket = new Socket(currentParsedUDL.nameServerHost, currentParsedUDL.nameServerTcpPort);
-            // Set tcpNoDelay so no packets are delayed
-            nsSocket.setTcpNoDelay(true);
-            // no need to set buffer sizes
-        }
-        catch (UnresolvedAddressException e) {
-//System.out.println("reconnect:  cannot create socket to name server, unresolved addr");
-            try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
-            throw new cMsgException("reconnect: cannot create socket to name server", e);
-        }
-        catch (IOException e) {
-//System.out.println("reconnect:  cannot create socket to name server");
-            try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
-            throw new cMsgException("reconnect: cannot create socket to name server", e);
-        }
-
-        // get host & port to send messages & other info from name server
-        try {
-//System.out.println("reconnect: talk to name server");
-            talkToNameServerFromClient(nsSocket);
-        }
-        catch (IOException e) {
-            try {
-                nsSocket.close();} catch (IOException e1) {}
-            if (debug >= cMsgConstants.debugError) {
-                e.printStackTrace();
-            }
-            throw new cMsgException("reconnect: cannot talk to name server", e);
-        }
-
-        // done talking to server
-        try {
-            nsSocket.close();
-        }
-        catch (IOException e) {
-            if (debug >= cMsgConstants.debugError) {
-                System.out.println("reconnect: cannot close socket to name server, continue on");
-                e.printStackTrace();
-            }
-        }
-
-        // create request sending (to domain) socket
-        try {
-            // Do NOT use SocketChannel objects to establish communications. The socket obtained
-            // from a SocketChannel object has its input and outputstreams synchronized - making
-            // simultaneous reads and writes impossible!!
-            // SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-            domainOutSocket = new Socket(domainServerHost, domainServerPort);
-            domainOutSocket.setTcpNoDelay(true);
-            domainOutSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
-            domainOut = new DataOutputStream(new BufferedOutputStream(domainOutSocket.getOutputStream(),
-                                                                      cMsgNetworkConstants.bigBufferSize));
-            // send magic #s to foil port-scanning
-            domainOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
-            domainOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
-            domainOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-            // send our server-given id
-            domainOut.writeInt(uniqueClientKey);
-            domainOut.flush();
-
-            // launch thread to start listening on receive end of "sending" socket
-            listeningThread = new cMsgClientListeningThread(this, domainOutSocket);
-            listeningThread.start();
-        }
-        catch (IOException e) {
-            // undo everything we've just done so far
-            try {if (domainOutSocket != null) domainOutSocket.close();} catch (IOException e1) {}
-            if (listeningThread != null) listeningThread.killThread();
-
-            if (debug >= cMsgConstants.debugError) {
-                e.printStackTrace();
-            }
-            throw new cMsgException("reconnect: cannot create socket to domain server", e);
-        }
-
-
-        // keepAlive thread exists, but replace keepAlive socket
-        try {
-            keepAliveSocket = new Socket(domainServerHost, domainServerPort);
-            keepAliveSocket.setTcpNoDelay(true);
-            keepAliveThread.changeChannels(keepAliveSocket);
-
-            // send magic #s to foil port-scanning
-            DataOutputStream kaOut = new DataOutputStream(new BufferedOutputStream(
-                                                                   keepAliveSocket.getOutputStream()));
-            kaOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
-            kaOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
-            kaOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-            // send our server-given id
-            kaOut.writeInt(uniqueClientKey);
-            kaOut.flush();
-
-            // updateServer thread exists, but replace socket
-            updateServerThread.changeSockets(kaOut);
-        }
-        catch (IOException e) {
-            // undo everything we've just done so far
-            listeningThread.killThread();
-            try { domainOutSocket.close(); } catch (IOException e1) {}
-            try { if (keepAliveSocket != null) keepAliveSocket.close(); } catch (IOException e1) {}
-
-            if (debug >= cMsgConstants.debugError) {
-                e.printStackTrace();
-            }
-            throw new cMsgException("reconnect: cannot create keepAlive socket to domain server", e);
-        }
-
-
-        // create udp socket to send messages on
-        try {
-            sendUdpSocket = new DatagramSocket();
-            InetAddress addr = InetAddress.getByName(domainServerHost);
-            // connect for speed and to keep out unwanted packets
-            sendUdpSocket.connect(addr, domainServerUdpPort);
-            sendUdpSocket.setSendBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
-            sendUdpPacket = new DatagramPacket(new byte[0], 0, addr, domainServerUdpPort);
-            // System.out.println("udp socket connected to host = " + domainServerHost +
-            // " and port = " + domainServerUdpPort);
-        }
-        catch (UnknownHostException e) {
-            listeningThread.killThread();
-            try {keepAliveSocket.close();} catch (IOException e1) {}
-            try {domainOutSocket.close();} catch (IOException e1) {}
-            if (sendUdpSocket != null) sendUdpSocket.close();
-
-            if (debug >= cMsgConstants.debugError) {
-                e.printStackTrace();
-            }
-            throw new cMsgException("reconnect: cannot create udp socket to domain server", e);
-        }
-        catch (SocketException e) {
-            listeningThread.killThread();
-            try {keepAliveSocket.close();} catch (IOException e1) {}
-            try {domainOutSocket.close();} catch (IOException e1) {}
-            if (sendUdpSocket != null) sendUdpSocket.close();
-
-            if (debug >= cMsgConstants.debugError) {
-                e.printStackTrace();
-            }
-            throw new cMsgException("reconnect: cannot create udp socket to domain server", e);
-        }
-
-        connected = true;
-
-        return;
     }
 
 
@@ -1478,10 +1535,16 @@ System.out.println("disconnect: IO error");
      *
      * @param message message to send
      * @throws cMsgException if there are communication problems with the server;
+     *                       using ssh tunneling to server;
      *                       subject and/or type is null; message is too big for
      *                       UDP packet size if doing UDP send
      */
     private void udpSend(cMsgMessage message) throws cMsgException {
+
+        // check to see if udp operational (might not be if using ssh tunneling to cmsg server)
+        if (sendUdpPacket == null) {
+            throw new cMsgException("udp sends not allowed when ssh tunneling to cmsg server");
+        }
 
         String subject = message.getSubject();
         String type    = message.getType();
@@ -2811,6 +2874,7 @@ System.out.println("disconnect: IO error");
      * <li>the domain name is case insensitive as is the subdomainType<p>
      * <li>remainder is passed on to the subdomain plug-in<p>
      * <li>client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;<p>
+     * <li>domain server port is in tag=value part of UDL as domainPort=&lt;port&gt;<p>
      * <li>multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;<p>
      * <li>the tag=value part of UDL parsed here is given by regime=low or regime=high means:<p>
      *   <ul>
@@ -2886,11 +2950,6 @@ System.out.println("disconnect: IO error");
             mustMulticast = true;
             // "isLocal" must be determined after connection, set it false for now
 //System.out.println("set mustMulticast to true (locally in parse method)");
-        }
-        // if the host is dotted decimal form of multicast address ...
-        else if (udlHost.equals(cMsgNetworkConstants.cMsgMulticast)) {
-            mustMulticast = true;
-            // "isLocal" must be determined after connection, set it false for now
         }
         // if the host is "localhost", find the actual, fully qualified  host name
         else if (udlHost.equalsIgnoreCase("localhost")) {
@@ -2990,13 +3049,35 @@ System.out.println("disconnect: IO error");
                 counter++;
             }
             catch (NumberFormatException e) {
-                // ignore error and keep value of 0
                 throw new cMsgException("parseUDL: multicast timeout must be integer >= 0");
             }
         }
 
         if (counter > 1) {
             throw new cMsgException("parseUDL: only 1 multicast timeout allowed");
+        }
+
+        // look for domainPort=value
+        counter=0;
+        int domainPort=0;
+        pattern = Pattern.compile("[\\?&]domainPort=([^&]+)", Pattern.CASE_INSENSITIVE);
+        matcher = pattern.matcher(udlSubRemainder);
+        while (matcher.find()) {
+//System.out.println("domain server port = " + matcher.group(1));
+            try {
+                domainPort = Integer.parseInt(matcher.group(1));
+                if (domainPort < 1024 || domainPort > 65535) {
+                    throw new cMsgException("parseUDL: domain server illegal port number");
+                }
+                counter++;
+            }
+            catch (NumberFormatException e) {
+                throw new cMsgException("parseUDL: domain server port must be integer > 1023 and < 65536");
+            }
+        }
+
+        if (counter > 1) {
+            throw new cMsgException("parseUDL: only 1 domain server port allowed");
         }
 
         // look for regime=low, medium, or high
@@ -3076,8 +3157,8 @@ System.out.println("disconnect: IO error");
 
         // store results in a class
         return new ParsedUDL(udl, udlRemainder, udlSubdomain, udlSubRemainder,
-                             pswd, udlHost, tcpPort, udpPort, timeout, regime, failover,
-                             cloud, mustMulticast, isLocal);
+                             pswd, udlHost, tcpPort, domainPort, udpPort, timeout,
+                             regime, failover, cloud, mustMulticast, isLocal);
     }
 
 
@@ -3131,6 +3212,8 @@ System.out.println("disconnect: IO error");
         String  nameServerHost;
         /** Name server's TCP port. */
         int     nameServerTcpPort;
+        /** Name server's domain server TCP port. */
+        int     domainServerTcpPort;
         /** Name server's UDP port. */
         int     nameServerUdpPort;
         /** Timeout in milliseconds to wait for server to respond to multicasts. */
@@ -3179,32 +3262,34 @@ System.out.println("disconnect: IO error");
          * @param udpPort UDP multicasting port cloud server is listening on
          * @param isLocal is cloud server running on localhost
          */
-        ParsedUDL(String name, String pswrd, String host, int tcpPort, int udpPort, boolean isLocal) {
-            serverName        = name;
-            password          = pswrd == null ? "" : pswrd;
-            nameServerHost    = host;
-            nameServerTcpPort = tcpPort;
-            nameServerUdpPort = udpPort;
-            local             = isLocal;
+        ParsedUDL(String name, String pswrd, String host,
+                  int tcpPort, int udpPort,  boolean isLocal) {
+            serverName          = name;
+            password            = pswrd == null ? "" : pswrd;
+            nameServerHost      = host;
+            nameServerTcpPort   = tcpPort;
+            nameServerUdpPort   = udpPort;
+            local               = isLocal;
         }
 
         /** Constructor used in parsing UDL. */
         ParsedUDL(String s1, String s2, String s3, String s4, String s5, String s6,
-                  int i1, int i2, int i3, int i4, int i5, int i6, boolean b1, boolean b2) {
-            UDL               = s1;
-            UDLremainder      = s2;
-            subdomain         = s3;
-            subRemainder      = s4;
-            password          = s5;
-            nameServerHost    = s6;
-            nameServerTcpPort = i1;
-            nameServerUdpPort = i2;
-            multicastTimeout  = i3;
-            regime            = i4;
-            failover          = i5;
-            cloud             = i6;
-            mustMulticast     = b1;
-            local             = b2;
+                  int i1, int i2, int i3, int i4, int i5, int i6, int i7, boolean b1, boolean b2) {
+            UDL                 = s1;
+            UDLremainder        = s2;
+            subdomain           = s3;
+            subRemainder        = s4;
+            password            = s5;
+            nameServerHost      = s6;
+            nameServerTcpPort   = i1;
+            domainServerTcpPort = i2;
+            nameServerUdpPort   = i3;
+            multicastTimeout    = i4;
+            regime              = i5;
+            failover            = i6;
+            cloud               = i7;
+            mustMulticast       = b1;
+            local               = b2;
         }
 
 
@@ -3213,38 +3298,39 @@ System.out.println("disconnect: IO error");
             StringBuilder sb = new StringBuilder(1024);
 
             sb.append("Copy from stored parsed UDL to local :");
-            sb.append("  UDL               = "); sb.append(UDL);
-            sb.append("  UDLremainder      = "); sb.append(UDLremainder);
-            sb.append("  subdomain         = "); sb.append(subdomain);
-            sb.append("  subRemainder      = "); sb.append(subRemainder);
-            sb.append("  password          = "); sb.append(password);
-            sb.append("  nameServerHost    = "); sb.append(nameServerHost);
-            sb.append("  nameServerTcpPort = "); sb.append(nameServerTcpPort);
-            sb.append("  nameServerUdpPort = "); sb.append(nameServerUdpPort);
-            sb.append("  multicastTimeout  = "); sb.append(multicastTimeout);
-            sb.append("  mustMulticast     = "); sb.append(mustMulticast);
-            sb.append("  isLocal           = "); sb.append(local);
+            sb.append("  UDL                 = "); sb.append(UDL);
+            sb.append("  UDLremainder        = "); sb.append(UDLremainder);
+            sb.append("  subdomain           = "); sb.append(subdomain);
+            sb.append("  subRemainder        = "); sb.append(subRemainder);
+            sb.append("  password            = "); sb.append(password);
+            sb.append("  nameServerHost      = "); sb.append(nameServerHost);
+            sb.append("  nameServerTcpPort   = "); sb.append(nameServerTcpPort);
+            sb.append("  domainServerTcpPort = "); sb.append(domainServerTcpPort);
+            sb.append("  nameServerUdpPort   = "); sb.append(nameServerUdpPort);
+            sb.append("  multicastTimeout    = "); sb.append(multicastTimeout);
+            sb.append("  mustMulticast       = "); sb.append(mustMulticast);
+            sb.append("  isLocal             = "); sb.append(local);
 
             if (regime == cMsgConstants.regimeHigh)
-                sb.append("  regime            = high");
+                sb.append("  regime              = high");
             else if (regime == cMsgConstants.regimeLow)
-                sb.append("  regime            = low");
+                sb.append("  regime              = low");
             else
-                sb.append("  regime            = medium");
+                sb.append("  regime              = medium");
 
             if (failover == cMsgConstants.failoverAny)
-                sb.append("  failover          = any");
+                sb.append("  failover            = any");
             else if (failover == cMsgConstants.failoverCloud)
-                sb.append("  failover          = cloud");
+                sb.append("  failover            = cloud");
             else
-                sb.append("  failover          = cloud only");
+                sb.append("  failover            = cloud only");
 
             if (cloud == cMsgConstants.cloudAny)
-                sb.append("  cloud             = any");
+                sb.append("  cloud               = any");
             else if (cloud == cMsgConstants.cloudLocal)
-                sb.append("  cloud             = local");
+                sb.append("  cloud               = local");
             else
-                sb.append("  cloud             = local now");
+                sb.append("  cloud               = local now");
 
             return sb.toString();
         }
@@ -3352,6 +3438,7 @@ System.out.println("disconnect: IO error");
                         return;
                     }
                     mayConnect = false;  // set true end of localDisconnect
+//System.out.println("KA: CONNECTED = FALSE");
                     connected  = false;  // also set false in beginning of disconnect
                     weGotAConnection = false;
 //System.out.println("keepAliveThread: lost connection with cMsg server (IOException)");
@@ -3399,7 +3486,7 @@ System.out.println("disconnect: IO error");
 //System.out.println("keepAliveThread: so go to next UDL");
                                 break;
                             }
-                            // if we must failover locally, disconnect
+                            // if we must failover to cloud only, disconnect
                             else {
 //System.out.println("keepAliveThread: so just disconnect");
                                 try { localDisconnect(disconnectCalled); }
@@ -3795,8 +3882,8 @@ System.out.println("disconnect: IO error");
                 xml.append("</subscription>\n");
             }
 
-//System.out.println("     sendMonitorInfo: TRY SENDING KA TO SERVER");
             int size = xml.length() + 4*4 + 8*7;
+//System.out.println("     sendMonitorInfo: TRY SENDING KA TO SERVER, xml len = " + xml.length() + ", size = " + size);
             out.writeInt(size);
             out.writeInt(xml.length());
             out.writeInt(1); // This is a java client (0 is for C/C++)
