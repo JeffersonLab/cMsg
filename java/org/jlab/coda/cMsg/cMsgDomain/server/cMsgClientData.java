@@ -21,7 +21,6 @@ import org.jlab.coda.cMsg.common.cMsgSubdomainInterface;
 
 import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;
-import java.io.DataOutputStream;
 import java.net.DatagramSocket;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -39,9 +38,6 @@ class cMsgClientData extends cMsgClientInfo {
     /** Socket channel used by this server to get monitor data from client and
      * to send monitor data to client (dual functions as keepAlive). */
     SocketChannel keepAliveChannel;
-
-    /** Output stream from this server to client. */
-    DataOutputStream streamToClient;
 
     /** Reference to subdomain handler object. */
     cMsgSubdomainInterface subdomainHandler;
