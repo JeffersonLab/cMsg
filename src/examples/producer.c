@@ -234,8 +234,11 @@ int main(int argc,char **argv) {
  
   
   if (debug) {
-    printf("Running the cMsg producer, \"%s\"\n", myName);
-    cMsgSetDebugLevel(CMSG_DEBUG_INFO);
+      printf("Running the cMsg producer, \"%s\"\n", myName);
+      cMsgSetDebugLevel(CMSG_DEBUG_INFO);
+  }
+  else {
+      cMsgSetDebugLevel(CMSG_DEBUG_NONE);
   }
   
   /* connect to cMsg server */
