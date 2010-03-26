@@ -1014,6 +1014,7 @@ void cMsgParsedUDLInit(parsedUDL *p) {
   if (p == NULL) return;
   
   p->nameServerPort    = 0;
+  p->domainServerPort  = 0;
   p->nameServerUdpPort = 0;
   p->mustMulticast     = 0;
   p->timeout           = 0;
@@ -1042,6 +1043,7 @@ int cMsgParsedUDLCopy(parsedUDL *dest, parsedUDL *src) {
   if (dest == NULL || src == NULL) return CMSG_OK;
   
   dest->nameServerPort    = src->nameServerPort;
+  dest->domainServerPort  = src->domainServerPort;
   dest->nameServerUdpPort = src->nameServerUdpPort;
   dest->mustMulticast     = src->mustMulticast;
   dest->timeout           = src->timeout;
