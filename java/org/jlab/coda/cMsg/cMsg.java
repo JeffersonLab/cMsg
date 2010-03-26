@@ -216,8 +216,13 @@ public class cMsg {
         // Since the UDL may be a semicolon separated list of UDLs, separate them
         String udlStrings[]  = clientUDL.split(";");
 
+        // trim off any white space on either end of individual UDL
+        for (int i=0; i < udlStrings.length; i++) {
+            udlStrings[i] = udlStrings[i].trim();
+        }
+
         // Turn String array into a linked list (array list does not allow
-        // use of the method "remove" for some reason)
+        // use of the method "remove")
         List<String> l = Arrays.asList(udlStrings);
         LinkedList<String> udlList = new LinkedList<String>(l);
 
@@ -283,6 +288,10 @@ public class cMsg {
 
                             // Since the UDL may be a semicolon separated list of UDLs, separate them
                             String udls[] = newUDL.split(";");
+                            // trim off any white space on either end of individual UDL
+                            for (int j=0; j < udls.length; j++) {
+                                udls[j] = udls[j].trim();
+                            }
 
                             // Substitute these new udls for "udl" they're replacing in the original
                             // list and start the process over again
