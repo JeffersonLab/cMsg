@@ -605,7 +605,8 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
   free(result);
   free(buff);
 
-#elif defined linux || defined Darwin
+  /* else linux || Darwin */
+#else
 
 /*
  * There seem to be serious bugs with Linux implementation of
@@ -645,9 +646,7 @@ int cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
   if (status != 0) {
     cmsg_err_abort(status, "Unlock gethostbyname Mutex");
   }
-    
-#else
-  return(CMSG_NETWORK_ERROR);
+  
 #endif 
 #endif 
     
@@ -990,7 +989,7 @@ int cMsgNodeIsLocal(const char *host, int *isLocal)
 #else
   struct utsname myname;
   int status, same=0;
-  int debugTemp, debug=1;
+  int debugTemp, debug=0;
   
   debugTemp = cMsgDebug;
   if (debug) cMsgDebug = CMSG_DEBUG_INFO;
@@ -1008,12 +1007,13 @@ int cMsgNodeIsLocal(const char *host, int *isLocal)
     return CMSG_ERROR;
   }
   
-  printf("cMsgNodeIsLocal:  call cMsgNodeSame\n");
   if ( (status = cMsgNodeSame(host, myname.nodename, &same)) != CMSG_OK) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgNodeIsLocal: error in cMsgNodeSame\n");
     cMsgDebug = debugTemp;
     return status;
   }
+  
+  cMsgDebug = debugTemp;
   
   if (same)
     *isLocal = 1;
