@@ -47,7 +47,7 @@ public class cMsgNetworkConstants {
     public static final int    nameServerUdpPort = 45000;
     /** Default TCP port at which a cMsg domain, domain server listens for 2 client connections
       * (after that client has connected to name server) = {@value} */
-    public static final int    domainServerPort = 45100;
+    public static final int    domainServerPort = 45001;
     /** Default UDP port at which a run control multicast server listens for multicasts = {@value} */
     public static final int    rcMulticastPort = 45200;
     /** TCP port at which a run control server starts looking for a port to listen
