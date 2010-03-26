@@ -23,6 +23,7 @@ import org.jlab.coda.cMsg.cMsgException;
 import java.nio.channels.*;
 import java.nio.ByteBuffer;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +44,13 @@ class cMsgConnectionHandler extends Thread {
 
         /** Did attempt to make connections time out? */
         boolean timedOut;
+
+        /**
+         * Two connections are to be made. The first is for sending messages to server and responses
+         * back to client. The second is for keepalives and monitoring data to go back and forth.
+         * The question is, which connection was made first?
+         */
+        boolean messageSocketFirst = true;
 
         /** Object containing information about the client now trying to connect to this server. */
         cMsgClientData info;
@@ -284,7 +292,8 @@ class cMsgConnectionHandler extends Thread {
                         else if (key.isReadable()) {
 
                             SocketChannel channel = (SocketChannel) key.channel();
-                            clientInfoStorage storage = null;
+
+                            clientInfoStorage storage;
                             try {
                                 storage = readIncomingMessage(key);
                                 // if read not complete ...
@@ -302,30 +311,43 @@ class cMsgConnectionHandler extends Thread {
                             // Synchronization is used to coordinate with the gotConnections()
                             // method which may be in the process of timing out for this client.
                             synchronized (storage) {
-                                // if this client has already timeout, forget about it
+                                // if this client has already timedout, forget about it
                                 if (!storage.timedOut) {
                                     // record connection just made
                                     storage.connectionsMade++;
 
-                                    // The 1st connection is for sending client requests
-                                    // and receiving response messages.
+                                    // 1st connection from client
                                     if (storage.connectionsMade == 1) {
-                                        // set recv buffer size
-                                        channel.socket().setReceiveBufferSize(131072);
-//System.out.println(">>    CCH: channel 1 = " + channel);
-                                        // save it in info object
-                                        storage.info.setMessageChannel(channel);
+                                        if (storage.messageSocketFirst) {
+                                            // set TCP buffer sizes
+                                            channel.socket().setSendBufferSize(131072);
+                                            channel.socket().setReceiveBufferSize(131072);
+                                            // save channel in info object
+                                            storage.info.setMessageChannel(channel);
+                                        }
+                                        else {
+                                            channel.socket().setSendBufferSize(8192);
+                                            channel.socket().setReceiveBufferSize(8192);
+                                            storage.info.keepAliveChannel = channel;
+                                        }
+
                                         // record when client connected
                                         storage.info.monData.birthday = System.currentTimeMillis();
                                     }
-                                    // The 2nd connection is for a keep-alive/monitoring-data messages
+                                    // 2nd connection from client
                                     else if (storage.connectionsMade == 2) {
-                                        // set recv buffer size
-                                        channel.socket().setReceiveBufferSize(8192);
-                                        channel.socket().setSendBufferSize(8192);
-                                        // save it in info object
-                                        storage.info.keepAliveChannel = channel;
-//System.out.println(">>    CCH: channel 2 = " + channel);
+                                        if (storage.messageSocketFirst) {
+                                            channel.socket().setSendBufferSize(8192);
+                                            channel.socket().setReceiveBufferSize(8192);
+                                            storage.info.keepAliveChannel = channel;
+                                        }
+                                        else {
+                                            channel.socket().setSendBufferSize(131072);
+                                            channel.socket().setReceiveBufferSize(131072);
+                                            storage.info.setMessageChannel(channel);
+                                            storage.info.monData.birthday = System.currentTimeMillis();
+                                        }
+                                        
                                         // report back that connections from this client are done
                                         storage.finishedConnectionsLatch.countDown();
                                     }
@@ -365,7 +387,7 @@ class cMsgConnectionHandler extends Thread {
     private clientInfoStorage readIncomingMessage( SelectionKey key ) throws IOException, cMsgException {
 
         // The number of bytes to read from a client initially
-        int BYTES_TO_READ = 16;
+        int BYTES_TO_READ = 20;
 
         SocketChannel channel = (SocketChannel) key.channel();
 
@@ -417,6 +439,23 @@ class cMsgConnectionHandler extends Thread {
             if (storage == null) {
                 throw new cMsgException("Bad key sent from client or timed out");
             }
+
+            // Look to see which connection was made first.
+            // Channel type is 1 for message, 2 for keepalive.
+            int channelType = buffer.getInt();
+            if (storage.connectionsMade < 1) {
+                storage.messageSocketFirst = channelType == 1;
+            }
+
+            // Send one byte back so cmsg client can determine if connection failed or not.
+            // Normally this is not an issue; however, when using ssh port forwarding / tunnels,
+            // the ssh client is not timely in reporting errors. This speeds up the return of an
+            // error to the cmsg client.
+            buffer.clear();
+            buffer.put((byte)9);
+            buffer.flip();
+
+            channel.write(buffer);
 
             return storage;
         }
