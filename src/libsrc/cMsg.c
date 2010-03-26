@@ -174,6 +174,52 @@ static int   cMsgPayloadToStringImpl(const void *vmsg, char **string, int level,
                                      int binary, int compactPayload, int noSystemFields);
 
 
+/**
+ * Routine to trim white space from front and back of given string.
+ * Changes made to argument string in place.
+ *
+ * @param s string to be trimmed
+ */
+static trim(char *s) {
+    int i, len, frontCount=0;
+    char *firstChar, *lastChar;
+    
+    if (s == NULL) return;
+
+    len = strlen(s);
+
+    if (len < 1) return;
+    
+    firstChar = s;
+    lastChar  = s + len - 1;
+
+    /* find first front end nonwhite char */
+    while (isspace(*firstChar) && *firstChar != '\0') {
+        firstChar++;
+    }
+    frontCount = firstChar - s;
+
+    /* Check to see if string all white space, if so send back blank string. */
+    if (frontCount >= len) {
+        s[0] = '\0';
+        return;
+    }
+
+    /* find first back end nonwhite char */
+    while (isspace(*lastChar)) {
+        lastChar--;
+    }
+
+    /* number of nonwhite chars */
+    len = lastChar - firstChar + 1;
+
+    /* move chars to front of string */
+    for (i=0; i < len; i++) {
+        s[i] = s[frontCount + i];
+    }
+    /* add null at end */
+    s[len] = '\0';
+}
 
 #ifdef VXWORKS
 
@@ -408,9 +454,9 @@ static void freeList(parsedUDL *p) {
  */
 static int readConfigFile(char *fileName, char **newUDL) {
 #define MAX_STR_LEN 2000
-    int i,j, gotUDL=0;
+    int   gotUDL=0;
     FILE *fp;
-    char str[MAX_STR_LEN], *pchar;
+    char  str[MAX_STR_LEN];
     
     if (fileName == NULL) return(CMSG_BAD_ARGUMENT);
     
@@ -423,22 +469,10 @@ static int readConfigFile(char *fileName, char **newUDL) {
     
 /*printf("readConfigFile: string = %s\n", str);*/
       /* Remove white space at beginning and end. */
-      i = 0;
-      pchar = str;
-      while (isspace(str[i])) {
-        pchar++;
-        i++; 
-      }
-
-      for (j=0; j<MAX_STR_LEN-i; j++) {
-        if (isspace(pchar[j])) {
-            pchar[j] = '\0';
-            break;
-        }
-      }
+      trim(str);
       
       /* if first char is #, treat as comment */
-      if (pchar[0] == '#') {
+      if (str[0] == '#') {
 /*printf("SKIP over comment\n");*/
         continue;
       }
@@ -447,12 +481,12 @@ static int readConfigFile(char *fileName, char **newUDL) {
         continue;
       }
       else {
-/*printf("read configFile, UDL = %s\n", pchar);*/
+/*printf("read configFile, UDL = %s\n", str);*/
         /* this string is not a UDL so continue on */
-        if (strstr(pchar, "://") == NULL) {
+        if (strstr(str, "://") == NULL) {
             continue;
         }
-        if (newUDL != NULL) *newUDL = (char *) (strdup(pchar));
+        if (newUDL != NULL) *newUDL = (char *) (strdup(str));
         gotUDL = 1;
         break;
       }
@@ -497,6 +531,7 @@ static int splitUDL(const char *myUDL, parsedUDL** list, int *count) {
   
   while (p != NULL) {
     /* Parse the UDL (Uniform Domain Locator) */
+    trim(p); /* get rid of any leading/trailing whitespace */
     if ( (err = parseUDL(p, &domain, &remainder)) != CMSG_OK ) {
       /* There's been a parsing error */
       free(udl);
