@@ -441,6 +441,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, String s) throws cMsgException {
+        if (s == null) throw new cMsgException("cannot add null payload item");
         validName(name, false);
         addString(name, s, false);
     }
@@ -485,6 +486,10 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, String[] s) throws cMsgException {
+        if (s == null || s.length < 1) throw new cMsgException("cannot add null/empty payload item");
+        for (String val : s) {
+            if (val == null) throw new cMsgException("string array contains null, cannot add payload item");
+        }
         validName(name, false);
         addString(name, s, false);
     }
@@ -536,6 +541,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name or endian value
      */
     public cMsgPayloadItem(String name, byte[] b, int end) throws cMsgException {
+        if (b == null) throw new cMsgException("cannot add null payload item");
         validName(name, false);
         endian = checkEndian(end);
         addBinary(name, b, false);
@@ -573,6 +579,11 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name or endian values, not enough endian values for bin arrays
      */
     public cMsgPayloadItem(String name, byte[][] b, int[] end) throws cMsgException {
+        if (b == null || b.length < 1) throw new cMsgException("cannot add null/empty payload item");
+        for (byte[] array : b) {
+            if (array == null) throw new cMsgException("array of byte arrays contains null, cannot add payload item");
+        }
+
         validName(name, false);
         if (b.length > end.length) {
             throw new cMsgException("need an endian value for each byte array");
@@ -595,6 +606,11 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name or endian value
      */
     public cMsgPayloadItem(String name, byte[][] b) throws cMsgException {
+        if (b == null || b.length < 1) throw new cMsgException("cannot add null/empty payload item");
+        for (byte[] array : b) {
+            if (array == null) throw new cMsgException("array of byte arrays contains null, cannot add payload item");
+        }
+
         validName(name, false);
         endianArray = new int[b.length];
         for (int i=0; i<b.length; i++) {
@@ -643,6 +659,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, cMsgMessage msg) throws cMsgException {
+        if (msg == null) throw new cMsgException("cannot add null payload item");
         validName(name, false);
         addMessage(name, msg, false);
     }
@@ -672,6 +689,10 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, cMsgMessage[] msgs) throws cMsgException {
+        if (msgs == null || msgs.length < 1) throw new cMsgException("cannot add null/empty payload item");
+        for (cMsgMessage msg : msgs) {
+            if (msg == null) throw new cMsgException("array of messages contains null, cannot add payload item");
+        }
         validName(name, false);
         addMessage(name, msgs, false);
     }
@@ -844,6 +865,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, BigInteger big) throws cMsgException {
+        if (big == null) throw new cMsgException("cannot add null payload item");
         validName(name, false);
         if ((big.compareTo(new BigInteger("18446744073709551615")) > 0) ||
             (big.compareTo(BigInteger.ZERO) < 0) ) throw new cMsgException("number must fit in an unsigned, 64-bit int");
@@ -877,6 +899,8 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public <T extends Number> cMsgPayloadItem(String name, T t) throws cMsgException {
+        if (t == null) throw new cMsgException("cannot add null payload item");
+
         int typ;
         String s = t.getClass().getName();
 
@@ -923,6 +947,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, byte[] b) throws cMsgException {
+        if (b == null || b.length < 1) throw new cMsgException("cannot add null/empty payload item");
         validName(name, false);
         addByte(name, b, false, true);
     }
@@ -955,6 +980,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, short[] s) throws cMsgException {
+        if (s == null || s.length < 1) throw new cMsgException("cannot add null/empty payload item");
         validName(name, false);
         addShort(name, s, false, true);
     }
@@ -988,6 +1014,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, int[] i) throws cMsgException {
+        if (i == null || i.length < 1) throw new cMsgException("cannot add null/empty payload item");
         validName(name, false);
         addInt(name, i, false, true);
     }
@@ -1021,6 +1048,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, long[] l) throws cMsgException {
+        if (l == null || l.length < 1) throw new cMsgException("cannot add null/empty payload item");
         validName(name, false);
         addLong(name, l, false, true);
     }
@@ -1070,6 +1098,11 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, BigInteger[] bigs) throws cMsgException {
+        if (bigs == null || bigs.length < 1) throw new cMsgException("cannot add null/empty payload item");
+        for (BigInteger big : bigs) {
+            if (big == null) throw new cMsgException("array of BigIntegers contains null, cannot add payload item");
+        }
+
         validName(name, false);
         for (BigInteger bi : bigs) {
             if ((bi.compareTo(new BigInteger("18446744073709551615")) > 0) ||
@@ -1106,46 +1139,51 @@ public final class cMsgPayloadItem implements Cloneable {
      * {@link Long}, {@link Float}, or {@link Double}.
      *
      * @param name name of item
-     * @param t array of Number objects to be part of the payload
+     * @param ta array of Number objects to be part of the payload
      * @throws cMsgException if invalid name
      */
-    public <T extends Number> cMsgPayloadItem(String name, T[] t) throws cMsgException {
-         int typ;
-         String s = t[0].getClass().getName();
-         System.out.println("class = " + s);
+    public <T extends Number> cMsgPayloadItem(String name, T[] ta) throws cMsgException {
+        if (ta == null || ta.length < 1) throw new cMsgException("cannot add null/empty payload item");
+        for (T t : ta) {
+            if (t == null) throw new cMsgException("array of BigIntegers contains null, cannot add payload item");
+        }
 
-         validName(name, false);
+        int typ;
+        String s = ta[0].getClass().getName();
+        System.out.println("class = " + s);
 
-         // casts & "instance of" does not work with generics on naked types (on t), so use getClass()
+        validName(name, false);
 
-         if (s.equals("java.lang.Byte")) {
-             typ = cMsgConstants.payloadInt8A;
-             System.out.println("Got type = Byte !!");
-         }
-         else if (s.equals("java.lang.Short")) {
-             typ = cMsgConstants.payloadInt16A;
-             System.out.println("Got type = Short !!");
-         }
-         else if (s.equals("java.lang.Integer")) {
-             typ = cMsgConstants.payloadInt32A;
+        // casts & "instance of" does not work with generics on naked types (on t), so use getClass()
 
-             System.out.println("cMsgPayloadItem constructor: typ = cMsgConstants.payloadInt32A");
-         }
-         else if (s.equals("java.lang.Long")) {
-             typ = cMsgConstants.payloadInt64A;
-         }
-         else if (s.equals("java.lang.Float")) {
-             typ = cMsgConstants.payloadFltA;
-         }
-         else if (s.equals("java.lang.Double")) {
-             typ = cMsgConstants.payloadDblA;
-         }
-         else {
-             throw new cMsgException("Type T[]" + s + " not allowed");
-         }
+        if (s.equals("java.lang.Byte")) {
+            typ = cMsgConstants.payloadInt8A;
+            System.out.println("Got type = Byte !!");
+        }
+        else if (s.equals("java.lang.Short")) {
+            typ = cMsgConstants.payloadInt16A;
+            System.out.println("Got type = Short !!");
+        }
+        else if (s.equals("java.lang.Integer")) {
+            typ = cMsgConstants.payloadInt32A;
 
-         addNumber(name, t, typ, false);
-     }
+            System.out.println("cMsgPayloadItem constructor: typ = cMsgConstants.payloadInt32A");
+        }
+        else if (s.equals("java.lang.Long")) {
+            typ = cMsgConstants.payloadInt64A;
+        }
+        else if (s.equals("java.lang.Float")) {
+            typ = cMsgConstants.payloadFltA;
+        }
+        else if (s.equals("java.lang.Double")) {
+            typ = cMsgConstants.payloadDblA;
+        }
+        else {
+            throw new cMsgException("Type T[]" + s + " not allowed");
+        }
+
+        addNumber(name, ta, typ, false);
+    }
 
     //-----------
     // Reals
@@ -1221,6 +1259,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, float[] f) throws cMsgException {
+        if (f == null || f.length < 1) throw new cMsgException("cannot add null/empty payload item");
         validName(name, false);
         addFloat(name, f, false, true);
     }
@@ -1250,6 +1289,7 @@ public final class cMsgPayloadItem implements Cloneable {
      * @throws cMsgException if invalid name
      */
     public cMsgPayloadItem(String name, double[] d) throws cMsgException {
+        if (d == null || d.length < 1) throw new cMsgException("cannot add null/empty payload item");
         validName(name, false);
         addDouble(name, d, false, true);
     }
