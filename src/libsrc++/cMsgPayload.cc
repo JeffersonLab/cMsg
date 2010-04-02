@@ -1440,7 +1440,7 @@ void cMsgMessage::add(const string &name, const string *s) {
  */
 void cMsgMessage::add(const string &name, const char **strs, int len) {
     if (strs == NULL) throw (cMsgException("strs arg is null"));
-    if (len < 1) throw (cMsgException("len < 1"));
+    if (len < 1) throw (cMsgException("string array len < 1"));
 
 	int err = cMsgAddStringArray(myMsgPointer, name.c_str(), strs, len);
 	if (err != CMSG_OK) {
@@ -1466,7 +1466,7 @@ void cMsgMessage::add(const string &name, const char **strs, int len) {
  */
 void cMsgMessage::add(const string &name, const string *strs, int len) {
   if (strs == NULL) throw (cMsgException("strs arg is null"));
-  if (len < 1) throw (cMsgException("len < 1"));
+  if (len < 1) throw (cMsgException("string array len < 1"));
 
 #ifdef linux
   const char *strings[len];
@@ -1480,16 +1480,16 @@ void cMsgMessage::add(const string &name, const string *strs, int len) {
   }
 
   int err = cMsgAddStringArray(myMsgPointer, name.c_str(), strings, len);
+#ifndef linux
+  free(strings);
+#endif
   if (err != CMSG_OK) {
-         if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name"));
+    if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name"));
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
     else throw(cMsgException("Error"));
   }
  
-#ifndef linux
-  free(strings);
-#endif
 }
 
 //-------------------------------------------------------------------
@@ -1505,6 +1505,7 @@ void cMsgMessage::add(const string &name, const string *strs, int len) {
  * @throws cMsgException if no memory, name already used, or improper name
  */
 void cMsgMessage::add(const string &name, const vector<string> &strs) {
+    if (strs.size() < 1) throw(cMsgException("Zero length vector"));
 #ifdef linux
     const char *strings[strs.size()];
 #else
@@ -1517,16 +1518,15 @@ void cMsgMessage::add(const string &name, const vector<string> &strs) {
   }
 
   int err = cMsgAddStringArray(myMsgPointer, name.c_str(), strings, strs.size());
+#ifndef linux
+  free(strings);
+#endif
   if (err != CMSG_OK) {
          if (err == CMSG_BAD_FORMAT)     throw(cMsgException("Improper name"));
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
     else if (err == CMSG_OUT_OF_MEMORY)  throw(cMsgException("No memory available"));
     else throw(cMsgException("Error"));
   }
-  
-#ifndef linux
-  free(strings);
-#endif
 }
 
 /**
@@ -1599,7 +1599,7 @@ void cMsgMessage::add(const string &name, const cMsgMessage *msg) {
  */   
 void cMsgMessage::add(const string &name, const cMsgMessage *msg, int len) {
   if (msg == NULL) throw (cMsgException("msg arg is null"));
-  if (len < 1) throw (cMsgException("len < 1"));
+  if (len < 1) throw (cMsgException("cmsg message array len < 1"));
   
 #ifdef linux
   const void *msgs[len];
@@ -1613,6 +1613,9 @@ void cMsgMessage::add(const string &name, const cMsgMessage *msg, int len) {
   }
 
   int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, len);
+#ifndef linux
+  free(msgs);
+#endif
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
@@ -1620,9 +1623,6 @@ void cMsgMessage::add(const string &name, const cMsgMessage *msg, int len) {
     else throw(cMsgException("Error")); 
   }
   
-#ifndef linux
-  free(msgs);
-#endif
 }
 
 
@@ -1642,7 +1642,7 @@ void cMsgMessage::add(const string &name, const cMsgMessage *msg, int len) {
  */   
 void cMsgMessage::add(const string &name, const cMsgMessage* *msg, int len) {
   if (msg == NULL) throw (cMsgException("msg arg is null"));
-  if (len < 1) throw (cMsgException("len < 1"));
+  if (len < 1) throw (cMsgException("cmsg message array len < 1"));
   
 #ifdef linux
   const void *msgs[len];
@@ -1656,6 +1656,9 @@ void cMsgMessage::add(const string &name, const cMsgMessage* *msg, int len) {
   }
 
   int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, len);
+#ifndef linux
+  free(msgs);
+#endif
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
@@ -1663,9 +1666,6 @@ void cMsgMessage::add(const string &name, const cMsgMessage* *msg, int len) {
     else throw(cMsgException("Error")); 
   }
   
-#ifndef linux
-  free(msgs);
-#endif
 }
 
 
@@ -1683,6 +1683,7 @@ void cMsgMessage::add(const string &name, const cMsgMessage* *msg, int len) {
  * @throws cMsgException if no memory, name already used, improper name
  */   
 void cMsgMessage::add(const string &name, const vector<cMsgMessage*> &msgPVec) {
+    if (msgPVec.size() < 1) throw(cMsgException("Zero length vector"));
 #ifdef linux
     const void *msgs[msgPVec.size()];
 #else
@@ -1695,6 +1696,9 @@ void cMsgMessage::add(const string &name, const vector<cMsgMessage*> &msgPVec) {
   }
   
   int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, msgPVec.size());
+#ifndef linux
+  free(msgs);
+#endif
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
@@ -1702,9 +1706,6 @@ void cMsgMessage::add(const string &name, const vector<cMsgMessage*> &msgPVec) {
     else throw(cMsgException("Error")); 
   }
   
-#ifndef linux
-  free(msgs);
-#endif
 }
 
 
@@ -1722,6 +1723,7 @@ void cMsgMessage::add(const string &name, const vector<cMsgMessage*> &msgPVec) {
  * @throws cMsgException if no memory, name already used, improper name
  */   
 void cMsgMessage::add(const string &name, const vector<cMsgMessage> &msgVec) {
+    if (msgVec.size() < 1) throw(cMsgException("Zero length vector"));
 #ifdef linux
     const void *msgs[msgVec.size()];
 #else
@@ -1734,6 +1736,9 @@ void cMsgMessage::add(const string &name, const vector<cMsgMessage> &msgVec) {
   }
   
   int err = cMsgAddMessageArray(myMsgPointer, name.c_str(), msgs, msgVec.size());
+#ifndef linux
+  free(msgs);
+#endif
   if (err != CMSG_OK) {
     if (err == CMSG_BAD_FORMAT)          throw(cMsgException("Improper name"));
     else if (err == CMSG_ALREADY_EXISTS) throw(cMsgException("Name being used"));
@@ -1741,9 +1746,6 @@ void cMsgMessage::add(const string &name, const vector<cMsgMessage> &msgVec) {
     else throw(cMsgException("Error")); 
   }
   
-#ifndef linux
-  free(msgs);
-#endif
 }
 
 
