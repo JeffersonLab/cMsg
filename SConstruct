@@ -382,7 +382,7 @@ Export('env incDir libDir binDir archIncDir archDir execLibs tarfile debugSuffix
 env.SConscript('src/regexp/SConscript',   variant_dir='src/regexp/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc/SConscript',   variant_dir='src/libsrc/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc++/SConscript', variant_dir='src/libsrc++/'+archDir, duplicate=0)
-env.SConscript('src/fakelibsrc/SConscript', variant_dir='src/fakelibsrc/'+archDir, duplicate=0)
+#env.SConscript('src/fakelibsrc/SConscript', variant_dir='src/fakelibsrc/'+archDir, duplicate=0)
 
 # for vxworks only make libs and examples
 if useVxworks:
