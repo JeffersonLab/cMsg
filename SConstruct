@@ -128,14 +128,12 @@ int main(int argc, char **argv) {
 # but for Darwin or Solaris there is no obvious check so run
 # a configure-type test.
 is64bits = False
-if platform == 'Linux':
-    if machine == 'x86_64':
+if platform == 'Linux'and machine == 'x86_64':
         is64bits = True
         print 'Found 64 bit system'
-elif platform == 'Darwin' or platform == 'SunOS':
-    ccflags = '-xarch=amd64'
-    if platform == 'Darwin':
-        ccflags = '-arch x86_64'
+else:
+    if platform == 'SunOS':
+        ccflags = '-xarch=amd64'
     # run the test
     conf = Configure( env, custom_tests = { 'CheckBits' : CheckHas64Bits } )
     ret = conf.CheckBits(ccflags)
