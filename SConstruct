@@ -69,8 +69,20 @@ def buildSymbolicLinks(target, source, env):
         else:
             continue
 
-        print "Create link = " + str(t)
-        symlink(str(s), str(t))
+        # remember our current working dir
+        currentDir = os.getcwd()
+
+        # get directory of target
+        targetDirName = os.path.dirname(str(t))
+
+        # change dirs to target directory
+        os.chdir(targetDirName)
+
+        # create symbolic link: symlink(source, linkname)
+        symlink("../../include/"+linkname, linkname)
+
+        # change back to original directory
+        os.chdir(currentDir)
 
     return None
 
@@ -372,6 +384,7 @@ Export('env incDir libDir binDir archIncDir archDir execLibs tarfile debugSuffix
 env.SConscript('src/regexp/SConscript',   variant_dir='src/regexp/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc/SConscript',   variant_dir='src/libsrc/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc++/SConscript', variant_dir='src/libsrc++/'+archDir, duplicate=0)
+env.SConscript('src/fakelibsrc/SConscript', variant_dir='src/fakelibsrc/'+archDir, duplicate=0)
 
 # for vxworks only make libs and examples
 if useVxworks:

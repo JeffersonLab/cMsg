@@ -4,9 +4,14 @@ Import('env', 'libDir', 'incDir', 'archIncDir', 'debugSuffix')
 import os
 from os import sep
 
-headerList = ['cMsg.hxx']
-linkList   = [archIncDir + sep + 'cMsg.hxx']
-fileList   = ['cMsgWrapper.cc', 'cMsgPayload.cc']
+headerList = ['cMsg.hxx',
+              'cMsgPrivate.hxx']
+
+linkList   = [archIncDir + sep + 'cMsg.hxx',
+              archIncDir + sep + 'cMsgPrivate.hxx']
+
+fileList   = ['cMsgWrapper.cc',
+              'cMsgPayload.cc']
 
 env.AppendUnique(CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
 cmsgxxLib = env.SharedLibrary(target = 'cmsgxx'+debugSuffix, source = fileList)
