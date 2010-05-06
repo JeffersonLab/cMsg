@@ -20,7 +20,7 @@
 *----------------------------------------------------------------------------*/
 
 
-//package org.jlab.coda.cMsg.test;
+package org.jlab.coda.cMsg.test;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.*;
