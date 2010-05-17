@@ -36,7 +36,7 @@ static int userInt;
 
 
 // misc parameters
-static int sleepTime  = 100000;  // units are micro-sec
+static int sleepTime  = 100;     // units are msec
 static int sendAndGet = false;
 static int timeout    = 3;       // units are seconds
 
@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
       try {
         c.send(m);
         c.flush();
-        usleep(sleepTime);
+        usleep(sleepTime*1000);
       } catch (cMsgException e) {
         cerr << endl << "?unable to send message" << endl << endl;
       }
