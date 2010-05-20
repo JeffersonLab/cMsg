@@ -12,11 +12,12 @@
 #
 ################################
 
-# get operating system info
-import os
-import string
-import SCons.Node.FS
+# get operating system info, various libs
+import sys
+import glob
+import os, string, subprocess, SCons.Node.FS
 from os import access, F_OK, sep, symlink, lstat
+from subprocess import Popen, PIPE
 
 os.umask(022)
 
@@ -34,6 +35,29 @@ osname   = platform + '-' +  machine
 # This allows us to get to the vxworks compiler for example.
 # So for vxworks, make sure the tools are in your PATH
 env = Environment(ENV = {'PATH' : os.environ['PATH']})
+
+
+def recursiveDirs(root) :
+	return filter( (lambda a : a.rfind( ".svn")==-1 ),  [ a[0] for a in os.walk(root)]  )
+
+def unique(list) :
+	return dict.fromkeys(list).keys()
+
+def scanFiles(dir, accept=["*.cpp"], reject=[]) :
+	sources = []
+	paths = recursiveDirs(dir)
+	for path in paths :
+		for pattern in accept :
+			sources+=glob.glob(path+"/"+pattern)
+	for pattern in reject :
+		sources = filter( (lambda a : a.rfind(pattern)==-1 ),  sources )
+	return unique(sources)
+
+def subdirsContaining(root, patterns):
+	dirs = unique(map(os.path.dirname, scanFiles(root, patterns)))
+	dirs.sort()
+	return dirs
+
 
 ####################################################################################
 # Create a Builder to install symbolic links, where "source" is list of node objects
@@ -332,6 +356,43 @@ Help('examples            install executable examples\n')
 # not necessary to create install directories explicitly
 # (done automatically during install)
 
+###########################
+# Documentation generation
+###########################
+
+# Functions that do the documentation creation
+def docGeneratorC(target, source, env):
+    cmd = 'doxygen doc/doxygen/DoxyfileC'
+    pipe = Popen(cmd, shell=True, env={"TOPLEVEL": "./"}, stdout=PIPE).stdout
+    return
+
+def docGeneratorCC(target, source, env):
+    cmd = 'doxygen doc/doxygen/DoxyfileCC'
+    pipe = Popen(cmd, shell=True, env={"TOPLEVEL": "./"}, stdout=PIPE).stdout
+    return
+
+def docGeneratorJava(target, source, env):
+    cmd = 'ant javadoc'
+    pipe = Popen(cmd, shell=True, stdout=PIPE).stdout
+    return
+
+# doc files builders
+docBuildC = Builder(action = docGeneratorC)
+env.Append(BUILDERS = {'DocGenC' : docBuildC})
+
+docBuildCC = Builder(action = docGeneratorCC)
+env.Append(BUILDERS = {'DocGenCC' : docBuildCC})
+
+docBuildJava = Builder(action = docGeneratorJava)
+env.Append(BUILDERS = {'DocGenJava' : docBuildJava})
+
+# generate Java documentation
+env.Alias('doc', env.DocGenJava(target = ['#/doc/javadoc/index.html'],
+                                source = scanFiles("java/org/jlab/coda/cMsg", accept=["*.java"]) ))
+
+# use "doc" on command line to create tar file
+Help('doc                 create javadoc and doxygen docs (in ./doc)\n')
+
 #########################
 # Tar file
 #########################
@@ -346,8 +407,8 @@ def tarballer(target, source, env):
         return
     dirname = os.path.basename(os.path.abspath('.'))
     cmd = 'tar -X tar/tarexclude -C .. -c -z -f ' + str(target[0]) + ' ./' + dirname
-    p = os.popen(cmd)
-    return p.close()
+    pipe = Popen(cmd, shell=True, stdin=PIPE).stdout
+    return pipe
 
 # name of tarfile (software package dependent)
 tarfile = 'tar/cMsg-' + versionMajor + '.' + versionMinor + '.tgz'
