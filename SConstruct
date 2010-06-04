@@ -215,6 +215,8 @@ AddOption('--prefix',
 prefix = GetOption('prefix')
 Help('--prefix=<dir>      use base directory <dir> when doing install\n')
 
+# uninstall option
+Help('-c  install         uninstall libs, headers, examples, and remove all generated files\n')
 
 #########################
 # Compile flags
