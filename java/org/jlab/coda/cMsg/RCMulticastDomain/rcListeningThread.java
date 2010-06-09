@@ -28,6 +28,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.util.Date;
 import java.util.Set;
+import java.util.Enumeration;
 
 /**
  * This class implements a thread to listen to runcontrol clients in the
@@ -71,11 +72,18 @@ class rcListeningThread extends Thread {
      */
     public rcListeningThread(RCMulticast server, int port) throws cMsgException {
 
-        // Create a UDP socket for accepting multi/unicasts from the RC client.
-        multicastPort = port;
         try {
+            // Create a UDP socket for accepting multi/unicasts from the RC client.
+            multicastPort = port;
             multicastSocket = new MulticastSocket(multicastPort);
-            multicastSocket.joinGroup(InetAddress.getByName(cMsgNetworkConstants.rcMulticast));
+            // Be sure to join the multicast addr group on each interface
+            // (something not mentioned in any javadocs or books!).
+            SocketAddress sa;
+            Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+            while (enumer.hasMoreElements()) {
+                sa = new InetSocketAddress(InetAddress.getByName(cMsgNetworkConstants.rcMulticast), multicastPort);
+                multicastSocket.joinGroup(sa, enumer.nextElement());
+            }
             multicastSocket.setReceiveBufferSize(65535);
             multicastSocket.setReuseAddress(true);
         }
