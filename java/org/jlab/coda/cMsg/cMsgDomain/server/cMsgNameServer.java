@@ -505,15 +505,27 @@ public class cMsgNameServer extends Thread {
             multicastSocket = new MulticastSocket(udpPort);
             multicastSocket.setReceiveBufferSize(65535);
             multicastSocket.setReuseAddress(true);
-            // If using standalone laptop, this call throws an exception:
+            // If using standalone laptop, joinGroup throws an exception:
             // java.net.SocketException: No such device. This catch allows
             // usage with messed up / nonexistant network.
-            try {
-                multicastSocket.joinGroup(InetAddress.getByName(cMsgNetworkConstants.cMsgMulticast));
-            } catch (IOException e) {
-                System.out.println("Cannot join multicast group cause network messed up");
+            // Be sure to join the multicast addr group on each interface
+            // (something not mentioned in any javadocs or books!).
+            SocketAddress sa;
+            Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+            while (enumer.hasMoreElements()) {
+                try {
+                    sa = new InetSocketAddress(InetAddress.getByName(cMsgNetworkConstants.cMsgMulticast), udpPort);
+                    multicastSocket.joinGroup(sa, enumer.nextElement());
+                }
+                catch (IOException e) {/* cannot join multicast group cause network messed up */}
             }
-//System.out.println("Created UDP multicast listening socket at port " + udpPort);
+
+//            try {
+//                multicastSocket.joinGroup(InetAddress.getByName(cMsgNetworkConstants.cMsgMulticast));
+//            } catch (IOException e) {
+//                System.out.println("Cannot join multicast group cause network messed up");
+//            }
+//System.out.println("Created UDP multicast listening socket on all interfaces at port " + udpPort);
         }
         catch (IOException e) {
             System.out.println("UDP port number " + udpPort + " in use.");
