@@ -811,7 +811,7 @@ class cMsgDomainServerSelect extends Thread {
 //System.out.println("  read size = " + clientData.size);
                                     clientData.buffer.clear();
                                     if (clientData.size > clientData.buffer.capacity()) {
-//System.out.println("  create new, large direct bytebuffer");
+//System.out.println("  create new, large direct bytebuffer from " + clientData.buffer.capacity() + " to " + clientData.size);
                                         clientData.buffer = ByteBuffer.allocateDirect(clientData.size);
                                         clientData.buffer.clear();
                                     }
