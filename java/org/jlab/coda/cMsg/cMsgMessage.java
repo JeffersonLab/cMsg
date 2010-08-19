@@ -1464,7 +1464,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                 typ  = item.getType();
 
                 // filter out system fields (names starting with "cmsg")
-                if (noSystemFields && name.substring(0,4).equalsIgnoreCase("cmsg")) {
+                if (noSystemFields && (name.length() > 4) && name.substring(0,4).equalsIgnoreCase("cmsg")) {
                     continue;
                 }
 
