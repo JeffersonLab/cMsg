@@ -89,7 +89,7 @@ public class RCMulticastServer {
         //    given, the environmental variable EXPID is used. if that is not defined,
         //    an exception is thrown
 
-        String UDL = "cMsg:rcm://?expid=carlExp";
+        String UDL = "cMsg:rcm:///carlExp";
 
         cMsg cmsg = new cMsg(UDL, "multicast listener", "udp trial");
         try {cmsg.connect();}
