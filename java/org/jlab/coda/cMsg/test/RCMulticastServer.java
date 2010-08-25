@@ -79,15 +79,16 @@ public class RCMulticastServer {
         System.out.println("Starting RC Multicast domain server");
 
         // RC Multicast domain UDL is of the form:
-        //       cMsg:rcm://<udpPort>?expid=<expid>
+        //       cMsg:rcm://<udpPort>/<expid>?multicastTO=<timeout>
         //
         // The intial cMsg:rcm:// is stripped off by the top layer API
         //
         // Remember that for this domain:
-        // 1) udp listening port is optional and defaults to cMsgNetworkConstants.rcMulticastPort
-        // 2) the experiment id is given by the optional parameter expid. If none is
-        //    given, the environmental variable EXPID is used. if that is not defined,
-        //    an exception is thrown
+        // 1) udp listening port is optional and defaults to MsgNetworkConstants.rcMulticastPort
+        // 2) the experiment id is required If none is given, an exception is thrown
+        // 3) the multicast timeout is in seconds and sets the time of sending out multicasts
+        //    trying to locate other rc multicast servers already running on its port. Default
+        //    is 2 seconds.
 
         String UDL = "cMsg:rcm:///carlExp";
 
