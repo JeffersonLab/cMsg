@@ -184,10 +184,11 @@ public class RunControl extends cMsgDomainAdapter {
      *                       communication problems with the server(s)
      */
     public void connect() throws cMsgException {
-        parseUDL(UDLremainder);
 
         // cannot run this simultaneously with any other public method
         connectLock.lock();
+
+        parseUDL(UDLremainder);
 
         try {
             if (connected) return;
@@ -427,6 +428,232 @@ public class RunControl extends cMsgDomainAdapter {
         }
 
         return;
+    }
+
+
+    /**
+     * This method is a synchronous call to receive a message containing monitoring data
+     * from the rc multicast server specified in the UDL.
+     * In this case, the "monitoring" data is just the host on which the rc multicast
+     * server is running. It can be found by calling the
+     * {@link org.jlab.coda.cMsg.cMsgMessage#getSenderHost()}
+     * method of the returned message. This is useful when trying to find the location
+     * of a particular AFECS (runcontrol) platform.
+     *
+     * @param  command directive for monitoring process (ignored here)
+     * @return response message containing the host running the rc multicast server contacted
+     * @throws cMsgException
+     */
+    public cMsgMessage monitor(String command) throws cMsgException {
+
+        // cannot run this simultaneously with any other public method
+        connectLock.lock();
+
+        // parse only if necessary
+        if (expid == null) {
+            parseUDL(UDLremainder);
+        }
+
+        try {
+//System.out.println("Monitoring ...");
+
+            //--------------------------------------------------------------
+            // multicast on local subnet to find RunControl Multicast server
+            //--------------------------------------------------------------
+            byte[] buffer;
+            DatagramSocket socket = null;
+            // Time in milliseconds waiting for a response to the multicasts.
+            int sleepTime = 1000;
+
+            // create byte array for multicast
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
+            DataOutputStream out = new DataOutputStream(baos);
+
+            try {
+                // Put our magic #s, TCP listening port, name, and
+                // the EXPID (experiment id string) into byte array.
+                out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+                out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+                out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                // multicast is from rc domain prober
+                out.writeInt(cMsgNetworkConstants.rcDomainMulticastProbe);
+                out.writeInt(44444);          // use any port number just to get a response
+                out.writeInt(name.length());
+                out.writeInt(expid.length());
+                try {
+                    out.write(name.getBytes("US-ASCII"));
+                    out.write(expid.getBytes("US-ASCII"));
+                }
+                catch (UnsupportedEncodingException e) {
+                }
+                out.flush();
+                out.close();
+
+                // create socket to receive at anonymous port & all interfaces
+                socket = new DatagramSocket();
+                socket.setReceiveBufferSize(1024);
+                socket.setSoTimeout(sleepTime);
+
+                // create multicast packet from the byte array
+                buffer = baos.toByteArray();
+                baos.close();
+            }
+            catch (IOException e) {
+                try { out.close();} catch (IOException e1) {}
+                try {baos.close();} catch (IOException e1) {}
+                if (socket != null) socket.close();
+                System.out.println("Cannot create rc multicast packet");
+                return null;
+            }
+
+            // create a thread which will receive any responses to our multicast
+            rcMulticastReceiver receiver = new rcMulticastReceiver(socket);
+            receiver.start();
+            // make sure it's started before we start sending stuff
+            int count = 0;
+            try {
+                while (!receiver.threadStarted() && count++ < 10) {
+                    Thread.sleep(200);
+                }
+            }
+            catch (InterruptedException e) {
+            }
+
+            // send our multicast packet                        
+            DatagramPacket packet;
+            InetAddress addr = null;
+            try {
+                addr = InetAddress.getByName(cMsgNetworkConstants.rcMulticast);
+            }
+            catch (UnknownHostException e) { /* never thrown */ }
+
+            try {
+//System.out.println("Send multicast packet on port " + rcMulticastServerPort);
+                packet = new DatagramPacket(buffer, buffer.length, addr, rcMulticastServerPort);
+                socket.send(packet);
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            // wait up to multicast timeout seconds
+            // wait for responses
+            try { Thread.sleep(sleepTime); }
+            catch (InterruptedException e) { }
+
+            // return the first legitimate response or null if none
+            return receiver.getMsg();
+        }
+        finally {
+            connectLock.unlock();
+        }
+    }
+
+
+
+    /** This class gets the response to our UDP multicast to an rc multicast server. */
+    class rcMulticastReceiver extends Thread {
+
+        cMsgMessageFull msg;
+        DatagramSocket socket;
+        boolean threadStarted;
+
+        rcMulticastReceiver(DatagramSocket socket) {
+            this.socket = socket;
+        }
+
+        public cMsgMessage getMsg() {
+            return msg;
+        }
+
+        public boolean threadStarted() {
+            return threadStarted;
+        }
+
+
+         public void run() {
+
+            int index;
+            byte[] buf = new byte[1024];
+            DatagramPacket packet = new DatagramPacket(buf, 1024);
+            StringBuffer id = new StringBuffer(1024);
+
+            while (true) {
+                // reset for each round
+                packet.setLength(1024);
+
+                threadStarted = true;
+
+                try {
+                    socket.receive(packet);
+//System.out.println("received UDP packet");
+                    // if we get too small of a packet, reject it
+                    if (packet.getLength() < 6*4) {
+                        if (debug >= cMsgConstants.debugWarn) {
+                            System.out.println("monitor: got packet that's too small");
+                        }
+                        continue;
+                    }
+                    int magic1 = cMsgUtilities.bytesToInt(buf, 0);
+                    int magic2 = cMsgUtilities.bytesToInt(buf, 4);
+                    int magic3 = cMsgUtilities.bytesToInt(buf, 8);
+                    if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
+                        magic2 != cMsgNetworkConstants.magicNumbers[1] ||
+                        magic3 != cMsgNetworkConstants.magicNumbers[2])  {
+                        if (debug >= cMsgConstants.debugWarn) {
+                            System.out.println("monitor: got bad magic # response to multicast");
+                        }
+                        continue;
+                    }
+
+                    int port     = cMsgUtilities.bytesToInt(buf, 12);
+                    int hostLen  = cMsgUtilities.bytesToInt(buf, 16);
+                    int expidLen = cMsgUtilities.bytesToInt(buf, 20);
+
+                    if (packet.getLength() < 4*6 + hostLen + expidLen) {
+                        if (debug >= cMsgConstants.debugWarn) {
+                            System.out.println("monitor: got packet that's too small");
+                        }
+                        continue;
+                    }
+
+                    // get host
+                    index = 24;
+                    String host = "";
+                    if (hostLen > 0) {
+                        host = new String(buf, index, hostLen, "US-ASCII");
+//System.out.println("host = " + host);
+                        index += hostLen;
+                    }
+
+                    // get expid
+                    String serverExpid;
+                    if (expidLen > 0) {
+                        serverExpid = new String(buf, index, expidLen, "US-ASCII");
+//System.out.println("expid = " + serverExpid);
+                        if (!expid.equals(serverExpid)) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("rc Multicast receiver: got bad expid response to multicast (" + serverExpid + ")");
+                            }
+                            continue;
+                        }
+                    }
+
+                    // store in message
+                    msg = new cMsgMessageFull();
+                    msg.setSenderHost(host);
+                }
+                catch (InterruptedIOException e) {
+//System.out.println("  Interrupted receiving thread so return");
+                    return;
+                }
+                catch (IOException e) {
+//System.out.println("  IO exception in receiving thread so return");
+                    return;
+                }
+                break;
+            }
+        }
     }
 
 
