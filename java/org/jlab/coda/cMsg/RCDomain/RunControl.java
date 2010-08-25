@@ -1071,7 +1071,7 @@ public class RunControl extends cMsgDomainAdapter {
 
             byte[] buf = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buf, 1024);
-            int index, len;
+            int index;
 
             while (true) {
                 // reset for each round
@@ -1128,15 +1128,14 @@ public class RunControl extends cMsgDomainAdapter {
 
                     // get host
                     if (hostLen > 0) {
-                        String host = new String(buf, index, hostLen, "US-ASCII");
+//                        String host = new String(buf, index, hostLen, "US-ASCII");
 //System.out.println("host = " + host);
                         index += hostLen;
                     }
 
                     // get expid
-                    String serverExpid = null;
                     if (expidLen > 0) {
-                        serverExpid = new String(buf, index, expidLen, "US-ASCII");
+                        String serverExpid = new String(buf, index, expidLen, "US-ASCII");
 //System.out.println("expid = " + serverExpid);
                         if (!expid.equals(serverExpid)) {
                             if (debug >= cMsgConstants.debugWarn) {
