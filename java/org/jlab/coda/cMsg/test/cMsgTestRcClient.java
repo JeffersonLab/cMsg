@@ -149,6 +149,11 @@ public class cMsgTestRcClient {
         if (UDL == null) UDL = "cMsg:rc://multicast/testExpid&multicastTO=5&connectTO=5";
 
         cmsg = new cMsg(UDL, "java rc client", "rc trial");
+
+        // can find host of rc multicast server without connecting ...
+        // cMsgMessage rcmMsg = cmsg.monitor(null);
+        // System.out.println("Got msg with senderHost = " + rcmMsg.getSenderHost());
+
         cmsg.connect();
 
         // enable message reception
