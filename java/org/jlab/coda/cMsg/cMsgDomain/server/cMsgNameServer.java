@@ -816,7 +816,7 @@ public class cMsgNameServer extends Thread {
                     }
                 }
                 catch (cMsgException e) {
-//System.out.println("Server to join not in \"host:port\" format:\n" + e.getMessage());
+System.out.println("Server to join not in \"host:port\" format:\n" + e.getMessage());
                 }
             }
 
