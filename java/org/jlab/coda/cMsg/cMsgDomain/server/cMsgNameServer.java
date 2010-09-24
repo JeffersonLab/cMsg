@@ -812,7 +812,7 @@ public class cMsgNameServer extends Thread {
                 try {
                     serverSet.add(cMsgUtilities.constructServerName(s));
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println(">> NS: Joined server " + s + " in a cloud");
+                        System.out.println(">> NS: Try joining server " + s + " in a cloud");
                     }
                 }
                 catch (cMsgException e) {
