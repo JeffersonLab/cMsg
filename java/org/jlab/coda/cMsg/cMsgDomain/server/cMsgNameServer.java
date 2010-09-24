@@ -185,7 +185,7 @@ public class cMsgNameServer extends Thread {
      * Does this server stand alone and NOT allow bridges
      * to/from other cMsg subdomain servers?
      */
-    boolean standAlone;
+    volatile boolean standAlone;
 
     /** Server this name server is in the middle of or starting to connect to. */
     volatile cMsgServerBridge bridgeBeingCreated;
@@ -1393,15 +1393,48 @@ System.out.println("Main server IO error");
             // Is client low throughput & small msg size?
             // Server clients are treated as medium throughput so ignore.
             regime = in.readInt();
+            if (debug >= cMsgConstants.debugInfo) {
+                if (regime == cMsgConstants.regimeHigh)
+                    System.out.println(">> NS: regime = High");
+                else if (regime == cMsgConstants.regimeMedium)
+                    System.out.println(">> NS: regime = Medium");
+                else if (regime == cMsgConstants.regimeLow)
+                    System.out.println(">> NS: regime = Low");
+            }
+
             // What relationship does the connecting server have to the server cloud?
             // Can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
             connectingCloudStatus = in.readByte();
+            if (debug >= cMsgConstants.debugInfo) {
+                if (connectingCloudStatus == INCLOUD)
+                   System.out.println(">> NS: connection cloud status = in cloud");
+                else if (connectingCloudStatus == NONCLOUD)
+                   System.out.println(">> NS: connection cloud status = non cloud");
+                else if (connectingCloudStatus == BECOMINGCLOUD)
+                   System.out.println(">> NS: connection cloud status = becoming cloud");
+            }
+
             // Is connecting server originating connection or is this a reciprocal one?
             isReciprocalConnection = in.readByte() == 0;
+            if (debug >= cMsgConstants.debugInfo) {
+                if (isReciprocalConnection)
+                   System.out.println(">> NS: reciprocal connection = true");
+                else
+                   System.out.println(">> NS: reciprocal connection = false");
+            }
+
             // TCP listening port of name server that client is a part of
             nsTcpPort = in.readInt();
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println(">> NS: Tcp listening port connecting server = " + nsTcpPort);
+            }
+
             // UDP multicast listening port of name server that client is a part of
             nsMulticastPort = in.readInt();
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println(">> NS: mcast listening port connecting server = " + nsMulticastPort);
+            }
+
             // length of server client's host name
             int lengthHost = in.readInt();
             // length of server client's cloud password
@@ -1440,7 +1473,9 @@ System.out.println("Main server IO error");
 
             // Make this client's name = "host:port"
             name = clientHost + ":" + nsTcpPort;
-//System.out.println(">> NS: host name = " + clientHost + ", client hame = " + name);
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println(">> NS: host name = " + clientHost + ", client hame = " + name);
+            }
         }
 
 
@@ -1457,7 +1492,7 @@ System.out.println("Main server IO error");
             try {
                 // First, check to see if password matches.
 //System.out.println("local cloudpassword = " + cloudPassword +
-//                   ", given password = " + myCloudpassword);
+//                   ", given password = " + myCloudPassword);
                 if (cloudPassword != null && !cloudPassword.equals(myCloudPassword)) {
 //System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                     cMsgException ex = new cMsgException("wrong password - connection refused");
