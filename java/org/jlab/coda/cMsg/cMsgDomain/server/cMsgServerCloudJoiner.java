@@ -81,7 +81,7 @@ class cMsgServerCloudJoiner extends Thread {
     /** This method is executed as a thread. */
     public void run() {
 
-        boolean methodDebug = true;
+        boolean methodDebug = false;
 
         HashSet<String> unknownServers = new HashSet<String>(10);
 
