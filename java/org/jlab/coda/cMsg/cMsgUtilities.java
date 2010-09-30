@@ -94,15 +94,60 @@ public class cMsgUtilities {
         if (hostName == null || hostName.length() < 1) return false;
 
         try {
+            String canonicalHost = InetAddress.getLocalHost().getCanonicalHostName();
+
+            // quick check
+            if (canonicalHost.equalsIgnoreCase(hostName)) {
+                return true;
+            }
+
             // get all local IP addresses
-            InetAddress[] localAddrs = InetAddress.getAllByName(
-                                            InetAddress.getLocalHost().getCanonicalHostName());
+            InetAddress[] localAddrs = InetAddress.getAllByName(canonicalHost);
             // get all hostName's IP addresses
             InetAddress[] hostAddrs  = InetAddress.getAllByName(hostName);
 
             // see if any 2 addresses are identical
             for (InetAddress lAddr : localAddrs) {
                 for (InetAddress hAddr : hostAddrs) {
+                    if (lAddr.equals(hAddr)) return true;
+                }
+            }
+        }
+        catch (UnknownHostException e) {}
+
+        return false;
+     }
+
+
+    /**
+     * Determine whether two given host names refers to the same host.
+     * @param hostName1 host name that is checked to see if it is the same as the other arg or not.
+     * @param hostName2 host name that is checked to see if it is the same as the other arg or not.
+     */
+     public static final boolean isHostSame(String hostName1, String hostName2) {
+        // arg check
+        if (hostName1 == null || hostName1.length() < 1) return false;
+        if (hostName2 == null || hostName2.length() < 1) return false;
+
+        try {
+            // quick check
+            String canonicalHost1 = InetAddress.getByName(hostName1).getCanonicalHostName();
+            String canonicalHost2 = InetAddress.getByName(hostName2).getCanonicalHostName();
+            if (canonicalHost1.equalsIgnoreCase(canonicalHost2)) {
+                return true;
+            }
+
+            // otherwise compare all know IP addresses against each other
+
+            // get all hostName1's IP addresses
+            InetAddress[] hostAddrs1 = InetAddress.getAllByName(hostName1);
+
+            // get all hostName2's IP addresses
+            InetAddress[] hostAddrs2 = InetAddress.getAllByName(hostName2);
+
+            // see if any 2 addresses are identical
+            for (InetAddress lAddr : hostAddrs1) {
+                for (InetAddress hAddr : hostAddrs2) {
                     if (lAddr.equals(hAddr)) return true;
                 }
             }
@@ -414,7 +459,9 @@ public class cMsgUtilities {
             s = "multicast" + ":" + sPort;
         }
         else {
+System.out.print("     : Transforming host:port = " + s + ", to canonicalhost:port = ");
             s = address.getCanonicalHostName() + ":" + sPort;
+System.out.println(s);
         }
 
         return s;
