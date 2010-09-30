@@ -18,6 +18,7 @@ package org.jlab.coda.cMsg.cMsgDomain.server;
 
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgConstants;
+import org.jlab.coda.cMsg.cMsgUtilities;
 
 import java.util.*;
 import java.io.IOException;
@@ -114,7 +115,9 @@ if(methodDebug) System.out.println("    << JR: Try joining cloud of server = " +
                 // Connect to all known servers in "connect to" list
                 for (String server : serversToConnectTo) {
 
-                    Set<String> serverNames = null;
+                    // servers to consider connecting to (if not already)
+                    Set<String> serverCandidates = null;
+
                     try {
 if(methodDebug) System.out.println("    << JR: Creating bridge to: " + server);
                         // If we're multicasting, we don't know server's host yet.
@@ -133,7 +136,7 @@ if(methodDebug) System.out.println("    << JR: Creating bridge to: " + server);
                         // accepting reciprocal connection.
                         nameServer.bridgeBeingCreated = bridge;
                         // Connect returns set of servers that "server" is connected to
-                        serverNames = bridge.connect(true, nameServer.cloudPassword,
+                        serverCandidates = bridge.connect(true, nameServer.cloudPassword,
                                                      nameServer.clientPassword, multicasting);
                         // Bridge's client has changed its name now that the server's host
                         // is known so now change server name to the new name
@@ -167,48 +170,153 @@ if(methodDebug) System.out.println("    << JR: Cannot connect to given server: "
                     // If there are servers that the server we are connecting to right now
                     // knows about that we don't (aren't in serversToConnectTo list or the
                     // bridges list), put 'em in the "unknownServers" list.
-                    if (serverNames != null) {
-                        for (String s : serverNames) {
+                    if (serverCandidates != null) {
 
-                            // When comparing server names we need to be careful of
-                            // comparing fully qualifed names to those that are not.
-                            // So look to see if either type is in the collection of
-                            // established connections.
-                            String alternateName = null;
-                            String sPort = s.substring(s.lastIndexOf(":")+1);
-                            int index = s.indexOf(".");
+                        top:
+                        for (String s : serverCandidates) {
+                            // find colon
+                            int indexColon = s.lastIndexOf(":");
+                            // find port
+                            String sPort = s.substring(indexColon+1);
+                            // find host name
+                            String hostName = s.substring(0, indexColon);
+
+
+                            // for a quick, string-based check use qualified & unqualified names
+                            String alternateName;
+                            int indexDot = s.indexOf(".");
 
                             // If the name has a dot (is qualified), create unqualified name
-                            if (index > -1) {
-                                alternateName = s.substring(0,index) + ":" + sPort;
+                            if (indexDot > -1) {
+                                alternateName = hostName.substring(0, indexDot) + ":" + sPort;
 if(methodDebug) System.out.println("    << JR: alternateName (unqualified) = " + alternateName);
                             }
                             // else create qualified name
                             else {
                                 try {
-                                    // take off ending port
-                                    alternateName = s.substring(0, s.lastIndexOf(":"));
-                                    alternateName = InetAddress.getByName(alternateName).getCanonicalHostName();
+                                    alternateName = InetAddress.getByName(hostName).getCanonicalHostName();
                                     alternateName = alternateName + ":" + sPort;
 if(methodDebug) System.out.println("    << JR: alternateName (qualified) = " + alternateName);
                                 }
                                 catch (UnknownHostException e) {
-if(methodDebug) System.out.println("    << JR: error qualifing " + s);
                                     alternateName = s;
                                 }
                             }
 
-                            if (!nameServer.bridges.keySet().contains(s) &&
-                                !nameServer.bridges.keySet().contains(alternateName) &&
-                                !serversToConnectTo.contains(s) &&
-                                !serversToConnectTo.contains(alternateName)) {
+                            // if we already have this entry, look at next serverName
+                            if (nameServer.bridges.keySet().contains(s) ||
+                                nameServer.bridges.keySet().contains(alternateName) ||
+                                serversToConnectTo.contains(s) ||
+                                serversToConnectTo.contains(alternateName)) {
+if(methodDebug) System.out.println("    << JR: Skip -> server " + s);
+                                continue;
+                            }
 
-                                unknownServers.add(s);
+                            // make sure we aren't going to try connecting to ourself
+                            if (cMsgUtilities.isHostLocal(hostName)) {
+if(methodDebug) System.out.println("    << JR: Skip myself -> server " + s);
+                                continue;
+                            }
+
+                            // If we've made it this far, the server we're examining (s),
+                            // isn't in any of our "already-connected-to" lists and it is
+                            // not this server. It's a good candidate to be added. Here comes
+                            // the tricky part. Some networks are setup in a WEIRD way. For
+                            // example, the super computing cluster at the University of
+                            // Richmond. There is one computer of this cluster visible to the
+                            // outside world (quark.richmond.edu). Inside the cluster, this
+                            // name is unresolved, but that same machine is seen as "head".
+                            // The problem comes in when you tell a cMsg server on one of the
+                            // non-head cluster nodes to join "quark.richmond.edu:45000" in a cloud.
+                            // If you do a getCanonicalHostName()
+                            // on this from such a machine on the cluster, it returns quark.richmond.edu
+                            // since I believe it cannot resolve that name. However, on quark,
+                            // the same call to getCanonicalHostName() returns "head". Here's what
+                            // happens:
+                            //
+                            // The first cMsg server to join the cloud does not have a problem.
+                            // It connects to quark (which somehow works). However, in the reciprocal
+                            // connection, quark calls itself "head:45000". Now when the second cMsg
+                            // server joins, it first joins quark, so far so good, and quark says that
+                            // its also connected to "physics0:45000". But when it joins "physics0:45000",
+                            // that server says I am also connected to "head:45000". It thens tries to
+                            // connect to head but it already is since it connected to quark. Thus this
+                            // attempted connection fails.
+                            //
+                            // To try to remedy this, we'll look to see if we're already connected to
+                            // a node by doing a more sophisticated comparison of node names.
+
+
+                            // look in bridges
+                            for (String serv : nameServer.bridges.keySet()) {
+                                // Disect key: find colon
+                                indexColon = serv.lastIndexOf(":");
+                                // find port
+                                String servPort = serv.substring(indexColon+1);
+                                // find host name
+                                String servHostName = serv.substring(0, indexColon);
+
+                                // ports are different, so look at next item
+                                if (!servPort.equals(sPort)) {
+                                    continue;
+                                }
+
+                                // if host & port are the same, don't add, go to next serverName
+                                if (cMsgUtilities.isHostSame(hostName, servHostName)) {
+if(methodDebug) System.out.println("    << JR: Do NOT add server " + s + " since " +
+                               hostName + " = " + servHostName + " (found in this bridges list)");
+                                    continue top;
+                                }
+                            }
+
+
+                            // look to see if it's already in our list of servers to connect to
+                            for (String serv : serversToConnectTo) {
+                                // find colon
+                                indexColon = serv.lastIndexOf(":");
+                                // find port
+                                String servPort = serv.substring(indexColon+1);
+                                // find host name
+                                String servHostName = serv.substring(0, indexColon);
+
+                                // ports are different, so look at next item
+                                if (! servPort.equals(sPort)) {
+                                    continue;
+                                }
+
+                                // if host & port are the same, don't add, go to next serverName
+                                if (cMsgUtilities.isHostSame(hostName, servHostName)) {
+if(methodDebug) System.out.println("    << JR: Do NOT add server " + s + " since " +
+                              hostName + " = " + servHostName + " (found in this serversToConnectTo list)");
+                                    continue top;
+                                }
+                            }
+
+                            // look in name server's list of connected servers
+                             for (String serv : nameServer.nameServers.keySet()) {
+                                 // Disect key: find colon
+                                 indexColon = serv.lastIndexOf(":");
+                                 // find port
+                                 String servPort = serv.substring(indexColon+1);
+                                 // find host name
+                                 String servHostName = serv.substring(0, indexColon);
+
+                                 // ports are different, so look at next item
+                                 if (!servPort.equals(sPort)) {
+                                     continue;
+                                 }
+
+                                 // if host & port are the same, don't add, go to next serverName
+                                 if (cMsgUtilities.isHostSame(hostName, servHostName)) {
+if(methodDebug) System.out.println("    << JR: Do NOT add server " + s + " since " +
+                                   hostName + " = " + servHostName + " (found in this server's list of server clients)");
+                                     continue top;
+                                 }
+                             }
+
 if(methodDebug) System.out.println("    << JR: Added unknown server " + s + " to list (size = " + unknownServers.size() + ")");
-                            }
-                            else {
-if(methodDebug) System.out.println("    << JR: Already connected (or will connect) to server \"" + s + "\"");
-                            }
+                            unknownServers.add(s);
+
                         }
                     }
                 }
