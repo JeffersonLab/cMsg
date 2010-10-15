@@ -216,7 +216,7 @@ public class Executor {
                             commandInfo.monitor = monitor;
                             commandInfo.isProcess = true;
 
-                            // return must be place in sendAndGet response msg
+                            // return must be placed in sendAndGet response msg
                             startProcess(commandInfo, msg.response());
                             break;
 
@@ -236,9 +236,11 @@ public class Executor {
 
                             commandInfo = new CommandInfo();
                             commandInfo.className = className;
-                            // don't send back output since it cannot be isolated to any 1 thread
+                            // don't send back any output since it cannot be isolated to any 1 thread
                             commandInfo.monitor = false;
                             commandInfo.isProcess = false;
+
+                            // return must be placed in sendAndGet response msg
                             startThread(commandInfo, msg.response());
                             break;
 
@@ -260,7 +262,7 @@ public class Executor {
                         case DIE:
                             item = msg.getPayloadItem("killProcesses");
                             boolean killProcesses = false;
-                            if (item != null && item.getString() != null) {
+                            if (item != null) {
                                 killProcesses = item.getInt() != 0;
                             }
                             if (killProcesses) stopAll();
