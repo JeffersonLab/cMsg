@@ -65,11 +65,14 @@ public class Commander {
         }
 
         cmsgConnection = new cMsg(udl, name, description);
+        cmsgConnection.connect();
+        cmsgConnection.start();
         this.udl = udl;
         this.myName = name;
         this.description = description;
 
         // subscription to read info from all responding executors
+        System.out.println("Subscribe to sub = " + InfoType.REPORTING.getValue() + ", typ = " + remoteExecSubjectType);
         cmsgConnection.subscribe(InfoType.REPORTING.getValue(), remoteExecSubjectType,
                                  new FindExecutorsCallback(), null);
 
@@ -77,6 +80,7 @@ public class Commander {
 
 
     public void findExecutors() throws cMsgException {
+System.out.println("findExecutors: in");
         if (!cmsgConnection.isConnected()) {
             throw new cMsgException("not connect to cMsg server");
         }
@@ -84,18 +88,23 @@ public class Commander {
         executors.clear();
 
         // tell executors out there to respond ...
+System.out.println("findExecutors: send msg to sub = " + remoteExecSubjectType + ", typ = " + allType);
         cMsgMessage msg = new cMsgMessage();
+        msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
-        msg.setType(CommandType.IDENTIFY.getValue());
+        msg.setType(allType);
+        cMsgPayloadItem item = new cMsgPayloadItem("commandType", CommandType.IDENTIFY.getValue());
+        msg.addPayloadItem(item);
         cmsgConnection.send(msg);
 
         // wait 1/2 second for replies
         try { Thread.sleep(500); }
         catch (InterruptedException e) { }
+System.out.println("findExecutors: done");
     }
 
 
-    public List getExecutors() {
+    public List<ExecutorInfo> getExecutors() {
         return new ArrayList<ExecutorInfo>(executors.values());
     }
 
@@ -107,6 +116,7 @@ public class Commander {
     class FindExecutorsCallback extends cMsgCallbackAdapter {
 
         public void callback(cMsgMessage msg, Object userObject) {
+System.out.println("HEY GOT YOUR MESSY");
             // there must be payload
             if (msg.hasPayload()) {
 
@@ -317,7 +327,7 @@ public class Commander {
             msg.addPayloadItem(item1);
             cMsgPayloadItem item2 = new cMsgPayloadItem("command", cmd);
             msg.addPayloadItem(item2);
-            cMsgPayloadItem item3 = new cMsgPayloadItem("monitor", cmd);
+            cMsgPayloadItem item3 = new cMsgPayloadItem("monitor", monitor ? 1 : 0);
             msg.addPayloadItem(item3);
         }
         catch (cMsgException e) {/* never happen as names are legit */}
@@ -431,5 +441,64 @@ public class Commander {
 //        return 0;
 //    }
  
+    /**
+     * Method to decode the command line used to start this application.
+     * @param args command line arguments
+     */
+    private static String[] decodeCommandLine(String[] args) {
+        String[] stuff = new String[2];
+
+        // loop over all args
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equalsIgnoreCase("-n")) {
+                stuff[1] = args[i + 1];  // name
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-u")) {
+                stuff[0]= args[i + 1];   // udl
+                i++;
+            }
+        }
+
+        return stuff;
+    }
+
+    /**
+     * Run as a stand-alone application
+     */
+    public static void main(String[] args) {
+        try {
+            String[] arggs = decodeCommandLine(args);
+            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
+            //cmdr.findExecutors();   // already done in constructor
+            List<ExecutorInfo> execList = cmdr.getExecutors();
+            System.out.println("execList =  "+ execList);
+            for (ExecutorInfo info : execList) {
+                System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
+            }
+
+            CommandReturn ret = cmdr.startProcess(execList.get(0),"ls", true, 10000);
+            System.out.println("ls gives me ---->\n" + ret.getOutput());
+            cmdr.kill(execList.get(0), true);
+
+            while(true) {
+                try {
+                    Thread.sleep(2000);
+                }
+                catch (InterruptedException e) {
+                    return;
+                }
+            }
+        }
+        catch (TimeoutException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+        catch (cMsgException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+    }
 
 }

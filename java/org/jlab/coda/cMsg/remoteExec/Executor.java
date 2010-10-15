@@ -7,10 +7,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.nio.CharBuffer;
 
 /**
  * This class, when used appropriately, can execute any command on any node by
@@ -69,7 +67,7 @@ public class Executor {
                 throw new cMsgException("Cannot find our own hostname", e);
             }
         }
-
+System.out.println("My real name = " + this.name);
         // run some uname commands to find out system information
         try {
             Process pr = Runtime.getRuntime().exec("uname -s");
@@ -116,15 +114,21 @@ public class Executor {
             while (true) {
                 if (!connected) {
                     try {
+System.out.println("Connect to server with name = " + name + ", udl = " + udl);
                         // connect
                         cmsgConnection = new cMsg(udl, name, "cmsg executor");
+                        cmsgConnection.connect();
                         // add subscriptions
                         CommandCallback cb = new CommandCallback();
+System.out.println("Subscribe to sub = " + remoteExecSubjectType + ", typ = " + name);
                         cmsgConnection.subscribe(remoteExecSubjectType, name,  cb, null);
+System.out.println("Subscribe to sub = " + remoteExecSubjectType + ", typ = " + allType);
                         cmsgConnection.subscribe(remoteExecSubjectType, allType, cb, null);
+                        cmsgConnection.start();
                         connected = true;
                     }
                     catch (cMsgException e) {
+                        e.printStackTrace();
                     }
                 }
 
@@ -154,7 +158,7 @@ public class Executor {
          *                   message.
          */
         public void callback(cMsgMessage msg, Object userObject) {
-
+System.out.println("GOT MESSAGE:");
             // there must be payload
             if (msg.hasPayload()) {
 
@@ -185,6 +189,7 @@ public class Executor {
                         return;
                     }
                     commandType = item.getString();
+System.out.println("commandtype = " + commandType);
                     CommandType type = CommandType.getCommandType(commandType);
                     if (type == null) {
                         System.out.println("Reject message, command type not recognized");
@@ -270,6 +275,7 @@ public class Executor {
                             break;
 
                         case IDENTIFY:
+System.out.println("run sendBackInfo");
                             sendBackInfo();
                             break;
                         default:
@@ -303,6 +309,7 @@ public class Executor {
         // run the command
         Process process;
         try {
+System.out.println("run " + info.command);
             process = Runtime.getRuntime().exec(info.command);
         }
         catch (IOException e) {
@@ -342,6 +349,7 @@ public class Executor {
                     // take off last \n we put in buffer
                     sb.deleteCharAt(sb.length()-1);
                     item = new cMsgPayloadItem("output", sb.toString());
+System.out.println("output = " + sb.toString());
                 }
                 catch (cMsgException e) {/* never happen */}
                 msg.addPayloadItem(item);
@@ -378,6 +386,7 @@ public class Executor {
 
         // send msg back to Commander
         try {
+System.out.println("send return msg");
             cmsgConnection.send(msg);
         }
         catch (cMsgException e) {
@@ -465,7 +474,7 @@ public class Executor {
         }
         if (info == null) {
             // process/thread already stopped
-            System.out.println("Trying to stop something that's already stopped");
+            System.out.println("No thread or process for that id");
             return;
         }
 
@@ -490,7 +499,8 @@ public class Executor {
     private void sendBackInfo() throws cMsgException {
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
-        msg.setSubject(name);
+System.out.println("Send to sub = " + InfoType.REPORTING.getValue() + ", typ = " + remoteExecSubjectType);
+        msg.setSubject(InfoType.REPORTING.getValue());
         msg.setType(remoteExecSubjectType);
 
         cMsgPayloadItem item1 = new cMsgPayloadItem("name", name);
@@ -519,18 +529,56 @@ public class Executor {
         return null;
     }
 
-    /**
-     *
-     * @param type
-     * @param cmd
-     * @param passwd
-     * @param id
-     * @param mon
-     */
-     private void executeCommand(String type, String cmd, String passwd, int id, boolean mon) {
-        
 
-     }
+    /**
+     * Method to decode the command line used to start this application.
+     * @param args command line arguments
+     */
+    private static String[] decodeCommandLine(String[] args) {
+        String[] stuff = new String[3];
+
+        // loop over all args
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equalsIgnoreCase("-n")) {
+                stuff[2] = args[i + 1];  // name
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-u")) {
+                stuff[1]= args[i + 1];   // udl
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-p")) {
+                stuff[0]= args[i + 1];   // password
+                i++;
+            }
+        }
+
+        return stuff;
+    }
+
+    /**
+     * Run as a stand-alone application
+     */
+    public static void main(String[] args) {
+        try {
+            String[] arggs = decodeCommandLine(args);
+            System.out.println("Starting Executor with:\n  password = " + arggs[0] +
+                               "\n  name = " + arggs[2] + "\n  udl = " + arggs[1]);
+            Executor exec = new Executor(arggs[0], null, arggs[1], arggs[2]);
+            while(true) {
+                try {
+                    Thread.sleep(2000);
+                }
+                catch (InterruptedException e) {
+                    return;
+                }
+            }
+        }
+        catch (cMsgException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+    }
 
 
 }
