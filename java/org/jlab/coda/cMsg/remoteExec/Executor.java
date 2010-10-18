@@ -46,6 +46,7 @@ public class Executor {
         String  className;
         String  command;
         boolean monitor;
+        boolean wait;
         boolean isProcess;
     }
 
@@ -67,7 +68,7 @@ public class Executor {
                 throw new cMsgException("Cannot find our own hostname", e);
             }
         }
-System.out.println("My real name = " + this.name);
+
         // run some uname commands to find out system information
         try {
             Process pr = Runtime.getRuntime().exec("uname -s");
@@ -158,12 +159,11 @@ System.out.println("Subscribe to sub = " + remoteExecSubjectType + ", typ = " + 
          *                   message.
          */
         public void callback(cMsgMessage msg, Object userObject) {
-System.out.println("GOT MESSAGE:");
             // there must be payload
             if (msg.hasPayload()) {
 
-                System.out.println("payload = ");
-                msg.payloadPrintout(0);
+//                System.out.println("payload = ");
+//                msg.payloadPrintout(0);
 
                 cMsgPayloadItem item;
                 String passwd = null;
@@ -216,9 +216,16 @@ System.out.println("commandtype = " + commandType);
                                 monitor = item.getInt() != 0;
                             }
 
+                            item = msg.getPayloadItem("wait");
+                            boolean wait = false;
+                            if (item != null) {
+                                wait = item.getInt() != 0;
+                            }
+
                             CommandInfo commandInfo = new CommandInfo();
                             commandInfo.command = command;
                             commandInfo.monitor = monitor;
+                            commandInfo.wait = wait;
                             commandInfo.isProcess = true;
 
                             // return must be placed in sendAndGet response msg
@@ -275,7 +282,6 @@ System.out.println("commandtype = " + commandType);
                             break;
 
                         case IDENTIFY:
-System.out.println("run sendBackInfo");
                             sendBackInfo();
                             break;
                         default:
@@ -306,10 +312,13 @@ System.out.println("run sendBackInfo");
      * @param info
      */
     private void startProcess(CommandInfo info, cMsgMessage msg) {
+        // this sendAndGet response needs a subject and type to be sent
+        msg.setSubject("blah");
+        msg.setType("blah");
+
         // run the command
         Process process;
         try {
-System.out.println("run " + info.command);
             process = Runtime.getRuntime().exec(info.command);
         }
         catch (IOException e) {
@@ -349,7 +358,7 @@ System.out.println("run " + info.command);
                     // take off last \n we put in buffer
                     sb.deleteCharAt(sb.length()-1);
                     item = new cMsgPayloadItem("output", sb.toString());
-System.out.println("output = " + sb.toString());
+//System.out.println("output = " + sb.toString());
                 }
                 catch (cMsgException e) {/* never happen */}
                 msg.addPayloadItem(item);
@@ -359,6 +368,9 @@ System.out.println("output = " + sb.toString());
         // try to figure out if it has already terminated
         boolean terminated = true;
         try {
+            if (info.wait) {
+                process.waitFor();
+            }
             process.exitValue();
         }
         catch (Exception e) {
@@ -386,7 +398,6 @@ System.out.println("output = " + sb.toString());
 
         // send msg back to Commander
         try {
-System.out.println("send return msg");
             cmsgConnection.send(msg);
         }
         catch (cMsgException e) {

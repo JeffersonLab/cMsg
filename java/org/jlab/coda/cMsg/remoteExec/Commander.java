@@ -6,6 +6,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.ArrayList;
 import java.util.List;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 /**
  * @author timmer
@@ -305,13 +307,15 @@ System.out.println("HEY GOT YOUR MESSY");
      * @param cmd command that Executor will run.
      * @param monitor <code>true</code> if output of the command should be captured and returned,
      *                else <code>false</code>.
+     * @param wait <code>true</code> if executor waits for the process to complete before responding,
+     *             else <code>false</code>.
      * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
      *                0 means wait forever.
      * @return object containing id number and any process output captured
      * @throws cMsgException if cmsg communication fails or internal protocol error
      * @throws TimeoutException if cmsg communication times out
      */
-    public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, int timeout)
+    public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, boolean wait, int timeout)
             throws cMsgException, TimeoutException {
 
         int myId = getUniqueId();
@@ -329,16 +333,19 @@ System.out.println("HEY GOT YOUR MESSY");
             msg.addPayloadItem(item2);
             cMsgPayloadItem item3 = new cMsgPayloadItem("monitor", monitor ? 1 : 0);
             msg.addPayloadItem(item3);
+            cMsgPayloadItem item4 = new cMsgPayloadItem("wait", wait ? 1 : 0);
+            msg.addPayloadItem(item4);
         }
         catch (cMsgException e) {/* never happen as names are legit */}
 
         // send msg and receive response
+System.out.println("Doing sendAndGet to sub = " + remoteExecSubjectType + ", typ = " + exec.getName());
         cMsgMessage returnMsg = cmsgConnection.sendAndGet(msg, timeout);
 
         // analyze response
         if (returnMsg.hasPayload()) {
             // Was there an error?
-            cMsgPayloadItem item = msg.getPayloadItem("error");
+            cMsgPayloadItem item = returnMsg.getPayloadItem("error");
             if (item != null) {
                 String err = item.getString();            
                 return new CommandReturn(myId, 0, true, true, err);
@@ -346,7 +353,7 @@ System.out.println("HEY GOT YOUR MESSY");
 
             // Has the process already terminated?
             boolean terminated = false;
-            item = msg.getPayloadItem("terminated");
+            item = returnMsg.getPayloadItem("terminated");
             if (item != null) {
                 terminated = item.getInt() != 0;
             }
@@ -354,7 +361,7 @@ System.out.println("HEY GOT YOUR MESSY");
             // If it hasn't, get its id
             int processId = 0;
             if (!terminated) {
-                item = msg.getPayloadItem("id");
+                item = returnMsg.getPayloadItem("id");
                 if (item == null) {
                     throw new cMsgException("startProcess: internal protocol error");
                 }
@@ -365,11 +372,10 @@ System.out.println("HEY GOT YOUR MESSY");
 
             // if we requested the output of the process ...
             if (monitor) {
-                item = msg.getPayloadItem("output");
-                if (item == null) {
-                    throw new cMsgException("startProcess: internal protocol error");
+                item = returnMsg.getPayloadItem("output");
+                if (item != null) {
+                    output = item.getString();
                 }
-                output = item.getString();
             }
 
             return new CommandReturn(myId, processId, false, terminated, output);
@@ -440,7 +446,20 @@ System.out.println("HEY GOT YOUR MESSY");
 //    public int startSerializedThread(String className) throws cMsgException {
 //        return 0;
 //    }
- 
+
+    private static String inputStr(String s) {
+        String aLine = "";
+        BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
+        System.out.print(s);
+        try {
+            aLine = input.readLine();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        return aLine;
+    }
+
     /**
      * Method to decode the command line used to start this application.
      * @param args command line arguments
@@ -478,18 +497,17 @@ System.out.println("HEY GOT YOUR MESSY");
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
 
-            CommandReturn ret = cmdr.startProcess(execList.get(0),"ls", true, 10000);
-            System.out.println("ls gives me ---->\n" + ret.getOutput());
-            cmdr.kill(execList.get(0), true);
-
+            String in;
             while(true) {
-                try {
-                    Thread.sleep(2000);
-                }
-                catch (InterruptedException e) {
-                    return;
+                in = inputStr("% ");
+                if (execList.size() > 0) {
+                    CommandReturn ret = cmdr.startProcess(execList.get(0), in, true, true, 1000);
+                    if (ret.getOutput() != null)
+                        System.out.println(ret.getOutput());
                 }
             }
+
+            //cmdr.kill(execList.get(0), true);
         }
         catch (TimeoutException e) {
             e.printStackTrace();
