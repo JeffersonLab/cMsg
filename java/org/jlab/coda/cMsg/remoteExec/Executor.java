@@ -287,7 +287,7 @@ System.out.println("commandtype = " + commandType);
                                 return;
                             }
                             int id = item.getInt();
-                            System.out.println("******** TRY TO STOP ID = " + id);
+//System.out.println("******** TRY TO STOP ID = " + id);
 
                             stop(id);
                             break;
@@ -359,7 +359,7 @@ System.out.println("commandtype = " + commandType);
          */
         private void startProcess() {
             // this sendAndGet response needs a subject and type to be sent
-System.out.println("response msg subject = " + responseMsg.getSubject());
+//System.out.println("response msg subject = " + responseMsg.getSubject());
             responseMsg.setSubject("blah");
             responseMsg.setType("blah");
 
@@ -392,12 +392,12 @@ System.out.println("response msg subject = " + responseMsg.getSubject());
                 try {
                     String line;
                     // grab each line of text (without line terminator)
-System.out.println("WILL READ");
+//System.out.println("WILL READ");
                     while ((line = br.readLine()) != null) {
                         sb.append(line);
                         sb.append("\n");
                     }
-System.out.println("DONE READING");
+//System.out.println("DONE READING");
                 }
                 catch (IOException e) {
                     // probably best to ignore this error
@@ -429,7 +429,7 @@ System.out.println("DONE READING");
             catch (Exception e) {
                 terminated = false;
             }
-System.out.println("Terminated = " + terminated);
+//System.out.println("Terminated = " + terminated);
 
             if (terminated) {
                 try {
@@ -448,7 +448,7 @@ System.out.println("Terminated = " + terminated);
             // store it so we can terminate it later
             int id = getUniqueId();
             try {
-System.out.println("******** ID = " + id);
+//System.out.println("******** ID = " + id);
                 cMsgPayloadItem item = new cMsgPayloadItem("id", id);
                 responseMsg.addPayloadItem(item);
             }
@@ -458,12 +458,12 @@ System.out.println("******** ID = " + id);
 
             try {
                 // response to initial sendAndGet so "startProcess" can return
-                System.out.println("Send sendAndGet response");
+//System.out.println("Send sendAndGet response");
                 cmsgConnection.send(responseMsg);
 
                 // wait for the process to finish
                 try {
-                    System.out.println("Wait 4 process to end");
+//System.out.println("Wait 4 process to end");
                     process.waitFor();
                 }
                 catch (InterruptedException e) {}
@@ -477,7 +477,7 @@ System.out.println("******** ID = " + id);
                 imDoneMsg.addPayloadItem(item1);
                 cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);
                 imDoneMsg.addPayloadItem(item2);
-System.out.println("**************** SEND - ending msg *************");
+//System.out.println("**************** SEND - ending msg *************");
                 cmsgConnection.send(imDoneMsg);
             }
             catch (cMsgException e) {
@@ -589,7 +589,7 @@ System.out.println("**************** SEND - ending msg *************");
     private void sendBackInfo(String commander) throws cMsgException {
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
-System.out.println("Send to sub = " + InfoType.REPORTING.getValue() + ", typ = " + remoteExecSubjectType);
+//System.out.println("Send to sub = " + InfoType.REPORTING.getValue() + ", typ = " + remoteExecSubjectType);
         // This msg goes back only to the Commander that sent an "identify" command
         msg.setSubject(commander);
         msg.setType(remoteExecSubjectType);

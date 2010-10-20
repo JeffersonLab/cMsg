@@ -6,8 +6,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedList;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.awt.*;
 
 /**
  * @author timmer
@@ -44,7 +46,7 @@ public class Commander {
     public Commander(String udl, String name, String description) throws cMsgException {
         connectToServer(udl, name, description);
         // once we're connected, see who's out there ...
-        findExecutors();
+        findExecutors(500);
     }
 
 
@@ -85,7 +87,7 @@ public class Commander {
     }
 
 
-    public void findExecutors() throws cMsgException {
+    public void findExecutors(int milliseconds) throws cMsgException {
         if (!cmsgConnection.isConnected()) {
             throw new cMsgException("not connect to cMsg server");
         }
@@ -104,8 +106,8 @@ public class Commander {
         msg.addPayloadItem(item2);
         cmsgConnection.send(msg);
 
-        // wait 1/2 second for replies
-        try { Thread.sleep(500); }
+        // wait for replies
+        try { Thread.sleep(milliseconds); }
         catch (InterruptedException e) { }
     }
 
@@ -343,24 +345,84 @@ public class Commander {
         return uniqueId++;
     }
 
+
     /**
-     * Start an external process using the specified executor.
+     * Start an xterm with a process using the specified executor.
+     * Do not wait for it to exit. Allows 2 seconds for return message
+     * from executor before throwing exeception. Reading from xterm
+     * output blocks for some reason so no monitoring of it.
+     *
+     * @param exec Executor to start process with.
+     * @param cmd command that Executor will run inside xterm. Can be null.
+     * @param geometry geometry info in the form WxH+-X+-Y with W & H in chars, X & Y in pixels;
+     *                 for example 75x10+0+200 or 75x10-10-20. Can be null.
+     * @param title window title, can be null.
+     * @return object containing id number and any process output captured
+     * @throws cMsgException if cmsg communication fails or takes too long, or internal protocol error
+     */
+    public CommandReturn startXtermProcess(ExecutorInfo exec, String cmd, String geometry, String title)
+            throws cMsgException, TimeoutException {
+
+        String realCmd = "xterm -sb ";
+        if (geometry != null) {
+            realCmd += " -geometry " + geometry;
+        }
+        if (title != null) {
+            realCmd += " -T " + title;
+        }
+        if (cmd != null && cmd.length() > 0) {
+            realCmd += " -e " + cmd;
+        }
+        return startProcess(exec, realCmd, false, null, null);
+    }
+
+
+    /**
+     * Start an external process using the specified executor. Do not wait for it to finish
+     * but run callback when it does. Allows 2 seconds for return message from executor
+     * before throwing exeception.
      *
      * @param exec Executor to start process with.
      * @param cmd command that Executor will run.
-     * @param wait <code>true</code> if executor waits for the process to complete before responding,
-     *             else <code>false</code>.
+     * @param monitor <code>true</code> if output of the command should be captured and returned,
+     *                else <code>false</code>.
+     * @param callback callback to be run when process ends.
+     * @param userObject argument to be passed to callback.
+     * @return object containing id number and any process output captured
+     * @throws cMsgException if cmsg communication fails or takes too long, or internal protocol error
+     */
+    public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor,
+                                      ProcessCallback callback, Object userObject)
+            throws cMsgException {
+
+        try {
+            return startProcess(exec, cmd, monitor, false, callback, userObject, 2000);
+        }
+        catch (TimeoutException e) {
+            throw new cMsgException(e);
+        }
+    }
+
+
+    /**
+     * Start an external process using the specified executor. Wait for it to finish.
+     *
+     * @param exec Executor to start process with.
+     * @param cmd command that Executor will run.
+     * @param monitor <code>true</code> if output of the command should be captured and returned,
+     *                else <code>false</code>.
      * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
      *                0 means wait forever.
      * @return object containing id number and any process output captured
      * @throws cMsgException if cmsg communication fails or internal protocol error
      * @throws TimeoutException if cmsg communication times out
      */
-    public CommandReturn startXtermProcess(ExecutorInfo exec, String cmd, boolean wait, int timeout)
+    public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, int timeout)
             throws cMsgException, TimeoutException {
-        // Reading from xterm output blocks for some reason so no monitoring
-        return startProcess(exec, cmd, false, wait, null, null, timeout);
+
+        return startProcess(exec, cmd, monitor, true, null, null, timeout);
     }
+
 
     /**
      * Start an external process using the specified executor.
@@ -408,7 +470,6 @@ public class Commander {
         catch (cMsgException e) {/* never happen as names are legit */}
 
         // send msg and receive response
-System.out.println("Doing sendAndGet to sub = " + remoteExecSubjectType + ", typ = " + exec.getName());
         cMsgMessage returnMsg = cmsgConnection.sendAndGet(msg, timeout);
 
         // analyze response
@@ -559,10 +620,124 @@ System.out.println("Doing sendAndGet to sub = " + remoteExecSubjectType + ", typ
         return stuff;
     }
 
+
+    /**
+     * Example method of how to make a bunch of identical xterm windows fill the screen.
+     *
+     * @param exec Executor to use.
+     * @param cmdr Commander to use.
+     * @param count number of windows to make.
+     * @param widthChars width of each xterm in characters.
+     * @param heightChars number of lines in each xterm.
+     *
+     * @return list of CommandReturn objects.
+     *
+     * @throws cMsgException
+     * @throws TimeoutException
+     */
+    public List<CommandReturn> startWindows(ExecutorInfo exec, Commander cmdr, int count, int widthChars, int heightChars)
+            throws cMsgException, TimeoutException {
+
+        // Get info about our display.
+        Rectangle rec = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+
+        // Where do we start?
+        int xInit = 0;
+        int yInit = 25;  // avoid Redhat 5 top bar
+
+        // How big is our screen in pixels?
+        int screenWidth  = rec.width  - xInit;
+        int screenHeight = rec.height - yInit;
+
+        // How big is the xterm window in pixels?
+        int xtermHeight = 27 + 14*heightChars;
+        int xtermWidth  = 30 +  6*widthChars;
+
+        // Where do we start next window?
+        int startX = xInit;
+        int startY = yInit;
+
+        // Do we have room for another xterm?
+        boolean stillRoomY = true, stillRoomX = true;
+
+        String geo;
+        String title = "hey";
+        String geoSize = widthChars+"x"+heightChars;
+        LinkedList<CommandReturn> returnList = new LinkedList<CommandReturn>();
+
+        // Make some windows
+        while (stillRoomY || stillRoomX) {
+            geo = geoSize + "+" + startX + "+" + startY;
+            startY += xtermHeight;
+
+            // create xterm and add return object to list
+            returnList.add(cmdr.startXtermProcess(exec, null, geo, title));
+
+            // Reached our count.
+            if (--count < 1) {
+                break;
+            }
+
+            // Did we run out of vertical space?
+            if (startY > screenHeight - xtermHeight) {
+                stillRoomY = false;
+            }
+
+            // Did we run out of horizontal space?
+            if (startX > screenWidth - xtermWidth) {
+                stillRoomX = false;
+            }
+
+            // Do we start a new column?
+            if (stillRoomX && !stillRoomY) {
+                startX += xtermWidth;
+                if (startX > screenWidth - xtermWidth) {
+                    stillRoomX = false;
+                }
+                else {
+                    startY = yInit;
+                    stillRoomY = true;
+                }
+            }
+        }
+
+        return returnList;
+    }
+
+    public static void main(String[] args) {
+
+        try {
+            String[] arggs = decodeCommandLine(args);
+            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
+            List<ExecutorInfo> execList = cmdr.getExecutors();
+            for (ExecutorInfo info : execList) {
+                System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
+            }
+
+            if (execList.size() > 0) {
+                List<CommandReturn> retList = cmdr.startWindows(execList.get(0), cmdr, 10, 85, 8);
+                for (CommandReturn ret : retList) {
+                    cmdr.stop(execList.get(0), ret.getId());
+                    try {Thread.sleep(500);}
+                    catch (InterruptedException e) {}
+                }
+            }
+        }
+        catch (TimeoutException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+        catch (cMsgException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+    }
+
     /**
      * Run as a stand-alone application
      */
-    public static void main(String[] args) {
+    public static void main3(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
             System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
@@ -573,11 +748,11 @@ System.out.println("Doing sendAndGet to sub = " + remoteExecSubjectType + ", typ
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
-            
-            for (ExecutorInfo info : execList) {
+//
+//            for (ExecutorInfo info : execList) {
 //                System.out.println("Killing you " + info.getName());
 //                cmdr.kill(info, true);
-            }
+//            }
 //            System.out.println("Killing all");
 //            cmdr.killAll(true);
 //            if (execList.size() > 0) {
@@ -611,14 +786,16 @@ System.out.println("Doing sendAndGet to sub = " + remoteExecSubjectType + ", typ
                     if (ret.getOutput() != null) {
                         System.out.println(ret.getOutput());
                     }
-                    while (true) {
-                        try {Thread.sleep(1000);}
-                        catch (InterruptedException e) {}
-                    }
-
 //                    try {Thread.sleep(5000);}
 //                    catch (InterruptedException e) {}
+//
 //                    cmdr.stop(execList.get(0), ret.getId());
+
+//                    while (true) {
+//                        try {Thread.sleep(1000);}
+//                        catch (InterruptedException e) {}
+//                    }
+
 
                 }
             }
