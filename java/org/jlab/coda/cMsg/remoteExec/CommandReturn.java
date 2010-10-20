@@ -21,6 +21,12 @@ public class CommandReturn {
     /** Has the process already terminated? */
     private boolean terminated;
 
+    /** Callback object. Sorry, only one allowed. */
+    private ProcessCallback processCallback;
+
+    /** Object to pass to callback as argument. */
+    private Object userObject;
+
 
     /**
      * Constructor.
@@ -37,6 +43,26 @@ public class CommandReturn {
         this.error = error;
         this.terminated = terminated;
         this.output = output;
+    }
+
+    /**
+     * Register a callback to be run when the process ends.
+     * Calling this multiple times results in a replacement of the callback.
+     * 
+     * @param processCallback callback to be run when the process ends.
+     * @param userObject argument to be passed to callback.
+     */
+    public void registerCallback(ProcessCallback processCallback, Object userObject) {
+        this.userObject = userObject;
+        this.processCallback = processCallback;
+    }
+
+    /**
+     * Run the registered callback.
+     */
+    public void executeCallback() {
+        if (processCallback == null) return;
+        processCallback.callback(userObject);
     }
 
     /**
@@ -65,12 +91,27 @@ public class CommandReturn {
     }
 
     /**
+     * Set whether the process has already terminated.
+     * @param b <code>true</code> if process has terminated, else <code>false</code>.
+     */
+    void hasTerminated(boolean b) {
+        terminated = b;
+    }
+
+    /**
      * Get whether the process has already terminated.
-     * @return <code>true</code> if process has already terminated,
-     *         else <code>false</code>.
+     * @return <code>true</code> if process has already terminated, else <code>false</code>.
      */
     public boolean hasTerminated() {
         return terminated;
+    }
+
+    /**
+     * Get whether the process has any output.
+     * @return <code>true</code> if the process has output, else <code>false</code>.
+     */
+    public boolean hasOutput() {
+        return output != null;
     }
 
     /**
@@ -81,6 +122,11 @@ public class CommandReturn {
      */
     public String getOutput() {
         return output;
+    }
+
+    public String toString() {
+        return "Id = " + id + ", execId = " + executorId + ", error = " +
+                error + ", term = " + terminated + ", output = " + (output != null);
     }
 
 }

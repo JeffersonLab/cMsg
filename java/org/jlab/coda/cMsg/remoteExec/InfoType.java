@@ -8,10 +8,8 @@ package org.jlab.coda.cMsg.remoteExec;
  */
 public enum InfoType {
 
-    SEARCHING  ("searching"),  // searching for cmsg server to connect to
-    REPORTING  ("reporting"),  // send general Executor information
-    RESULT     ("result"),     // send back result of executed command
-    ERROR      ("error");      // send back error resulting from attempted command execution
+    REPORTING  ("reporting"),    // send general Executor information
+    PROCESS_END ("process_end"); // send back notification of ended process
 
     private String value;
 
@@ -51,7 +49,7 @@ public enum InfoType {
      * @param value the value to match.
      * @return the matching enum, or <code>null</code>.
      */
-    public static InfoType getCommandType(String value) {
+    public static InfoType getInfoType(String value) {
         InfoType infoTypes[] = InfoType.values();
         for (InfoType dt : infoTypes) {
             if (dt.value.equalsIgnoreCase(value)) {

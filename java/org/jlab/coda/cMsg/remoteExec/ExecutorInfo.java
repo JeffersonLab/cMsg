@@ -15,7 +15,7 @@ public class ExecutorInfo {
     private String processor;
     private String release;
 
-    // list of processes/threads started
+    // list of processes/threads started <commander id, executor id>
     private HashMap<Integer, Integer> processAndThreadMap = new HashMap<Integer, Integer>(30);
 
     public ExecutorInfo(String name, String os, String machine, String processor,String release) {

@@ -24,8 +24,12 @@ public class Commander {
 
     private int uniqueId;
     private cMsg cmsgConnection;
+
     private ConcurrentHashMap<String, ExecutorInfo> executors =
             new ConcurrentHashMap<String, ExecutorInfo>();
+
+    private ConcurrentHashMap<Integer, CommandReturn> cmdReturns =
+            new ConcurrentHashMap<Integer, CommandReturn>();
 
 
     /**
@@ -75,14 +79,13 @@ public class Commander {
 
         // subscription to read info from all responding executors
         System.out.println("Subscribe to sub = " + InfoType.REPORTING.getValue() + ", typ = " + remoteExecSubjectType);
-        cmsgConnection.subscribe(InfoType.REPORTING.getValue(), remoteExecSubjectType,
-                                 new FindExecutorsCallback(), null);
+        cmsgConnection.subscribe(myName, remoteExecSubjectType,
+                                 new CommandResponseCallback(), null);
 
     }
 
 
     public void findExecutors() throws cMsgException {
-System.out.println("findExecutors: in");
         if (!cmsgConnection.isConnected()) {
             throw new cMsgException("not connect to cMsg server");
         }
@@ -90,19 +93,20 @@ System.out.println("findExecutors: in");
         executors.clear();
 
         // tell executors out there to respond ...
-System.out.println("findExecutors: send msg to sub = " + remoteExecSubjectType + ", typ = " + allType);
+//System.out.println("findExecutors: send msg to sub = " + remoteExecSubjectType + ", typ = " + allType);
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(allType);
-        cMsgPayloadItem item = new cMsgPayloadItem("commandType", CommandType.IDENTIFY.getValue());
-        msg.addPayloadItem(item);
+        cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.IDENTIFY.getValue());
+        msg.addPayloadItem(item1);
+        cMsgPayloadItem item2 = new cMsgPayloadItem("commander", myName);
+        msg.addPayloadItem(item2);
         cmsgConnection.send(msg);
 
         // wait 1/2 second for replies
         try { Thread.sleep(500); }
         catch (InterruptedException e) { }
-System.out.println("findExecutors: done");
     }
 
 
@@ -115,73 +119,113 @@ System.out.println("findExecutors: done");
      * This class defines the callback to be run when a message
      * containing a valid command arrives.
      */
-    class FindExecutorsCallback extends cMsgCallbackAdapter {
+    class CommandResponseCallback extends cMsgCallbackAdapter {
 
         public void callback(cMsgMessage msg, Object userObject) {
-System.out.println("HEY GOT YOUR MESSY");
-            // there must be payload
+            // there must be a payload
             if (msg.hasPayload()) {
 
-                System.out.println("payload = ");
-                msg.payloadPrintout(0);
-
                 cMsgPayloadItem item;
-                String name = null, os = null, machine = null, release = null, processor = null;
 
                 try {
-                    // name of responding executor
-                    item = msg.getPayloadItem("name");
+
+                    // name of return information type
+                    item = msg.getPayloadItem("returnType");
+                    String returnType = null;
                     if (item != null) {
-                        name = item.getString();
-                        if (name == null) {
+                        returnType = item.getString();
+                        if (returnType == null) {
                             System.out.println("Reject message, bad format");
                             return;
                         }
                     }
-
-                    // os of responding executor
-                    item = msg.getPayloadItem("os");
-                    if (item != null) {
-                        os = item.getString();
-                        if (os == null) {
-                            System.out.println("Reject message, bad format");
-                            return;
-                        }
+                    InfoType type = InfoType.getInfoType(returnType);
+                    if (type == null) {
+                        System.out.println("Reject message, return type not recognized");
+                        return;
                     }
 
-                    // machine hardware of responding executor
-                    item = msg.getPayloadItem("machine");
-                    if (item != null) {
-                        machine = item.getString();
-                        if (machine == null) {
-                            System.out.println("Reject message, bad format");
-                            return;
-                        }
-                    }
+                    switch (type) {
+                        // process telling us it's done
+                        case PROCESS_END:
+                            item = msg.getPayloadItem("id");
+                            if (item == null) {
+                                System.out.println("Reject message, no commander id");
+                                return;
+                            }
+                            int id = item.getInt();
+                            for (ExecutorInfo exec : executors.values()) {
+                                exec.removeCommanderId(id);
+                            }
 
-                    // processor of responding executor
-                    item = msg.getPayloadItem("processor");
-                    if (item != null) {
-                        processor = item.getString();
-                        if (processor == null) {
-                            System.out.println("Reject message, bad format");
-                            return;
-                        }
-                    }
+                            CommandReturn cmdRet = cmdReturns.remove(id);
+                            if (cmdRet != null) {
+                                cmdRet.hasTerminated(true);
+                                cmdRet.executeCallback();
+                            }
 
-                    // os release of responding executor
-                    item = msg.getPayloadItem("release");
-                    if (item != null) {
-                        release = item.getString();
-                        if (release == null) {
-                            System.out.println("Reject message, bad format");
-                            return;
-                        }
-                    }
+                            break;
 
-                    // looks like we have a valid response, store it
-                    ExecutorInfo eInfo = new ExecutorInfo(name, os, machine, processor, release);
-                    executors.put(name, eInfo);
+                        // executor responding to "identify" command
+                        case REPORTING:
+                            String name = null, os = null, machine = null,
+                                   release = null, processor = null;
+
+                            // name of responding executor
+                            item = msg.getPayloadItem("name");
+                            if (item != null) {
+                                name = item.getString();
+                                if (name == null) {
+                                    System.out.println("Reject message, bad format");
+                                    return;
+                                }
+                            }
+
+                            // os of responding executor
+                            item = msg.getPayloadItem("os");
+                            if (item != null) {
+                                os = item.getString();
+                                if (os == null) {
+                                    System.out.println("Reject message, bad format");
+                                    return;
+                                }
+                            }
+
+                            // machine hardware of responding executor
+                            item = msg.getPayloadItem("machine");
+                            if (item != null) {
+                                machine = item.getString();
+                                if (machine == null) {
+                                    System.out.println("Reject message, bad format");
+                                    return;
+                                }
+                            }
+
+                            // processor of responding executor
+                            item = msg.getPayloadItem("processor");
+                            if (item != null) {
+                                processor = item.getString();
+                                if (processor == null) {
+                                    System.out.println("Reject message, bad format");
+                                    return;
+                                }
+                            }
+
+                            // os release of responding executor
+                            item = msg.getPayloadItem("release");
+                            if (item != null) {
+                                release = item.getString();
+                                if (release == null) {
+                                    System.out.println("Reject message, bad format");
+                                    return;
+                                }
+                            }
+
+                            // looks like we have a valid response, store it
+                            ExecutorInfo eInfo = new ExecutorInfo(name, os, machine, processor, release);
+                            executors.put(name, eInfo);
+                            break;
+                    }
                 }
                 catch (cMsgException e) {
                     System.out.println("Reject message, bad format");
@@ -241,22 +285,22 @@ System.out.println("HEY GOT YOUR MESSY");
      * @throws cMsgException
      */
     public void stop(ExecutorInfo exec, int id) throws cMsgException {
+        // use commander id to retrieve executor id (id meaningful to executor) and remove from storage
+        Integer execId = exec.removeCommanderId(id);
+        if (execId == null) {
+            // no such id exists for this Executor since it was already terminated
+            return;
+        }
+
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(exec.getName());
-        cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.STOP_ALL.getValue());
+        cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.STOP.getValue());
         msg.addPayloadItem(item1);
-
-        // use commander id to retrieve executor id (id meaningful to executor) and remove from storage
-        Integer execId = exec.removeCommanderId(id);
-        if (execId == null) {
-            // no such id exists for this Executor
-            throw new cMsgException("no such id exists");
-        }
         cMsgPayloadItem item2 = new cMsgPayloadItem("id", execId);
-
         msg.addPayloadItem(item2);
+
         cmsgConnection.send(msg);
     }
 
@@ -299,6 +343,24 @@ System.out.println("HEY GOT YOUR MESSY");
         return uniqueId++;
     }
 
+    /**
+     * Start an external process using the specified executor.
+     *
+     * @param exec Executor to start process with.
+     * @param cmd command that Executor will run.
+     * @param wait <code>true</code> if executor waits for the process to complete before responding,
+     *             else <code>false</code>.
+     * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
+     *                0 means wait forever.
+     * @return object containing id number and any process output captured
+     * @throws cMsgException if cmsg communication fails or internal protocol error
+     * @throws TimeoutException if cmsg communication times out
+     */
+    public CommandReturn startXtermProcess(ExecutorInfo exec, String cmd, boolean wait, int timeout)
+            throws cMsgException, TimeoutException {
+        // Reading from xterm output blocks for some reason so no monitoring
+        return startProcess(exec, cmd, false, wait, null, null, timeout);
+    }
 
     /**
      * Start an external process using the specified executor.
@@ -309,13 +371,16 @@ System.out.println("HEY GOT YOUR MESSY");
      *                else <code>false</code>.
      * @param wait <code>true</code> if executor waits for the process to complete before responding,
      *             else <code>false</code>.
+     * @param callback callback to be run when process ends.
+     * @param userObject argument to be passed to callback.
      * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
      *                0 means wait forever.
      * @return object containing id number and any process output captured
      * @throws cMsgException if cmsg communication fails or internal protocol error
      * @throws TimeoutException if cmsg communication times out
      */
-    public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, boolean wait, int timeout)
+    public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, boolean wait,
+                                      ProcessCallback callback, Object userObject, int timeout)
             throws cMsgException, TimeoutException {
 
         int myId = getUniqueId();
@@ -335,6 +400,10 @@ System.out.println("HEY GOT YOUR MESSY");
             msg.addPayloadItem(item3);
             cMsgPayloadItem item4 = new cMsgPayloadItem("wait", wait ? 1 : 0);
             msg.addPayloadItem(item4);
+            cMsgPayloadItem item5 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
+            msg.addPayloadItem(item5);
+            cMsgPayloadItem item6 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            msg.addPayloadItem(item6);
         }
         catch (cMsgException e) {/* never happen as names are legit */}
 
@@ -378,7 +447,14 @@ System.out.println("Doing sendAndGet to sub = " + remoteExecSubjectType + ", typ
                 }
             }
 
-            return new CommandReturn(myId, processId, false, terminated, output);
+            CommandReturn cmdRet = new CommandReturn(myId, processId, false, terminated, output);
+            // register callback for execution on process termination
+            if (!terminated && callback != null) {
+                cmdRet.registerCallback(callback, userObject);
+                cmdReturns.put(myId, cmdRet);
+            }
+
+            return cmdRet;
         }
         else {
             throw new cMsgException("startProcess: internal protocol error");
@@ -451,6 +527,7 @@ System.out.println("Doing sendAndGet to sub = " + remoteExecSubjectType + ", typ
         String aLine = "";
         BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
         System.out.print(s);
+        System.out.flush();
         try {
             aLine = input.readLine();
         }
@@ -496,14 +573,53 @@ System.out.println("Doing sendAndGet to sub = " + remoteExecSubjectType + ", typ
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
+            
+            for (ExecutorInfo info : execList) {
+//                System.out.println("Killing you " + info.getName());
+//                cmdr.kill(info, true);
+            }
+//            System.out.println("Killing all");
+//            cmdr.killAll(true);
+//            if (execList.size() > 0) {
+//                CommandReturn ret = cmdr.startProcess(execList.get(0), "java org/jlab/coda/cMsg/test/cMsgTest", false, false, 1000);
+//                    if (ret.getOutput() != null)
+//                        System.out.println(ret.getOutput());
+//
+//            }
+
+            class myCB implements ProcessCallback {
+                public void callback(Object userObject) {
+                    System.out.println("\nHEY, CALLBACK RUN!!!\n");
+                }
+            }
 
             String in;
             while(true) {
+                try {
+                    Thread.sleep(2000);
+                }
+                catch (InterruptedException e) {
+                    break;
+                }
                 in = inputStr("% ");
                 if (execList.size() > 0) {
-                    CommandReturn ret = cmdr.startProcess(execList.get(0), in, true, true, 1000);
-                    if (ret.getOutput() != null)
+                    CommandReturn ret = cmdr.startProcess(execList.get(0), in, false, false, new myCB(), null, 30000);
+                    System.out.println("Return = \n" + ret);
+                    if (ret.hasError()) {
+                        System.out.println("@@@@@@@ ERROR @@@@@@@");
+                    }
+                    if (ret.getOutput() != null) {
                         System.out.println(ret.getOutput());
+                    }
+                    while (true) {
+                        try {Thread.sleep(1000);}
+                        catch (InterruptedException e) {}
+                    }
+
+//                    try {Thread.sleep(5000);}
+//                    catch (InterruptedException e) {}
+//                    cmdr.stop(execList.get(0), ret.getId());
+
                 }
             }
 

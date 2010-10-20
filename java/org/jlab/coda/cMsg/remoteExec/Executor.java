@@ -39,16 +39,28 @@ public class Executor {
     private cMsg cmsgConnection;
     private volatile boolean connected;
 
+
     private class CommandInfo {
         IExecutorThread  execThread;
         Thread  thread;
         Process process;
         String  className;
         String  command;
+        String  commander;
+        int     commandId;
         boolean monitor;
         boolean wait;
         boolean isProcess;
     }
+
+    private class ProcessEnd extends Thread {
+        int id;
+        CommandInfo info;
+        ProcessEnd(CommandInfo info) {
+            this.info = info;
+        }
+    }
+
 
 
     public Executor(String password, SecretKey key, String udl, String name)
@@ -150,21 +162,11 @@ System.out.println("Subscribe to sub = " + remoteExecSubjectType + ", typ = " + 
      * containing a valid command arrives.
      */
     class CommandCallback extends cMsgCallbackAdapter {
-        /**
-         * Callback method definition.
-         *
-         * @param msg message received from domain server
-         * @param userObject object passed as an argument which was set when the
-         *                   client orginally subscribed to a subject and type of
-         *                   message.
-         */
+
         public void callback(cMsgMessage msg, Object userObject) {
+
             // there must be payload
             if (msg.hasPayload()) {
-
-//                System.out.println("payload = ");
-//                msg.payloadPrintout(0);
-
                 cMsgPayloadItem item;
                 String passwd = null;
                 String commandType = null;
@@ -193,6 +195,7 @@ System.out.println("commandtype = " + commandType);
                     CommandType type = CommandType.getCommandType(commandType);
                     if (type == null) {
                         System.out.println("Reject message, command type not recognized");
+                        return;
                     }
 
                     switch(type) {
@@ -203,33 +206,50 @@ System.out.println("commandtype = " + commandType);
                                 return;
                             }
 
+                            // Store incoming data here
+                            CommandInfo commandInfo = new CommandInfo();
+                            commandInfo.isProcess = true;
+
                             item = msg.getPayloadItem("command");
                             if (item == null) {
                                 System.out.println("Reject message, no command");
                                 return;
                             }
-                            String command = item.getString();
+                            commandInfo.command = item.getString();
 
                             item = msg.getPayloadItem("monitor");
                             boolean monitor = false;
                             if (item != null) {
                                 monitor = item.getInt() != 0;
                             }
+                            commandInfo.monitor = monitor;
 
                             item = msg.getPayloadItem("wait");
                             boolean wait = false;
                             if (item != null) {
                                 wait = item.getInt() != 0;
                             }
-
-                            CommandInfo commandInfo = new CommandInfo();
-                            commandInfo.command = command;
-                            commandInfo.monitor = monitor;
                             commandInfo.wait = wait;
-                            commandInfo.isProcess = true;
+
+                            item = msg.getPayloadItem("commander");
+                            if (item == null) {
+                                System.out.println("Reject message, no commander");
+                                return;
+                            }
+                            commandInfo.commander = item.getString();
+
+                            item = msg.getPayloadItem("id");
+                            if (item == null) {
+                                System.out.println("Reject message, no commander id");
+                                return;
+                            }
+                            commandInfo.commandId = item.getInt();
 
                             // return must be placed in sendAndGet response msg
-                            startProcess(commandInfo, msg.response());
+                            ProcessRun pr = new ProcessRun(commandInfo, msg.response());
+                            pr.start();
+                            //startProcess(commandInfo, msg.response());
+
                             break;
 
                         case START_THREAD:
@@ -267,6 +287,7 @@ System.out.println("commandtype = " + commandType);
                                 return;
                             }
                             int id = item.getInt();
+                            System.out.println("******** TRY TO STOP ID = " + id);
 
                             stop(id);
                             break;
@@ -282,7 +303,13 @@ System.out.println("commandtype = " + commandType);
                             break;
 
                         case IDENTIFY:
-                            sendBackInfo();
+                            item = msg.getPayloadItem("commander");
+                            if (item == null) {
+                                System.out.println("Reject message, no commander");
+                                return;
+                            }
+                            String commander = item.getString();
+                            sendBackInfo(commander);
                             break;
                         default:
                     }
@@ -308,101 +335,157 @@ System.out.println("commandtype = " + commandType);
 
 
     /**
-     *
-     * @param info
+     * Class for running a command in its own thread since any command could
+     * easily block for an extended time. This way the callback doesn't get
+     * tied up running one command.
      */
-    private void startProcess(CommandInfo info, cMsgMessage msg) {
-        // this sendAndGet response needs a subject and type to be sent
-        msg.setSubject("blah");
-        msg.setType("blah");
+    private class ProcessRun extends Thread {
+        int id;
+        CommandInfo info;
+        cMsgMessage responseMsg;
 
-        // run the command
-        Process process;
-        try {
-            process = Runtime.getRuntime().exec(info.command);
-        }
-        catch (IOException e) {
-            // return error message if execution failed
-            try {
-                cMsgPayloadItem item = new cMsgPayloadItem("error", e.getMessage());
-                msg.addPayloadItem(item);
-                cmsgConnection.send(msg);
-            }
-            catch (cMsgException e1) {
-                // sending msg failed due to broken connection to server, all bets off
-            }
-            return;
+        ProcessRun(CommandInfo info, cMsgMessage responseMsg) {
+            this.info = info;
+            this.responseMsg = responseMsg;
         }
 
-        // capture process output if desired
-        if (info.monitor) {
-            StringBuilder  sb = new StringBuilder(100);
-            BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        public void run() {
+            startProcess();
+        }
+
+
+        /**
+         *
+         */
+        private void startProcess() {
+            // this sendAndGet response needs a subject and type to be sent
+System.out.println("response msg subject = " + responseMsg.getSubject());
+            responseMsg.setSubject("blah");
+            responseMsg.setType("blah");
+
+            // run the command
+            Process process;
             try {
-                String line;
-                // grab each line of text (without line terminator)
-                while ((line = br.readLine()) != null) {
-                    sb.append(line);
-                    sb.append("\n");
-                }
+    System.out.println("run -> " + info.command);
+                process = Runtime.getRuntime().exec(info.command);
+                try {Thread.sleep(1000);}
+                catch (InterruptedException e) {}
             }
             catch (IOException e) {
-                // probably best to ignore this error
-                System.out.println("startProcess: io error gathering output");
-            }
-
-            // send back any output
-            if (sb.length() > 0) {
-                cMsgPayloadItem item = null;
+                e.printStackTrace();
+                // return error message if execution failed
                 try {
-                    // take off last \n we put in buffer
-                    sb.deleteCharAt(sb.length()-1);
-                    item = new cMsgPayloadItem("output", sb.toString());
-//System.out.println("output = " + sb.toString());
+                    cMsgPayloadItem item = new cMsgPayloadItem("error", e.getMessage());
+                    responseMsg.addPayloadItem(item);
+                    cmsgConnection.send(responseMsg);
                 }
-                catch (cMsgException e) {/* never happen */}
-                msg.addPayloadItem(item);
+                catch (cMsgException e1) {
+                    // sending msg failed due to broken connection to server, all bets off
+                }
+                return;
             }
-        }
 
-        // try to figure out if it has already terminated
-        boolean terminated = true;
-        try {
-            if (info.wait) {
-                process.waitFor();
+            // capture process output if desired
+            if (info.monitor) {
+                StringBuilder  sb = new StringBuilder(100);
+                BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                try {
+                    String line;
+                    // grab each line of text (without line terminator)
+System.out.println("WILL READ");
+                    while ((line = br.readLine()) != null) {
+                        sb.append(line);
+                        sb.append("\n");
+                    }
+System.out.println("DONE READING");
+                }
+                catch (IOException e) {
+                    // probably best to ignore this error
+                    System.out.println("startProcess: io error gathering output");
+                }
+
+                // send back any output
+                if (sb.length() > 0) {
+                    cMsgPayloadItem item = null;
+                    try {
+                        // take off last \n we put in buffer
+                        sb.deleteCharAt(sb.length()-1);
+                        item = new cMsgPayloadItem("output", sb.toString());
+//System.out.println("output = " + sb.toString());
+                    }
+                    catch (cMsgException e) {/* never happen */}
+                    responseMsg.addPayloadItem(item);
+                }
             }
-            process.exitValue();
-        }
-        catch (Exception e) {
-            terminated = false;
-        }
 
-        if (terminated) {
+            // try to figure out if it has already terminated
+            boolean terminated = true;
             try {
-                cMsgPayloadItem item = new cMsgPayloadItem("terminated", 1);
-                msg.addPayloadItem(item);
+                if (info.wait) {
+                    process.waitFor();
+                }
+                process.exitValue();
             }
-            catch (cMsgException e) {/* never happen */}
-        }
-        else {
+            catch (Exception e) {
+                terminated = false;
+            }
+System.out.println("Terminated = " + terminated);
+
+            if (terminated) {
+                try {
+                    cMsgPayloadItem item = new cMsgPayloadItem("terminated", 1);
+                    responseMsg.addPayloadItem(item);
+                    cmsgConnection.send(responseMsg);
+                }
+                catch (cMsgException e) {
+                    // sending msg failed due to broken connection to server, all bets off
+                }
+                return;
+            }
+
+            // if we're here, the process is still running ...
+
             // store it so we can terminate it later
             int id = getUniqueId();
             try {
+System.out.println("******** ID = " + id);
                 cMsgPayloadItem item = new cMsgPayloadItem("id", id);
-                msg.addPayloadItem(item);
+                responseMsg.addPayloadItem(item);
             }
             catch (cMsgException e) {/* never happen */}
             info.process = process;
             processMap.put(id, info);
+
+            try {
+                // response to initial sendAndGet so "startProcess" can return
+                System.out.println("Send sendAndGet response");
+                cmsgConnection.send(responseMsg);
+
+                // wait for the process to finish
+                try {
+                    System.out.println("Wait 4 process to end");
+                    process.waitFor();
+                }
+                catch (InterruptedException e) {}
+
+                // now send another (regular) msg back to Commander
+                // to notify it that the process is done
+                cMsgMessage imDoneMsg = new cMsgMessage();
+                imDoneMsg.setSubject(info.commander);
+                imDoneMsg.setType(remoteExecSubjectType);
+                cMsgPayloadItem item1 = new cMsgPayloadItem("returnType", InfoType.PROCESS_END.getValue());
+                imDoneMsg.addPayloadItem(item1);
+                cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);
+                imDoneMsg.addPayloadItem(item2);
+System.out.println("**************** SEND - ending msg *************");
+                cmsgConnection.send(imDoneMsg);
+            }
+            catch (cMsgException e) {
+                // sending msg failed due to broken connection to server, all bets off
+            }
         }
 
-        // send msg back to Commander
-        try {
-            cmsgConnection.send(msg);
-        }
-        catch (cMsgException e) {
-            // sending msg failed due to broken connection to server, all bets off
-        }
+
     }
 
 
@@ -491,12 +574,8 @@ System.out.println("commandtype = " + commandType);
 
         // stop process
         if (info.isProcess) {
-            System.out.println("Kill the process");
+            System.out.println("Kill the process " + info.process);
             info.process.destroy();
-//            try {
-//                info.process.waitFor();
-//            }
-//            catch (InterruptedException e) { }
         }
         // stop thread
         else {
@@ -507,12 +586,16 @@ System.out.println("commandtype = " + commandType);
 
     }
 
-    private void sendBackInfo() throws cMsgException {
+    private void sendBackInfo(String commander) throws cMsgException {
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
 System.out.println("Send to sub = " + InfoType.REPORTING.getValue() + ", typ = " + remoteExecSubjectType);
-        msg.setSubject(InfoType.REPORTING.getValue());
+        // This msg goes back only to the Commander that sent an "identify" command
+        msg.setSubject(commander);
         msg.setType(remoteExecSubjectType);
+
+        cMsgPayloadItem item0 = new cMsgPayloadItem("returnType", InfoType.REPORTING.getValue());
+        msg.addPayloadItem(item0);
 
         cMsgPayloadItem item1 = new cMsgPayloadItem("name", name);
         msg.addPayloadItem(item1);
