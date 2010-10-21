@@ -24,7 +24,7 @@ public class Commander {
     private String myName;
     private String description;
 
-    private int uniqueId;
+    private int uniqueId = 1;
     private cMsg cmsgConnection;
 
     private ConcurrentHashMap<String, ExecutorInfo> executors =
@@ -378,9 +378,11 @@ public class Commander {
 
 
     /**
-     * Start an external process using the specified executor. Do not wait for it to finish
-     * but run callback when it does. Allows 2 seconds for return message from executor
-     * before throwing exeception.
+     * This method is an asynchronous version of startProcess.
+     * It starts an external process using the specified executor.
+     * Does not wait for process to finish but runs callback when it does.
+     * Allows 2 seconds for initial, sendAndGet return message from executor
+     * before throwing exception.
      *
      * @param exec Executor to start process with.
      * @param cmd command that Executor will run.
@@ -389,7 +391,8 @@ public class Commander {
      * @param callback callback to be run when process ends.
      * @param userObject argument to be passed to callback.
      * @return object containing id number and any process output captured
-     * @throws cMsgException if cmsg communication fails or takes too long, or internal protocol error
+     * @throws cMsgException if cmsg sendAndGet communication fails or takes too long,
+     *                       or internal protocol error
      */
     public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor,
                                       ProcessCallback callback, Object userObject)
@@ -405,7 +408,12 @@ public class Commander {
 
 
     /**
-     * Start an external process using the specified executor. Wait for it to finish.
+     * This method is a synchronous version of startProcess.
+     * It starts an external process using the specified executor
+     * and waits for it to finish. All status information is available
+     * in the returned object. If the timeout exception is thrown,
+     * the caller will no longer be able to see any results from the
+     * process.
      *
      * @param exec Executor to start process with.
      * @param cmd command that Executor will run.
@@ -426,6 +434,8 @@ public class Commander {
 
     /**
      * Start an external process using the specified executor.
+     * If there is an error, it will be available in the returned object
+     * (whether or not monitor is true).
      *
      * @param exec Executor to start process with.
      * @param cmd command that Executor will run.
@@ -439,14 +449,13 @@ public class Commander {
      *                0 means wait forever.
      * @return object containing id number and any process output captured
      * @throws cMsgException if cmsg communication fails or internal protocol error
-     * @throws TimeoutException if cmsg communication times out
+     * @throws TimeoutException if cmsg sendAndGet communication times out
      */
-    public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, boolean wait,
-                                      ProcessCallback callback, Object userObject, int timeout)
+    CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, boolean wait,
+                               ProcessCallback callback, Object userObject, int timeout)
             throws cMsgException, TimeoutException {
 
         int myId = getUniqueId();
-        String output = null;
 
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
@@ -475,10 +484,10 @@ public class Commander {
         // analyze response
         if (returnMsg.hasPayload()) {
             // Was there an error?
+            String err = null;
             cMsgPayloadItem item = returnMsg.getPayloadItem("error");
             if (item != null) {
-                String err = item.getString();            
-                return new CommandReturn(myId, 0, true, true, err);
+                err = item.getString();
             }
 
             // Has the process already terminated?
@@ -500,7 +509,8 @@ public class Commander {
                 exec.addCommanderId(myId, processId);
             }
 
-            // if we requested the output of the process ...
+            // If we requested the output of the process ...
+            String output = null;
             if (monitor) {
                 item = returnMsg.getPayloadItem("output");
                 if (item != null) {
@@ -508,7 +518,7 @@ public class Commander {
                 }
             }
 
-            CommandReturn cmdRet = new CommandReturn(myId, processId, false, terminated, output);
+            CommandReturn cmdRet = new CommandReturn(myId, processId, (err != null), terminated, output, err);
             // register callback for execution on process termination
             if (!terminated && callback != null) {
                 cmdRet.registerCallback(callback, userObject);
@@ -562,7 +572,7 @@ public class Commander {
             cMsgPayloadItem item = msg.getPayloadItem("error");
             if (item != null) {
                 String err = item.getString();
-                return new CommandReturn(myId, 0, true, true, err);
+                return new CommandReturn(myId, 0, true, true, null, err);
             }
 
             item = msg.getPayloadItem("id");
@@ -573,7 +583,7 @@ public class Commander {
 
             // store mapping between the 2 ids
             exec.addCommanderId(myId, threadId);
-            return new CommandReturn(myId, threadId, false, false, null);
+            return new CommandReturn(myId, threadId, false, false, null, null);
         }
         else {
             throw new cMsgException("startProcess: internal protocol error");
@@ -704,7 +714,7 @@ public class Commander {
         return returnList;
     }
 
-    public static void main(String[] args) {
+    public static void main3(String[] args) {
 
         try {
             String[] arggs = decodeCommandLine(args);
@@ -737,7 +747,7 @@ public class Commander {
     /**
      * Run as a stand-alone application
      */
-    public static void main3(String[] args) {
+    public static void main(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
             System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
@@ -770,33 +780,27 @@ public class Commander {
 
             String in;
             while(true) {
-                try {
-                    Thread.sleep(2000);
-                }
-                catch (InterruptedException e) {
-                    break;
-                }
                 in = inputStr("% ");
                 if (execList.size() > 0) {
-                    CommandReturn ret = cmdr.startProcess(execList.get(0), in, false, false, new myCB(), null, 30000);
-                    System.out.println("Return = \n" + ret);
+                    //                                                      monitor, wait
+                    CommandReturn ret = cmdr.startProcess(execList.get(0), in, true, true, new myCB(), null, 10000);
+                    System.out.println("Return = " + ret);
                     if (ret.hasError()) {
-                        System.out.println("@@@@@@@ ERROR @@@@@@@");
+                        System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
                     }
                     if (ret.getOutput() != null) {
-                        System.out.println(ret.getOutput());
+                        System.out.println("Regular output:\n" + ret.getOutput());
                     }
 //                    try {Thread.sleep(5000);}
 //                    catch (InterruptedException e) {}
 //
+//                    System.out.println("Stop process now");
 //                    cmdr.stop(execList.get(0), ret.getId());
 
-//                    while (true) {
-//                        try {Thread.sleep(1000);}
-//                        catch (InterruptedException e) {}
-//                    }
-
-
+                    while (true) {
+                        try {Thread.sleep(1000);}
+                        catch (InterruptedException e) {}
+                    }
                 }
             }
 

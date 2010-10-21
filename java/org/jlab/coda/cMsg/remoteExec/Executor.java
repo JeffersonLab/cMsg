@@ -6,6 +6,7 @@ import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -24,7 +25,7 @@ public class Executor {
 
     private SecretKey key;
 
-    private int uniqueId;
+    private int uniqueId = 1;
 
     private String password;
     private String name;
@@ -335,6 +336,40 @@ System.out.println("commandtype = " + commandType);
 
 
     /**
+     * Get the output of the process - either error or regular output
+     * depending on the input stream.
+     *
+     * @param inputStream get process output from this stream
+     * @return String of process output
+     */
+    private String getProcessOutput(InputStream inputStream) {
+        String line;
+        StringBuilder sb = new StringBuilder(300);
+        BufferedReader brErr = new BufferedReader(new InputStreamReader(inputStream));
+
+        try {
+            // read each line of output
+            while ((line = brErr.readLine()) != null) {
+                sb.append(line);
+                sb.append("\n");
+            }
+        }
+        catch (IOException e) {
+            // probably best to ignore this error
+            System.out.println("startProcess: io error gathering error output");
+        }
+
+        if (sb.length() > 0) {
+            // take off last \n we put in buffer
+            sb.deleteCharAt(sb.length()-1);
+            return sb.toString();
+        }
+
+        return null;
+    }
+
+
+    /**
      * Class for running a command in its own thread since any command could
      * easily block for an extended time. This way the callback doesn't get
      * tied up running one command.
@@ -355,28 +390,31 @@ System.out.println("commandtype = " + commandType);
 
 
         /**
+         * Reading from the error or output streams will automatically block.
+         * Therefore, if the caller does NOT want to wait, it cannot monitor
+         * either (except AFTER it has returned the sendAndGet response).
          *
          */
         private void startProcess() {
-            // this sendAndGet response needs a subject and type to be sent
-//System.out.println("response msg subject = " + responseMsg.getSubject());
-            responseMsg.setSubject("blah");
-            responseMsg.setType("blah");
-
             // run the command
             Process process;
             try {
-    System.out.println("run -> " + info.command);
+System.out.println("run -> " + info.command);
                 process = Runtime.getRuntime().exec(info.command);
-                try {Thread.sleep(1000);}
+                // Allow process a chance to run before testing if its terminated.
+                Thread.yield();
+                try {Thread.sleep(300);}
                 catch (InterruptedException e) {}
+
             }
-            catch (IOException e) {
+            catch (Exception e) {
                 e.printStackTrace();
                 // return error message if execution failed
                 try {
-                    cMsgPayloadItem item = new cMsgPayloadItem("error", e.getMessage());
-                    responseMsg.addPayloadItem(item);
+                    cMsgPayloadItem item1 = new cMsgPayloadItem("terminated", 1);
+                    responseMsg.addPayloadItem(item1);
+                    cMsgPayloadItem item2 = new cMsgPayloadItem("error", e.getMessage());
+                    responseMsg.addPayloadItem(item2);
                     cmsgConnection.send(responseMsg);
                 }
                 catch (cMsgException e1) {
@@ -385,91 +423,110 @@ System.out.println("commandtype = " + commandType);
                 return;
             }
 
-            // capture process output if desired
-            if (info.monitor) {
-                StringBuilder  sb = new StringBuilder(100);
-                BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                try {
-                    String line;
-                    // grab each line of text (without line terminator)
-//System.out.println("WILL READ");
-                    while ((line = br.readLine()) != null) {
-                        sb.append(line);
-                        sb.append("\n");
-                    }
-//System.out.println("DONE READING");
-                }
-                catch (IOException e) {
-                    // probably best to ignore this error
-                    System.out.println("startProcess: io error gathering output");
-                }
-
-                // send back any output
-                if (sb.length() > 0) {
-                    cMsgPayloadItem item = null;
-                    try {
-                        // take off last \n we put in buffer
-                        sb.deleteCharAt(sb.length()-1);
-                        item = new cMsgPayloadItem("output", sb.toString());
-//System.out.println("output = " + sb.toString());
-                    }
-                    catch (cMsgException e) {/* never happen */}
-                    responseMsg.addPayloadItem(item);
-                }
-            }
-
-            // try to figure out if it has already terminated
+            //---------------------------------------------------------
+            // Figure out if process has already terminated.
+            //---------------------------------------------------------
+            String output;
             boolean terminated = true;
-            try {
-                if (info.wait) {
-                    process.waitFor();
-                }
-                process.exitValue();
-            }
-            catch (Exception e) {
-                terminated = false;
-            }
-//System.out.println("Terminated = " + terminated);
+            try { process.exitValue(); }
+            catch (Exception e) { terminated = false;  }
 
-            if (terminated) {
+            //----------------------------------------------------------------
+            // If commander NOT waiting for process to finish, return at once.
+            //----------------------------------------------------------------
+            if (!info.wait) {
                 try {
-                    cMsgPayloadItem item = new cMsgPayloadItem("terminated", 1);
-                    responseMsg.addPayloadItem(item);
+                    // Grab any output available if process already terminated.
+                    if (terminated) {
+                        cMsgPayloadItem item1 = new cMsgPayloadItem("terminated", 1);
+                        responseMsg.addPayloadItem(item1);
+
+                        // Grab any output. First try regular.
+                        if (info.monitor) {
+                            output = getProcessOutput(process.getInputStream());
+                            if (output != null) {
+System.out.println("output = " + output);
+                                cMsgPayloadItem item2 = new cMsgPayloadItem("output", output);
+                                responseMsg.addPayloadItem(item2);
+                            }
+                        }
+
+                        // Try error output if no regular.
+                        output = getProcessOutput(process.getErrorStream());
+                        if (output != null) {
+System.out.println("error = " + output);
+                            cMsgPayloadItem item2 = new cMsgPayloadItem("error", output);
+                            responseMsg.addPayloadItem(item2);
+                        }
+                    }
+                    // Store Process id/object so Commander can terminate it later.
+                    else {
+                        int id = getUniqueId();
+                        try {
+                            cMsgPayloadItem item = new cMsgPayloadItem("id", id);
+                            responseMsg.addPayloadItem(item);
+                        }
+                        catch (cMsgException e) {/* never happen */}
+                        info.process = process;
+                        processMap.put(id, info);
+                    }
+
+                    // Send response to Commander's sendAndGet.
                     cmsgConnection.send(responseMsg);
+                    // Now, finish waiting for process and notify Commander when finished.
                 }
                 catch (cMsgException e) {
                     // sending msg failed due to broken connection to server, all bets off
                 }
-                return;
             }
 
-            // if we're here, the process is still running ...
-
-            // store it so we can terminate it later
-            int id = getUniqueId();
+            //---------------------------------------------------------
+            // If we're here, we want to wait until process is fnished.
+            //---------------------------------------------------------
             try {
-//System.out.println("******** ID = " + id);
-                cMsgPayloadItem item = new cMsgPayloadItem("id", id);
+                cMsgPayloadItem item = new cMsgPayloadItem("terminated", 1);
                 responseMsg.addPayloadItem(item);
             }
             catch (cMsgException e) {/* never happen */}
-            info.process = process;
-            processMap.put(id, info);
+
+            //---------------------------------------------------------
+            // Capture process output if desired.
+            //---------------------------------------------------------
+            if (info.monitor) {
+                // This will block until process is done.
+                output = getProcessOutput(process.getInputStream());
+                if (output != null) {
+                    try {
+                        cMsgPayloadItem item = new cMsgPayloadItem("output", output);
+                        responseMsg.addPayloadItem(item);
+                    }
+                    catch (cMsgException e) {/* never happen */}
+                }
+            }
+
+            //---------------------------------------------------------
+            // Run a check for error by looking at error output stream.
+            // This will block until process is done.
+            //---------------------------------------------------------
+            output = getProcessOutput(process.getErrorStream());
+            if (output != null) {
+                try {
+                    cMsgPayloadItem item = new cMsgPayloadItem("error", output);
+                    responseMsg.addPayloadItem(item);
+                }
+                catch (cMsgException e) {/* never happen */}
+            }
 
             try {
-                // response to initial sendAndGet so "startProcess" can return
-//System.out.println("Send sendAndGet response");
-                cmsgConnection.send(responseMsg);
-
-                // wait for the process to finish
-                try {
-//System.out.println("Wait 4 process to end");
-                    process.waitFor();
+                // Respond to initial sendAndGet if we haven't done so already
+                // so "startProcess" can return if it has not timed out already.
+                if (info.wait) {
+                    cmsgConnection.send(responseMsg);
                 }
-                catch (InterruptedException e) {}
 
-                // now send another (regular) msg back to Commander
-                // to notify it that the process is done
+                // Now send another (regular) msg back to Commander
+                // to notify it that the process is done and run any
+                // callback associated with this process.
                 cMsgMessage imDoneMsg = new cMsgMessage();
                 imDoneMsg.setSubject(info.commander);
                 imDoneMsg.setType(remoteExecSubjectType);
@@ -477,15 +534,12 @@ System.out.println("commandtype = " + commandType);
                 imDoneMsg.addPayloadItem(item1);
                 cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);
                 imDoneMsg.addPayloadItem(item2);
-//System.out.println("**************** SEND - ending msg *************");
                 cmsgConnection.send(imDoneMsg);
             }
             catch (cMsgException e) {
                 // sending msg failed due to broken connection to server, all bets off
             }
         }
-
-
     }
 
 
@@ -544,13 +598,13 @@ System.out.println("commandtype = " + commandType);
     private void stopAll() {
         for (CommandInfo info : processMap.values()) {
             // stop process
-            System.out.println("Kill the process");
+//System.out.println("Kill the process");
             info.process.destroy();
         }
 
         for (CommandInfo info : threadMap.values()) {
             // stop thread
-            System.out.println("Kill the thread");
+System.out.println("Kill the thread");
             // doesn't matter if alive or not
             info.thread.interrupt();
         }
@@ -568,18 +622,18 @@ System.out.println("commandtype = " + commandType);
         }
         if (info == null) {
             // process/thread already stopped
-            System.out.println("No thread or process for that id");
+//System.out.println("No thread or process for that id");
             return;
         }
 
         // stop process
         if (info.isProcess) {
-            System.out.println("Kill the process " + info.process);
+//System.out.println("Kill the process " + info.process);
             info.process.destroy();
         }
         // stop thread
         else {
-            System.out.println("Kill the thread");
+System.out.println("Kill the thread");
             // doesn't matter if alive or not
             info.thread.interrupt();
         }
