@@ -870,12 +870,19 @@ public class Commander {
 //            }
 
 
+            class myCB implements ProcessCallback {
+                public void callback(Object userObject, CommandReturn commandReturn) {
+                    System.out.println("In callback, process output = \n" + commandReturn.getOutput());
+                    System.out.println("               error output = \n" + commandReturn.getError());
+                }
+            }
+
             String in;
             while(true) {
                 if (execList.size() > 0) {
                     CommandReturn ret = cmdr.startThread(execList.get(0),
                                                          "org.jlab.coda.cMsg.remoteExec.ExampleThread",
-                                                         10000);
+                                                         new myCB(), null);
                     System.out.println("Return = " + ret);
                     if (ret.hasError()) {
                         System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
@@ -891,10 +898,10 @@ public class Commander {
             }
 
         }
-        catch (TimeoutException e) {
-            e.printStackTrace();
-            System.exit(-1);
-        }
+//        catch (TimeoutException e) {
+//            e.printStackTrace();
+//            System.exit(-1);
+//        }
         catch (cMsgException e) {
             e.printStackTrace();
             System.exit(-1);

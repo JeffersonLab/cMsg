@@ -248,7 +248,6 @@ System.out.println("commandtype = " + commandType);
                             // return must be placed in sendAndGet response msg
                             ProcessRun pr = new ProcessRun(commandInfo, msg.response());
                             pr.start();
-                            //startProcess(commandInfo, msg.response());
 
                             break;
 
@@ -293,7 +292,9 @@ System.out.println("commandtype = " + commandType);
                             commandInfo.commandId = item.getInt();
 
                             // return must be placed in sendAndGet response msg
-                            startThread(commandInfo, msg.response());
+                            ThreadRun tr = new ThreadRun(commandInfo, msg.response());
+                            tr.start();
+
                             break;
 
                         case STOP_ALL:
@@ -587,121 +588,148 @@ System.out.println("run -> " + info.command);
     }
 
 
+
     /**
-     *
-     * @param info
+     * Class for running a command in its own thread since any command could
+     * easily block for an extended time. This way the callback doesn't get
+     * tied up running one command.
      */
-    private void startThread(CommandInfo info, cMsgMessage responseMsg) {
-        //----------------------------------------------------------------
-        // create an object from the given class name
-        //----------------------------------------------------------------
-        IExecutorThread eThread;
-        try {
-            Class c = Class.forName(info.className);
-            eThread = (IExecutorThread)c.newInstance(); // use no-arg constructor
+    private class ThreadRun extends Thread {
+        int id;
+        CommandInfo info;
+        cMsgMessage responseMsg;
+
+        ThreadRun(CommandInfo info, cMsgMessage responseMsg) {
+            this.info = info;
+            this.responseMsg = responseMsg;
         }
-        catch (Exception e) {
-            e.printStackTrace();
-            // return error if object creation failed
+
+        public void run() {
+            startThread();
+        }
+
+        /**
+         *
+         */
+        private void startThread() {
+            //----------------------------------------------------------------
+            // create an object from the given class name
+            //----------------------------------------------------------------
+            IExecutorThread eThread;
             try {
-                cMsgPayloadItem item1 = new cMsgPayloadItem("terminated", 1);
-                responseMsg.addPayloadItem(item1);
-                cMsgPayloadItem item2 = new cMsgPayloadItem("error", e.getMessage());
-                responseMsg.addPayloadItem(item2);
-                cmsgConnection.send(responseMsg);
+                Class c = Class.forName(info.className);
+                eThread = (IExecutorThread)c.newInstance(); // use no-arg constructor
             }
-            catch (cMsgException e1) {
-                // sending msg failed due to broken connection to server, all bets off
+            catch (Exception e) {
+                e.printStackTrace();
+                // return error if object creation failed
+                try {
+                    cMsgPayloadItem item1 = new cMsgPayloadItem("terminated", 1);
+                    responseMsg.addPayloadItem(item1);
+                    cMsgPayloadItem item2 = new cMsgPayloadItem("error", e.getMessage());
+                    responseMsg.addPayloadItem(item2);
+                    cmsgConnection.send(responseMsg);
+                }
+                catch (cMsgException e1) {
+                    // sending msg failed due to broken connection to server, all bets off
+                }
+                return;
             }
-            return;
-        }
 
-        //----------------------------------------------------------------
-        // Make an actual Thread out of a runnable object since the object
-        // may or may not be a thread and we need to run it as one.
-        //----------------------------------------------------------------
-        ExecutorThread thread = new ExecutorThread(eThread);
-        thread.start();
+            //----------------------------------------------------------------
+            // Make an actual Thread out of a runnable object since the object
+            // may or may not be a thread and we need to run it as one.
+            //----------------------------------------------------------------
+            ExecutorThread thread = new ExecutorThread(eThread);
+            thread.start();
 
-        //----------------------------------------------------------------
-        // Store ID so we can terminate thread/executor later
-        //----------------------------------------------------------------
-        int id = getUniqueId();
-        try {
-            cMsgPayloadItem item = new cMsgPayloadItem("id", id);
-            responseMsg.addPayloadItem(item);
-        }
-        catch (cMsgException e) {/* never happen */}
-
-        info.execThread = thread;
-        threadMap.put(id, info);
-
-        //----------------------------------------------------------------
-        // If commander NOT waiting for process to finish,
-        // send return message at once.
-        //----------------------------------------------------------------
-        if (!info.wait) {
+            //----------------------------------------------------------------
+            // Store ID so we can terminate thread/executor later
+            //----------------------------------------------------------------
+            int id = getUniqueId();
             try {
-                cmsgConnection.send(responseMsg);
+                cMsgPayloadItem item = new cMsgPayloadItem("id", id);
+                responseMsg.addPayloadItem(item);
+            }
+            catch (cMsgException e) {/* never happen */}
+
+            info.execThread = thread;
+            threadMap.put(id, info);
+
+            //----------------------------------------------------------------
+            // If commander NOT waiting for process to finish,
+            // send return message at once.
+            //----------------------------------------------------------------
+            if (!info.wait) {
+                try {
+                    cmsgConnection.send(responseMsg);
+                }
+                catch (cMsgException e) {
+                    // sending msg failed due to broken connection to server, all bets off
+                }
+            }
+
+            //----------------------------------------------------------------
+            // Wait for thread to finish.
+            //----------------------------------------------------------------
+            try {
+                thread.join();
+            }
+            catch (InterruptedException e) {
+                // Executor interrupted, all bets off
+            }
+
+            //---------------------------------------------------------
+            // If we're here, we waited until thread was fnished.
+            //---------------------------------------------------------
+            try {
+                cMsgPayloadItem item = new cMsgPayloadItem("terminated", 1);
+                responseMsg.addPayloadItem(item);
+            }
+            catch (cMsgException e) {/* never happen */}
+
+            // send msg back to Commander
+            try {
+                //----------------------------------------------------------------
+                // Respond to initial sendAndGet if we haven't done so already
+                // so "startThread" can return if it has not timed out already
+                // (in which case it is not interested in this result anymore).
+                //----------------------------------------------------------------
+                if (info.wait) {
+                    cmsgConnection.send(responseMsg);
+                    return;
+                }
+
+                //----------------------------------------------------------------
+                // If we're here it's because the Commander is not synchronously
+                // waiting, but has registered a callback that the next message
+                // will trigger.
+                //
+                // Now send another (regular) msg back to Commander to notify it
+                // that the thread is done and run any callback associated with
+                // the thread.
+                //----------------------------------------------------------------
+                cMsgMessage imDoneMsg = new cMsgMessage();
+                imDoneMsg.setSubject(info.commander);
+                imDoneMsg.setType(remoteExecSubjectType);
+                cMsgPayloadItem item1 = new cMsgPayloadItem("returnType", InfoType.THREAD_END.getValue());
+                imDoneMsg.addPayloadItem(item1);
+                cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);
+                imDoneMsg.addPayloadItem(item2);
+                cmsgConnection.send(imDoneMsg);
             }
             catch (cMsgException e) {
                 // sending msg failed due to broken connection to server, all bets off
             }
         }
 
-        //----------------------------------------------------------------
-        // Wait for thread to finish.
-        //----------------------------------------------------------------
-        try {
-            thread.join();
-        }
-        catch (InterruptedException e) {
-            // Executor interrupted, all bets off
-        }
 
-        //---------------------------------------------------------
-        // If we're here, we waited until thread was fnished.
-        //---------------------------------------------------------
-        try {
-            cMsgPayloadItem item = new cMsgPayloadItem("terminated", 1);
-            responseMsg.addPayloadItem(item);
-        }
-        catch (cMsgException e) {/* never happen */}
-
-        // send msg back to Commander
-        try {
-            //----------------------------------------------------------------
-            // Respond to initial sendAndGet if we haven't done so already
-            // so "startThread" can return if it has not timed out already
-            // (in which case it is not interested in this result anymore).
-            //----------------------------------------------------------------
-            if (info.wait) {
-                cmsgConnection.send(responseMsg);
-                return;
-            }
-
-            //----------------------------------------------------------------
-            // If we're here it's because the Commander is not synchronously
-            // waiting, but has registered a callback that the next message
-            // will trigger.
-            //
-            // Now send another (regular) msg back to Commander to notify it
-            // that the thread is done and run any callback associated with
-            // the thread.
-            //----------------------------------------------------------------
-            cMsgMessage imDoneMsg = new cMsgMessage();
-            imDoneMsg.setSubject(info.commander);
-            imDoneMsg.setType(remoteExecSubjectType);
-            cMsgPayloadItem item1 = new cMsgPayloadItem("returnType", InfoType.THREAD_END.getValue());
-            imDoneMsg.addPayloadItem(item1);
-            cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);
-            imDoneMsg.addPayloadItem(item2);
-            cmsgConnection.send(imDoneMsg);
-        }
-        catch (cMsgException e) {
-            // sending msg failed due to broken connection to server, all bets off
-        }
     }
+
+
+
+
+
 
 
     /**
