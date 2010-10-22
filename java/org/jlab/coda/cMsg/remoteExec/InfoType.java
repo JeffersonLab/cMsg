@@ -8,7 +8,8 @@ package org.jlab.coda.cMsg.remoteExec;
  */
 public enum InfoType {
 
-    REPORTING  ("reporting"),    // send general Executor information
+    REPORTING   ("reporting"),   // send general Executor information
+    THREAD_END  ("thread_end"),  // send back notification of ended thread
     PROCESS_END ("process_end"); // send back notification of ended process
 
     private String value;

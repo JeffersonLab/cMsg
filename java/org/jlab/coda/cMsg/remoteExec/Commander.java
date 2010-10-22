@@ -149,6 +149,7 @@ public class Commander {
 
                     switch (type) {
                         // process telling us it's done
+                        case THREAD_END:
                         case PROCESS_END:
                             item = msg.getPayloadItem("id");
                             if (item == null) {
@@ -162,6 +163,20 @@ public class Commander {
 
                             CommandReturn cmdRet = cmdReturns.remove(id);
                             if (cmdRet != null) {
+                                // Update cmdRet with the results of the process
+
+                                // Was there an error?
+                                item = msg.getPayloadItem("error");
+                                if (item != null) {
+                                    cmdRet.setError(item.getString());
+                                }
+
+                                // Any output of the process?
+                                item = msg.getPayloadItem("output");
+                                if (item != null) {
+                                    cmdRet.setOutput(item.getString());
+                                }
+
                                 cmdRet.hasTerminated(true);
                                 cmdRet.executeCallback();
                             }
@@ -423,7 +438,7 @@ public class Commander {
      *                0 means wait forever.
      * @return object containing id number and any process output captured
      * @throws cMsgException if cmsg communication fails or internal protocol error
-     * @throws TimeoutException if cmsg communication times out
+     * @throws TimeoutException if cmsg sendAndGet communication times out
      */
     public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, int timeout)
             throws cMsgException, TimeoutException {
@@ -534,18 +549,76 @@ public class Commander {
 
 
     /**
+     * This method is an asynchronous version of startThread.
+     * It starts an internal thread in the specified executor and immediately returns.
+     * It runs callback when the thread finishes passing userObject and the
+     * CommandReturn object to it as arguments.
+     * Allows 2 seconds for initial, sendAndGet return message from executor
+     * before throwing exception.
+     *
+     * @param exec Executor to start thread in.
+     * @param className name of java class to instantiate and run as thread in executor.
+     * @param callback callback to be run when thread ends.
+     * @param userObject argument to be passed to callback.
+     * @return object containing executor id number and any error output
+     * @throws cMsgException if cmsg sendAndGet communication fails or takes too long,
+     *                       or internal protocol error
+     */
+    CommandReturn startThread(ExecutorInfo exec, String className,
+                              ProcessCallback callback, Object userObject)
+            throws cMsgException {
+
+        try {
+            return startThread(exec, className, false, callback, userObject, 2000);
+        }
+        catch (TimeoutException e) {
+            throw new cMsgException(e);
+        }
+    }
+
+
+    /**
+     * This method is a synchronous version of startThread.
+     * It starts an internal thread in the specified executor
+     * and waits for it to finish. All status information is available
+     * in the returned object. If the timeout exception is thrown,
+     * the caller will no longer be able to see any results from the
+     * thread.
+     *
+     * @param exec Executor to start thread in.
+     * @param className name of java class to instantiate and run as thread in executor.
+     * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
+     *                0 means wait forever.
+     * @return object containing executor id number and any error output
+     * @throws cMsgException if cmsg communication fails or internal protocol error
+     * @throws TimeoutException if cmsg sendAndGet communication times out
+     */
+    public CommandReturn startThread(ExecutorInfo exec, String className, int timeout)
+            throws cMsgException, TimeoutException {
+
+        return startThread(exec, className, true, null, null, timeout);
+    }
+
+    /**
      * Starts an internal thread in the specified executor and immediately
      * returns. Allows 2 seconds for sendAndGet return message from executor
      * before throwing exception.
      *
      * @param exec Executor to start thread in.
      * @param className name of java class to instantiate and run as thread in executor.
-     * @return id number of this operation
-     * @throws cMsgException if cmsg sendAndGet communication fails or takes too long,
-     *                       or internal protocol error
+     * @param wait <code>true</code> if executor waits for the process to complete before responding,
+     *             else <code>false</code>.
+     * @param callback callback to be run when process ends.
+     * @param userObject argument to be passed to callback.
+     * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
+     *                0 means wait forever.
+     * @return object containing executor id number and any error output
+     * @throws cMsgException if cmsg communication fails or internal protocol error
+     * @throws TimeoutException if cmsg sendAndGet communication times out
      */
-    public CommandReturn startThread(ExecutorInfo exec, String className)
-            throws cMsgException {
+    CommandReturn startThread(ExecutorInfo exec, String className, boolean wait,
+                              ProcessCallback callback, Object userObject, int timeout)
+            throws cMsgException, TimeoutException {
 
         int myId = getUniqueId();
 
@@ -559,41 +632,55 @@ public class Commander {
             msg.addPayloadItem(item1);
             cMsgPayloadItem item2 = new cMsgPayloadItem("className", className);
             msg.addPayloadItem(item2);
-            cMsgPayloadItem item3 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
+            cMsgPayloadItem item3 = new cMsgPayloadItem("wait", wait ? 1 : 0);
             msg.addPayloadItem(item3);
-            cMsgPayloadItem item4 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            cMsgPayloadItem item4 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
             msg.addPayloadItem(item4);
+            cMsgPayloadItem item5 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            msg.addPayloadItem(item5);
         }
         catch (cMsgException e) {/* never happen as names are legit */}
 
         // send msg and receive response
-        cMsgMessage returnMsg = null;
-        try {
-            returnMsg = cmsgConnection.sendAndGet(msg, 2000);
-        }
-        catch (TimeoutException e) {
-            throw new cMsgException(e);
-        }
+        cMsgMessage returnMsg = cmsgConnection.sendAndGet(msg, timeout);
 
         // analyze response
         if (returnMsg.hasPayload()) {
-            // Was there an error?
+            // Was there an error? Unlike a process, if a thread fails,
+            // it fails to start (i.e. immediately) and is terminated.
             cMsgPayloadItem item = msg.getPayloadItem("error");
             if (item != null) {
                 String err = item.getString();
                 return new CommandReturn(myId, 0, true, true, null, err);
             }
 
-            int threadId;
-            item = msg.getPayloadItem("id");
-            if (item == null) {
-                throw new cMsgException("startProcess: internal protocol error");
+            // Has the thread terminated? (i.e. did we wait for it?)
+            boolean terminated = false;
+            item = returnMsg.getPayloadItem("terminated");
+            if (item != null) {
+                terminated = item.getInt() != 0;
             }
-            threadId = item.getInt();
 
-            // store mapping between the 2 ids
-            exec.addCommanderId(myId, threadId);
-            return new CommandReturn(myId, threadId, false, false, null, null);
+            // If it hasn't, get its id
+            int threadId = 0;
+            if (!terminated) {
+                item = returnMsg.getPayloadItem("id");
+                if (item == null) {
+                    throw new cMsgException("startProcess: internal protocol error");
+                }
+                threadId = item.getInt();
+                // Store mapping between the 2 ids to help terminating it in future.
+                exec.addCommanderId(myId, threadId);
+            }
+
+            CommandReturn cmdRet = new CommandReturn(myId, threadId, false, false, null, null);
+            // register callback for execution on process termination
+            if (!terminated && callback != null) {
+                cmdRet.registerCallback(callback, userObject);
+                cmdReturns.put(myId, cmdRet);
+            }
+
+            return cmdRet;
         }
         else {
             throw new cMsgException("startProcess: internal protocol error");
@@ -725,7 +812,7 @@ public class Commander {
         return returnList;
     }
 
-    public static void main(String[] args) {
+    public static void main2(String[] args) {
 
         try {
             String[] arggs = decodeCommandLine(args);
@@ -758,7 +845,66 @@ public class Commander {
     /**
      * Run as a stand-alone application
      */
-    public static void main2(String[] args) {
+    public static void main(String[] args) {
+        try {
+            String[] arggs = decodeCommandLine(args);
+            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
+            List<ExecutorInfo> execList = cmdr.getExecutors();
+            System.out.println("execList =  "+ execList);
+            for (ExecutorInfo info : execList) {
+                System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
+            }
+//
+//            for (ExecutorInfo info : execList) {
+//                System.out.println("Killing you " + info.getName());
+//                cmdr.kill(info, true);
+//            }
+//            System.out.println("Killing all");
+//            cmdr.killAll(true);
+//            if (execList.size() > 0) {
+//                CommandReturn ret = cmdr.startProcess(execList.get(0), "java org/jlab/coda/cMsg/test/cMsgTest", false, false, 1000);
+//                    if (ret.getOutput() != null)
+//                        System.out.println(ret.getOutput());
+//
+//            }
+
+
+            String in;
+            while(true) {
+                if (execList.size() > 0) {
+                    CommandReturn ret = cmdr.startThread(execList.get(0),
+                                                         "org.jlab.coda.cMsg.remoteExec.ExampleThread",
+                                                         10000);
+                    System.out.println("Return = " + ret);
+                    if (ret.hasError()) {
+                        System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
+                    }
+                    if (ret.getOutput() != null) {
+                        System.out.println("Regular output:\n" + ret.getOutput());
+                    }
+                    try {Thread.sleep(5000);}
+                    catch (InterruptedException e) {}
+
+                    cmdr.stop(execList.get(0), ret.getExecutorId());
+                }
+            }
+
+        }
+        catch (TimeoutException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+        catch (cMsgException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+    }
+
+    /**
+     * Run as a stand-alone application
+     */
+    public static void main3(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
             System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
@@ -784,8 +930,9 @@ public class Commander {
 //            }
 
             class myCB implements ProcessCallback {
-                public void callback(Object userObject) {
-                    System.out.println("\nHEY, CALLBACK RUN!!!\n");
+                public void callback(Object userObject, CommandReturn commandReturn) {
+                    System.out.println("In callback, process output = \n" + commandReturn.getOutput());
+                    System.out.println("               error output = \n" + commandReturn.getError());
                 }
             }
 
@@ -826,5 +973,6 @@ public class Commander {
             System.exit(-1);
         }
     }
+
 
 }

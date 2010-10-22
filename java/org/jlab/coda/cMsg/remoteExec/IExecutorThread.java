@@ -9,8 +9,10 @@ package org.jlab.coda.cMsg.remoteExec;
  */
 public interface IExecutorThread extends Runnable {
     /**
-     * Stop and clean up after a thread started by an Executor
-     * (which includes stopping all spawned subthreads).
+     * When a thread implementing this interface is run by an Executor,
+     * eventually a Commander may want to stop it. In that case an
+     * interrupt will be sent to the thread. Immediately after that,
+     * this method will be run so things can be cleaned up.
      */
-    public void remove();
+    public void cleanUp();
 }

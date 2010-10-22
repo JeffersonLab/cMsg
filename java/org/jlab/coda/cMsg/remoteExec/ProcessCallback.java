@@ -13,6 +13,9 @@ public interface ProcessCallback {
      * @param userObject object passed as an argument which was set when the
      *                   client orginally subscribed to a subject and type of
      *                   message.
+     * @param commandReturn object returned from call to startProcess or startThread
+     *                      method (which registered this callback) which was updated
+     *                      just before being passed to this method.
      */
-    public void callback(Object userObject);
+    public void callback(Object userObject, CommandReturn commandReturn);
 }

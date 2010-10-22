@@ -42,8 +42,7 @@ public class Executor {
 
 
     private class CommandInfo {
-        IExecutorThread  execThread;
-        Thread  thread;
+        ExecutorThread execThread;
         Process process;
         String  className;
         String  command;
@@ -272,6 +271,13 @@ System.out.println("commandtype = " + commandType);
                             }
                             commandInfo.className = item.getString();
 
+                            item = msg.getPayloadItem("wait");
+                            wait = false;
+                            if (item != null) {
+                                wait = item.getInt() != 0;
+                            }
+                            commandInfo.wait = wait;
+
                             item = msg.getPayloadItem("commander");
                             if (item == null) {
                                 System.out.println("Reject message, no commander");
@@ -380,6 +386,45 @@ System.out.println("commandtype = " + commandType);
         return null;
     }
 
+    /**
+     * Get both regular output (if monitor is true) and error output,
+     * store it in a cMsg message, and return both as strings.
+     *
+     * @param msg cMsg message to store output in.
+     * @param monitor <code>true</code> if we store regular output, else <code>false</code>.
+     * @return array with both regular output (first element) and error output (second).
+     */
+    private String[] gatherAllOutput(Process process, cMsgMessage msg, boolean monitor) {
+        String output;
+        String[] strs = new String[2];
+
+        // Grab regular output if requested.
+        if (monitor) {
+            output = getProcessOutput(process.getInputStream());
+            if (output != null) {
+                strs[0] = output;
+                try {
+                    cMsgPayloadItem item = new cMsgPayloadItem("output", output);
+                    msg.addPayloadItem(item);
+                }
+                catch (cMsgException e) {/* never happen */}
+            }
+        }
+
+        // Always grab error output.
+        output = getProcessOutput(process.getErrorStream());
+        if (output != null) {
+            strs[1] = output;
+            try {
+                cMsgPayloadItem item = new cMsgPayloadItem("error", output);
+                msg.addPayloadItem(item);
+            }
+            catch (cMsgException e) {/* never happen */}
+        }
+
+        return strs;
+    }
+
 
     /**
      * Class for running a command in its own thread since any command could
@@ -408,7 +453,9 @@ System.out.println("commandtype = " + commandType);
          *
          */
         private void startProcess() {
+            //----------------------------------------------------------------
             // run the command
+            //----------------------------------------------------------------
             Process process;
             try {
 System.out.println("run -> " + info.command);
@@ -444,7 +491,8 @@ System.out.println("run -> " + info.command);
             catch (Exception e) { terminated = false;  }
 
             //----------------------------------------------------------------
-            // If commander NOT waiting for process to finish, return at once.
+            // If commander NOT waiting for process to finish,
+            // send return message at once.
             //----------------------------------------------------------------
             if (!info.wait) {
                 try {
@@ -452,24 +500,8 @@ System.out.println("run -> " + info.command);
                     if (terminated) {
                         cMsgPayloadItem item1 = new cMsgPayloadItem("terminated", 1);
                         responseMsg.addPayloadItem(item1);
-
-                        // Grab any output. First try regular.
-                        if (info.monitor) {
-                            output = getProcessOutput(process.getInputStream());
-                            if (output != null) {
-System.out.println("output = " + output);
-                                cMsgPayloadItem item2 = new cMsgPayloadItem("output", output);
-                                responseMsg.addPayloadItem(item2);
-                            }
-                        }
-
-                        // Try error output if no regular.
-                        output = getProcessOutput(process.getErrorStream());
-                        if (output != null) {
-System.out.println("error = " + output);
-                            cMsgPayloadItem item2 = new cMsgPayloadItem("error", output);
-                            responseMsg.addPayloadItem(item2);
-                        }
+                        // grab any output and put in response message
+                        gatherAllOutput(process, responseMsg, info.monitor);
                     }
                     // Store Process id/object so Commander can terminate it later.
                     else {
@@ -503,42 +535,34 @@ System.out.println("error = " + output);
 
             //---------------------------------------------------------
             // Capture process output if desired.
-            //---------------------------------------------------------
-            if (info.monitor) {
-                // This will block until process is done.
-                output = getProcessOutput(process.getInputStream());
-                if (output != null) {
-                    try {
-                        cMsgPayloadItem item = new cMsgPayloadItem("output", output);
-                        responseMsg.addPayloadItem(item);
-                    }
-                    catch (cMsgException e) {/* never happen */}
-                }
-            }
-
-            //---------------------------------------------------------
             // Run a check for error by looking at error output stream.
             // This will block until process is done.
+            // Store results in msg and return as strings.
             //---------------------------------------------------------
-            output = getProcessOutput(process.getErrorStream());
-            if (output != null) {
-                try {
-                    cMsgPayloadItem item = new cMsgPayloadItem("error", output);
-                    responseMsg.addPayloadItem(item);
-                }
-                catch (cMsgException e) {/* never happen */}
-            }
+            String[] stringsOut = gatherAllOutput(process, responseMsg, info.monitor);
 
             try {
+                //----------------------------------------------------------------
                 // Respond to initial sendAndGet if we haven't done so already
-                // so "startProcess" can return if it has not timed out already.
+                // so "startProcess" can return if it has not timed out already
+                // (in which case it is not interested in this result anymore).
+                //----------------------------------------------------------------
                 if (info.wait) {
                     cmsgConnection.send(responseMsg);
+                    return;
                 }
 
-                // Now send another (regular) msg back to Commander
-                // to notify it that the process is done and run any
-                // callback associated with this process.
+                //----------------------------------------------------------------
+                // If we're here it's because the Commander is not synchronously
+                // waiting, but has registered a callback that the next message
+                // will trigger.
+
+                // Now send another (regular) msg back to Commander to notify it
+                // that the process is done and run any callback associated with
+                // this process. As part of that, the original CommandReturn object
+                // will be updated with the following information and given as an
+                // argument to the callback.
+                //----------------------------------------------------------------
                 cMsgMessage imDoneMsg = new cMsgMessage();
                 imDoneMsg.setSubject(info.commander);
                 imDoneMsg.setType(remoteExecSubjectType);
@@ -546,6 +570,14 @@ System.out.println("error = " + output);
                 imDoneMsg.addPayloadItem(item1);
                 cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);
                 imDoneMsg.addPayloadItem(item2);
+                if (stringsOut[0] != null && info.monitor) {
+                    cMsgPayloadItem item = new cMsgPayloadItem("output", stringsOut[0]);
+                    imDoneMsg.addPayloadItem(item);
+                }
+                if (stringsOut[1] != null) {
+                    cMsgPayloadItem item = new cMsgPayloadItem("error", stringsOut[1]);
+                    imDoneMsg.addPayloadItem(item);
+                }
                 cmsgConnection.send(imDoneMsg);
             }
             catch (cMsgException e) {
@@ -560,8 +592,10 @@ System.out.println("error = " + output);
      * @param info
      */
     private void startThread(CommandInfo info, cMsgMessage responseMsg) {
+        //----------------------------------------------------------------
         // create an object from the given class name
-        IExecutorThread eThread = null;
+        //----------------------------------------------------------------
+        IExecutorThread eThread;
         try {
             Class c = Class.forName(info.className);
             eThread = (IExecutorThread)c.newInstance(); // use no-arg constructor
@@ -582,12 +616,16 @@ System.out.println("error = " + output);
             return;
         }
 
+        //----------------------------------------------------------------
         // Make an actual Thread out of a runnable object since the object
         // may or may not be a thread and we need to run it as one.
-        Thread thread = new Thread(eThread);
+        //----------------------------------------------------------------
+        ExecutorThread thread = new ExecutorThread(eThread);
         thread.start();
 
-        // store it so we can terminate it later
+        //----------------------------------------------------------------
+        // Store ID so we can terminate thread/executor later
+        //----------------------------------------------------------------
         int id = getUniqueId();
         try {
             cMsgPayloadItem item = new cMsgPayloadItem("id", id);
@@ -595,12 +633,70 @@ System.out.println("error = " + output);
         }
         catch (cMsgException e) {/* never happen */}
 
-        info.thread = thread;
+        info.execThread = thread;
         threadMap.put(id, info);
+
+        //----------------------------------------------------------------
+        // If commander NOT waiting for process to finish,
+        // send return message at once.
+        //----------------------------------------------------------------
+        if (!info.wait) {
+            try {
+                cmsgConnection.send(responseMsg);
+            }
+            catch (cMsgException e) {
+                // sending msg failed due to broken connection to server, all bets off
+            }
+        }
+
+        //----------------------------------------------------------------
+        // Wait for thread to finish.
+        //----------------------------------------------------------------
+        try {
+            thread.join();
+        }
+        catch (InterruptedException e) {
+            // Executor interrupted, all bets off
+        }
+
+        //---------------------------------------------------------
+        // If we're here, we waited until thread was fnished.
+        //---------------------------------------------------------
+        try {
+            cMsgPayloadItem item = new cMsgPayloadItem("terminated", 1);
+            responseMsg.addPayloadItem(item);
+        }
+        catch (cMsgException e) {/* never happen */}
 
         // send msg back to Commander
         try {
-            cmsgConnection.send(responseMsg);
+            //----------------------------------------------------------------
+            // Respond to initial sendAndGet if we haven't done so already
+            // so "startThread" can return if it has not timed out already
+            // (in which case it is not interested in this result anymore).
+            //----------------------------------------------------------------
+            if (info.wait) {
+                cmsgConnection.send(responseMsg);
+                return;
+            }
+
+            //----------------------------------------------------------------
+            // If we're here it's because the Commander is not synchronously
+            // waiting, but has registered a callback that the next message
+            // will trigger.
+            //
+            // Now send another (regular) msg back to Commander to notify it
+            // that the thread is done and run any callback associated with
+            // the thread.
+            //----------------------------------------------------------------
+            cMsgMessage imDoneMsg = new cMsgMessage();
+            imDoneMsg.setSubject(info.commander);
+            imDoneMsg.setType(remoteExecSubjectType);
+            cMsgPayloadItem item1 = new cMsgPayloadItem("returnType", InfoType.THREAD_END.getValue());
+            imDoneMsg.addPayloadItem(item1);
+            cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);
+            imDoneMsg.addPayloadItem(item2);
+            cmsgConnection.send(imDoneMsg);
         }
         catch (cMsgException e) {
             // sending msg failed due to broken connection to server, all bets off
@@ -622,7 +718,7 @@ System.out.println("error = " + output);
             // stop thread
 System.out.println("Kill the thread");
             // doesn't matter if alive or not
-            info.thread.interrupt();
+            info.execThread.interrupt();
         }
     }
 
@@ -651,7 +747,8 @@ System.out.println("Kill the thread");
         else {
 System.out.println("Kill the thread");
             // doesn't matter if alive or not
-            info.thread.interrupt();
+            info.execThread.interrupt();
+            info.execThread.cleanUp();
         }
 
     }
