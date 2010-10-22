@@ -534,20 +534,19 @@ public class Commander {
 
 
     /**
-     * Start an internal thread in the specified executor.
+     * Starts an internal thread in the specified executor and immediately
+     * returns. Allows 2 seconds for sendAndGet return message from executor
+     * before throwing exception.
      *
      * @param exec Executor to start thread in.
      * @param className name of java class to instantiate and run as thread in executor.
-     * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
-     *                0 means wait forever.
      * @return id number of this operation
-     * @throws cMsgException if cmsg communication fails or internal protocol error
-     * @throws TimeoutException if cmsg communication times out
+     * @throws cMsgException if cmsg sendAndGet communication fails or takes too long,
+     *                       or internal protocol error
      */
-    public CommandReturn startThread(ExecutorInfo exec, String className, int timeout)
-            throws cMsgException, TimeoutException {
+    public CommandReturn startThread(ExecutorInfo exec, String className)
+            throws cMsgException {
 
-        int threadId;
         int myId = getUniqueId();
 
         cMsgMessage msg = new cMsgMessage();
@@ -560,11 +559,21 @@ public class Commander {
             msg.addPayloadItem(item1);
             cMsgPayloadItem item2 = new cMsgPayloadItem("className", className);
             msg.addPayloadItem(item2);
+            cMsgPayloadItem item3 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
+            msg.addPayloadItem(item3);
+            cMsgPayloadItem item4 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            msg.addPayloadItem(item4);
         }
         catch (cMsgException e) {/* never happen as names are legit */}
 
         // send msg and receive response
-        cMsgMessage returnMsg = cmsgConnection.sendAndGet(msg, timeout);
+        cMsgMessage returnMsg = null;
+        try {
+            returnMsg = cmsgConnection.sendAndGet(msg, 2000);
+        }
+        catch (TimeoutException e) {
+            throw new cMsgException(e);
+        }
 
         // analyze response
         if (returnMsg.hasPayload()) {
@@ -575,6 +584,7 @@ public class Commander {
                 return new CommandReturn(myId, 0, true, true, null, err);
             }
 
+            int threadId;
             item = msg.getPayloadItem("id");
             if (item == null) {
                 throw new cMsgException("startProcess: internal protocol error");
@@ -645,7 +655,8 @@ public class Commander {
      * @throws cMsgException
      * @throws TimeoutException
      */
-    public List<CommandReturn> startWindows(ExecutorInfo exec, Commander cmdr, int count, int widthChars, int heightChars)
+    public List<CommandReturn> startWindows(ExecutorInfo exec, Commander cmdr,
+                                            int count, int widthChars, int heightChars)
             throws cMsgException, TimeoutException {
 
         // Get info about our display.
@@ -714,7 +725,7 @@ public class Commander {
         return returnList;
     }
 
-    public static void main3(String[] args) {
+    public static void main(String[] args) {
 
         try {
             String[] arggs = decodeCommandLine(args);
@@ -726,10 +737,10 @@ public class Commander {
             }
 
             if (execList.size() > 0) {
-                List<CommandReturn> retList = cmdr.startWindows(execList.get(0), cmdr, 10, 85, 8);
+                List<CommandReturn> retList = cmdr.startWindows(execList.get(0), cmdr, 20, 85, 8);
                 for (CommandReturn ret : retList) {
                     cmdr.stop(execList.get(0), ret.getId());
-                    try {Thread.sleep(500);}
+                    try {Thread.sleep(200);}
                     catch (InterruptedException e) {}
                 }
             }
@@ -747,7 +758,7 @@ public class Commander {
     /**
      * Run as a stand-alone application
      */
-    public static void main(String[] args) {
+    public static void main2(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
             System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);

@@ -260,18 +260,31 @@ System.out.println("commandtype = " + commandType);
                                 return;
                             }
 
+                            commandInfo = new CommandInfo();
+                            // don't send back any output since it cannot be isolated to any 1 thread
+                            commandInfo.monitor = false;
+                            commandInfo.isProcess = false;
+
                             item = msg.getPayloadItem("className");
                             if (item == null || item.getString() == null) {
                                 System.out.println("Reject message, no class name");
                                 return;
                             }
-                            String className = item.getString();
+                            commandInfo.className = item.getString();
 
-                            commandInfo = new CommandInfo();
-                            commandInfo.className = className;
-                            // don't send back any output since it cannot be isolated to any 1 thread
-                            commandInfo.monitor = false;
-                            commandInfo.isProcess = false;
+                            item = msg.getPayloadItem("commander");
+                            if (item == null) {
+                                System.out.println("Reject message, no commander");
+                                return;
+                            }
+                            commandInfo.commander = item.getString();
+
+                            item = msg.getPayloadItem("id");
+                            if (item == null) {
+                                System.out.println("Reject message, no commander id");
+                                return;
+                            }
+                            commandInfo.commandId = item.getInt();
 
                             // return must be placed in sendAndGet response msg
                             startThread(commandInfo, msg.response());
@@ -288,7 +301,6 @@ System.out.println("commandtype = " + commandType);
                                 return;
                             }
                             int id = item.getInt();
-//System.out.println("******** TRY TO STOP ID = " + id);
 
                             stop(id);
                             break;
@@ -547,7 +559,7 @@ System.out.println("error = " + output);
      *
      * @param info
      */
-    private void startThread(CommandInfo info, cMsgMessage msg) {
+    private void startThread(CommandInfo info, cMsgMessage responseMsg) {
         // create an object from the given class name
         IExecutorThread eThread = null;
         try {
@@ -555,11 +567,14 @@ System.out.println("error = " + output);
             eThread = (IExecutorThread)c.newInstance(); // use no-arg constructor
         }
         catch (Exception e) {
+            e.printStackTrace();
             // return error if object creation failed
             try {
-                cMsgPayloadItem item = new cMsgPayloadItem("error", e.getMessage());
-                msg.addPayloadItem(item);
-                cmsgConnection.send(msg);
+                cMsgPayloadItem item1 = new cMsgPayloadItem("terminated", 1);
+                responseMsg.addPayloadItem(item1);
+                cMsgPayloadItem item2 = new cMsgPayloadItem("error", e.getMessage());
+                responseMsg.addPayloadItem(item2);
+                cmsgConnection.send(responseMsg);
             }
             catch (cMsgException e1) {
                 // sending msg failed due to broken connection to server, all bets off
@@ -576,15 +591,16 @@ System.out.println("error = " + output);
         int id = getUniqueId();
         try {
             cMsgPayloadItem item = new cMsgPayloadItem("id", id);
-            msg.addPayloadItem(item);
+            responseMsg.addPayloadItem(item);
         }
         catch (cMsgException e) {/* never happen */}
+
         info.thread = thread;
         threadMap.put(id, info);
 
         // send msg back to Commander
         try {
-            cmsgConnection.send(msg);
+            cmsgConnection.send(responseMsg);
         }
         catch (cMsgException e) {
             // sending msg failed due to broken connection to server, all bets off
