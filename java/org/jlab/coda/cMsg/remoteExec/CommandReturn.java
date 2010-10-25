@@ -57,13 +57,21 @@ public class CommandReturn {
     /**
      * Register a callback to be run when the process ends.
      * Calling this multiple times results in a replacement of the callback.
-     * 
+     *
      * @param processCallback callback to be run when the process ends.
      * @param userObject argument to be passed to callback.
      */
     public void registerCallback(ProcessCallback processCallback, Object userObject) {
         this.userObject = userObject;
         this.processCallback = processCallback;
+    }
+
+    /**
+     * Unregister a callback so it does not get run.
+     */
+    public void unregisterCallback() {
+        this.userObject = null;
+        this.processCallback = null;
     }
 
     /**

@@ -8,8 +8,11 @@ import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.lang.reflect.Constructor;
 
 /**
  * This class, when used appropriately, can execute any command on any node by
@@ -20,24 +23,21 @@ import java.net.UnknownHostException;
  */
 public class Executor {
 
-    public static final String allType = ".all";
+    public static final String allSubjectType = ".all";
     public static final String remoteExecSubjectType = "cMsgRemoteExec";
 
     private SecretKey key;
 
-    private int uniqueId = 1;
+    private AtomicInteger uniqueId = new AtomicInteger(1);
 
     private String password;
     private String name;
     private String udl;
-    private String os;         // uname -s   operating system
-    private String machine;    // uname -m   machine hardware
-    private String processor;  // uname -p   processor type
-    private String release;    // uname -r   operating system release
 
     private HashMap<Integer, CommandInfo> processMap = new HashMap<Integer, CommandInfo>(100);
     private HashMap<Integer, CommandInfo>  threadMap = new HashMap<Integer, CommandInfo>(100);
     private cMsg cmsgConnection;
+    private cMsgMessage statusMsg;
     private volatile boolean connected;
 
 
@@ -81,27 +81,49 @@ public class Executor {
             }
         }
 
-        // run some uname commands to find out system information
+        // Run some uname commands to find out system information.
         try {
             Process pr = Runtime.getRuntime().exec("uname -s");
             BufferedReader br = new BufferedReader(new InputStreamReader(pr.getInputStream()));
-            os = br.readLine();
+            String os = br.readLine();
 
             pr = Runtime.getRuntime().exec("uname -m");
             br = new BufferedReader(new InputStreamReader(pr.getInputStream()));
-            machine = br.readLine();
+            String machine = br.readLine();
 
             pr = Runtime.getRuntime().exec("uname -p");
             br = new BufferedReader(new InputStreamReader(pr.getInputStream()));
-            processor = br.readLine();
+            String processor = br.readLine();
 
             pr = Runtime.getRuntime().exec("uname -r");
             br = new BufferedReader(new InputStreamReader(pr.getInputStream()));
-            release = br.readLine();
+            String release = br.readLine();
+
+            // Create a status message sent out to all commanders as soon
+            // as we connect to the cMsg server and to all commanders who
+            // specifically ask for it.
+            statusMsg = new cMsgMessage();
+            statusMsg.setHistoryLengthMax(0);
+            // This subject of this msg gets changed depending on who it's sent to.
+            statusMsg.setSubject(allSubjectType);
+            statusMsg.setType(remoteExecSubjectType);
+
+            cMsgPayloadItem item0 = new cMsgPayloadItem("returnType", InfoType.REPORTING.getValue());
+            statusMsg.addPayloadItem(item0);
+            cMsgPayloadItem item1 = new cMsgPayloadItem("name", name);
+            statusMsg.addPayloadItem(item1);
+            cMsgPayloadItem item2 = new cMsgPayloadItem("os", os);
+            statusMsg.addPayloadItem(item2);
+            cMsgPayloadItem item3 = new cMsgPayloadItem("machine", machine);
+            statusMsg.addPayloadItem(item3);
+            cMsgPayloadItem item4 = new cMsgPayloadItem("processor", processor);
+            statusMsg.addPayloadItem(item4);
+            cMsgPayloadItem item5 = new cMsgPayloadItem("release", release);
+            statusMsg.addPayloadItem(item5);
 
         } catch (IOException e) {
             // return error message if execution failed
-            return;
+            throw new cMsgException(e);
         }
 
         // start thread to maintain connection with cmsg server
@@ -135,10 +157,14 @@ System.out.println("Connect to server with name = " + name + ", udl = " + udl);
                         CommandCallback cb = new CommandCallback();
 System.out.println("Subscribe to sub = " + remoteExecSubjectType + ", typ = " + name);
                         cmsgConnection.subscribe(remoteExecSubjectType, name,  cb, null);
-System.out.println("Subscribe to sub = " + remoteExecSubjectType + ", typ = " + allType);
-                        cmsgConnection.subscribe(remoteExecSubjectType, allType, cb, null);
+System.out.println("Subscribe to sub = " + remoteExecSubjectType + ", typ = " + allSubjectType);
+                        cmsgConnection.subscribe(remoteExecSubjectType, allSubjectType, cb, null);
                         cmsgConnection.start();
                         connected = true;
+
+                        // Send out a general message telling all commanders
+                        // that there is a new executor running.
+                        sendStatusTo(allSubjectType);
                     }
                     catch (cMsgException e) {
                         e.printStackTrace();
@@ -155,6 +181,13 @@ System.out.println("Subscribe to sub = " + remoteExecSubjectType + ", typ = " + 
         }
     }
 
+
+    private void sendStatusTo(String commander) throws cMsgException {
+        // This msg only goes to the Commander specified in the arg.
+        // That may be ".all" which goes to all commanders.
+        statusMsg.setSubject(commander);
+        cmsgConnection.send(statusMsg);
+    }
 
 
     /**
@@ -329,8 +362,9 @@ System.out.println("commandtype = " + commandType);
                                 return;
                             }
                             String commander = item.getString();
-                            sendBackInfo(commander);
+                            sendStatusTo(commander);
                             break;
+
                         default:
                     }
                     
@@ -345,12 +379,6 @@ System.out.println("commandtype = " + commandType);
             }
 
         }
-    }
-
-
-
-    synchronized private int getUniqueId() {
-        return uniqueId++;
     }
 
 
@@ -506,7 +534,7 @@ System.out.println("run -> " + info.command);
                     }
                     // Store Process id/object so Commander can terminate it later.
                     else {
-                        int id = getUniqueId();
+                        int id = uniqueId.incrementAndGet();
                         try {
                             cMsgPayloadItem item = new cMsgPayloadItem("id", id);
                             responseMsg.addPayloadItem(item);
@@ -619,6 +647,14 @@ System.out.println("run -> " + info.command);
             try {
                 Class c = Class.forName(info.className);
                 eThread = (IExecutorThread)c.newInstance(); // use no-arg constructor
+
+//                // constructor required to have a string and a map as args
+//                Class[] parameterTypes = {String.class, Map.class};
+//                Constructor co = c.getConstructor(parameterTypes);
+//
+//                // create an instance
+//                Object[] args = {name, attributeMap};
+//                eThread = (IExecutorThread) co.newInstance(args);
             }
             catch (Exception e) {
                 e.printStackTrace();
@@ -646,7 +682,7 @@ System.out.println("run -> " + info.command);
             //----------------------------------------------------------------
             // Store ID so we can terminate thread/executor later
             //----------------------------------------------------------------
-            int id = getUniqueId();
+            int id = uniqueId.incrementAndGet();
             try {
                 cMsgPayloadItem item = new cMsgPayloadItem("id", id);
                 responseMsg.addPayloadItem(item);
@@ -780,31 +816,6 @@ System.out.println("Kill the thread");
         }
 
     }
-
-    private void sendBackInfo(String commander) throws cMsgException {
-        cMsgMessage msg = new cMsgMessage();
-        msg.setHistoryLengthMax(0);
-//System.out.println("Send to sub = " + InfoType.REPORTING.getValue() + ", typ = " + remoteExecSubjectType);
-        // This msg goes back only to the Commander that sent an "identify" command
-        msg.setSubject(commander);
-        msg.setType(remoteExecSubjectType);
-
-        cMsgPayloadItem item0 = new cMsgPayloadItem("returnType", InfoType.REPORTING.getValue());
-        msg.addPayloadItem(item0);
-
-        cMsgPayloadItem item1 = new cMsgPayloadItem("name", name);
-        msg.addPayloadItem(item1);
-        cMsgPayloadItem item2 = new cMsgPayloadItem("os", os);
-        msg.addPayloadItem(item2);
-        cMsgPayloadItem item3 = new cMsgPayloadItem("machine", machine);
-        msg.addPayloadItem(item3);
-        cMsgPayloadItem item4 = new cMsgPayloadItem("processor", processor);
-        msg.addPayloadItem(item4);
-        cMsgPayloadItem item5 = new cMsgPayloadItem("release", release);
-        msg.addPayloadItem(item5);
-        cmsgConnection.send(msg);
-    }
-
 
     private cMsgMessage createReturnMessage(InfoType type) {
         try {

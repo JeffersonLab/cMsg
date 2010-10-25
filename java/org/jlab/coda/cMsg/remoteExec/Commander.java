@@ -4,6 +4,7 @@ import org.jlab.coda.cMsg.*;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedList;
@@ -17,14 +18,14 @@ import java.awt.*;
  */
 public class Commander {
 
-    public static final String allType = ".all";
+    public static final String allSubjectType = ".all";
     public static final String remoteExecSubjectType = "cMsgRemoteExec";
 
     private String udl;
     private String myName;
     private String description;
 
-    private int uniqueId = 1;
+    private AtomicInteger uniqueId = new AtomicInteger(1);
     private cMsg cmsgConnection;
 
     private ConcurrentHashMap<String, ExecutorInfo> executors =
@@ -83,6 +84,9 @@ public class Commander {
         System.out.println("Subscribe to sub = " + InfoType.REPORTING.getValue() + ", typ = " + remoteExecSubjectType);
         cmsgConnection.subscribe(myName, remoteExecSubjectType,
                                  new CommandResponseCallback(), null);
+        // the only msg coming to allSubjectType is REPORTING info from new executors starting up
+        cmsgConnection.subscribe(allSubjectType, remoteExecSubjectType,
+                                 new CommandResponseCallback(), null);
 
     }
 
@@ -99,7 +103,7 @@ public class Commander {
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
-        msg.setType(allType);
+        msg.setType(allSubjectType);
         cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.IDENTIFY.getValue());
         msg.addPayloadItem(item1);
         cMsgPayloadItem item2 = new cMsgPayloadItem("commander", myName);
@@ -287,7 +291,7 @@ public class Commander {
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
-        msg.setType(allType);
+        msg.setType(allSubjectType);
         cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.DIE.getValue());
         cMsgPayloadItem item2 = new cMsgPayloadItem("killProcesses", killProcesses ? 1 : 0);
         msg.addPayloadItem(item1);
@@ -346,7 +350,7 @@ public class Commander {
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
-        msg.setType(allType);
+        msg.setType(allSubjectType);
         cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.STOP_ALL.getValue());
         msg.addPayloadItem(item1);
         cmsgConnection.send(msg);
@@ -356,8 +360,14 @@ public class Commander {
     }
 
 
-    synchronized private int getUniqueId() {
-        return uniqueId++;
+    /**
+     * Cancel a callback previously registered by calling
+     * {@link #startProcess(ExecutorInfo, String, boolean, ProcessCallback, Object)}.
+     *
+     * @param commandReturn object associated with callback.
+     */
+    public void cancelCallback(CommandReturn commandReturn) {
+        cmdReturns.remove(commandReturn.getId());
     }
 
 
@@ -373,7 +383,7 @@ public class Commander {
      *                 for example 75x10+0+200 or 75x10-10-20. Can be null.
      * @param title window title, can be null.
      * @return object containing id number and any process output captured
-     * @throws cMsgException if cmsg communication fails or takes too long, or internal protocol error
+     * @throws cMsgException if arg is null, cmsg communication fails or takes too long, or internal protocol error
      */
     public CommandReturn startXtermProcess(ExecutorInfo exec, String cmd, String geometry, String title)
             throws cMsgException, TimeoutException {
@@ -406,7 +416,7 @@ public class Commander {
      * @param callback callback to be run when process ends.
      * @param userObject argument to be passed to callback.
      * @return object containing id number and any process output captured
-     * @throws cMsgException if cmsg sendAndGet communication fails or takes too long,
+     * @throws cMsgException if arg is null, cmsg sendAndGet communication fails or takes too long,
      *                       or internal protocol error
      */
     public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor,
@@ -437,7 +447,7 @@ public class Commander {
      * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
      *                0 means wait forever.
      * @return object containing id number and any process output captured
-     * @throws cMsgException if cmsg communication fails or internal protocol error
+     * @throws cMsgException if arg is null, cmsg communication fails, or internal protocol error
      * @throws TimeoutException if cmsg sendAndGet communication times out
      */
     public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, int timeout)
@@ -463,14 +473,18 @@ public class Commander {
      * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
      *                0 means wait forever.
      * @return object containing id number and any process output captured
-     * @throws cMsgException if cmsg communication fails or internal protocol error
-     * @throws TimeoutException if cmsg sendAndGet communication times out
+     * @throws cMsgException if arg is null, cmsg communication fails, or internal protocol error
+     * @throws TimeoutException cmsg sendAndGet communication times out
      */
     CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, boolean wait,
                                ProcessCallback callback, Object userObject, int timeout)
             throws cMsgException, TimeoutException {
 
-        int myId = getUniqueId();
+        if (exec == null || cmd == null) {
+            throw new cMsgException("argument(s) is(are) null");
+        }
+
+        int myId = uniqueId.incrementAndGet();
 
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
@@ -491,7 +505,7 @@ public class Commander {
             cMsgPayloadItem item6 = new cMsgPayloadItem("id", myId);  // send this back when process done
             msg.addPayloadItem(item6);
         }
-        catch (cMsgException e) {/* never happen as names are legit */}
+        catch (cMsgException e) { /* no invalid names or null objects */ }
 
         // send msg and receive response
         cMsgMessage returnMsg = cmsgConnection.sendAndGet(msg, timeout);
@@ -569,7 +583,7 @@ public class Commander {
             throws cMsgException {
 
         try {
-            return startThread(exec, className, false, callback, userObject, 2000);
+            return startThread(exec, className, false, callback, userObject, 2000, null);
         }
         catch (TimeoutException e) {
             throw new cMsgException(e);
@@ -596,7 +610,7 @@ public class Commander {
     public CommandReturn startThread(ExecutorInfo exec, String className, int timeout)
             throws cMsgException, TimeoutException {
 
-        return startThread(exec, className, true, null, null, timeout);
+        return startThread(exec, className, true, null, null, timeout, null);
     }
 
     /**
@@ -612,15 +626,22 @@ public class Commander {
      * @param userObject argument to be passed to callback.
      * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
      *                0 means wait forever.
+     * @param constructorArgs message whose payload items contain className constructor's arguments.
+     *                        May be null.
      * @return object containing executor id number and any error output
-     * @throws cMsgException if cmsg communication fails or internal protocol error
+     * @throws cMsgException if args null, cmsg communication fails, or internal protocol error
      * @throws TimeoutException if cmsg sendAndGet communication times out
      */
     CommandReturn startThread(ExecutorInfo exec, String className, boolean wait,
-                              ProcessCallback callback, Object userObject, int timeout)
+                              ProcessCallback callback, Object userObject, int timeout,
+                              cMsgMessage constructorArgs)
             throws cMsgException, TimeoutException {
 
-        int myId = getUniqueId();
+        if (exec == null || className == null) {
+            throw new cMsgException("argument(s) is(are) null");
+        }
+
+        int myId = uniqueId.incrementAndGet();
 
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
@@ -638,8 +659,12 @@ public class Commander {
             msg.addPayloadItem(item4);
             cMsgPayloadItem item5 = new cMsgPayloadItem("id", myId);  // send this back when process done
             msg.addPayloadItem(item5);
+            if (constructorArgs != null) {
+                cMsgPayloadItem item6 = new cMsgPayloadItem("args", constructorArgs); // contains constructor args
+                msg.addPayloadItem(item6);
+            }
         }
-        catch (cMsgException e) {/* never happen as names are legit */}
+        catch (cMsgException e) { /* no invalid names or null objects */ }
 
         // send msg and receive response
         cMsgMessage returnMsg = cmsgConnection.sendAndGet(msg, timeout);
