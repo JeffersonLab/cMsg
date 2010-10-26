@@ -8,7 +8,6 @@ import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -42,7 +41,7 @@ public class Executor {
 
 
     private class CommandInfo {
-        ExecutorThread execThread;
+        IExecutorThread execThread;
         Process process;
         String  className;
         String  command;
@@ -51,6 +50,7 @@ public class Executor {
         boolean monitor;
         boolean wait;
         boolean isProcess;
+        cMsgMessage args;
     }
 
     private class ProcessEnd extends Thread {
@@ -323,6 +323,12 @@ System.out.println("commandtype = " + commandType);
                                 return;
                             }
                             commandInfo.commandId = item.getInt();
+
+                            // optional args to constructor contained msg payload
+                            item = msg.getPayloadItem("args");
+                            if (item != null) {
+                                commandInfo.args = item.getMessage();
+                            }
 
                             // return must be placed in sendAndGet response msg
                             ThreadRun tr = new ThreadRun(commandInfo, msg.response());
@@ -646,15 +652,113 @@ System.out.println("run -> " + info.command);
             IExecutorThread eThread;
             try {
                 Class c = Class.forName(info.className);
-                eThread = (IExecutorThread)c.newInstance(); // use no-arg constructor
 
-//                // constructor required to have a string and a map as args
-//                Class[] parameterTypes = {String.class, Map.class};
-//                Constructor co = c.getConstructor(parameterTypes);
-//
-//                // create an instance
-//                Object[] args = {name, attributeMap};
-//                eThread = (IExecutorThread) co.newInstance(args);
+                // if no args, use no-arg constructor
+                if (info.args == null) {
+                    eThread = (IExecutorThread)c.newInstance();
+                }
+                else {
+                    int numArgs = info.args.getUserInt();
+                    Class[] parameterTypes = new Class[numArgs];
+                    Object[] args = new Object[numArgs];
+
+                    // Create each argument by instantiating class,
+                    // get constructor of primitive type with String
+                    // arg, ...
+                    Class clazz;
+                    Constructor con;
+                    Class[] stringParam = {String.class};
+                    Object[] stringArg = new Object[1];
+
+
+                    String classes[];
+                    String stringArgs[] = null;
+                    int argTypeValues[];
+                    ArgType argTypes[] = new ArgType[numArgs];
+                    cMsgMessage msgArgs[] = null;
+                    int numStringArgs = 0, numMessageArgs = 0;
+
+                    // class of argument object - one for each argument
+                    cMsgPayloadItem classesItem = info.args.getPayloadItem("classes");
+                    // type of constructor arg (or null) - one for each argument
+                    cMsgPayloadItem argsItem    = info.args.getPayloadItem("argTypes");
+                    if (classesItem == null || argsItem == null) {
+                        // throw protocol violation error
+                    }
+                    classes  = classesItem.getStringArray();
+                    argTypeValues = classesItem.getIntArray();
+                    if (classes.length < numArgs || argTypeValues.length < numArgs) {
+                        // throw protocol violation error
+                    }
+
+                    // make a few simple consistency checks
+                    ArgType aType;
+                    for (int i=0; i < numArgs; i++) {
+                        aType = ArgType.getArgType(argTypeValues[i]);
+                        if (aType == null) {
+                            // throw protocol violation error
+                        }
+                        if (aType == ArgType.STRING) {
+                            numStringArgs++;
+                        }
+                        else if (aType == ArgType.MESSAGE) {
+                            numMessageArgs++;
+                        }
+                        argTypes[i] = aType;
+                        parameterTypes[i] = Class.forName(classes[i]); // throws ClassNotFoundException
+                    }
+
+                    // Now get the values of the constructor arguments if any ...
+                    cMsgPayloadItem stringValuesItem  = info.args.getPayloadItem("stringArgs");
+                    cMsgPayloadItem messageValuesItem = info.args.getPayloadItem("messageArgs");
+                    if (numStringArgs > 0 &&
+                            (stringValuesItem == null || stringValuesItem.getCount() < numStringArgs)) {
+                        // throw protocol violation error
+                    }
+                    if (numMessageArgs > 0 &&
+                            (messageValuesItem == null || messageValuesItem.getCount() < numMessageArgs)) {
+                        // throw protocol violation error
+                    }
+                    if (numStringArgs > 0) stringArgs = stringValuesItem.getStringArray();
+                    if (numMessageArgs > 0)   msgArgs = messageValuesItem.getMessageArray();
+
+                    int stringArgIndex  = 0;
+                    int messageArgIndex = 0;
+
+                    for (int i=1; i<= numArgs; i++) {
+                        clazz = Class.forName(classes[i]);
+
+                        switch (argTypes[i]) {
+                            case STRING:
+                                con = clazz.getConstructor(stringParam);
+                                stringArg[0] = stringArgs[stringArgIndex++];
+                                args[i] = con.newInstance(stringArg);
+                                break;
+
+                            case MESSAGE:
+                                // recursive stuff here
+                                break;
+                            
+                            case NOARG:
+                                args[i] = clazz.newInstance();
+                                break;
+
+                            case NULL:
+                                args[i] = null;
+                                break;
+
+                            default:
+                                // throw error
+                        }
+
+                    }
+
+                    // constructor required to have args
+                    Constructor co = c.getConstructor(parameterTypes);
+
+                    // create an instance
+                    eThread = (IExecutorThread) co.newInstance(args);
+                }
             }
             catch (Exception e) {
                 e.printStackTrace();
@@ -673,11 +777,9 @@ System.out.println("run -> " + info.command);
             }
 
             //----------------------------------------------------------------
-            // Make an actual Thread out of a runnable object since the object
-            // may or may not be a thread and we need to run it as one.
+            // Start up our thread.
             //----------------------------------------------------------------
-            ExecutorThread thread = new ExecutorThread(eThread);
-            thread.start();
+            eThread.startItUp();
 
             //----------------------------------------------------------------
             // Store ID so we can terminate thread/executor later
@@ -689,7 +791,7 @@ System.out.println("run -> " + info.command);
             }
             catch (cMsgException e) {/* never happen */}
 
-            info.execThread = thread;
+            info.execThread = eThread;
             threadMap.put(id, info);
 
             //----------------------------------------------------------------
@@ -709,7 +811,7 @@ System.out.println("run -> " + info.command);
             // Wait for thread to finish.
             //----------------------------------------------------------------
             try {
-                thread.join();
+                eThread.waitUntilDone();
             }
             catch (InterruptedException e) {
                 // Executor interrupted, all bets off
@@ -782,7 +884,7 @@ System.out.println("run -> " + info.command);
             // stop thread
 System.out.println("Kill the thread");
             // doesn't matter if alive or not
-            info.execThread.interrupt();
+            info.execThread.shutItDown();
         }
     }
 
@@ -811,8 +913,7 @@ System.out.println("Kill the thread");
         else {
 System.out.println("Kill the thread");
             // doesn't matter if alive or not
-            info.execThread.interrupt();
-            info.execThread.cleanUp();
+            info.execThread.shutItDown();
         }
 
     }

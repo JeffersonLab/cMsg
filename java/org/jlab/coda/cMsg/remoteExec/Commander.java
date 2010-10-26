@@ -574,16 +574,19 @@ public class Commander {
      * @param className name of java class to instantiate and run as thread in executor.
      * @param callback callback to be run when thread ends.
      * @param userObject argument to be passed to callback.
+     * @param constructorArgs message whose payload items contain className constructor's arguments.
+     *                        May be null.
      * @return object containing executor id number and any error output
      * @throws cMsgException if cmsg sendAndGet communication fails or takes too long,
      *                       or internal protocol error
      */
     CommandReturn startThread(ExecutorInfo exec, String className,
-                              ProcessCallback callback, Object userObject)
+                              ProcessCallback callback, Object userObject,
+                              cMsgMessage constructorArgs)
             throws cMsgException {
 
         try {
-            return startThread(exec, className, false, callback, userObject, 2000, null);
+            return startThread(exec, className, false, callback, userObject, 2000, constructorArgs);
         }
         catch (TimeoutException e) {
             throw new cMsgException(e);
@@ -603,14 +606,17 @@ public class Commander {
      * @param className name of java class to instantiate and run as thread in executor.
      * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
      *                0 means wait forever.
+     * @param constructorArgs message whose payload items contain className constructor's arguments.
+     *                        May be null.
      * @return object containing executor id number and any error output
      * @throws cMsgException if cmsg communication fails or internal protocol error
      * @throws TimeoutException if cmsg sendAndGet communication times out
      */
-    public CommandReturn startThread(ExecutorInfo exec, String className, int timeout)
+    public CommandReturn startThread(ExecutorInfo exec, String className, int timeout,
+                                     cMsgMessage constructorArgs)
             throws cMsgException, TimeoutException {
 
-        return startThread(exec, className, true, null, null, timeout, null);
+        return startThread(exec, className, true, null, null, timeout, constructorArgs);
     }
 
     /**
@@ -902,12 +908,67 @@ public class Commander {
                 }
             }
 
+//            public cMsgNameServer(int port, int domainPort, int udpPort, boolean standAlone, boolean monitoringOff,
+//                                  String clientPassword, String cloudPassword, int debug, int clientsMax) {
+//
+//                domainServers        = new ConcurrentHashMap<cMsgDomainServer,String>(20);
+//                domainServersSelect  = new ConcurrentHashMap<cMsgDomainServerSelect,String>(20);
+//                handlerThreads = new ArrayList<ClientHandler>(10);
+//                availableDomainServers = Collections.synchronizedList(new LinkedList<cMsgDomainServerSelect>());   // CHANGED
+//
+//                this.debug          = debug;
+//                this.clientsMax     = clientsMax;
+//                this.standAlone     = standAlone;
+//                this.monitoringOff  = monitoringOff;
+//                this.cloudPassword  = cloudPassword;
+//                this.clientPassword = clientPassword;
+
             String in;
             while(true) {
                 if (execList.size() > 0) {
+//                    CommandReturn ret = cmdr.startThread(execList.get(0),
+//                                                         "org.jlab.coda.cMsg.remoteExec.ExampleThread",
+//                                                         new myCB(), null);
+                    // try starting up cMsg server ...
+                    cMsgMessage argMsg = new cMsgMessage();
+                    argMsg.setUserInt(9);
+
+                    String[] classes    = new String[9];
+                    String[] stringArgs = new String[7];
+                    int[]    argTypes   = new int[9];
+
+                    classes[0] = classes[1] = classes[2] = classes[7] = classes[8] = "java.lang.Integer";
+                    classes[3] = classes[4] = "java.lang.Boolean";
+                    classes[5] = classes[6] = "java.lang.String";
+
+                    stringArgs[0] = ""+46000;
+                    stringArgs[1] = ""+46001;
+                    stringArgs[2] = ""+46000;
+                    stringArgs[3] = "true";
+                    stringArgs[4] = "true";
+                    stringArgs[5] = ""+cMsgConstants.debugInfo;
+                    stringArgs[6] = ""+cMsgConstants.regimeLowMaxClients;
+
+                    argTypes[0] = ArgType.STRING.getValue();
+                    argTypes[1] = ArgType.STRING.getValue();
+                    argTypes[2] = ArgType.STRING.getValue();
+                    argTypes[3] = ArgType.STRING.getValue();
+                    argTypes[4] = ArgType.STRING.getValue();
+                    argTypes[5] = ArgType.NULL.getValue();
+                    argTypes[6] = ArgType.NULL.getValue();
+                    argTypes[7] = ArgType.STRING.getValue();
+                    argTypes[8] = ArgType.STRING.getValue();
+
+                    cMsgPayloadItem item = new cMsgPayloadItem("classes", classes);
+                    argMsg.addPayloadItem(item);
+                    item = new cMsgPayloadItem("stringArgs", stringArgs);
+                    argMsg.addPayloadItem(item);
+                    item = new cMsgPayloadItem("argTypes", argTypes);
+                    argMsg.addPayloadItem(item);
+
                     CommandReturn ret = cmdr.startThread(execList.get(0),
-                                                         "org.jlab.coda.cMsg.remoteExec.ExampleThread",
-                                                         new myCB(), null);
+                                                         "org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer",
+                                                         new myCB(), null, argMsg);
                     System.out.println("Return = " + ret);
                     if (ret.hasError()) {
                         System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
