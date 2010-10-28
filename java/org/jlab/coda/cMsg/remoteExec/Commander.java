@@ -305,9 +305,9 @@ public class Commander {
      * @param exec
      * @throws cMsgException
      */
-    public void stop(ExecutorInfo exec, int id) throws cMsgException {
+    public void stop(ExecutorInfo exec, int commanderId) throws cMsgException {
         // use commander id to retrieve executor id (id meaningful to executor) and remove from storage
-        Integer execId = exec.removeCommanderId(id);
+        Integer execId = exec.removeCommanderId(commanderId);
         if (execId == null) {
             // no such id exists for this Executor since it was already terminated
             return;
@@ -880,7 +880,7 @@ public class Commander {
     public static void main0(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
-            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
             List<ExecutorInfo> execList = cmdr.getExecutors();
             System.out.println("execList =  "+ execList);
@@ -910,7 +910,7 @@ public class Commander {
                     CommandReturn ret = cmdr.startThread(execList.get(0),
                                                          "org.jlab.coda.cMsg.remoteExec.ExampleThread",
                                                          new myCB(), null, exThrCon);
-                    System.out.println("Return = " + ret);
+System.out.println("Return = " + ret);
                     if (ret.hasError()) {
                         System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
                     }
@@ -919,11 +919,12 @@ public class Commander {
                     }
 
                     //while(true) {
-                        try {Thread.sleep(5000);}
+                        try {Thread.sleep(10000);}
                         catch (InterruptedException e) {}
                     //}
 
-                    cmdr.stop(execList.get(0), ret.getExecutorId());
+                    //cmdr.stopAll(execList.get(0));
+                    cmdr.stop(execList.get(0), ret.getId());
 
                 }
 
@@ -945,7 +946,7 @@ public class Commander {
     public static void main(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
-            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
             List<ExecutorInfo> execList = cmdr.getExecutors();
             System.out.println("execList =  "+ execList);
@@ -974,8 +975,10 @@ public class Commander {
                 }
             }
 
-//            public cMsgNameServer(int port, int domainPort, int udpPort, boolean standAlone, boolean monitoringOff,
-//                                  String clientPassword, String cloudPassword, int debug, int clientsMax) {
+//            public cMsgNameServer(int port, int domainPort, int udpPort,
+//                                  boolean standAlone, boolean monitoringOff,
+//                                  String clientPassword, String cloudPassword, String serverToJoin,
+//                                  int debug, int clientsMax) {
 
             String in;
                 if (execList.size() > 0) {
@@ -1005,11 +1008,11 @@ public class Commander {
                     }
 
                     //while(true) {
-                        try {Thread.sleep(5000);}
+                        try {Thread.sleep(10000);}
                         catch (InterruptedException e) {}
                     //}
 
-                    cmdr.stop(execList.get(0), ret.getExecutorId());
+                    cmdr.stop(execList.get(0), ret.getId());
 
                 }
 
@@ -1030,7 +1033,7 @@ public class Commander {
     public static void main4(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
-            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
             //cmdr.findExecutors();   // already done in constructor
             List<ExecutorInfo> execList = cmdr.getExecutors();

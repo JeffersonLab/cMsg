@@ -886,7 +886,6 @@ System.out.println("Use null for arg #" + (i+1));
                 responseMsg.addPayloadItem(item);
             }
             catch (cMsgException e) {/* never happen */}
-
             info.execThread = eThread;
             threadMap.put(id, info);
 
@@ -978,7 +977,7 @@ System.out.println("Use null for arg #" + (i+1));
 
         for (CommandInfo info : threadMap.values()) {
             // stop thread
-System.out.println("Kill the thread");
+//System.out.println("Kill the thread");
             // doesn't matter if alive or not
             info.execThread.shutItDown();
         }
@@ -1007,7 +1006,7 @@ System.out.println("Kill the thread");
         }
         // stop thread
         else {
-System.out.println("Kill the thread");
+//System.out.println("Kill the thread");
             // doesn't matter if alive or not
             info.execThread.shutItDown();
         }
