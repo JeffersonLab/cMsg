@@ -6,10 +6,11 @@ package org.jlab.coda.cMsg.remoteExec;
  */
 public enum ArgType {
 
-    STRING   (1), // Object being constructed takes String as arg to constructor
-    NOARG    (2), // Object being constructed uses no-arg constructor
-    MESSAGE  (3), // Object being constructed takes a custom number and type of args to constructor
-    NULL     (4); // Argument is null (nothing to construct)
+    PRIMITIVE      (1), // Object constructed for primitive (except char) type arg, takes String as arg to constructor
+    PRIMITIVE_CHAR (2), // Object constructed for char, takes char value as arg to constructor
+    REFERENCE      (3), // Object constructed for reference type takes a custom number and type of args to constructor
+    REFERENCE_NOARG(4), // Object constructed for reference type uses no-arg constructor
+    NULL           (5); // Argument is null (nothing to construct)
 
     private int value;
 

@@ -574,7 +574,7 @@ public class Commander {
      * @param className name of java class to instantiate and run as thread in executor.
      * @param callback callback to be run when thread ends.
      * @param userObject argument to be passed to callback.
-     * @param constructorArgs message whose payload items contain className constructor's arguments.
+     * @param constructorArgs object containing className constructor's arguments.
      *                        May be null.
      * @return object containing executor id number and any error output
      * @throws cMsgException if cmsg sendAndGet communication fails or takes too long,
@@ -582,7 +582,7 @@ public class Commander {
      */
     CommandReturn startThread(ExecutorInfo exec, String className,
                               ProcessCallback callback, Object userObject,
-                              cMsgMessage constructorArgs)
+                              ConstructorInfo constructorArgs)
             throws cMsgException {
 
         try {
@@ -606,14 +606,14 @@ public class Commander {
      * @param className name of java class to instantiate and run as thread in executor.
      * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
      *                0 means wait forever.
-     * @param constructorArgs message whose payload items contain className constructor's arguments.
+     * @param constructorArgs object containing className constructor's arguments.
      *                        May be null.
      * @return object containing executor id number and any error output
      * @throws cMsgException if cmsg communication fails or internal protocol error
      * @throws TimeoutException if cmsg sendAndGet communication times out
      */
     public CommandReturn startThread(ExecutorInfo exec, String className, int timeout,
-                                     cMsgMessage constructorArgs)
+                                     ConstructorInfo constructorArgs)
             throws cMsgException, TimeoutException {
 
         return startThread(exec, className, true, null, null, timeout, constructorArgs);
@@ -632,7 +632,7 @@ public class Commander {
      * @param userObject argument to be passed to callback.
      * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
      *                0 means wait forever.
-     * @param constructorArgs message whose payload items contain className constructor's arguments.
+     * @param constructorArgs object containing className constructor's arguments.
      *                        May be null.
      * @return object containing executor id number and any error output
      * @throws cMsgException if args null, cmsg communication fails, or internal protocol error
@@ -640,7 +640,7 @@ public class Commander {
      */
     CommandReturn startThread(ExecutorInfo exec, String className, boolean wait,
                               ProcessCallback callback, Object userObject, int timeout,
-                              cMsgMessage constructorArgs)
+                              ConstructorInfo constructorArgs)
             throws cMsgException, TimeoutException {
 
         if (exec == null || className == null) {
@@ -666,7 +666,8 @@ public class Commander {
             cMsgPayloadItem item5 = new cMsgPayloadItem("id", myId);  // send this back when process done
             msg.addPayloadItem(item5);
             if (constructorArgs != null) {
-                cMsgPayloadItem item6 = new cMsgPayloadItem("args", constructorArgs); // contains constructor args
+                // msg contains constructor args
+                cMsgPayloadItem item6 = new cMsgPayloadItem("args", constructorArgs.createMessageFromArgs());
                 msg.addPayloadItem(item6);
             }
         }
@@ -876,6 +877,71 @@ public class Commander {
     /**
      * Run as a stand-alone application
      */
+    public static void main0(String[] args) {
+        try {
+            String[] arggs = decodeCommandLine(args);
+            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
+            List<ExecutorInfo> execList = cmdr.getExecutors();
+            System.out.println("execList =  "+ execList);
+            for (ExecutorInfo info : execList) {
+                System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
+            }
+
+            class myCB implements ProcessCallback {
+                public void callback(Object userObject, CommandReturn commandReturn) {
+                    System.out.println("In callback, process output = \n" + commandReturn.getOutput());
+                    System.out.println("               error output = \n" + commandReturn.getError());
+                }
+            }
+
+            String in;
+                if (execList.size() > 0) {
+
+                    ConstructorInfo exThrCon = new ConstructorInfo();
+                    ConstructorInfo recCon = new ConstructorInfo();
+                    ConstructorInfo dimCon = new ConstructorInfo();
+
+                    exThrCon.addReferenceArg("java.awt.Rectangle", recCon);
+                    recCon.addReferenceArg("java.awt.Dimension", dimCon);
+                    dimCon.addPrimitiveArg("int", "1");
+                    dimCon.addPrimitiveArg("int", "2");
+
+                    CommandReturn ret = cmdr.startThread(execList.get(0),
+                                                         "org.jlab.coda.cMsg.remoteExec.ExampleThread",
+                                                         new myCB(), null, exThrCon);
+                    System.out.println("Return = " + ret);
+                    if (ret.hasError()) {
+                        System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
+                    }
+                    if (ret.getOutput() != null) {
+                        System.out.println("Regular output:\n" + ret.getOutput());
+                    }
+
+                    //while(true) {
+                        try {Thread.sleep(5000);}
+                        catch (InterruptedException e) {}
+                    //}
+
+                    cmdr.stop(execList.get(0), ret.getExecutorId());
+
+                }
+
+        }
+//        catch (TimeoutException e) {
+//            e.printStackTrace();
+//            System.exit(-1);
+//        }
+        catch (cMsgException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+    }
+
+
+    /**
+     * Run as a stand-alone application
+     */
     public static void main(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
@@ -910,65 +976,26 @@ public class Commander {
 
 //            public cMsgNameServer(int port, int domainPort, int udpPort, boolean standAlone, boolean monitoringOff,
 //                                  String clientPassword, String cloudPassword, int debug, int clientsMax) {
-//
-//                domainServers        = new ConcurrentHashMap<cMsgDomainServer,String>(20);
-//                domainServersSelect  = new ConcurrentHashMap<cMsgDomainServerSelect,String>(20);
-//                handlerThreads = new ArrayList<ClientHandler>(10);
-//                availableDomainServers = Collections.synchronizedList(new LinkedList<cMsgDomainServerSelect>());   // CHANGED
-//
-//                this.debug          = debug;
-//                this.clientsMax     = clientsMax;
-//                this.standAlone     = standAlone;
-//                this.monitoringOff  = monitoringOff;
-//                this.cloudPassword  = cloudPassword;
-//                this.clientPassword = clientPassword;
 
             String in;
-            while(true) {
                 if (execList.size() > 0) {
-//                    CommandReturn ret = cmdr.startThread(execList.get(0),
-//                                                         "org.jlab.coda.cMsg.remoteExec.ExampleThread",
-//                                                         new myCB(), null);
                     // try starting up cMsg server ...
-                    cMsgMessage argMsg = new cMsgMessage();
-                    argMsg.setUserInt(9);
+                    ConstructorInfo serverCon = new ConstructorInfo();
 
-                    String[] classes    = new String[9];
-                    String[] stringArgs = new String[7];
-                    int[]    argTypes   = new int[9];
-
-                    classes[0] = classes[1] = classes[2] = classes[7] = classes[8] = "java.lang.Integer";
-                    classes[3] = classes[4] = "java.lang.Boolean";
-                    classes[5] = classes[6] = "java.lang.String";
-
-                    stringArgs[0] = ""+46000;
-                    stringArgs[1] = ""+46001;
-                    stringArgs[2] = ""+46000;
-                    stringArgs[3] = "true";
-                    stringArgs[4] = "true";
-                    stringArgs[5] = ""+cMsgConstants.debugInfo;
-                    stringArgs[6] = ""+cMsgConstants.regimeLowMaxClients;
-
-                    argTypes[0] = ArgType.STRING.getValue();
-                    argTypes[1] = ArgType.STRING.getValue();
-                    argTypes[2] = ArgType.STRING.getValue();
-                    argTypes[3] = ArgType.STRING.getValue();
-                    argTypes[4] = ArgType.STRING.getValue();
-                    argTypes[5] = ArgType.NULL.getValue();
-                    argTypes[6] = ArgType.NULL.getValue();
-                    argTypes[7] = ArgType.STRING.getValue();
-                    argTypes[8] = ArgType.STRING.getValue();
-
-                    cMsgPayloadItem item = new cMsgPayloadItem("classes", classes);
-                    argMsg.addPayloadItem(item);
-                    item = new cMsgPayloadItem("stringArgs", stringArgs);
-                    argMsg.addPayloadItem(item);
-                    item = new cMsgPayloadItem("argTypes", argTypes);
-                    argMsg.addPayloadItem(item);
+                    serverCon.addPrimitiveArg("int", ""+47000);
+                    serverCon.addPrimitiveArg("int", ""+47001);
+                    serverCon.addPrimitiveArg("int", ""+47000);
+                    serverCon.addPrimitiveArg("boolean", "true");
+                    serverCon.addPrimitiveArg("boolean", "true");
+                    serverCon.addReferenceArg("java.lang.String", null);
+                    serverCon.addReferenceArg("java.lang.String", null);
+                    serverCon.addReferenceArg("java.lang.String", null);
+                    serverCon.addPrimitiveArg("int", ""+cMsgConstants.debugInfo);
+                    serverCon.addPrimitiveArg("int", ""+cMsgConstants.regimeLowMaxClients);
 
                     CommandReturn ret = cmdr.startThread(execList.get(0),
                                                          "org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer",
-                                                         new myCB(), null, argMsg);
+                                                         new myCB(), null, serverCon);
                     System.out.println("Return = " + ret);
                     if (ret.hasError()) {
                         System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
@@ -976,12 +1003,15 @@ public class Commander {
                     if (ret.getOutput() != null) {
                         System.out.println("Regular output:\n" + ret.getOutput());
                     }
-                    try {Thread.sleep(5000);}
-                    catch (InterruptedException e) {}
+
+                    //while(true) {
+                        try {Thread.sleep(5000);}
+                        catch (InterruptedException e) {}
+                    //}
 
                     cmdr.stop(execList.get(0), ret.getExecutorId());
+
                 }
-            }
 
         }
 //        catch (TimeoutException e) {
@@ -997,7 +1027,7 @@ public class Commander {
     /**
      * Run as a stand-alone application
      */
-    public static void main3(String[] args) {
+    public static void main4(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
             System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);

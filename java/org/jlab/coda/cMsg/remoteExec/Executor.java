@@ -50,17 +50,8 @@ public class Executor {
         boolean monitor;
         boolean wait;
         boolean isProcess;
-        cMsgMessage args;
+        cMsgMessage argsMessage;
     }
-
-    private class ProcessEnd extends Thread {
-        int id;
-        CommandInfo info;
-        ProcessEnd(CommandInfo info) {
-            this.info = info;
-        }
-    }
-
 
 
     public Executor(String password, SecretKey key, String udl, String name)
@@ -127,7 +118,7 @@ public class Executor {
         }
 
         // start thread to maintain connection with cmsg server
-        CmsgConnectionHandler handler = new CmsgConnectionHandler();
+        new CmsgConnectionHandler();
 
     }
 
@@ -202,7 +193,7 @@ System.out.println("Subscribe to sub = " + remoteExecSubjectType + ", typ = " + 
             if (msg.hasPayload()) {
                 cMsgPayloadItem item;
                 String passwd = null;
-                String commandType = null;
+                String commandType;
 
                 try {
                     item = msg.getPayloadItem("password");
@@ -327,7 +318,7 @@ System.out.println("commandtype = " + commandType);
                             // optional args to constructor contained msg payload
                             item = msg.getPayloadItem("args");
                             if (item != null) {
-                                commandInfo.args = item.getMessage();
+                                commandInfo.argsMessage = item.getMessage();
                             }
 
                             // return must be placed in sendAndGet response msg
@@ -520,7 +511,6 @@ System.out.println("run -> " + info.command);
             //---------------------------------------------------------
             // Figure out if process has already terminated.
             //---------------------------------------------------------
-            String output;
             boolean terminated = true;
             try { process.exitValue(); }
             catch (Exception e) { terminated = false;  }
@@ -643,74 +633,129 @@ System.out.println("run -> " + info.command);
         }
 
         /**
+         * Recursive method that creates an object of type className from the cMsg message.
          *
+         * @param msg cMsg message containing all data necessary to create object.
+         * @param className name of the class of the created object.
+         * @return created object.
+         * @throws cMsgException if error in creating object.
          */
-        private void startThread() {
+        Object createObjectFromMessage(cMsgMessage msg, String className) throws cMsgException {
+
             //----------------------------------------------------------------
             // create an object from the given class name
             //----------------------------------------------------------------
-            IExecutorThread eThread;
+            Object returnObject;
+
             try {
-                Class c = Class.forName(info.className);
+                Class c = Class.forName(className);
 
                 // if no args, use no-arg constructor
-                if (info.args == null) {
-                    eThread = (IExecutorThread)c.newInstance();
+                if (msg == null) {
+                    returnObject = c.newInstance();
                 }
                 else {
-                    int numArgs = info.args.getUserInt();
+                    // number of constructor arguments contained in userInt
+                    int numArgs = msg.getUserInt();
+
+                    // types of parameters defining constructor (primitives != reference types !!!)
                     Class[] parameterTypes = new Class[numArgs];
+
+                    // classes of the constructor arguments (primitives use corresponding wrappers)
+                    Class[] argClasses = new Class[numArgs];
+
+                    // constructor arguments
                     Object[] args = new Object[numArgs];
 
-                    // Create each argument by instantiating class,
-                    // get constructor of primitive type with String
-                    // arg, ...
-                    Class clazz;
-                    Constructor con;
-                    Class[] stringParam = {String.class};
-                    Object[] stringArg = new Object[1];
 
+                    // class of each constructor argument
+                    cMsgPayloadItem classesItem = msg.getPayloadItem("classes");
+                    // type of each arg and its constructor (primitive, reference, null, etc)
+                    cMsgPayloadItem argsTypesItem = msg.getPayloadItem("argTypes");
+                    if (classesItem == null || argsTypesItem == null) {
+                        // throw protocol violation error
+                        throw new cMsgException("Protocol violation: classes and/or types arrays null");
+                    }
+                    String[] classNames = classesItem.getStringArray();
+                    int[] argTypeValues = argsTypesItem.getIntArray();
+                    if (classNames.length < numArgs || argTypeValues.length < numArgs) {
+                        // throw protocol violation error
+                        throw new cMsgException("Protocol violation: too few classes and/or types");
+                    }
 
-                    String classes[];
-                    String stringArgs[] = null;
-                    int argTypeValues[];
+                    // Transform the incoming information about the type and
+                    // constructor of each argument (NOT returnObject),
+                    // and turn it into arrays containing the parameter types of the
+                    // argument constructors and the classes of arguments being
+                    // constructed.
+                    ArgType aType;
                     ArgType argTypes[] = new ArgType[numArgs];
-                    cMsgMessage msgArgs[] = null;
                     int numStringArgs = 0, numMessageArgs = 0;
 
-                    // class of argument object - one for each argument
-                    cMsgPayloadItem classesItem = info.args.getPayloadItem("classes");
-                    // type of constructor arg (or null) - one for each argument
-                    cMsgPayloadItem argsItem    = info.args.getPayloadItem("argTypes");
-                    if (classesItem == null || argsItem == null) {
-                        // throw protocol violation error
-                    }
-                    classes  = classesItem.getStringArray();
-                    argTypeValues = classesItem.getIntArray();
-                    if (classes.length < numArgs || argTypeValues.length < numArgs) {
-                        // throw protocol violation error
-                    }
-
-                    // make a few simple consistency checks
-                    ArgType aType;
                     for (int i=0; i < numArgs; i++) {
                         aType = ArgType.getArgType(argTypeValues[i]);
                         if (aType == null) {
                             // throw protocol violation error
                         }
-                        if (aType == ArgType.STRING) {
+
+                        // Count # of primitive type args being constructed
+                        if (aType == ArgType.PRIMITIVE) {
                             numStringArgs++;
                         }
-                        else if (aType == ArgType.MESSAGE) {
+                        // Count # of reference types being constructed (with args of their own)
+                        else if (aType == ArgType.REFERENCE) {
                             numMessageArgs++;
                         }
                         argTypes[i] = aType;
-                        parameterTypes[i] = Class.forName(classes[i]); // throws ClassNotFoundException
+
+                        // Be sure to differentiate between primitive ...
+                        if (classNames[i].equals("int")) {
+                            parameterTypes[i] = int.class;
+                            argClasses[i] = java.lang.Integer.class;
+                        }
+                        else if (classNames[i].equals("boolean")) {
+                            parameterTypes[i] = boolean.class;
+                            argClasses[i] = java.lang.Boolean.class;
+                        }
+                        else if (classNames[i].equals("byte")) {
+                            parameterTypes[i] = byte.class;
+                            argClasses[i] = java.lang.Byte.class;
+                        }
+                        else if (classNames[i].equals("short")) {
+                            parameterTypes[i] = short.class;
+                            argClasses[i] = java.lang.Short.class;
+                        }
+                        else if (classNames[i].equals("long")) {
+                            parameterTypes[i] = long.class;
+                            argClasses[i] = java.lang.Long.class;
+                        }
+                        else if (classNames[i].equals("float")) {
+                            parameterTypes[i] = float.class;
+                            argClasses[i] = java.lang.Float.class;
+                        }
+                        else if (classNames[i].equals("double")) {
+                            parameterTypes[i] = double.class;
+                            argClasses[i] = java.lang.Double.class;
+                        }
+                        else if (classNames[i].equals("char")) {
+                            parameterTypes[i] = char.class;
+                            argClasses[i] = java.lang.Character.class;
+                        }
+                        // and reference types.
+                        else {
+                            parameterTypes[i] = Class.forName(classNames[i]); // throws ClassNotFoundException
+                            argClasses[i] = parameterTypes[i];
+                        }
+System.out.println("arg #" + i + " -> type = " + aType.name() + ", class = " + classNames[i]);
                     }
 
-                    // Now get the values of the constructor arguments if any ...
-                    cMsgPayloadItem stringValuesItem  = info.args.getPayloadItem("stringArgs");
-                    cMsgPayloadItem messageValuesItem = info.args.getPayloadItem("messageArgs");
+                    // Now get the values of each arguments' constructor arguments if any.
+                    // Constructors for primitive types take a single String as an arg.
+                    // Constructors for reference types (whose constructors take args),
+                    // take a cMsg message as an arg. The msg, of course, must be decoded first,
+                    // which is exactly what this method does.
+                    cMsgPayloadItem stringValuesItem  = msg.getPayloadItem("stringArgs");
+                    cMsgPayloadItem messageValuesItem = msg.getPayloadItem("messageArgs");
                     if (numStringArgs > 0 &&
                             (stringValuesItem == null || stringValuesItem.getCount() < numStringArgs)) {
                         // throw protocol violation error
@@ -719,48 +764,99 @@ System.out.println("run -> " + info.command);
                             (messageValuesItem == null || messageValuesItem.getCount() < numMessageArgs)) {
                         // throw protocol violation error
                     }
+
+                    String stringArgs[] = null;
+                    cMsgMessage msgArgs[] = null;
                     if (numStringArgs > 0) stringArgs = stringValuesItem.getStringArray();
                     if (numMessageArgs > 0)   msgArgs = messageValuesItem.getMessageArray();
 
                     int stringArgIndex  = 0;
                     int messageArgIndex = 0;
 
-                    for (int i=1; i<= numArgs; i++) {
-                        clazz = Class.forName(classes[i]);
+                    // To instantiate a primitive type's wrapper object,
+                    // get its constructor with a String arg. This works
+                    // for all primitive types except char. The only
+                    // constructor for a Character is C(char value).
+                    Class[] stringParam = {String.class};
+                    Class[] charParam   = {Character.class};
+                    Object[] singleArg  = new Object[1];
 
+                    for (int i=0; i < numArgs; i++) {
                         switch (argTypes[i]) {
-                            case STRING:
-                                con = clazz.getConstructor(stringParam);
-                                stringArg[0] = stringArgs[stringArgIndex++];
-                                args[i] = con.newInstance(stringArg);
+                            case PRIMITIVE:
+System.out.println("Create object of " + classNames[i] + " with arg " + stringArgs[stringArgIndex]);
+                                Constructor con = argClasses[i].getConstructor(stringParam);
+                                singleArg[0] = stringArgs[stringArgIndex++];
+                                args[i] = con.newInstance(singleArg);
                                 break;
 
-                            case MESSAGE:
-                                // recursive stuff here
+                            case PRIMITIVE_CHAR:
+System.out.println("Create object of " + classNames[i] + " with arg " + stringArgs[stringArgIndex]);
+                                con = argClasses[i].getConstructor(charParam);
+                                // change String to int to char to Character to Object (whew!)
+                                singleArg[0] = (char) (Integer.parseInt(stringArgs[stringArgIndex++]));
+                                args[i] = con.newInstance(singleArg);
                                 break;
-                            
-                            case NOARG:
-                                args[i] = clazz.newInstance();
+
+                            case REFERENCE:
+                                // recursive stuff here
+                                cMsgMessage argMsg = msgArgs[messageArgIndex++];
+System.out.println("Create object of " + classNames[i] + " from msg ");
+                                Object argObject = createObjectFromMessage(argMsg, classNames[i]);
+                                args[i] = argObject;
+                                break;
+
+                            case REFERENCE_NOARG:
+System.out.println("Use no-arg constructor of " + classNames[i]);
+                                args[i] = argClasses[i].newInstance();
                                 break;
 
                             case NULL:
+System.out.println("Use null for arg #" + (i+1));
                                 args[i] = null;
                                 break;
 
                             default:
                                 // throw error
                         }
-
                     }
 
                     // constructor required to have args
+                    Constructor[] ca = c.getConstructors();
+//                    for (Constructor cc : ca) {
+//System.out.println("cc = " + cc + "\nargs = ");
+//                        Class[] cl = cc.getParameterTypes();
+//                        for (Class cl1 : cl) {
+//                            System.out.print(cl1.getName() + " ");
+//                        }
+//                    }
                     Constructor co = c.getConstructor(parameterTypes);
 
                     // create an instance
-                    eThread = (IExecutorThread) co.newInstance(args);
+                    returnObject =  co.newInstance(args);
                 }
             }
             catch (Exception e) {
+                e.printStackTrace();
+                throw new cMsgException(e);
+            }
+
+            return returnObject;
+        }
+
+
+        /**
+         *
+         */
+        private void startThread() {
+            //----------------------------------------------------------------
+            // create an object from the given class name
+            //----------------------------------------------------------------
+            IExecutorThread eThread;
+            try {
+                eThread = (IExecutorThread)createObjectFromMessage(info.argsMessage, info.className);
+            }
+            catch (cMsgException e) {
                 e.printStackTrace();
                 // return error if object creation failed
                 try {
@@ -965,7 +1061,7 @@ System.out.println("Kill the thread");
             String[] arggs = decodeCommandLine(args);
             System.out.println("Starting Executor with:\n  password = " + arggs[0] +
                                "\n  name = " + arggs[2] + "\n  udl = " + arggs[1]);
-            Executor exec = new Executor(arggs[0], null, arggs[1], arggs[2]);
+            new Executor(arggs[0], null, arggs[1], arggs[2]);
             while(true) {
                 try {
                     Thread.sleep(2000);
