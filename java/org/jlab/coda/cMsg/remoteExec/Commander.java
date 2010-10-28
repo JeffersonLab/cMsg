@@ -848,7 +848,7 @@ public class Commander {
 
         try {
             String[] arggs = decodeCommandLine(args);
-            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
             List<ExecutorInfo> execList = cmdr.getExecutors();
             for (ExecutorInfo info : execList) {
@@ -895,7 +895,6 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                 }
             }
 
-            String in;
                 if (execList.size() > 0) {
 
                     ConstructorInfo exThrCon = new ConstructorInfo();
@@ -953,20 +952,6 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
-//
-//            for (ExecutorInfo info : execList) {
-//                System.out.println("Killing you " + info.getName());
-//                cmdr.kill(info, true);
-//            }
-//            System.out.println("Killing all");
-//            cmdr.killAll(true);
-//            if (execList.size() > 0) {
-//                CommandReturn ret = cmdr.startProcess(execList.get(0), "java org/jlab/coda/cMsg/test/cMsgTest", false, false, 1000);
-//                    if (ret.getOutput() != null)
-//                        System.out.println(ret.getOutput());
-//
-//            }
-
 
             class myCB implements ProcessCallback {
                 public void callback(Object userObject, CommandReturn commandReturn) {
@@ -975,52 +960,40 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                 }
             }
 
-//            public cMsgNameServer(int port, int domainPort, int udpPort,
-//                                  boolean standAlone, boolean monitoringOff,
-//                                  String clientPassword, String cloudPassword, String serverToJoin,
-//                                  int debug, int clientsMax) {
+            if (execList.size() > 0) {
+                // try starting up cMsg server ...
+                ConstructorInfo serverCon = new ConstructorInfo();
 
-            String in;
-                if (execList.size() > 0) {
-                    // try starting up cMsg server ...
-                    ConstructorInfo serverCon = new ConstructorInfo();
+                serverCon.addPrimitiveArg("int", ""+47000);  // port
+                serverCon.addPrimitiveArg("int", ""+47001);  // domain port
+                serverCon.addPrimitiveArg("int", ""+47000);  // udp port
+                serverCon.addPrimitiveArg("boolean", "true"); // stand alone
+                serverCon.addPrimitiveArg("boolean", "true"); // monitoring off
+                serverCon.addReferenceArg("java.lang.String", null);   // client password
+                serverCon.addReferenceArg("java.lang.String", null);   // cloud password
+                serverCon.addReferenceArg("java.lang.String", null);   // server to join in cloud
+                serverCon.addPrimitiveArg("int", ""+cMsgConstants.debugInfo); // debug level
+                serverCon.addPrimitiveArg("int", ""+cMsgConstants.regimeLowMaxClients); // max clients/domain server in low regime
 
-                    serverCon.addPrimitiveArg("int", ""+47000);
-                    serverCon.addPrimitiveArg("int", ""+47001);
-                    serverCon.addPrimitiveArg("int", ""+47000);
-                    serverCon.addPrimitiveArg("boolean", "true");
-                    serverCon.addPrimitiveArg("boolean", "true");
-                    serverCon.addReferenceArg("java.lang.String", null);
-                    serverCon.addReferenceArg("java.lang.String", null);
-                    serverCon.addReferenceArg("java.lang.String", null);
-                    serverCon.addPrimitiveArg("int", ""+cMsgConstants.debugInfo);
-                    serverCon.addPrimitiveArg("int", ""+cMsgConstants.regimeLowMaxClients);
-
-                    CommandReturn ret = cmdr.startThread(execList.get(0),
-                                                         "org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer",
-                                                         new myCB(), null, serverCon);
-                    System.out.println("Return = " + ret);
-                    if (ret.hasError()) {
-                        System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
-                    }
-                    if (ret.getOutput() != null) {
-                        System.out.println("Regular output:\n" + ret.getOutput());
-                    }
-
-                    //while(true) {
-                        try {Thread.sleep(10000);}
-                        catch (InterruptedException e) {}
-                    //}
-
-                    cmdr.stop(execList.get(0), ret.getId());
-
+                CommandReturn ret = cmdr.startThread(execList.get(0),
+                                                     "org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer",
+                                                     new myCB(), null, serverCon);
+                System.out.println("Return = " + ret);
+                if (ret.hasError()) {
+                    System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
+                }
+                if (ret.getOutput() != null) {
+                    System.out.println("Regular output:\n" + ret.getOutput());
                 }
 
+                //while(true) {
+                try {Thread.sleep(10000);}
+                catch (InterruptedException e) {}
+                //}
+
+                cmdr.stop(execList.get(0), ret.getId());
+            }
         }
-//        catch (TimeoutException e) {
-//            e.printStackTrace();
-//            System.exit(-1);
-//        }
         catch (cMsgException e) {
             e.printStackTrace();
             System.exit(-1);

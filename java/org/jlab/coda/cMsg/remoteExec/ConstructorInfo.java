@@ -97,7 +97,7 @@ public class ConstructorInfo {
      *
      * @param name name of primitive type
      * @param value value of the argument in String form
-     * @throws cMsgException
+     * @throws cMsgException if name is reference type, char, or null
      */
     synchronized public void addPrimitiveArg(String name, String value) throws cMsgException {
         if (!isPrimitive(name) || name.equals("char")) {
@@ -114,7 +114,7 @@ public class ConstructorInfo {
      * @param name name of primitive type
      * @param value value of the argument in String form
      * @param index index into the existing argument list at which to add this arg
-     * @throws cMsgException
+     * @throws cMsgException if name is reference type, char, or null
      */
     synchronized public void addPrimitiveArg(String name, String value, int index) throws cMsgException {
         if (!isPrimitive(name) || name.equals("char")) {
@@ -133,41 +133,57 @@ public class ConstructorInfo {
     //--------------------------------------------------------------------------
     // PRIMITIVE CHAR
     //--------------------------------------------------------------------------
-    private ConstructorArg createPrimitiveCharArg(String className, char value) {
+    /**
+     * Store data about primitive constructor argument.
+     *
+     * @param value value of argument
+     * @return object containing argument data
+     */
+    private ConstructorArg createPrimitiveCharArg(char value) {
         ConstructorArg arg = new ConstructorArg();
         arg.isPrimitive = true;
-        arg.className = className;
+        arg.className = "char";
         arg.type = ArgType.PRIMITIVE;
         arg.charValue = value;
         numPrimitiveArgs++;
         return arg;
     }
 
-    // construct primitive char type object with given value
-    synchronized public void addPrimitiveArg(String className, char value) throws cMsgException {
-        if (className.equals("char")) {
-            throw new cMsgException("class must correspond to primitive type char only");
-        }
-        argList.add(createPrimitiveCharArg(className, value));
+    /**
+     * Add to the argument list a primitive char type with the given value.
+     *
+     * @param value value of the argument
+     */
+    synchronized public void addPrimitiveArg(char value) {
+        argList.add(createPrimitiveCharArg(value));
     }
 
-    // construct primitive char type object with given value
-    synchronized public void addPrimitiveArg(String className, char value, int index) throws cMsgException {
-        if (className.equals("char")) {
-            throw new cMsgException("class must correspond to primitive type char only");
-        }
-
+    /**
+     * Add to the argument list a primitive char type with the given value
+     * at the given index into the existing list of arguments.
+     *
+     * @param value value of the argument
+     * @param index index into the existing argument list at which to add this arg
+     */
+    synchronized public void addPrimitiveArg(char value, int index) {
         if (index > argList.size()) {
-            argList.addLast(createPrimitiveCharArg(className, value));
+            argList.addLast(createPrimitiveCharArg(value));
         }
         else {
-            argList.add(index, createPrimitiveCharArg(className, value));
+            argList.add(index, createPrimitiveCharArg(value));
         }
     }
 
     //--------------------------------------------------------------------------
     // REFERENCE TYPE
     //--------------------------------------------------------------------------
+    /**
+     * Store data about reference constructor argument.
+     *
+     * @param className class to instantiate
+     * @param info object containing argument data for instantiation
+     * @return object containing argument data
+     */
     private ConstructorArg createRefArg(String className, ConstructorInfo info) {
         ConstructorArg arg = new ConstructorArg();
         arg.isPrimitive = false;
@@ -187,27 +203,42 @@ public class ConstructorInfo {
         return arg;
     }
 
-    // construct reference object
+    /**
+     * Add to the argument list a reference type with the information necessary
+     * to construct it.
+     *
+     * @param className name of class to instantiate
+     * @param info object containing argument data for instantiation
+     * @throws cMsgException if className refers to primitive type or is null
+     */
     synchronized public void addReferenceArg(String className, ConstructorInfo info) throws cMsgException {
-        if (isPrimitive(className)) {
-            throw new cMsgException("className must NOT correspond to primitive type");
-        }
-
         if (className == null) {
             throw new cMsgException("className must NOT be null");
+        }
+
+        if (isPrimitive(className)) {
+            throw new cMsgException("className must NOT correspond to primitive type");
         }
 
         argList.add(createRefArg(className, info));
     }
 
-    // construct reference object
+    /**
+     * Add to the argument list a reference type with the information necessary
+     * to construct it at the given index into the existing list of arguments.
+     *
+     * @param className name of class to instantiate
+     * @param info object containing argument data for instantiation
+     * @param index index into the existing argument list at which to add this arg
+     * @throws cMsgException if className refers to primitive type or is null
+     */
     synchronized public void addReferenceArg(String className, ConstructorInfo info, int index) throws cMsgException {
-        if (isPrimitive(className)) {
-            throw new cMsgException("class must NOT correspond to primitive type");
-        }
-
         if (className == null) {
             throw new cMsgException("className must NOT be null");
+        }
+
+        if (isPrimitive(className)) {
+            throw new cMsgException("class must NOT correspond to primitive type");
         }
 
         if (index > argList.size()) {
@@ -222,6 +253,10 @@ public class ConstructorInfo {
     //--------------------------------------------------------------------------
     // DIFFICULT PART - store arg data in cmsg message
     //--------------------------------------------------------------------------
+    /**
+     * Take argument specification data and store it in a cMsg message.
+     * @return cMsg message containing argument data; null if no args.
+     */
     synchronized public cMsgMessage createMessageFromArgs() {
         if (argList.size() < 1) {
             return null;
