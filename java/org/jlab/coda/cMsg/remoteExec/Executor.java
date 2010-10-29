@@ -14,29 +14,47 @@ import java.net.UnknownHostException;
 import java.lang.reflect.Constructor;
 
 /**
- * This class, when used appropriately, can execute any command on any node by
- * being sent the proper cMsg message.
+ * This class, when used appropriately, can execute any command by
+ * being sent the proper cMsg message by a Commander.
  *
  * @author timmer
  * Date: Oct 7, 2010
  */
 public class Executor {
 
+    /** Password needed to be sent by Commander for any process or thread to be run here. */
+    private String password;
+    /** Key needed to decrypt incoming password. */
     private SecretKey key;
 
+    /**
+     * Used to generate unique id numbers in a thread-safe manner
+     * which are used to identify a startProcess or startThread action.
+     * This id is used to stop started processes and threads.
+     */
     private AtomicInteger uniqueId = new AtomicInteger(1);
 
-    private String password;
-    private String name;
+    /** UDL for connecting to cMsg server. */
     private String udl;
-
-    private HashMap<Integer, CommandInfo> processMap = new HashMap<Integer, CommandInfo>(100);
-    private HashMap<Integer, CommandInfo>  threadMap = new HashMap<Integer, CommandInfo>(100);
+    /** Client name for connecting to cMsg server. */
+    private String name;
+    /** Connection to cMsg server. */
     private cMsg cmsgConnection;
-    private cMsgMessage statusMsg;
+    /** Are we connected to a cMsg server? */
     private volatile boolean connected;
 
+    /** Map of running processes indexed by unique id. */
+    private HashMap<Integer, CommandInfo> processMap = new HashMap<Integer, CommandInfo>(100);
+    /** Map of running threads indexed by unique id. */
+    private HashMap<Integer, CommandInfo>  threadMap = new HashMap<Integer, CommandInfo>(100);
 
+    /**
+     * Message containing info about this executor to be
+     * sent to Commanders on start up and when requested.
+     */
+    private cMsgMessage statusMsg;
+
+    /** Convenient data holding class for incoming commands. */
     private class CommandInfo {
         IExecutorThread execThread;
         Process process;
@@ -51,8 +69,16 @@ public class Executor {
     }
 
 
-    public Executor(String password, SecretKey key, String udl, String name)
-            throws cMsgException {
+    /**
+     * Constructor. If name arg is null, local hostname becomes our cmsg client name.
+     *
+     * @param password password needed to be sent by Commander for any process or thread to be run here.
+     * @param key key needed to decrypt incoming password.
+     * @param udl UDL for connecting to cMsg server.
+     * @param name client name for connecting to cMsg server.
+     * @throws cMsgException if cannot find our hostname or host platform information
+     */
+    public Executor(String password, SecretKey key, String udl, String name) throws cMsgException {
         this.key = key;
         this.udl = udl;
         this.password = password;
@@ -87,27 +113,30 @@ public class Executor {
             br = new BufferedReader(new InputStreamReader(pr.getInputStream()));
             String release = br.readLine();
 
-            // Create a status message sent out to all commanders as soon
-            // as we connect to the cMsg server and to all commanders who
-            // specifically ask for it.
-            statusMsg = new cMsgMessage();
-            statusMsg.setHistoryLengthMax(0);
-            // This subject of this msg gets changed depending on who it's sent to.
-            statusMsg.setSubject(Commander.allSubjectType);
-            statusMsg.setType(Commander.remoteExecSubjectType);
+            try {
+                // Create a status message sent out to all commanders as soon
+                // as we connect to the cMsg server and to all commanders who
+                // specifically ask for it.
+                statusMsg = new cMsgMessage();
+                statusMsg.setHistoryLengthMax(0);
+                // This subject of this msg gets changed depending on who it's sent to.
+                statusMsg.setSubject(Commander.allSubjectType);
+                statusMsg.setType(Commander.remoteExecSubjectType);
 
-            cMsgPayloadItem item0 = new cMsgPayloadItem("returnType", InfoType.REPORTING.getValue());
-            statusMsg.addPayloadItem(item0);
-            cMsgPayloadItem item1 = new cMsgPayloadItem("name", name);
-            statusMsg.addPayloadItem(item1);
-            cMsgPayloadItem item2 = new cMsgPayloadItem("os", os);
-            statusMsg.addPayloadItem(item2);
-            cMsgPayloadItem item3 = new cMsgPayloadItem("machine", machine);
-            statusMsg.addPayloadItem(item3);
-            cMsgPayloadItem item4 = new cMsgPayloadItem("processor", processor);
-            statusMsg.addPayloadItem(item4);
-            cMsgPayloadItem item5 = new cMsgPayloadItem("release", release);
-            statusMsg.addPayloadItem(item5);
+                cMsgPayloadItem item0 = new cMsgPayloadItem("returnType", InfoType.REPORTING.getValue());
+                statusMsg.addPayloadItem(item0);
+                cMsgPayloadItem item1 = new cMsgPayloadItem("name", name);
+                statusMsg.addPayloadItem(item1);
+                cMsgPayloadItem item2 = new cMsgPayloadItem("os", os);
+                statusMsg.addPayloadItem(item2);
+                cMsgPayloadItem item3 = new cMsgPayloadItem("machine", machine);
+                statusMsg.addPayloadItem(item3);
+                cMsgPayloadItem item4 = new cMsgPayloadItem("processor", processor);
+                statusMsg.addPayloadItem(item4);
+                cMsgPayloadItem item5 = new cMsgPayloadItem("release", release);
+                statusMsg.addPayloadItem(item5);
+            }
+            catch (cMsgException e) {/* never happen */}
 
         } catch (IOException e) {
             // return error message if execution failed
@@ -116,16 +145,27 @@ public class Executor {
 
         // start thread to maintain connection with cmsg server
         new CmsgConnectionHandler();
-
     }
 
+
+    /**
+     * Send a status message to a specified Commander.
+     * @param commander Commander to send status message to.
+     * @throws cMsgException if cmsg connection broken
+     */
+    private void sendStatusTo(String commander) throws cMsgException {
+        // This msg only goes to the Commander specified in the arg.
+        // That may be ".all" which goes to all commanders.
+        statusMsg.setSubject(commander);
+        cmsgConnection.send(statusMsg);
+    }
 
 
     /**
      * This class attempts to keep this cmsg client connected to a server
      * by checking the connection every second and reconnecting if necessary.
      */
-    class CmsgConnectionHandler extends Thread {
+    private class CmsgConnectionHandler extends Thread {
 
         CmsgConnectionHandler() {
             setDaemon(true);
@@ -137,15 +177,12 @@ public class Executor {
             while (true) {
                 if (!connected) {
                     try {
-System.out.println("Connect to server with name = " + name + ", udl = " + udl);
                         // connect
                         cmsgConnection = new cMsg(udl, name, "cmsg executor");
                         cmsgConnection.connect();
                         // add subscriptions
                         CommandCallback cb = new CommandCallback();
-System.out.println("Subscribe to sub = " + Commander.remoteExecSubjectType + ", typ = " + name);
                         cmsgConnection.subscribe(Commander.remoteExecSubjectType, name,  cb, null);
-System.out.println("Subscribe to sub = " + Commander.remoteExecSubjectType + ", typ = " + Commander.allSubjectType);
                         cmsgConnection.subscribe(Commander.remoteExecSubjectType, Commander.allSubjectType, cb, null);
                         cmsgConnection.start();
                         connected = true;
@@ -170,19 +207,11 @@ System.out.println("Subscribe to sub = " + Commander.remoteExecSubjectType + ", 
     }
 
 
-    private void sendStatusTo(String commander) throws cMsgException {
-        // This msg only goes to the Commander specified in the arg.
-        // That may be ".all" which goes to all commanders.
-        statusMsg.setSubject(commander);
-        cmsgConnection.send(statusMsg);
-    }
-
-
     /**
      * This class defines the callback to be run when a message
      * containing a valid command arrives.
      */
-    class CommandCallback extends cMsgCallbackAdapter {
+    private class CommandCallback extends cMsgCallbackAdapter {
 
         public void callback(cMsgMessage msg, Object userObject) {
 
@@ -361,8 +390,6 @@ System.out.println("commandtype = " + commandType);
 
                         default:
                     }
-                    
-
                 }
                 catch (cMsgException e) {
                     System.out.println("Reject message, bad format");
@@ -371,8 +398,50 @@ System.out.println("commandtype = " + commandType);
             else {
                 System.out.println("Reject message, no payload");
             }
-
         }
+    }
+
+
+    /**
+     * Stop all processes and threads currently running.
+     */
+    private void stopAll() {
+        // stop processes
+        for (CommandInfo info : processMap.values()) {
+            info.process.destroy();
+        }
+
+        // stop threads (doesn't matter they're alive or not)
+        for (CommandInfo info : threadMap.values()) {
+            info.execThread.shutItDown();
+        }
+    }
+
+
+    /**
+     * Stop the specified process or thread currently running.
+     * @param id id number specified process or thread currently running.
+     */
+    private void stop(int id) {
+        CommandInfo info = processMap.get(id);
+        if (info == null) {
+            info = threadMap.get(id);
+        }
+
+        if (info == null) {
+            // process/thread already stopped
+            return;
+        }
+
+        // stop process
+        if (info.isProcess) {
+            info.process.destroy();
+        }
+        // stop thread (doesn't matter if alive or not)
+        else {
+            info.execThread.shutItDown();
+        }
+
     }
 
 
@@ -397,7 +466,7 @@ System.out.println("commandtype = " + commandType);
         }
         catch (IOException e) {
             // probably best to ignore this error
-            System.out.println("startProcess: io error gathering error output");
+System.out.println("startProcess: io error gathering error output");
         }
 
         if (sb.length() > 0) {
@@ -408,6 +477,7 @@ System.out.println("commandtype = " + commandType);
 
         return null;
     }
+
 
     /**
      * Get both regular output (if monitor is true) and error output,
@@ -455,9 +525,9 @@ System.out.println("commandtype = " + commandType);
      * tied up running one command.
      */
     private class ProcessRun extends Thread {
-        int id;
-        CommandInfo info;
-        cMsgMessage responseMsg;
+        private int id;
+        private CommandInfo info;
+        private cMsgMessage responseMsg;
 
         ProcessRun(CommandInfo info, cMsgMessage responseMsg) {
             this.info = info;
@@ -473,7 +543,6 @@ System.out.println("commandtype = " + commandType);
          * Reading from the error or output streams will automatically block.
          * Therefore, if the caller does NOT want to wait, it cannot monitor
          * either (except AFTER it has returned the sendAndGet response).
-         *
          */
         private void startProcess() {
             //----------------------------------------------------------------
@@ -487,7 +556,6 @@ System.out.println("run -> " + info.command);
                 Thread.yield();
                 try {Thread.sleep(300);}
                 catch (InterruptedException e) {}
-
             }
             catch (Exception e) {
                 e.printStackTrace();
@@ -578,7 +646,7 @@ System.out.println("run -> " + info.command);
                 // If we're here it's because the Commander is not synchronously
                 // waiting, but has registered a callback that the next message
                 // will trigger.
-
+                //
                 // Now send another (regular) msg back to Commander to notify it
                 // that the process is done and run any callback associated with
                 // this process. As part of that, the original CommandReturn object
@@ -616,9 +684,9 @@ System.out.println("run -> " + info.command);
      * tied up running one command.
      */
     private class ThreadRun extends Thread {
-        int id;
-        CommandInfo info;
-        cMsgMessage responseMsg;
+        private int id;
+        private CommandInfo info;
+        private cMsgMessage responseMsg;
 
         ThreadRun(CommandInfo info, cMsgMessage responseMsg) {
             this.info = info;
@@ -631,13 +699,15 @@ System.out.println("run -> " + info.command);
 
         /**
          * Recursive method that creates an object of type className from the cMsg message.
+         * It gets a list of constructor args from the message and the means to create
+         * each of those args.
          *
          * @param msg cMsg message containing all data necessary to create object.
          * @param className name of the class of the created object.
          * @return created object.
          * @throws cMsgException if error in creating object.
          */
-        Object createObjectFromMessage(cMsgMessage msg, String className) throws cMsgException {
+        private Object createObjectFromMessage(cMsgMessage msg, String className) throws cMsgException {
 
             //----------------------------------------------------------------
             // create an object from the given class name
@@ -664,19 +734,16 @@ System.out.println("run -> " + info.command);
                     // constructor arguments
                     Object[] args = new Object[numArgs];
 
-
                     // class of each constructor argument
                     cMsgPayloadItem classesItem = msg.getPayloadItem("classes");
                     // type of each arg and its constructor (primitive, reference, null, etc)
                     cMsgPayloadItem argsTypesItem = msg.getPayloadItem("argTypes");
                     if (classesItem == null || argsTypesItem == null) {
-                        // throw protocol violation error
                         throw new cMsgException("Protocol violation: classes and/or types arrays null");
                     }
                     String[] classNames = classesItem.getStringArray();
                     int[] argTypeValues = argsTypesItem.getIntArray();
                     if (classNames.length < numArgs || argTypeValues.length < numArgs) {
-                        // throw protocol violation error
                         throw new cMsgException("Protocol violation: too few classes and/or types");
                     }
 
@@ -692,7 +759,7 @@ System.out.println("run -> " + info.command);
                     for (int i=0; i < numArgs; i++) {
                         aType = ArgType.getArgType(argTypeValues[i]);
                         if (aType == null) {
-                            // throw protocol violation error
+                            throw new cMsgException("Protocol violation: bad arg type value");
                         }
 
                         // Count # of primitive type args being constructed
@@ -743,7 +810,7 @@ System.out.println("run -> " + info.command);
                             parameterTypes[i] = Class.forName(classNames[i]); // throws ClassNotFoundException
                             argClasses[i] = parameterTypes[i];
                         }
-System.out.println("arg #" + i + " -> type = " + aType.name() + ", class = " + classNames[i]);
+//System.out.println("arg #" + i + " -> type = " + aType.name() + ", class = " + classNames[i]);
                     }
 
                     // Now get the values of each arguments' constructor arguments if any.
@@ -755,11 +822,11 @@ System.out.println("arg #" + i + " -> type = " + aType.name() + ", class = " + c
                     cMsgPayloadItem messageValuesItem = msg.getPayloadItem("messageArgs");
                     if (numStringArgs > 0 &&
                             (stringValuesItem == null || stringValuesItem.getCount() < numStringArgs)) {
-                        // throw protocol violation error
+                        throw new cMsgException("Protocol violation: string and/or message value arrays null");
                     }
                     if (numMessageArgs > 0 &&
                             (messageValuesItem == null || messageValuesItem.getCount() < numMessageArgs)) {
-                        // throw protocol violation error
+                        throw new cMsgException("Protocol violation: too few string and/or message values");
                     }
 
                     String stringArgs[] = null;
@@ -778,17 +845,22 @@ System.out.println("arg #" + i + " -> type = " + aType.name() + ", class = " + c
                     Class[] charParam   = {Character.class};
                     Object[] singleArg  = new Object[1];
 
+                    // What we do depends on what type of argument we're constructing ...
                     for (int i=0; i < numArgs; i++) {
                         switch (argTypes[i]) {
                             case PRIMITIVE:
-System.out.println("Create object of " + classNames[i] + " with arg " + stringArgs[stringArgIndex]);
+//System.out.println("Create object of " + classNames[i] + " with arg " + stringArgs[stringArgIndex]);
+                                // Get the proper constructor.
                                 Constructor con = argClasses[i].getConstructor(stringParam);
+                                // Get the constructor's argument.
                                 singleArg[0] = stringArgs[stringArgIndex++];
+                                // Use this constructor to create object which
+                                // is argument of returnObject constructor.
                                 args[i] = con.newInstance(singleArg);
                                 break;
 
                             case PRIMITIVE_CHAR:
-System.out.println("Create object of " + classNames[i] + " with arg " + stringArgs[stringArgIndex]);
+//System.out.println("Create object of " + classNames[i] + " with arg " + stringArgs[stringArgIndex]);
                                 con = argClasses[i].getConstructor(charParam);
                                 // change String to int to char to Character to Object (whew!)
                                 singleArg[0] = (char) (Integer.parseInt(stringArgs[stringArgIndex++]));
@@ -796,40 +868,32 @@ System.out.println("Create object of " + classNames[i] + " with arg " + stringAr
                                 break;
 
                             case REFERENCE:
+//System.out.println("Create object of " + classNames[i] + " from msg ");
                                 // recursive stuff here
                                 cMsgMessage argMsg = msgArgs[messageArgIndex++];
-System.out.println("Create object of " + classNames[i] + " from msg ");
                                 Object argObject = createObjectFromMessage(argMsg, classNames[i]);
                                 args[i] = argObject;
                                 break;
 
                             case REFERENCE_NOARG:
-System.out.println("Use no-arg constructor of " + classNames[i]);
+//System.out.println("Use no-arg constructor of " + classNames[i]);
                                 args[i] = argClasses[i].newInstance();
                                 break;
 
                             case NULL:
-System.out.println("Use null for arg #" + (i+1));
+//System.out.println("Use null for arg #" + (i+1));
                                 args[i] = null;
                                 break;
 
                             default:
-                                // throw error
+                                // never get here
                         }
                     }
 
-                    // constructor required to have args
-                    Constructor[] ca = c.getConstructors();
-//                    for (Constructor cc : ca) {
-//System.out.println("cc = " + cc + "\nargs = ");
-//                        Class[] cl = cc.getParameterTypes();
-//                        for (Class cl1 : cl) {
-//                            System.out.print(cl1.getName() + " ");
-//                        }
-//                    }
+                    // get the proper constructor
                     Constructor co = c.getConstructor(parameterTypes);
 
-                    // create an instance
+                    // create an instance and return it
                     returnObject =  co.newInstance(args);
                 }
             }
@@ -843,11 +907,11 @@ System.out.println("Use null for arg #" + (i+1));
 
 
         /**
-         *
+         * Start the thread and wait for it if necessary so it can notify Commander that it's done.
          */
         private void startThread() {
             //----------------------------------------------------------------
-            // create an object from the given class name
+            // create an object of the given class name
             //----------------------------------------------------------------
             IExecutorThread eThread;
             try {
@@ -953,74 +1017,9 @@ System.out.println("Use null for arg #" + (i+1));
             }
         }
 
-
     }
 
 
-
-
-
-
-
-    /**
-     *
-     */
-    private void stopAll() {
-        for (CommandInfo info : processMap.values()) {
-            // stop process
-//System.out.println("Kill the process");
-            info.process.destroy();
-        }
-
-        for (CommandInfo info : threadMap.values()) {
-            // stop thread
-//System.out.println("Kill the thread");
-            // doesn't matter if alive or not
-            info.execThread.shutItDown();
-        }
-    }
-
-
-    /**
-     *
-     * @param id
-     */
-    private void stop(int id) {
-        CommandInfo info = processMap.get(id);
-        if (info == null) {
-            info = threadMap.get(id);
-        }
-        if (info == null) {
-            // process/thread already stopped
-//System.out.println("No thread or process for that id");
-            return;
-        }
-
-        // stop process
-        if (info.isProcess) {
-//System.out.println("Kill the process " + info.process);
-            info.process.destroy();
-        }
-        // stop thread
-        else {
-//System.out.println("Kill the thread");
-            // doesn't matter if alive or not
-            info.execThread.shutItDown();
-        }
-
-    }
-
-    private cMsgMessage createReturnMessage(InfoType type) {
-        try {
-            cMsgMessage msg = new cMsgMessage();
-            msg.setHistoryLengthMax(0);
-            msg.setType(name);
-            msg.setSubject(type.getValue());
-            return msg;
-        }
-        catch (cMsgException e) {/* never happen */}
-        return null;
-    }
 
 
     /**
