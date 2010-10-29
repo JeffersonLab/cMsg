@@ -13,8 +13,6 @@ public enum CommandType {
     STOP          ("stop"),           // stop thread or process that Executor started
     STOP_ALL      ("stop_all"),       // stop all threads and processes that Executor started
     DIE           ("die"),            // Executor must kill itself
-    JOBS          ("jobs"),           // Executor must send a list of all currently
-                                      // running jobs (processes and threads)
     IDENTIFY      ("identify");       // Executor must send id information
 
     private String value;

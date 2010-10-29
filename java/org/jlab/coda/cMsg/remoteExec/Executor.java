@@ -155,19 +155,6 @@ public class Executor {
 
 
     /**
-     * Send a status message to a specified Commander.
-     * @param commander Commander to send status message to.
-     * @throws cMsgException if cmsg connection broken
-     */
-    private void sendStatusTo(String commander) throws cMsgException {
-        // This msg only goes to the Commander specified in the arg.
-        // That may be ".all" which goes to all commanders.
-        statusMsg.setSubject(commander);
-        cmsgConnection.send(statusMsg);
-    }
-
-
-    /**
      * This class attempts to keep this cmsg client connected to a server
      * by checking the connection every second and reconnecting if necessary.
      */
@@ -405,6 +392,19 @@ System.out.println("commandtype = " + commandType);
                 System.out.println("Reject message, no payload");
             }
         }
+    }
+
+
+    /**
+     * Send a status message to a specified Commander.
+     * @param commander Commander to send status message to.
+     * @throws cMsgException if cmsg connection broken
+     */
+    private void sendStatusTo(String commander) throws cMsgException {
+        // This msg only goes to the Commander specified in the arg.
+        // That may be ".all" which goes to all commanders.
+        statusMsg.setSubject(commander);
+        cmsgConnection.send(statusMsg);
     }
 
 
