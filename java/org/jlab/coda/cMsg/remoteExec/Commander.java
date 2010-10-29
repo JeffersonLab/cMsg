@@ -235,13 +235,23 @@ public class Commander {
                         // executor responding to "identify" command
                         case REPORTING:
                             String name = null, os = null, machine = null,
-                                   release = null, processor = null;
+                                   release = null, processor = null, host = null;
 
                             // name of responding executor
                             item = msg.getPayloadItem("name");
                             if (item != null) {
                                 name = item.getString();
                                 if (name == null) {
+                                    System.out.println("Reject message, bad format");
+                                    return;
+                                }
+                            }
+
+                            // host of responding executor
+                            item = msg.getPayloadItem("host");
+                            if (item != null) {
+                                host = item.getString();
+                                if (host == null) {
                                     System.out.println("Reject message, bad format");
                                     return;
                                 }
@@ -288,7 +298,7 @@ public class Commander {
                             }
 
                             // looks like we have a valid response, store it
-                            ExecutorInfo eInfo = new ExecutorInfo(name, os, machine, processor, release);
+                            ExecutorInfo eInfo = new ExecutorInfo(name, host, os, machine, processor, release);
                             executors.put(name, eInfo);
                             break;
                     }

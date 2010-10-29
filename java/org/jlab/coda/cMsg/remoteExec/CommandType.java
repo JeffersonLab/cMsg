@@ -1,22 +1,21 @@
 package org.jlab.coda.cMsg.remoteExec;
 
 /**
- * Commands that can be sent to Executor.
+ * This enumerates the commands that can be sent to Executor.
  *
  * @author timmer
  * Date: Oct 8, 2010
  */
 public enum CommandType {
     
-    START_THREAD  ("start_thread"),        // Executor must start a thread in its own JVM
-    START_PROCESS ("start_process"),       // Executor must start an external process
-    START_SERIALIZED ("start_serialized"), // Executor must start a thread in its own JVM by
-                                           // constructing a serialized object sent to it which
-                                           // implements the IExecutorThread interface.
-    STOP          ("stop"),                // stop thread or process that Executor started
-    STOP_ALL      ("stop_all"),            // stop all threads and processes that Executor started
-    DIE           ("die"),                 // Executor must kill itself
-    IDENTIFY      ("identify");            // Executor must send id information
+    START_THREAD  ("start_thread"),   // Executor must start a thread in its own JVM
+    START_PROCESS ("start_process"),  // Executor must start an external process
+    STOP          ("stop"),           // stop thread or process that Executor started
+    STOP_ALL      ("stop_all"),       // stop all threads and processes that Executor started
+    DIE           ("die"),            // Executor must kill itself
+    JOBS          ("jobs"),           // Executor must send a list of all currently
+                                      // running jobs (processes and threads)
+    IDENTIFY      ("identify");       // Executor must send id information
 
     private String value;
 
@@ -27,7 +26,7 @@ public enum CommandType {
     /**
      * Get the enum's value.
      *
-     * @return the value, e.g., "start" for a START
+     * @return the value, e.g., "stop" for a STOP
      */
     public String getValue() {
         return value;

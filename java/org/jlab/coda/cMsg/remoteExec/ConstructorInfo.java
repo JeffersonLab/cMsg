@@ -290,10 +290,14 @@ public class ConstructorInfo {
         int mIndex = 0;
 
         for (ConstructorArg arg : argList) {
+            // class of each arg
             classes[cIndex]  = arg.className;
+            
+            // type of each arg
             argTypes[cIndex] = arg.type.getValue();
             cIndex++;
 
+            // value of each arg
             if (arg.isPrimitive) {
                 if (arg.strValue != null) {
                     stringArgs[sIndex++] = arg.strValue;

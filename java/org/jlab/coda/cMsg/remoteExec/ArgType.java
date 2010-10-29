@@ -1,16 +1,17 @@
 package org.jlab.coda.cMsg.remoteExec;
 
 /**
+ * This enumerates the different types of a constructor's arguments.
  * @author timmer
  * Date: Oct 26, 2010
  */
 public enum ArgType {
 
-    PRIMITIVE      (1), // Object constructed for primitive (except char) type arg, takes String as arg to constructor
-    PRIMITIVE_CHAR (2), // Object constructed for char, takes char value as arg to constructor
-    REFERENCE      (3), // Object constructed for reference type takes a custom number and type of args to constructor
-    REFERENCE_NOARG(4), // Object constructed for reference type uses no-arg constructor
-    NULL           (5); // Argument is null (nothing to construct)
+    PRIMITIVE      (1), // Arg = primitive (except char) type, takes String as arg to constructor
+    PRIMITIVE_CHAR (2), // Arg = char, takes char value as arg to constructor
+    REFERENCE      (3), // Arg = reference type which takes a custom number and type of args to construct
+    REFERENCE_NOARG(4), // Arg = reference type which uses no-arg constructor
+    NULL           (5); // Arg = null
 
     private int value;
 

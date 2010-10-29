@@ -83,16 +83,20 @@ public class Executor {
         this.udl = udl;
         this.password = password;
 
+        // Find out who we are.
+        String host = null;
+        try {
+            host = InetAddress.getLocalHost().getCanonicalHostName();
+        } catch (UnknownHostException e) {
+            throw new cMsgException("Cannot find our own hostname", e);
+        }
+
+        // By default give ourselves the host's name.
         if (name != null) {
             this.name = name;
         }
         else {
-            // Find out who we are. By default give ourselves the host's name.
-            try {
-                this.name = InetAddress.getLocalHost().getCanonicalHostName();
-            } catch (UnknownHostException e) {
-                throw new cMsgException("Cannot find our own hostname", e);
-            }
+            this.name = host;
         }
 
         // Run some uname commands to find out system information.
@@ -135,6 +139,8 @@ public class Executor {
                 statusMsg.addPayloadItem(item4);
                 cMsgPayloadItem item5 = new cMsgPayloadItem("release", release);
                 statusMsg.addPayloadItem(item5);
+                cMsgPayloadItem item6 = new cMsgPayloadItem("host", host);
+                statusMsg.addPayloadItem(item6);
             }
             catch (cMsgException e) {/* never happen */}
 

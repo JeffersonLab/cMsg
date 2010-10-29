@@ -1,16 +1,16 @@
 package org.jlab.coda.cMsg.remoteExec;
 
 /**
- * Information that can be sent from Executor to controlling cMsg app.
+ * This enumerates the type of information that can be sent from Executor to Commander.
  *
  * @author timmer
  * Date: Oct 12, 2010
  */
 public enum InfoType {
 
-    REPORTING   ("reporting"),   // send general Executor information
-    THREAD_END  ("thread_end"),  // send back notification of ended thread
-    PROCESS_END ("process_end"); // send back notification of ended process
+    REPORTING   ("reporting"),   // general Executor information
+    THREAD_END  ("thread_end"),  // notification of ended thread
+    PROCESS_END ("process_end"); // notification of ended process
 
     private String value;
 
@@ -21,7 +21,7 @@ public enum InfoType {
     /**
      * Get the enum's value.
      *
-     * @return the value, e.g., "error" for an ERROR.
+     * @return the value, e.g., "reporting" for an REPORTING.
      */
     public String getValue() {
         return value;
