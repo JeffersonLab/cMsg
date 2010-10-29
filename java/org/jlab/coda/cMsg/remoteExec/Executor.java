@@ -22,9 +22,6 @@ import java.lang.reflect.Constructor;
  */
 public class Executor {
 
-    public static final String allSubjectType = ".all";
-    public static final String remoteExecSubjectType = "cMsgRemoteExec";
-
     private SecretKey key;
 
     private AtomicInteger uniqueId = new AtomicInteger(1);
@@ -96,8 +93,8 @@ public class Executor {
             statusMsg = new cMsgMessage();
             statusMsg.setHistoryLengthMax(0);
             // This subject of this msg gets changed depending on who it's sent to.
-            statusMsg.setSubject(allSubjectType);
-            statusMsg.setType(remoteExecSubjectType);
+            statusMsg.setSubject(Commander.allSubjectType);
+            statusMsg.setType(Commander.remoteExecSubjectType);
 
             cMsgPayloadItem item0 = new cMsgPayloadItem("returnType", InfoType.REPORTING.getValue());
             statusMsg.addPayloadItem(item0);
@@ -146,16 +143,16 @@ System.out.println("Connect to server with name = " + name + ", udl = " + udl);
                         cmsgConnection.connect();
                         // add subscriptions
                         CommandCallback cb = new CommandCallback();
-System.out.println("Subscribe to sub = " + remoteExecSubjectType + ", typ = " + name);
-                        cmsgConnection.subscribe(remoteExecSubjectType, name,  cb, null);
-System.out.println("Subscribe to sub = " + remoteExecSubjectType + ", typ = " + allSubjectType);
-                        cmsgConnection.subscribe(remoteExecSubjectType, allSubjectType, cb, null);
+System.out.println("Subscribe to sub = " + Commander.remoteExecSubjectType + ", typ = " + name);
+                        cmsgConnection.subscribe(Commander.remoteExecSubjectType, name,  cb, null);
+System.out.println("Subscribe to sub = " + Commander.remoteExecSubjectType + ", typ = " + Commander.allSubjectType);
+                        cmsgConnection.subscribe(Commander.remoteExecSubjectType, Commander.allSubjectType, cb, null);
                         cmsgConnection.start();
                         connected = true;
 
                         // Send out a general message telling all commanders
                         // that there is a new executor running.
-                        sendStatusTo(allSubjectType);
+                        sendStatusTo(Commander.allSubjectType);
                     }
                     catch (cMsgException e) {
                         e.printStackTrace();
@@ -590,7 +587,7 @@ System.out.println("run -> " + info.command);
                 //----------------------------------------------------------------
                 cMsgMessage imDoneMsg = new cMsgMessage();
                 imDoneMsg.setSubject(info.commander);
-                imDoneMsg.setType(remoteExecSubjectType);
+                imDoneMsg.setType(Commander.remoteExecSubjectType);
                 cMsgPayloadItem item1 = new cMsgPayloadItem("returnType", InfoType.PROCESS_END.getValue());
                 imDoneMsg.addPayloadItem(item1);
                 cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);
@@ -944,7 +941,7 @@ System.out.println("Use null for arg #" + (i+1));
                 //----------------------------------------------------------------
                 cMsgMessage imDoneMsg = new cMsgMessage();
                 imDoneMsg.setSubject(info.commander);
-                imDoneMsg.setType(remoteExecSubjectType);
+                imDoneMsg.setType(Commander.remoteExecSubjectType);
                 cMsgPayloadItem item1 = new cMsgPayloadItem("returnType", InfoType.THREAD_END.getValue());
                 imDoneMsg.addPayloadItem(item1);
                 cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);

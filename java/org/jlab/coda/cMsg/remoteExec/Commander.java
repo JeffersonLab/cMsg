@@ -2,6 +2,7 @@ package org.jlab.coda.cMsg.remoteExec;
 
 import org.jlab.coda.cMsg.*;
 
+import javax.swing.text.Position;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -13,36 +14,57 @@ import java.io.InputStreamReader;
 import java.awt.*;
 
 /**
+ * This class in conjunction with an Executor running on a remote host,
+ * allow its user to run any command or java thread on that Executor.
+ *
  * @author timmer
  * Date: Oct 13, 2010
  */
 public class Commander {
+    /** cMsg message subject or type used in internal Commander/Executor communication. */
+    static final String allSubjectType = ".all";
+    /** cMsg message subject or type used in internal Commander/Executor communication. */
+    static final String remoteExecSubjectType = "cMsgRemoteExec";
 
-    public static final String allSubjectType = ".all";
-    public static final String remoteExecSubjectType = "cMsgRemoteExec";
-
+    /** UDL for connecting to cMsg server. */
     private String udl;
+    /** Client name for connecting to cMsg server. */
     private String myName;
+    /** Client description for connecting to cMsg server. */
     private String description;
-
-    private AtomicInteger uniqueId = new AtomicInteger(1);
+    /** Connection to cMsg server. */
     private cMsg cmsgConnection;
 
+    /**
+     * Used to generate unique id numbers in a thread-safe manner
+     * which are used to identify a startProcess or startThread action.
+     * This id is used to run any registered callbacks or to stop
+     * started processes and threads.
+     */
+    private AtomicInteger uniqueId = new AtomicInteger(1);
+
+    /** Map of all known Executors indexed by their name (also their hostname). */
     private ConcurrentHashMap<String, ExecutorInfo> executors =
             new ConcurrentHashMap<String, ExecutorInfo>();
 
+    /**
+     * Map of all returned objects from started processes and threads indexed
+     * by their id numbers. These objects can be used by the caller to check the
+     * status and output of a command or thread. They are also passed to callbacks
+     * and can be used to stop processes and threads.
+     */
     private ConcurrentHashMap<Integer, CommandReturn> cmdReturns =
             new ConcurrentHashMap<Integer, CommandReturn>();
 
 
     /**
-     * Create this object given all 3 parameters needed to make a connection to the
+     * Create this object given parameters needed to make a connection to the
      * cMsg server.
      *
-     * @param udl
-     * @param name
-     * @param description
-     * @throws cMsgException
+     * @param udl   UDL to connect to cMsg server.
+     * @param name  unique name used to connect to cMsg server.
+     * @param description description used to connect to cMsg server.
+     * @throws cMsgException if error connecting to cMsg server.
      */
     public Commander(String udl, String name, String description) throws cMsgException {
         connectToServer(udl, name, description);
@@ -67,10 +89,20 @@ public class Commander {
         return true;
     }
 
-
+    /**
+     * Connect to the specified cMsg server.
+     *
+     * @param udl   UDL to connect to cMsg server.
+     * @param name  unique name used to connect to cMsg server.
+     * @param description description used to connect to cMsg server.
+     * @throws cMsgException if cannot connect.
+     */
     public void connectToServer(String udl, String name, String description) throws cMsgException {
         if (cmsgConnection != null && cmsgConnection.isConnected()) {
-            cmsgConnection.disconnect();
+            try {
+                cmsgConnection.disconnect();
+            }
+            catch (cMsgException e) {/* ignore since it means we're disconneced anyway */}
         }
 
         cmsgConnection = new cMsg(udl, name, description);
@@ -84,6 +116,7 @@ public class Commander {
         System.out.println("Subscribe to sub = " + InfoType.REPORTING.getValue() + ", typ = " + remoteExecSubjectType);
         cmsgConnection.subscribe(myName, remoteExecSubjectType,
                                  new CommandResponseCallback(), null);
+
         // the only msg coming to allSubjectType is REPORTING info from new executors starting up
         cmsgConnection.subscribe(allSubjectType, remoteExecSubjectType,
                                  new CommandResponseCallback(), null);
@@ -91,6 +124,13 @@ public class Commander {
     }
 
 
+    /**
+     * Find all executors currently running. Replace existing list of executors
+     * with the new one.
+     *
+     * @param milliseconds number of milliseconds to wait for responses from executors.
+     * @throws cMsgException if not connected to cMsg server.
+     */
     public void findExecutors(int milliseconds) throws cMsgException {
         if (!cmsgConnection.isConnected()) {
             throw new cMsgException("not connect to cMsg server");
@@ -99,16 +139,18 @@ public class Commander {
         executors.clear();
 
         // tell executors out there to respond ...
-//System.out.println("findExecutors: send msg to sub = " + remoteExecSubjectType + ", typ = " + allType);
-        cMsgMessage msg = new cMsgMessage();
-        msg.setHistoryLengthMax(0);
-        msg.setSubject(remoteExecSubjectType);
-        msg.setType(allSubjectType);
-        cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.IDENTIFY.getValue());
-        msg.addPayloadItem(item1);
-        cMsgPayloadItem item2 = new cMsgPayloadItem("commander", myName);
-        msg.addPayloadItem(item2);
-        cmsgConnection.send(msg);
+        try {
+            cMsgMessage msg = new cMsgMessage();
+            msg.setHistoryLengthMax(0);
+            msg.setSubject(remoteExecSubjectType);
+            msg.setType(allSubjectType);
+            cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.IDENTIFY.getValue());
+            msg.addPayloadItem(item1);
+            cMsgPayloadItem item2 = new cMsgPayloadItem("commander", myName);
+            msg.addPayloadItem(item2);
+            cmsgConnection.send(msg);
+        }
+        catch (cMsgException e) {/*never happen*/}
 
         // wait for replies
         try { Thread.sleep(milliseconds); }
@@ -116,16 +158,20 @@ public class Commander {
     }
 
 
+    /**
+     * Get the list of known Executors.
+     * @return list of known Executors.
+     */
     public List<ExecutorInfo> getExecutors() {
         return new ArrayList<ExecutorInfo>(executors.values());
     }
 
 
     /**
-     * This class defines the callback to be run when a message
+     * This class defines the callback to be run when a cMsg message
      * containing a valid command arrives.
      */
-    class CommandResponseCallback extends cMsgCallbackAdapter {
+    private class CommandResponseCallback extends cMsgCallbackAdapter {
 
         public void callback(cMsgMessage msg, Object userObject) {
             // there must be a payload
@@ -134,7 +180,6 @@ public class Commander {
                 cMsgPayloadItem item;
 
                 try {
-
                     // name of return information type
                     item = msg.getPayloadItem("returnType");
                     String returnType = null;
@@ -152,7 +197,7 @@ public class Commander {
                     }
 
                     switch (type) {
-                        // process telling us it's done
+                        // executor process or thread telling us it's done
                         case THREAD_END:
                         case PROCESS_END:
                             item = msg.getPayloadItem("id");
@@ -265,9 +310,12 @@ public class Commander {
      * @param exec object specifying executor.
      * @param killProcesses <code>false</code> to leave spawned processes running,
      *                      else <code>true</code> to kill them too.
-     * @throws cMsgException
+     * @throws cMsgException if no connection to cMsg server or error sending message
      */
     public void kill(ExecutorInfo exec, boolean killProcesses) throws cMsgException {
+        if (!cmsgConnection.isConnected()) {
+            throw new cMsgException("not connect to cMsg server");
+        }
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
@@ -285,9 +333,12 @@ public class Commander {
      *
      * @param killProcesses <code>false</code> to leave spawned processes running,
      *                      else <code>true</code> to kill them too.
-     * @throws cMsgException
+     * @throws cMsgException if no connection to cMsg server or error sending message
      */
     public void killAll(boolean killProcesses) throws cMsgException {
+        if (!cmsgConnection.isConnected()) {
+            throw new cMsgException("not connect to cMsg server");
+        }
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
@@ -301,13 +352,30 @@ public class Commander {
 
 
     /**
+     * Stop the given process or thread on the specified executor.
      *
-     * @param exec
-     * @throws cMsgException
+     * @param exec object specifying executor.
+     * @param commandReturn object specifying process or thread to stop
+     * @throws cMsgException if no connection to cMsg server or error sending message
      */
-    public void stop(ExecutorInfo exec, int commanderId) throws cMsgException {
+    public void stop(ExecutorInfo exec, CommandReturn commandReturn) throws cMsgException {
+        stop(exec, commandReturn.getId());
+    }
+
+    /**
+     * Stop the given process or thread on the specified executor.
+     *
+     * @param exec object specifying executor.
+     * @param commandId id of process or thread to stop
+     * @throws cMsgException if no connection to cMsg server or error sending message
+     */
+    public void stop(ExecutorInfo exec, int commandId) throws cMsgException {
+        if (!cmsgConnection.isConnected()) {
+            throw new cMsgException("not connect to cMsg server");
+        }
+
         // use commander id to retrieve executor id (id meaningful to executor) and remove from storage
-        Integer execId = exec.removeCommanderId(commanderId);
+        Integer execId = exec.removeCommanderId(commandId);
         if (execId == null) {
             // no such id exists for this Executor since it was already terminated
             return;
@@ -325,12 +393,18 @@ public class Commander {
         cmsgConnection.send(msg);
     }
 
-    // todo: expand API to lookup using executor name instead of object
+
     /**
+     * Stop all processes and threads on the specified executor.
      *
-     * @throws cMsgException
+     * @param exec object specifying executor.
+     * @throws cMsgException if no connection to cMsg server or error sending message.
      */
     public void stopAll(ExecutorInfo exec) throws cMsgException {
+        if (!cmsgConnection.isConnected()) {
+            throw new cMsgException("not connect to cMsg server");
+        }
+
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
@@ -342,11 +416,16 @@ public class Commander {
         exec.clearIds();
     }
 
+
     /**
-     *
-     * @throws cMsgException
+     * Stop all processes and threads all executors.
+     * @throws cMsgException if no connection to cMsg server or error sending message.
      */
     public void stopAll() throws cMsgException {
+        if (!cmsgConnection.isConnected()) {
+            throw new cMsgException("not connect to cMsg server");
+        }
+
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
@@ -378,43 +457,57 @@ public class Commander {
      * output blocks for some reason so no monitoring of it.
      *
      * @param exec Executor to start process with.
-     * @param cmd command that Executor will run inside xterm. Can be null.
+     * @param cmd command that Executor will run inside xterm. May be null.
      * @param geometry geometry info in the form WxH+-X+-Y with W & H in chars, X & Y in pixels;
-     *                 for example 75x10+0+200 or 75x10-10-20. Can be null.
-     * @param title window title, can be null.
-     * @return object containing id number and any process output captured
+     *                 for example 75x10+0+200 or 75x10-10-20. May be null.
+     * @param title window title. May be null.
+     * @return object containing id number and any process output/error captured
      * @throws cMsgException if arg is null, cmsg communication fails or takes too long, or internal protocol error
      */
-    public CommandReturn startXtermProcess(ExecutorInfo exec, String cmd, String geometry, String title)
+    public CommandReturn startXterm(ExecutorInfo exec, String cmd, String geometry, String title)
             throws cMsgException, TimeoutException {
 
+        // xterm with scrollbar
         String realCmd = "xterm -sb ";
+
+        // window geometry
         if (geometry != null) {
             realCmd += " -geometry " + geometry;
         }
+
+        // window title
         if (title != null) {
             realCmd += " -T " + title;
         }
+
+        // cmd to run in xterm
         if (cmd != null && cmd.length() > 0) {
             realCmd += " -e " + cmd;
         }
+
         return startProcess(exec, realCmd, false, null, null);
     }
 
 
     /**
-     * This method is an asynchronous version of startProcess.
-     * It starts an external process using the specified executor.
-     * Does not wait for process to finish but runs callback when it does.
-     * Allows 2 seconds for initial, sendAndGet return message from executor
-     * before throwing exception.
+     * This method is an asynchronous means of starting an external process
+     * using the specified executor.
+     * It waits 0.3 seconds for process to finish. If the process has terminated,
+     * any output will be available in the returned object if monitor is true.
+     * Any error is available whether or not monitor is true. If terminated, the
+     * callback will <b>NOT</b> be run since the process/thread is no longer running.
+     * If the process does not terminate in that time, then the method returns
+     * and the callback is run when it does, passing userObject and the
+     * updated CommandReturn object to the callback as arguments.
+     * Allows 2 seconds for initial return message from executor before throwing
+     * an exception.
      *
      * @param exec Executor to start process with.
      * @param cmd command that Executor will run.
      * @param monitor <code>true</code> if output of the command should be captured and returned,
      *                else <code>false</code>.
      * @param callback callback to be run when process ends.
-     * @param userObject argument to be passed to callback.
+     * @param userObject object to be passed to callback as argument.
      * @return object containing id number and any process output captured
      * @throws cMsgException if arg is null, cmsg sendAndGet communication fails or takes too long,
      *                       or internal protocol error
@@ -433,12 +526,13 @@ public class Commander {
 
 
     /**
-     * This method is a synchronous version of startProcess.
-     * It starts an external process using the specified executor
-     * and waits for it to finish. All status information is available
-     * in the returned object. If the timeout exception is thrown,
-     * the caller will no longer be able to see any results from the
-     * process.
+     * This method is a synchronous means of starting an external process
+     * using the specified executor and waiting for it to finish.
+     * All status information is available in the returned object.
+     * If there is an error, it will be available in the returned object
+     * whether or not monitor is true.
+     * If the timeout exception is thrown, the caller will no longer be
+     * able to see any results from the process.
      *
      * @param exec Executor to start process with.
      * @param cmd command that Executor will run.
@@ -448,7 +542,7 @@ public class Commander {
      *                0 means wait forever.
      * @return object containing id number and any process output captured
      * @throws cMsgException if arg is null, cmsg communication fails, or internal protocol error
-     * @throws TimeoutException if cmsg sendAndGet communication times out
+     * @throws TimeoutException if process/thread return time exceeds timeout time.
      */
     public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, int timeout)
             throws cMsgException, TimeoutException {
@@ -469,12 +563,12 @@ public class Commander {
      * @param wait <code>true</code> if executor waits for the process to complete before responding,
      *             else <code>false</code>.
      * @param callback callback to be run when process ends.
-     * @param userObject argument to be passed to callback.
+     * @param userObject object to be passed to callback as argument.
      * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
      *                0 means wait forever.
      * @return object containing id number and any process output captured
      * @throws cMsgException if arg is null, cmsg communication fails, or internal protocol error
-     * @throws TimeoutException cmsg sendAndGet communication times out
+     * @throws TimeoutException if process/thread return time exceeds timeout time.
      */
     CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, boolean wait,
                                ProcessCallback callback, Object userObject, int timeout)
@@ -563,21 +657,21 @@ public class Commander {
 
 
     /**
-     * This method is an asynchronous version of startThread.
-     * It starts an internal thread in the specified executor and immediately returns.
-     * It runs callback when the thread finishes passing userObject and the
-     * CommandReturn object to it as arguments.
-     * Allows 2 seconds for initial, sendAndGet return message from executor
+     * This method is an asynchronous means of starting an internal thread
+     * in the specified executor and immediately returns.
+     * It runs callback when the thread finishes, passing userObject and the
+     * updated CommandReturn object to it as arguments.
+     * Allows 2 seconds for initial return message from executor
      * before throwing exception.
      *
      * @param exec Executor to start thread in.
      * @param className name of java class to instantiate and run as thread in executor.
      * @param callback callback to be run when thread ends.
-     * @param userObject argument to be passed to callback.
+     * @param userObject object to be passed to callback.
      * @param constructorArgs object containing className constructor's arguments.
      *                        May be null.
      * @return object containing executor id number and any error output
-     * @throws cMsgException if cmsg sendAndGet communication fails or takes too long,
+     * @throws cMsgException if cmsg communication fails or takes too long,
      *                       or internal protocol error
      */
     CommandReturn startThread(ExecutorInfo exec, String className,
@@ -595,12 +689,11 @@ public class Commander {
 
 
     /**
-     * This method is a synchronous version of startThread.
-     * It starts an internal thread in the specified executor
-     * and waits for it to finish. All status information is available
-     * in the returned object. If the timeout exception is thrown,
-     * the caller will no longer be able to see any results from the
-     * thread.
+     * This method is a synchronous means of starting an internal thread
+     * in the specified executor and waiting for it to finish.
+     * All status information is available in the returned object.
+     * If the timeout exception is thrown, the caller will no longer
+     * be able to see any results from the thread.
      *
      * @param exec Executor to start thread in.
      * @param className name of java class to instantiate and run as thread in executor.
@@ -610,7 +703,7 @@ public class Commander {
      *                        May be null.
      * @return object containing executor id number and any error output
      * @throws cMsgException if cmsg communication fails or internal protocol error
-     * @throws TimeoutException if cmsg sendAndGet communication times out
+     * @throws TimeoutException if cmsg communication times out
      */
     public CommandReturn startThread(ExecutorInfo exec, String className, int timeout,
                                      ConstructorInfo constructorArgs)
@@ -629,14 +722,14 @@ public class Commander {
      * @param wait <code>true</code> if executor waits for the process to complete before responding,
      *             else <code>false</code>.
      * @param callback callback to be run when process ends.
-     * @param userObject argument to be passed to callback.
+     * @param userObject object to be passed to callback.
      * @param timeout milliseconds to wait for reply (coming via asynchronous messaging system),
      *                0 means wait forever.
      * @param constructorArgs object containing className constructor's arguments.
      *                        May be null.
      * @return object containing executor id number and any error output
      * @throws cMsgException if args null, cmsg communication fails, or internal protocol error
-     * @throws TimeoutException if cmsg sendAndGet communication times out
+     * @throws TimeoutException if cmsg communication times out
      */
     CommandReturn startThread(ExecutorInfo exec, String className, boolean wait,
                               ProcessCallback callback, Object userObject, int timeout,
@@ -723,6 +816,11 @@ public class Commander {
 //        return 0;
 //    }
 
+    /**
+     * Method to get a line of keyboard input.
+     * @param s prompt to display
+     * @return line of keyboard input
+     */
     private static String inputStr(String s) {
         String aLine = "";
         BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
@@ -736,6 +834,7 @@ public class Commander {
         }
         return aLine;
     }
+
 
     /**
      * Method to decode the command line used to start this application.
@@ -761,22 +860,19 @@ public class Commander {
 
 
     /**
-     * Example method of how to make a bunch of identical xterm windows fill the screen.
+     * This method calculates the geometry specification of a given number of
+     * identical xterm windows on the local display screen in a conveniently
+     * packed manner.
+     * The output is list of strings in the format WxH+X+Y, which can be used
+     * directly in the command to start up an xterm.
      *
-     * @param exec Executor to use.
-     * @param cmdr Commander to use.
-     * @param count number of windows to make.
+     * @param count number of xterms.
      * @param widthChars width of each xterm in characters.
      * @param heightChars number of lines in each xterm.
-     *
-     * @return list of CommandReturn objects.
-     *
-     * @throws cMsgException
-     * @throws TimeoutException
+     * @return list of strings in WxH+X+Y format specifying geometry of each xterm
+     *         to be displayed.
      */
-    public List<CommandReturn> startWindows(ExecutorInfo exec, Commander cmdr,
-                                            int count, int widthChars, int heightChars)
-            throws cMsgException, TimeoutException {
+    static public List<String> xtermGeometry(int count, int widthChars, int heightChars) {
 
         // Get info about our display.
         Rectangle rec = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
@@ -801,19 +897,14 @@ public class Commander {
         boolean stillRoomY = true, stillRoomX = true;
 
         String geo;
-        String title = "hey";
         String geoSize = widthChars+"x"+heightChars;
-        LinkedList<CommandReturn> returnList = new LinkedList<CommandReturn>();
+        ArrayList<String> geoList = new ArrayList<String>(count);
 
-        // Make some windows
         while (stillRoomY || stillRoomX) {
             geo = geoSize + "+" + startX + "+" + startY;
+            geoList.add(geo);
             startY += xtermHeight;
 
-            // create xterm and add return object to list
-            returnList.add(cmdr.startXtermProcess(exec, null, geo, title));
-
-            // Reached our count.
             if (--count < 1) {
                 break;
             }
@@ -841,10 +932,41 @@ public class Commander {
             }
         }
 
+        return geoList;
+    }
+
+    /**
+     * This method is example of how to make a bunch of identical xterm windows
+     * fill the screen in a conveniently packed manner.
+     *
+     * @param exec Executor to use.
+     * @param cmdr Commander to use.
+     * @param count number of windows to make.
+     * @param widthChars width of each xterm in characters.
+     * @param heightChars number of lines in each xterm.
+     *
+     * @return list of CommandReturn objects.
+     *
+     * @throws cMsgException
+     * @throws TimeoutException
+     */
+    public List<CommandReturn> startWindows(ExecutorInfo exec, Commander cmdr, String title,
+                                            int count, int widthChars, int heightChars)
+            throws cMsgException, TimeoutException {
+
+        List<String> geometries = xtermGeometry(count, widthChars, heightChars);
+        ArrayList<CommandReturn> returnList = new ArrayList<CommandReturn>(geometries.size());
+        for (String geo : geometries) {
+            // create xterm and add return object to list
+            returnList.add(cmdr.startXterm(exec, null, geo, title));
+        }
+
         return returnList;
     }
 
-    public static void main2(String[] args) {
+
+
+    public static void main(String[] args) {
 
         try {
             String[] arggs = decodeCommandLine(args);
@@ -856,9 +978,11 @@ public class Commander {
             }
 
             if (execList.size() > 0) {
-                List<CommandReturn> retList = cmdr.startWindows(execList.get(0), cmdr, 20, 85, 8);
+                List<CommandReturn> retList = cmdr.startWindows(execList.get(0), cmdr,
+                                                                execList.get(0).getName(),
+                                                                20, 85, 8);
                 for (CommandReturn ret : retList) {
-                    cmdr.stop(execList.get(0), ret.getId());
+                    cmdr.stop(execList.get(0), ret);
                     try {Thread.sleep(200);}
                     catch (InterruptedException e) {}
                 }
@@ -923,7 +1047,7 @@ System.out.println("Return = " + ret);
                     //}
 
                     //cmdr.stopAll(execList.get(0));
-                    cmdr.stop(execList.get(0), ret.getId());
+                    cmdr.stop(execList.get(0), ret);
 
                 }
 
@@ -942,7 +1066,7 @@ System.out.println("Return = " + ret);
     /**
      * Run as a stand-alone application
      */
-    public static void main(String[] args) {
+    public static void main3(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
@@ -991,7 +1115,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                 catch (InterruptedException e) {}
                 //}
 
-                cmdr.stop(execList.get(0), ret.getId());
+                cmdr.stop(execList.get(0), ret);
             }
         }
         catch (cMsgException e) {
