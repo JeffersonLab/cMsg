@@ -24,8 +24,6 @@ public class Executor {
 
     /** Password needed to be sent by Commander for any process or thread to be run here. */
     private String password;
-    /** Key needed to decrypt incoming password. */
-    private SecretKey key;
 
     /**
      * Used to generate unique id numbers in a thread-safe manner
@@ -73,13 +71,11 @@ public class Executor {
      * Constructor. If name arg is null, local hostname becomes our cmsg client name.
      *
      * @param password password needed to be sent by Commander for any process or thread to be run here.
-     * @param key key needed to decrypt incoming password.
      * @param udl UDL for connecting to cMsg server.
      * @param name client name for connecting to cMsg server.
      * @throws cMsgException if cannot find our hostname or host platform information
      */
-    public Executor(String password, SecretKey key, String udl, String name) throws cMsgException {
-        this.key = key;
+    public Executor(String password, String udl, String name) throws cMsgException {
         this.udl = udl;
         this.password = password;
 
@@ -217,8 +213,8 @@ public class Executor {
                 try {
                     item = msg.getPayloadItem("password");
                     if (item != null) {
-                        passwd = item.getString();
                         // decrypt password here
+                        passwd = ExecutorSecurity.decrypt(item.getString());
                     }
 
                     // check password if required
@@ -556,11 +552,11 @@ System.out.println("startProcess: io error gathering error output");
             //----------------------------------------------------------------
             Process process;
             try {
-System.out.println("run -> " + info.command);
+//System.out.println("run -> " + info.command);
                 process = Runtime.getRuntime().exec(info.command);
                 // Allow process a chance to run before testing if its terminated.
                 Thread.yield();
-                try {Thread.sleep(300);}
+                try {Thread.sleep(100);}
                 catch (InterruptedException e) {}
             }
             catch (Exception e) {
@@ -1062,7 +1058,7 @@ System.out.println("run -> " + info.command);
             String[] arggs = decodeCommandLine(args);
             System.out.println("Starting Executor with:\n  password = " + arggs[0] +
                                "\n  name = " + arggs[2] + "\n  udl = " + arggs[1]);
-            new Executor(arggs[0], null, arggs[1], arggs[2]);
+            new Executor(arggs[0], arggs[1], arggs[2]);
             while(true) {
                 try {
                     Thread.sleep(2000);

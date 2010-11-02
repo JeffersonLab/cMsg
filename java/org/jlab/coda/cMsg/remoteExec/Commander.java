@@ -2,13 +2,11 @@ package org.jlab.coda.cMsg.remoteExec;
 
 import org.jlab.coda.cMsg.*;
 
-import javax.swing.text.Position;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.LinkedList;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.awt.*;
@@ -34,6 +32,9 @@ public class Commander {
     private String description;
     /** Connection to cMsg server. */
     private cMsg cmsgConnection;
+
+    /** Password needed to talk to Executor. */
+    private String password;
 
     /**
      * Used to generate unique id numbers in a thread-safe manner
@@ -66,7 +67,8 @@ public class Commander {
      * @param description description used to connect to cMsg server.
      * @throws cMsgException if error connecting to cMsg server.
      */
-    public Commander(String udl, String name, String description) throws cMsgException {
+    public Commander(String udl, String name, String description, String password) throws cMsgException {
+        this.password = ExecutorSecurity.encrypt(password);
         connectToServer(udl, name, description);
         // once we're connected, see who's out there ...
         findExecutors(500);
@@ -144,9 +146,11 @@ public class Commander {
             msg.setHistoryLengthMax(0);
             msg.setSubject(remoteExecSubjectType);
             msg.setType(allSubjectType);
+            cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
             cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.IDENTIFY.getValue());
-            msg.addPayloadItem(item1);
             cMsgPayloadItem item2 = new cMsgPayloadItem("commander", myName);
+            msg.addPayloadItem(item0);
+            msg.addPayloadItem(item1);
             msg.addPayloadItem(item2);
             cmsgConnection.send(msg);
         }
@@ -330,8 +334,10 @@ public class Commander {
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(exec.getName());
+        cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
         cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.DIE.getValue());
         cMsgPayloadItem item2 = new cMsgPayloadItem("killProcesses", killProcesses ? 1 : 0);
+        msg.addPayloadItem(item0);
         msg.addPayloadItem(item1);
         msg.addPayloadItem(item2);
         cmsgConnection.send(msg);
@@ -353,8 +359,10 @@ public class Commander {
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(allSubjectType);
+        cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
         cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.DIE.getValue());
         cMsgPayloadItem item2 = new cMsgPayloadItem("killProcesses", killProcesses ? 1 : 0);
+        msg.addPayloadItem(item0);
         msg.addPayloadItem(item1);
         msg.addPayloadItem(item2);
         cmsgConnection.send(msg);
@@ -395,9 +403,11 @@ public class Commander {
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(exec.getName());
+        cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
         cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.STOP.getValue());
-        msg.addPayloadItem(item1);
         cMsgPayloadItem item2 = new cMsgPayloadItem("id", execId);
+        msg.addPayloadItem(item0);
+        msg.addPayloadItem(item1);
         msg.addPayloadItem(item2);
 
         cmsgConnection.send(msg);
@@ -419,7 +429,9 @@ public class Commander {
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(exec.getName());
+        cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
         cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.STOP_ALL.getValue());
+        msg.addPayloadItem(item0);
         msg.addPayloadItem(item1);
         cmsgConnection.send(msg);
         // no threads or processes will be running after this command
@@ -440,7 +452,9 @@ public class Commander {
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(allSubjectType);
+        cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
         cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.STOP_ALL.getValue());
+        msg.addPayloadItem(item0);
         msg.addPayloadItem(item1);
         cmsgConnection.send(msg);
         for (ExecutorInfo exec : executors.values()) {
@@ -451,7 +465,7 @@ public class Commander {
 
     /**
      * Cancel a callback previously registered by calling
-     * {@link #startProcess(ExecutorInfo, String, boolean, ProcessCallback, Object)}.
+     * {@link #startProcess(ExecutorInfo, String, boolean, CommandCallback , Object)}.
      *
      * @param commandReturn object associated with callback.
      */
@@ -502,13 +516,13 @@ public class Commander {
     /**
      * This method is an asynchronous means of starting an external process
      * using the specified executor.
-     * It waits 0.3 seconds for process to finish. If the process has terminated,
-     * any output will be available in the returned object if monitor is true.
-     * Any error is available whether or not monitor is true. If terminated, the
-     * callback will <b>NOT</b> be run since the process/thread is no longer running.
-     * If the process does not terminate in that time, then the method returns
-     * and the callback is run when it does, passing userObject and the
-     * updated CommandReturn object to the callback as arguments.
+     * The executor waits 0.1 seconds for process to finish. If the process has terminated,
+     * any output will be immediately available in the returned object if monitor is true.
+     * Any error is available whether or not monitor is true.
+     * If the process does not terminate in that time, then the returned object
+     * will not contain that information yet, but will when it terminates.
+     * In either case, the callback is run when the process terminates, passing userObject
+     * and the updated CommandReturn object to the callback as arguments.
      * Allows 2 seconds for initial return message from executor before throwing
      * an exception.
      *
@@ -523,7 +537,7 @@ public class Commander {
      *                       or internal protocol error
      */
     public CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor,
-                                      ProcessCallback callback, Object userObject)
+                                      CommandCallback callback, Object userObject)
             throws cMsgException {
 
         try {
@@ -581,7 +595,7 @@ public class Commander {
      * @throws TimeoutException if process/thread return time exceeds timeout time.
      */
     CommandReturn startProcess(ExecutorInfo exec, String cmd, boolean monitor, boolean wait,
-                               ProcessCallback callback, Object userObject, int timeout)
+                               CommandCallback callback, Object userObject, int timeout)
             throws cMsgException, TimeoutException {
 
         if (exec == null || cmd == null) {
@@ -590,12 +604,21 @@ public class Commander {
 
         int myId = uniqueId.incrementAndGet();
 
+        CommandReturn cmdRet = new CommandReturn();
+        // register callback for execution on process termination
+        if (callback != null) {
+            cmdRet.registerCallback(callback, userObject);
+            cmdReturns.put(myId, cmdRet);
+        }
+
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(exec.getName());
 
         try {
+            cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
+            msg.addPayloadItem(item0);
             cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.START_PROCESS.getValue());
             msg.addPayloadItem(item1);
             cMsgPayloadItem item2 = new cMsgPayloadItem("command", cmd);
@@ -651,13 +674,7 @@ public class Commander {
                 }
             }
 
-            CommandReturn cmdRet = new CommandReturn(myId, processId, (err != null), terminated, output, err);
-            // register callback for execution on process termination
-            if (!terminated && callback != null) {
-                cmdRet.registerCallback(callback, userObject);
-                cmdReturns.put(myId, cmdRet);
-            }
-
+            cmdRet.setValues(myId, processId, (err != null), terminated, output, err);
             return cmdRet;
         }
         else {
@@ -685,7 +702,7 @@ public class Commander {
      *                       or internal protocol error
      */
     CommandReturn startThread(ExecutorInfo exec, String className,
-                              ProcessCallback callback, Object userObject,
+                              CommandCallback callback, Object userObject,
                               ConstructorInfo constructorArgs)
             throws cMsgException {
 
@@ -742,7 +759,7 @@ public class Commander {
      * @throws TimeoutException if cmsg communication times out
      */
     CommandReturn startThread(ExecutorInfo exec, String className, boolean wait,
-                              ProcessCallback callback, Object userObject, int timeout,
+                              CommandCallback callback, Object userObject, int timeout,
                               ConstructorInfo constructorArgs)
             throws cMsgException, TimeoutException {
 
@@ -752,12 +769,21 @@ public class Commander {
 
         int myId = uniqueId.incrementAndGet();
 
+        CommandReturn cmdRet = new CommandReturn();
+        // register callback for execution on process termination
+        if (callback != null) {
+            cmdRet.registerCallback(callback, userObject);
+            cmdReturns.put(myId, cmdRet);
+        }
+
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(exec.getName());
 
         try {
+            cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
+            msg.addPayloadItem(item0);
             cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.START_THREAD.getValue());
             msg.addPayloadItem(item1);
             cMsgPayloadItem item2 = new cMsgPayloadItem("className", className);
@@ -808,13 +834,7 @@ public class Commander {
                 exec.addCommanderId(myId, threadId);
             }
 
-            CommandReturn cmdRet = new CommandReturn(myId, threadId, false, false, null, null);
-            // register callback for execution on process termination
-            if (!terminated && callback != null) {
-                cmdRet.registerCallback(callback, userObject);
-                cmdReturns.put(myId, cmdRet);
-            }
-
+            cmdRet.setValues(myId, threadId, false, false, null, null);
             return cmdRet;
         }
         else {
@@ -822,9 +842,6 @@ public class Commander {
         }
     }
 
-//    public int startSerializedThread(String className) throws cMsgException {
-//        return 0;
-//    }
 
     /**
      * Method to get a line of keyboard input.
@@ -851,7 +868,7 @@ public class Commander {
      * @param args command line arguments
      */
     private static String[] decodeCommandLine(String[] args) {
-        String[] stuff = new String[2];
+        String[] stuff = new String[3];
 
         // loop over all args
         for (int i = 0; i < args.length; i++) {
@@ -861,6 +878,10 @@ public class Commander {
             }
             else if (args[i].equalsIgnoreCase("-u")) {
                 stuff[0]= args[i + 1];   // udl
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-p")) {
+                stuff[2]= args[i + 1];   // password
                 i++;
             }
         }
@@ -981,7 +1002,7 @@ public class Commander {
         try {
             String[] arggs = decodeCommandLine(args);
  System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
-            Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
+            Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
             List<ExecutorInfo> execList = cmdr.getExecutors();
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
@@ -1015,14 +1036,14 @@ public class Commander {
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
-            Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
+            Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
             List<ExecutorInfo> execList = cmdr.getExecutors();
             System.out.println("execList =  "+ execList);
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
 
-            class myCB implements ProcessCallback {
+            class myCB implements CommandCallback {
                 public void callback(Object userObject, CommandReturn commandReturn) {
                     System.out.println("In callback, process output = \n" + commandReturn.getOutput());
                     System.out.println("               error output = \n" + commandReturn.getError());
@@ -1080,14 +1101,14 @@ System.out.println("Return = " + ret);
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
-            Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
+            Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
             List<ExecutorInfo> execList = cmdr.getExecutors();
             System.out.println("execList =  "+ execList);
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
 
-            class myCB implements ProcessCallback {
+            class myCB implements CommandCallback {
                 public void callback(Object userObject, CommandReturn commandReturn) {
                     System.out.println("In callback, process output = \n" + commandReturn.getOutput());
                     System.out.println("               error output = \n" + commandReturn.getError());
@@ -1141,7 +1162,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
-            Commander cmdr = new Commander(arggs[0], arggs[1], "commander");
+            Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
             //cmdr.findExecutors();   // already done in constructor
             List<ExecutorInfo> execList = cmdr.getExecutors();
             System.out.println("execList =  "+ execList);
@@ -1162,7 +1183,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
 //
 //            }
 
-            class myCB implements ProcessCallback {
+            class myCB implements CommandCallback {
                 public void callback(Object userObject, CommandReturn commandReturn) {
                     System.out.println("In callback, process output = \n" + commandReturn.getOutput());
                     System.out.println("               error output = \n" + commandReturn.getError());

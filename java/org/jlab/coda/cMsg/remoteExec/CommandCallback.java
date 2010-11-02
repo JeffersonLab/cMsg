@@ -6,7 +6,7 @@ package org.jlab.coda.cMsg.remoteExec;
  * @author timmer
  * Date: Oct 20, 2010
  */
-public interface ProcessCallback {
+public interface CommandCallback {
     /**
      * Callback method definition.
      *
