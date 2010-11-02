@@ -516,13 +516,17 @@ public class Commander {
     /**
      * This method is an asynchronous means of starting an external process
      * using the specified executor.
-     * The executor waits 0.1 seconds for process to finish. If the process has terminated,
+     * The executor waits 0.1 seconds for the process to finish. If the process has terminated,
      * any output will be immediately available in the returned object if monitor is true.
-     * Any error is available whether or not monitor is true.
      * If the process does not terminate in that time, then the returned object
      * will not contain that information yet, but will when it terminates.
      * In either case, the callback is run when the process terminates, passing userObject
      * and the updated CommandReturn object to the callback as arguments.
+     * If an error starting the process occurs, it is returned immediately
+     * (0.1 sec after process started), is visible in the returned object,
+     * and the callback is <b>NOT</b> run. All other errors will be available
+     * in the returned object as well when the process terminates.
+     * All errors can be seen whether or not monitor is true.
      * Allows 2 seconds for initial return message from executor before throwing
      * an exception.
      *
@@ -553,8 +557,7 @@ public class Commander {
      * This method is a synchronous means of starting an external process
      * using the specified executor and waiting for it to finish.
      * All status information is available in the returned object.
-     * If there is an error, it will be available in the returned object
-     * whether or not monitor is true.
+     * All errors can be seen whether or not monitor is true.
      * If the timeout exception is thrown, the caller will no longer be
      * able to see any results from the process.
      *
@@ -577,8 +580,11 @@ public class Commander {
 
     /**
      * Start an external process using the specified executor.
-     * If there is an error, it will be available in the returned object
-     * (whether or not monitor is true).
+     * If an error starting the process occurs, it is returned immediately
+     * (0.1 sec after process started), is visible in the returned object,
+     * and the callback is <b>NOT</b> run. All other errors will be available
+     * in the returned object as well when the process terminates.
+     * All errors can be seen whether or not monitor is true.
      *
      * @param exec Executor to start process with.
      * @param cmd command that Executor will run.
@@ -690,6 +696,8 @@ public class Commander {
      * updated CommandReturn object to it as arguments.
      * Allows 2 seconds for initial return message from executor
      * before throwing exception.
+     * If an error starting the thread occurs, it is returned immediately,
+     * is visible in the returned object and the callback is <b>NOT</b> run.
      *
      * @param exec Executor to start thread in.
      * @param className name of java class to instantiate and run as thread in executor.
@@ -721,6 +729,8 @@ public class Commander {
      * All status information is available in the returned object.
      * If the timeout exception is thrown, the caller will no longer
      * be able to see any results from the thread.
+     * If an error starting the thread occurs, it is returned immediately,
+     * and is visible in the returned object.
      *
      * @param exec Executor to start thread in.
      * @param className name of java class to instantiate and run as thread in executor.
@@ -743,6 +753,8 @@ public class Commander {
      * Starts an internal thread in the specified executor and immediately
      * returns. Allows 2 seconds for sendAndGet return message from executor
      * before throwing exception.
+     * If an error starting the thread occurs, it is returned immediately,
+     * is visible in the returned object and the callback is <b>NOT</b> run.
      *
      * @param exec Executor to start thread in.
      * @param className name of java class to instantiate and run as thread in executor.

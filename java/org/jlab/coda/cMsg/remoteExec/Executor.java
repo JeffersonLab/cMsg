@@ -586,6 +586,7 @@ System.out.println("startProcess: io error gathering error output");
             // If commander NOT waiting for process to finish,
             // send return message at once.
             //----------------------------------------------------------------
+            int id = 0;
             if (!info.wait) {
                 try {
                     // Grab any output available if process already terminated.
@@ -597,7 +598,7 @@ System.out.println("startProcess: io error gathering error output");
                     }
                     // Store Process id/object so Commander can terminate it later.
                     else {
-                        int id = uniqueId.incrementAndGet();
+                        id = uniqueId.incrementAndGet();
                         try {
                             cMsgPayloadItem item = new cMsgPayloadItem("id", id);
                             responseMsg.addPayloadItem(item);
@@ -643,6 +644,9 @@ System.out.println("startProcess: io error gathering error output");
                     cmsgConnection.send(responseMsg);
                     return;
                 }
+
+                // remove the process from map since it's now terminated
+                processMap.remove(id);
 
                 //----------------------------------------------------------------
                 // If we're here it's because the Commander is not synchronously
@@ -995,6 +999,9 @@ System.out.println("startProcess: io error gathering error output");
                     cmsgConnection.send(responseMsg);
                     return;
                 }
+
+                // remove the thread from map since it's now terminated 
+                threadMap.remove(id);
 
                 //----------------------------------------------------------------
                 // If we're here it's because the Commander is not synchronously
