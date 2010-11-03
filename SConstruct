@@ -23,7 +23,7 @@ os.umask(022)
 
 # Software version
 versionMajor = '3'
-versionMinor = '1'
+versionMinor = '0'
 
 # determine the os and machine names
 uname    = os.uname();

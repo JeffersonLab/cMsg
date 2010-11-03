@@ -62,8 +62,6 @@ class cMsgMonitorClient extends Thread {
     /** Kill this thread if true. */
     volatile boolean killThisThread;
 
-    private boolean monitoringOff;
-
     private StringBuilder xml;
 
 
@@ -84,7 +82,6 @@ class cMsgMonitorClient extends Thread {
         this.debug  = debug;
         this.server = server;
 
-        monitoringOff = server.monitoringOff;
         outBuffer  = ByteBuffer.allocateDirect(4096);
         outBuffer2 = ByteBuffer.allocateDirect(1024);
         inBuffer   = ByteBuffer.allocateDirect(2048);
@@ -93,8 +90,6 @@ class cMsgMonitorClient extends Thread {
 
 
     public void run() {
-
-        int size1=0, size2=0, size3=0, count=0;
 
         // tell startServer that this thread has started
         server.preConnectionThreadsStartedSignal.countDown();
@@ -107,16 +102,102 @@ class cMsgMonitorClient extends Thread {
         // store times between receiving monitor data on a socket, and dealing
         // with those that take too long or timeout.
 
-        emptySendBuffers();
-
         while (true) {
+            // update the XML string we're sending
+            updateMonitorXML();
 
-            if (!monitoringOff) {
-                fillSendBuffers();
-            }
-            
+            // Prepare 2 buffers. One is for regular clients and the other is
+            // for server clients.
             ByteBuffer outBuf;
+            String passwd;
+            int dataLength = server.fullMonitorXML.length();
 
+            // Create outBuffer with data to be sent to regular clients.
+            // Send:
+            //      1) len of xml
+            //      2) xml (state of system)
+            //      3) how many other types of items to follow.
+            //         This allows us to expand the info sent in future
+            //         without messing up protocol (making it backwards compatible).
+            //      4) how many cloud hosts
+            //         for each cloud host send:
+            //            5) tcpPort
+            //            6) multicastPort
+            //            7) len of host
+            //            8) len of password
+            //            9) host
+            //           10) password
+            while (true) {
+                int totalLength = dataLength + 3*8;
+                for (cMsgClientData cd : server.nameServers.values()) {
+                    passwd = cd.getPassword();
+                    if (passwd == null) passwd = "";
+                    totalLength += 16 + cd.getServerHost().length() + passwd.length();
+                }
+
+                if (totalLength > outBuffer.capacity()) {
+                    outBuffer = ByteBuffer.allocateDirect(totalLength + 1024);
+                }
+                outBuffer.clear();
+
+//System.out.println("cMsgMonitorClient 1: xml data length = " + dataLength + ", total length = " + totalLength);
+                try {
+                    // put xml size first
+                    outBuffer.putInt(dataLength);
+                    // xml string comes next
+                    outBuffer.put(server.fullMonitorXML.getBytes("US-ASCII"));
+                    int size = server.nameServers.size();
+                    // how many types of info to follow (just one - cloud servers)
+                    outBuffer.putInt(1);
+                    // how many servers
+                    outBuffer.putInt(size);
+//System.out.println("cMsgMonitorClient 1: buffer pos (after len,xml,#servers) = " + outBuffer.position());
+                    if (size > 0) {
+                        int count=0;
+                        for (cMsgClientData cd : server.nameServers.values()) {
+                            outBuffer.putInt(cd.getServerPort());
+                            outBuffer.putInt(cd.getServerMulticastPort());
+                            outBuffer.putInt(cd.getServerHost().length());
+                            passwd = cd.getPassword();
+                            if (passwd == null) passwd = "";
+                            outBuffer.putInt(passwd.length());
+                            outBuffer.put(cd.getServerHost().getBytes("US-ASCII"));
+                            outBuffer.put(passwd.getBytes("US-ASCII"));
+//System.out.println("cMsgMonitorClient 1: buffer pos = " + outBuffer.position());
+                            count++;
+                        }
+                        if (count != size) {
+                            // another thread messed us up, do it again
+//System.out.println("cMsgMonitorClient 1: messed up try again");
+                            continue;
+                        }
+                    }
+                }
+                catch (UnsupportedEncodingException e) {/* never get here */}
+                break;
+            }
+
+            // create outBuffer with data to be sent to server clients
+            dataLength = server.nsMonitorXML.length();
+            if (dataLength + 8 > outBuffer2.capacity()) {
+                // give outBuffer 1k more space than needed
+                outBuffer2 = ByteBuffer.allocateDirect(dataLength + 1024);
+            }
+            outBuffer2.clear();
+//System.out.println("Buffer2 capacity = " + outBuffer2.capacity());
+            // put size first
+            outBuffer2.putInt(dataLength);
+
+            // string comes next
+            try { outBuffer2.put(server.nsMonitorXML.getBytes("US-ASCII")); }
+            catch (UnsupportedEncodingException e) {/* never get here */}
+
+            // how types of info to follow - nothing
+            outBuffer2.putInt(0);
+
+            // get outBuffer ready for writing
+            outBuffer.flip();
+            outBuffer2.flip();
 
             for (cMsgDomainServerSelect dss : server.domainServersSelect.keySet()) {
 
@@ -146,14 +227,13 @@ class cMsgMonitorClient extends Thread {
                             totalBytesWritten += bytesWritten;
                             // client may be dead so bail
                             if (bytesWritten < 1 && totalBytesWritten < 1) {
-System.out.println("\n !!! cMsgMonitorClient: bail on write for (dead) " + cd.getName() );
+//System.out.println("cMsgMonitorClient: bail on write for (dead) " + cd.getName() );
                                 break;
                             }
                             // don't wait more than .1 sec total before giving up on writing
                             else if (totalBytesWritten < outBuf.limit()) {
-//System.out.println("\n !!! cMsgMonitorClient: tried to write (" + (tries+1) + " times) for " + cd.getName() );
+//System.out.println("cMsgMonitorClient: tried to write (" + (tries+1) + " times) for " + cd.getName() );
                                 if  (++tries > 9) {
-System.out.println("\n !!! cMsgMonitorClient: EEEEE write error, giving up after writing " + totalBytesWritten + " bytes" );
                                     break;
                                 }
                                 try { Thread.sleep(10); }
@@ -239,14 +319,14 @@ System.out.println("\n !!! cMsgMonitorClient: EEEEE write error, giving up after
                     readMonitorInfo(ds.info);
 
                     // check for non-responding client
-//                    if (clientDead(ds.info)) {
-//                        // do something
-//                        if (debug >= cMsgConstants.debugError) {
-//                            System.out.println("cMsgMonitorClient: (ds) client " + ds.info.getName() +
-//                                    " has not responded for " + (deadTime/1000) + " seconds, so consider it dead");
-//                        }
-//                        ds.shutdown();
-//                    }
+                    if (clientDead(ds.info)) {
+                        // do something
+                        if (debug >= cMsgConstants.debugError) {
+                            System.out.println("cMsgMonitorClient: (ds) client " + ds.info.getName() +
+                                    " has not responded for " + (deadTime/1000) + " seconds, so consider it dead");
+                        }
+                        ds.shutdown();
+                    }
                 }
                 catch (cMsgException e) {
                     if (debug >= cMsgConstants.debugError) {
@@ -271,132 +351,6 @@ System.out.println("\n !!! cMsgMonitorClient: EEEEE write error, giving up after
             if (killThisThread) return;
         }
 
-    }
-
-
-    /**
-     * Fill the output buffers with monitoring data to send clients, one for server clients
-     * and the other for regular clients.
-     */
-    private void emptySendBuffers() {
-        outBuffer.clear();
-        outBuffer.putInt(0); // zero length xml to follow
-        outBuffer.putInt(0); // no other types of items to follow
-
-        outBuffer2.clear();
-        outBuffer2.putInt(0);
-        outBuffer2.putInt(0);
-    }
-
-
-    /**
-     * Fill the output buffers with monitoring data to send clients, one for server clients
-     * and the other for regular clients.
-     */
-    private void fillSendBuffers() {
-        int count;
-        int size1;
-        int size2;// update the XML string we're sending
-        updateMonitorXML();
-
-        // Prepare 2 buffers. One is for regular clients and the other is
-        // for server clients.
-        String passwd;
-        int dataLength = server.fullMonitorXML.length();
-
-        // Create outBuffer with data to be sent to regular clients.
-        // Send:
-        //      1) len of xml
-        //      2) xml (state of system)
-        //      3) how many other types of items to follow.
-        //         This allows us to expand the info sent in future
-        //         without messing up protocol (making it backwards compatible).
-        //      4) how many cloud hosts
-        //         for each cloud host send:
-        //            5) tcpPort
-        //            6) multicastPort
-        //            7) len of host
-        //            8) len of password
-        //            9) host
-        //           10) password
-        while (true) {
-// changed 3*8 to 3*4, watch for problems 9/28/2010
-            int totalLength = dataLength + 3*4; // xml len + 1) + 3) + 4)
-            count = 0;
-            for (cMsgClientData cd : server.nameServers.values()) {
-                passwd = cd.getPassword();
-                if (passwd == null) passwd = "";
-                // 5) + 6) + 7) + 8) + host len + pswd len
-                totalLength += 4*4 + cd.getServerHost().length() + passwd.length();
-                count++;
-            }
-            size1 = count;
-
-            if (totalLength > outBuffer.capacity()) {
-                outBuffer = ByteBuffer.allocateDirect(totalLength + 2048);
-            }
-            outBuffer.clear();
-
-//System.out.println("cMsgMonitorClient: reg client: xml data length = " + dataLength + ", total length = " + totalLength);
-            try {
-                // put xml size first
-                outBuffer.putInt(dataLength);
-                // xml string comes next
-                outBuffer.put(server.fullMonitorXML.getBytes("US-ASCII"));
-                // how many types of info to follow (just one - cloud servers)
-                outBuffer.putInt(1);
-                // how many servers (cloud hosts)
-                size2 = server.nameServers.size();
-                outBuffer.putInt(size2);
-//System.out.println("cMsgMonitorClient: buffer pos (after len,xml,#servers) = " + outBuffer.position());
-                if (size2 > 0) {
-                    count=0;
-                    for (cMsgClientData cd : server.nameServers.values()) {
-                        outBuffer.putInt(cd.getServerPort());
-                        outBuffer.putInt(cd.getServerMulticastPort());
-                        outBuffer.putInt(cd.getServerHost().length());
-                        passwd = cd.getPassword();
-                        if (passwd == null) passwd = "";
-                        outBuffer.putInt(passwd.length());
-                        outBuffer.put(cd.getServerHost().getBytes("US-ASCII"));
-                        outBuffer.put(passwd.getBytes("US-ASCII"));
-//System.out.println("cMsgMonitorClient: buffer pos = " + outBuffer.position());
-                        count++;
-                    }
-
-                    if (count != size2 || size1 != size2) {
-                        // another thread messed us up, do it again
-System.out.println("\n !!! cMsgMonitorClient: inconsistency!!! try again");
-                        continue;
-                    }
-                }
-            }
-            catch (UnsupportedEncodingException e) {/* never get here */}
-            break;
-        }
-
-        // create outBuffer with data to be sent to server clients
-        dataLength = server.nsMonitorXML.length();
-        if (dataLength + 2*4 > outBuffer2.capacity()) {
-            // give outBuffer 1k more space than needed
-            outBuffer2 = ByteBuffer.allocateDirect(dataLength + 1024);
-        }
-        outBuffer2.clear();
-//System.out.println("cMsgMonitorClient: Buffer2 capacity = " + outBuffer2.capacity());
-        // put size first
-        outBuffer2.putInt(dataLength);
-
-        // string comes next
-        try { outBuffer2.put(server.nsMonitorXML.getBytes("US-ASCII")); }
-        catch (UnsupportedEncodingException e) {/* never get here */}
-
-        // how types of info to follow - nothing
-        outBuffer2.putInt(0);
-
-//System.out.println("cMsgMonitorClient: server client: xml data length = " + dataLength + ", total length = " + (dataLength + 2*4));
-        // get outBuffer ready for writing
-        outBuffer.flip();
-        outBuffer2.flip();
     }
 
 
@@ -475,36 +429,6 @@ System.out.println("\n !!! cMsgMonitorClient: inconsistency!!! try again");
      * @throws IOException   If channel is closed or cannot be read from
      */
     private void readMonitorInfo(cMsgClientData cd) throws cMsgException, IOException {
-        // read as much as possible, since we don't want keepalive signals to pile up
-        boolean firstPass = true;
-        int n;
-        do {
-            inBuffer.clear();
-            n = cd.keepAliveChannel.read(inBuffer);
-            if (n < 1) {
-                // if brand new client, pretend things are OK
-                if (firstPass && cd.updateTime == 0L) {
-                    cd.updateTime = System.currentTimeMillis();
-                }
-                return;
-            }
-            else {
-                // record when some keepalive info read
-                cd.updateTime = System.currentTimeMillis();
-            }
-            firstPass = false;
-        } while (n >= inBuffer.capacity());
-
-    }
-
-    /**
-     * This method reads a nonblocking socket for monitor data from a cMsg client.
-     *
-     * @param cd client data object
-     * @throws cMsgException If too many tries used to read all the data or internal protocol error
-     * @throws IOException   If channel is closed or cannot be read from
-     */
-    private void readMonitorInfoOrig(cMsgClientData cd) throws cMsgException, IOException {
 
 
         // read as much as possible, since we don't want keepalive signals to pile up
@@ -536,8 +460,7 @@ System.out.println("\n !!! cMsgMonitorClient: inconsistency!!! try again");
             if (size > 0) {
                 // read size bytes of data
                 inBuffer.clear();
-// wait until everything is read
-readSocketBytes(inBuffer, cd.keepAliveChannel, size, false);
+                readSocketBytes(inBuffer, cd.keepAliveChannel, size, true);
                 inBuffer.flip();
                 size                          = inBuffer.getInt();   // xml length in chars/bytes
                 cd.monData.isJava             = inBuffer.getInt() == 1;
@@ -800,7 +723,7 @@ readSocketBytes(inBuffer, cd.keepAliveChannel, size, false);
 
         // store this as an xml string describing local server only
         server.nsMonitorXML = xml.toString();
-//System.out.println("       >>XML: only my NS xml size = " + xml.length());
+//System.out.println("       >>XML: NS xml size = " + xml.length());
 
         xml.insert(0,"<cMsgMonitorData  domain=\"cmsg\">\n\n");
 
@@ -818,7 +741,7 @@ readSocketBytes(inBuffer, cd.keepAliveChannel, size, false);
         // store this as an xml string describing all monitor data
         server.fullMonitorXML = xml.toString();
 //System.out.println("       >>XML: full xml size = " + xml.length());
-//System.out.println("       >>XML: fullMonitorXML = \n" + server.fullMonitorXML);
+//System.out.println("       >>XML: fullMonitorXML = \n" + fullMonitorXML);
 
     }
 

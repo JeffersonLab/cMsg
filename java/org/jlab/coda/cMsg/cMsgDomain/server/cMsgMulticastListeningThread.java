@@ -199,7 +199,7 @@ class cMsgMulticastListeningThread extends Thread {
                     catch (UnsupportedEncodingException e) {}
                 }
 
-                // Compare sent password with name server's myCloudPassword.
+                // Compare sent password with name server's myCloudpassword.
                 // Reject mismatches.
                 if (serverPassword != null) {
                     if (pswd == null || !serverPassword.equals(pswd)) {

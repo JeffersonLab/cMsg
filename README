@@ -10,10 +10,10 @@ you can skip the C/C++ installation.
 
 The cMsg package, including documentation, can be found in the
 Downloads section on the JLab Data Acquisition Group CODA wiki
-at http://coda.jlab.org. To install cMsg, download the cMsg-3.x.tar.gz
+at http://coda.jlab.org. To install cMsg, download the cMsg-3.0.tar.gz
 file (or whatever version happens to be current) and untar it.
 This will give you a full cMsg distribution with the top level
-directory being cMsg-3.x.  The documentation, in the doc subdirectory,
+directory being cMsg-3.0.  The documentation, in the doc subdirectory,
 contains User's and Developer's Guides (word, pdf), javadoc
 for the Java API (html), and doxygen directories containing
 C/C++ API docs (html). The javadoc and doxygen documentation
@@ -61,7 +61,7 @@ scons install     make C and C++ library code and general-purpose binaries;
                   directories and headers in an include directory
 scons examples    make C and C++ executable example code;
                   place executables in architecture-specific directory
-scons tar         create a tar file (cMsg-3.x.tar.gz) of the cMsg top level
+scons tar         create a tar file (cMsg-3.0.tar.gz) of the cMsg top level
                   directory and put in ./tar directory
 scons doc         generate html documentation from javadoc and doxygen
                   comments in the source code and put in ./doc directory
@@ -83,7 +83,7 @@ look at how to compile cMsg just to get you going but skips over many details.
 After BMS.tar.gz has been downloaded and untarred, set the environmental
 variable BMS_HOME to its installation directory and the variable CODA_HOME
 or INSTALL_DIR to the directory which will hold the compiled cMsg libraries,
-executables, headers and other files. Change directories to cMsg-3.x and make
+executables, headers and other files. Change directories to cMsg-3.0 and make
 everything by typing "make install".  Just doing a "make" at this point runs
 into trouble since the makefiles look into the install directory for the
 libraries when making the executables (yes, I know it's inconvenient, but
@@ -92,14 +92,14 @@ Linux, Solaris, and Darwin (Mac OSX) operating systems are supported for
 the making of all the C and C++ code. 
 
 # download BMS.tar.gz into myDir
-# download cMsg-3.x.tar.gz into myDir
+# download cMsg-3.0.tar.gz into myDir
 $ cd myDir
 $ tar -fxz BMS.tar.gz
 $ setenv BMS_HOME myDir/BMS
 $ mkdir cmsg_install
 $ setenv INSTALL_DIR myDir/cmsg_install 
-$ tar -fxz cMsg-3.x.tar.gz 
-$ cd cMsg-3.x
+$ tar -fxz cMsg-3.0.tar.gz 
+$ cd cMsg-3.0
 $ make install
 
 This will make everything except java and docs - directories, C, and C++.
@@ -118,7 +118,7 @@ make install       make C/C++ code and place libraries and executables
 make uninstall     remove all installed headers, libraries,
                    and executables for C/C++
 make relink        delete libraries and executables, and relink object files
-make tar           create a tar file (cMsg-3.x.tar.gz) of the cMsg top level
+make tar           create a tar file (cMsg-3.0.tar.gz) of the cMsg top level
                    directory and put in ./tar directory
 make clean         clean C/C++ code in ./src subdirectories by removing
                    libraries, executables, object and dependency files
@@ -149,7 +149,7 @@ named BAR will have a debug version named BAR_d.
 
 3) Compiling Java
 
-One can obtain the cMsg-3.x.jar file from the general cMsg distribution
+One can obtain the cMsg-3.0.jar file from the general cMsg distribution
 as outlined above or just download the jar file by itself.  In either case,
 put the jar file into your classpath and run your java application.
 The current version needs a Java 1.5 or later JVM.  
@@ -158,10 +158,10 @@ If you wish to recompile the java part of cMsg, ant must be installed
 on your system (http://ant.apache.org). First extract the package files
 from the general cMsg tar file:
   
-# download cMsg-3.x.tar.gz into myDir
+# download cMsg-3.0.tar.gz into myDir
 $ cd myDir
-$ tar -fxz cMsg-3.x.tar.gz 
-$ cd cMsg-3.x
+$ tar -fxz cMsg-3.0.tar.gz 
+$ cd cMsg-3.0
 
 There are 2 ways to go from here. You can use make which calls
 ant underneath:

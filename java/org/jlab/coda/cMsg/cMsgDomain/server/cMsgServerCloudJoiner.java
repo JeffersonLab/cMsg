@@ -80,9 +80,9 @@ class cMsgServerCloudJoiner extends Thread {
 
     /** This method is executed as a thread. */
     public void run() {
-
+        
         boolean methodDebug = false;
-
+        
         HashSet<String> unknownServers = new HashSet<String>(10);
 
         // Wait until this name server is ready to accept connections

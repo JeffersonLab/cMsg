@@ -85,24 +85,6 @@ public class cMsgUtilities {
     }
 
 
-    /**
-     * Converts 8 bytes of a byte array into a long.
-     *
-     * @param b byte array
-     * @param off offset into the byte array (0 = start at first element)
-     * @return ling value
-     */
-    static public final long bytesToLong(byte[] b, int off) {
-        return (((b[off]  &0xffL) << 56) |
-                ((b[off+1]&0xffL) << 48) |
-                ((b[off+2]&0xffL) << 40) |
-                ((b[off+3]&0xffL) << 32) |
-                ((b[off+4]&0xffL) << 24) |
-                ((b[off+5]&0xffL) << 16) |
-                ((b[off+6]&0xffL) <<  8) |
-                 (b[off+7]&0xffL));
-    }
-
 
     /**
       * Determine whether a given host name refers to the local host.
@@ -136,7 +118,7 @@ public class cMsgUtilities {
         return false;
      }
 
-    
+
     /**
      * Determine whether two given host names refers to the same host.
      * @param hostName1 host name that is checked to see if it is the same as the other arg or not.
@@ -158,10 +140,10 @@ public class cMsgUtilities {
             // otherwise compare all know IP addresses against each other
 
             // get all hostName1's IP addresses
-            InetAddress[] hostAddrs1  = InetAddress.getAllByName(hostName1);
+            InetAddress[] hostAddrs1 = InetAddress.getAllByName(hostName1);
 
             // get all hostName2's IP addresses
-            InetAddress[] hostAddrs2  = InetAddress.getAllByName(hostName2);
+            InetAddress[] hostAddrs2 = InetAddress.getAllByName(hostName2);
 
             // see if any 2 addresses are identical
             for (InetAddress lAddr : hostAddrs1) {
@@ -477,7 +459,9 @@ public class cMsgUtilities {
             s = "multicast" + ":" + sPort;
         }
         else {
+System.out.print("     : Transforming host:port = " + s + ", to canonicalhost:port = ");
             s = address.getCanonicalHostName() + ":" + sPort;
+System.out.println(s);
         }
 
         return s;

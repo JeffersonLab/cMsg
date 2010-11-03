@@ -416,8 +416,6 @@ public class cMsgMessage implements Cloneable, Serializable {
             throw new cMsgException("this message not sent by client calling sendAndGet");
         }
         cMsgMessage msg = new cMsgMessage();
-        msg.subject = "dummy";
-        msg.type = "dummy";
         msg.sysMsgId = sysMsgId;
         msg.senderToken = senderToken;
         msg.info = isGetResponse;
