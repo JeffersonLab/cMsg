@@ -726,6 +726,8 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
             throw new cMsgException("this message not sent by client calling sendAndGet");
         }
         cMsgMessageFull msg = new cMsgMessageFull();
+        msg.subject = "dummy";
+        msg.type = "dummy";
         msg.sysMsgId = sysMsgId;
         msg.senderToken = senderToken;
         msg.info = isGetResponse;
@@ -748,6 +750,8 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
             throw new cMsgException("this message not sent by client calling sendAndGet");
         }
         cMsgMessageFull msg = new cMsgMessageFull();
+        msg.subject = "dummy";
+        msg.type = "dummy";
         msg.sysMsgId = sysMsgId;
         msg.senderToken = senderToken;
         msg.info = isGetResponse | isNullGetResponse;
