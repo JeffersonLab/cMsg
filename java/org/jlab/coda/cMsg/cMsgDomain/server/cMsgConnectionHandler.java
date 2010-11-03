@@ -326,7 +326,7 @@ class cMsgConnectionHandler extends Thread {
                                             storage.info.setMessageChannel(channel);
                                         }
                                         else {
-                                            channel.socket().setSendBufferSize(8192);
+                                            channel.socket().setSendBufferSize(131072);// was 8192
                                             channel.socket().setReceiveBufferSize(8192);
                                             storage.info.keepAliveChannel = channel;
                                         }
@@ -337,7 +337,7 @@ class cMsgConnectionHandler extends Thread {
                                     // 2nd connection from client
                                     else if (storage.connectionsMade == 2) {
                                         if (storage.messageSocketFirst) {
-                                            channel.socket().setSendBufferSize(8192);
+                                            channel.socket().setSendBufferSize(131072);  // was 8192
                                             channel.socket().setReceiveBufferSize(8192);
                                             storage.info.keepAliveChannel = channel;
                                         }
