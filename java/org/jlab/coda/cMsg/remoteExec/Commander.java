@@ -204,6 +204,7 @@ public class Commander {
                         // executor process or thread telling us it's done
                         case THREAD_END:
                         case PROCESS_END:
+System.out.println("Received msg --------> thread/process ended");
                             item = msg.getPayloadItem("id");
                             if (item == null) {
                                 System.out.println("Reject message, no commander id");
@@ -216,6 +217,14 @@ public class Commander {
 
                             CommandReturn cmdRet = cmdReturns.remove(id);
                             if (cmdRet != null) {
+                                // Although theoretically we should never get to this
+                                // point with a cancelled/run/no callback, check for it
+                                // just to make sure.
+                                if (cmdRet.getCallbackState() != CallbackState.PENDING) {
+                                    System.out.println("Reject message, callback not pending");
+                                    return;
+                                }
+
                                 // Update cmdRet with the results of the process
 
                                 // Was there an error?
@@ -471,6 +480,7 @@ public class Commander {
      */
     public void cancelCallback(CommandReturn commandReturn) {
         cmdReturns.remove(commandReturn.getId());
+        commandReturn.unregisterCallback();
     }
 
 
@@ -610,11 +620,13 @@ public class Commander {
 
         int myId = uniqueId.incrementAndGet();
 
+        CallbackState cbState = CallbackState.NONE;
         CommandReturn cmdRet = new CommandReturn();
         // register callback for execution on process termination
         if (callback != null) {
             cmdRet.registerCallback(callback, userObject);
             cmdReturns.put(myId, cmdRet);
+            cbState = CallbackState.PENDING;
         }
 
         cMsgMessage msg = new cMsgMessage();
@@ -652,6 +664,23 @@ public class Commander {
                 err = item.getString();
             }
 
+            // If there was an error, was it immediate (ie Process did not run)?
+            if (err != null) {
+                boolean immediateError = false;
+                item = returnMsg.getPayloadItem("immediateError");
+                if (item != null) {
+                    immediateError = item.getInt() != 0;
+                }
+
+                // If it was an immediate error, cancel
+                // callback since process never ran.
+                if (immediateError) {
+                    if (cbState == CallbackState.PENDING) {
+                        cbState = CallbackState.CANCELLED;
+                    }
+                }
+            }
+
             // Has the process already terminated?
             boolean terminated = false;
             item = returnMsg.getPayloadItem("terminated");
@@ -680,7 +709,7 @@ public class Commander {
                 }
             }
 
-            cmdRet.setValues(myId, processId, (err != null), terminated, output, err);
+            cmdRet.setValues(myId, processId, (err != null), terminated, output, err, cbState);
             return cmdRet;
         }
         else {
@@ -781,11 +810,13 @@ public class Commander {
 
         int myId = uniqueId.incrementAndGet();
 
+        CallbackState cbState = CallbackState.NONE;
         CommandReturn cmdRet = new CommandReturn();
         // register callback for execution on process termination
         if (callback != null) {
             cmdRet.registerCallback(callback, userObject);
             cmdReturns.put(myId, cmdRet);
+            cbState = CallbackState.PENDING;
         }
 
         cMsgMessage msg = new cMsgMessage();
@@ -824,7 +855,10 @@ public class Commander {
             cMsgPayloadItem item = msg.getPayloadItem("error");
             if (item != null) {
                 String err = item.getString();
-                return new CommandReturn(myId, 0, true, true, null, err);
+                if (cbState == CallbackState.PENDING) {
+                    cbState = CallbackState.CANCELLED;
+                }
+                return new CommandReturn(myId, 0, true, true, null, err, cbState);
             }
 
             // Has the thread terminated? (i.e. did we wait for it?)
@@ -846,7 +880,7 @@ public class Commander {
                 exec.addCommanderId(myId, threadId);
             }
 
-            cmdRet.setValues(myId, threadId, false, false, null, null);
+            cmdRet.setValues(myId, threadId, false, false, null, null, cbState);
             return cmdRet;
         }
         else {
@@ -1009,7 +1043,7 @@ public class Commander {
 
 
 
-    public static void main(String[] args) {
+    public static void main1(String[] args) {
 
         try {
             String[] arggs = decodeCommandLine(args);
@@ -1170,7 +1204,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
     /**
      * Run as a stand-alone application
      */
-    public static void main4(String[] args) {
+    public static void main(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
@@ -1207,7 +1241,8 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                 in = inputStr("% ");
                 if (execList.size() > 0) {
                     //                                                      monitor, wait
-                    CommandReturn ret = cmdr.startProcess(execList.get(0), in, true, true, new myCB(), null, 10000);
+                    //CommandReturn ret = cmdr.startProcess(execList.get(0), in, true, true, new myCB(), null, 10000);
+                    CommandReturn ret = cmdr.startProcess(execList.get(0), in, true,  new myCB(), null);
                     System.out.println("Return = " + ret);
                     if (ret.hasError()) {
                         System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
@@ -1215,25 +1250,28 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                     if (ret.getOutput() != null) {
                         System.out.println("Regular output:\n" + ret.getOutput());
                     }
+                    System.out.println("Callback state = " + ret.getCallbackState());
 //                    try {Thread.sleep(5000);}
 //                    catch (InterruptedException e) {}
 //
 //                    System.out.println("Stop process now");
 //                    cmdr.stop(execList.get(0), ret.getId());
 
-                    while (true) {
+//                    while (true) {
                         try {Thread.sleep(1000);}
                         catch (InterruptedException e) {}
-                    }
+                    System.out.println("After 1 sec --> Callback state = " + ret.getCallbackState());
+
+//                    }
                 }
             }
 
             //cmdr.kill(execList.get(0), true);
         }
-        catch (TimeoutException e) {
-            e.printStackTrace();
-            System.exit(-1);
-        }
+//        catch (TimeoutException e) {
+//            e.printStackTrace();
+//            System.exit(-1);
+//        }
         catch (cMsgException e) {
             e.printStackTrace();
             System.exit(-1);

@@ -513,6 +513,8 @@ System.out.println("startProcess: io error gathering error output");
             try {
                 cMsgPayloadItem item = new cMsgPayloadItem("error", output);
                 msg.addPayloadItem(item);
+                cMsgPayloadItem item1 = new cMsgPayloadItem("immediateError", 0);
+                msg.addPayloadItem(item1);
             }
             catch (cMsgException e) {/* never happen */}
         }
@@ -567,6 +569,8 @@ System.out.println("startProcess: io error gathering error output");
                     responseMsg.addPayloadItem(item1);
                     cMsgPayloadItem item2 = new cMsgPayloadItem("error", e.getMessage());
                     responseMsg.addPayloadItem(item2);
+                    cMsgPayloadItem item3 = new cMsgPayloadItem("immediateError", 1);
+                    responseMsg.addPayloadItem(item3);
                     cmsgConnection.send(responseMsg);
                 }
                 catch (cMsgException e1) {
@@ -641,6 +645,7 @@ System.out.println("startProcess: io error gathering error output");
                 // (in which case it is not interested in this result anymore).
                 //----------------------------------------------------------------
                 if (info.wait) {
+System.out.println("SENDING MSG TO FOR WAITER ......");
                     cmsgConnection.send(responseMsg);
                     return;
                 }
@@ -674,6 +679,7 @@ System.out.println("startProcess: io error gathering error output");
                     cMsgPayloadItem item = new cMsgPayloadItem("error", stringsOut[1]);
                     imDoneMsg.addPayloadItem(item);
                 }
+System.out.println("SENDING MSG TO RUN CALLBACK FOR PROCESS ......");
                 cmsgConnection.send(imDoneMsg);
             }
             catch (cMsgException e) {
@@ -931,6 +937,8 @@ System.out.println("startProcess: io error gathering error output");
                     responseMsg.addPayloadItem(item1);
                     cMsgPayloadItem item2 = new cMsgPayloadItem("error", e.getMessage());
                     responseMsg.addPayloadItem(item2);
+                    cMsgPayloadItem item3 = new cMsgPayloadItem("immediateError", 1);
+                    responseMsg.addPayloadItem(item3);
                     cmsgConnection.send(responseMsg);
                 }
                 catch (cMsgException e1) {

@@ -30,6 +30,9 @@ public class CommandReturn {
     /** Object to pass to callback as argument. */
     private Object userObject;
 
+    /** What is the state of the callback? */
+    private CallbackState callbackState;
+
 
     /**
      * No-arg constructor.
@@ -46,10 +49,11 @@ public class CommandReturn {
      * @param terminated has process terminated already?
      * @param regularOutput regular output (if any) of the started process
      * @param errorOutput error output (if any) of the started process
+     * @param state state of the callback
      */
     public CommandReturn(int id, int processId, boolean error, boolean terminated,
-                         String regularOutput, String errorOutput) {
-        setValues(id, processId, error, terminated, regularOutput, errorOutput);
+                         String regularOutput, String errorOutput, CallbackState state) {
+        setValues(id, processId, error, terminated, regularOutput, errorOutput, state);
     }
 
 
@@ -62,9 +66,10 @@ public class CommandReturn {
      * @param terminated has process terminated already?
      * @param regularOutput regular output (if any) of the started process
      * @param errorOutput error output (if any) of the started process
+     * @param state state of the callback
      */
-    public void setValues(int id, int processId, boolean error, boolean terminated,
-                          String regularOutput, String errorOutput) {
+    synchronized public void setValues(int id, int processId, boolean error, boolean terminated,
+                          String regularOutput, String errorOutput, CallbackState state) {
         // ensure consistency
         if (errorOutput != null) error = true;
 
@@ -74,6 +79,7 @@ public class CommandReturn {
         this.terminated = terminated;
         this.regularOutput = regularOutput;
         this.errorOutput = errorOutput;
+        this.callbackState = state;
     }
 
     /**
@@ -83,7 +89,7 @@ public class CommandReturn {
      * @param processCallback callback to be run when the process ends.
      * @param userObject argument to be passed to callback.
      */
-    public void registerCallback(CommandCallback processCallback, Object userObject) {
+    synchronized public void registerCallback(CommandCallback processCallback, Object userObject) {
         this.userObject = userObject;
         this.processCallback = processCallback;
     }
@@ -91,24 +97,44 @@ public class CommandReturn {
     /**
      * Unregister a callback so it does not get run.
      */
-    public void unregisterCallback() {
+    synchronized public void unregisterCallback() {
         this.userObject = null;
         this.processCallback = null;
+        if (callbackState == CallbackState.PENDING) {
+            callbackState = CallbackState.CANCELLED;
+        }
     }
 
     /**
      * Run the registered callback.
      */
-    public void executeCallback() {
+    synchronized public void executeCallback() {
         if (processCallback == null) return;
         processCallback.callback(userObject, this);
+        callbackState = CallbackState.RUN;
+    }
+
+    /**
+     * Get the state of the callback.
+     * @return the state of the callback.
+     */
+    synchronized public CallbackState getCallbackState() {
+        return callbackState;
+    }
+
+    /**
+     * Set the state of the callback.
+     * @param callbackState state of the callback.
+     */
+    synchronized void setCallbackState(CallbackState callbackState) {
+        this.callbackState = callbackState;
     }
 
     /**
      * Get the Executor generated id number.
      * @return the Executor generated id number.
      */
-    int getExecutorId() {
+    synchronized int getExecutorId() {
         return executorId;
     }
 
@@ -116,7 +142,7 @@ public class CommandReturn {
      * Get the Commander generated id number.
      * @return the Commander generated id number.
      */
-    public int getId() {
+    synchronized public int getId() {
         return id;
     }
 
@@ -124,7 +150,7 @@ public class CommandReturn {
      * Set whether the process has already terminated.
      * @param b <code>true</code> if process has terminated, else <code>false</code>.
      */
-    void hasTerminated(boolean b) {
+    synchronized void hasTerminated(boolean b) {
         terminated = b;
     }
 
@@ -132,7 +158,7 @@ public class CommandReturn {
      * Get whether the process has already terminated.
      * @return <code>true</code> if process has already terminated, else <code>false</code>.
      */
-    public boolean hasTerminated() {
+    synchronized public boolean hasTerminated() {
         return terminated;
     }
 
@@ -141,7 +167,7 @@ public class CommandReturn {
      * @return <code>true</code> if error occurred attempting to run process/thread,
      *         else <code>false</code>.
      */
-    public boolean hasError() {
+    synchronized public boolean hasError() {
         return error;
     }
 
@@ -149,7 +175,7 @@ public class CommandReturn {
      * Get whether the process has any output.
      * @return <code>true</code> if the process has output, else <code>false</code>.
      */
-    public boolean hasOutput() {
+    synchronized public boolean hasOutput() {
         return regularOutput != null;
     }
 
@@ -157,7 +183,7 @@ public class CommandReturn {
      * Get output (if any) generated by the started process or thread.
      * @return any output by the process or thread, or null if none
      */
-    public String getOutput() {
+    synchronized public String getOutput() {
         return regularOutput;
     }
 
@@ -165,7 +191,7 @@ public class CommandReturn {
      * Get error output (if any) generated by the started process or thread.
      * @return any error output by the process or thread, or null if none
      */
-    public String getError() {
+    synchronized public String getError() {
         return errorOutput;
     }
 
@@ -173,7 +199,7 @@ public class CommandReturn {
      * Set error output generated by the started process or thread.
      * @param error error output by the process or thread.
      */
-    void setError(String error) {
+    synchronized void setError(String error) {
         errorOutput = error;
         if (error != null) this.error = true;
     }
@@ -182,7 +208,7 @@ public class CommandReturn {
      * Set output generated by the started process or thread.
      * @param output output by the process or thread.
      */
-    void setOutput(String output) {
+    synchronized void setOutput(String output) {
         regularOutput = output;
     }
 
