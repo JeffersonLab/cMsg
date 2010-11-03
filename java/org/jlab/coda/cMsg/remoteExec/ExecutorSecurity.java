@@ -1,5 +1,7 @@
 package org.jlab.coda.cMsg.remoteExec;
 
+import org.jlab.coda.cMsg.common.Base64;
+
 import javax.crypto.*;
 import javax.crypto.spec.DESKeySpec;
 import java.io.UnsupportedEncodingException;
@@ -85,14 +87,16 @@ public class ExecutorSecurity {
         try {
             // Encode the string into bytes using utf-8
             byte[] utf8 = str.getBytes("UTF8");
+
             // Encrypt
             byte[] enc = encipher.doFinal(utf8);
+
             // Encode bytes to base64 to get a string
-            return new sun.misc.BASE64Encoder().encode(enc);
+            return Base64.encodeToString(enc, false);
         }
         catch (javax.crypto.BadPaddingException e) { }
         catch (IllegalBlockSizeException e) { }
-        catch (UnsupportedEncodingException e) { }
+        catch (UnsupportedEncodingException e) {/*never happen*/}
         catch (java.io.IOException e) { }
 
         return null;
@@ -106,15 +110,17 @@ public class ExecutorSecurity {
     static public String decrypt(String str) {
         try {
             // Decode base64 to get bytes
-            byte[] dec = new sun.misc.BASE64Decoder().decodeBuffer(str);
+            byte[] dec = Base64.decodeToBytes(str, "UTF8");
+
             // Decrypt
             byte[] utf8 = decipher.doFinal(dec);
+
             // Decode using utf-8
             return new String(utf8, "UTF8");
         }
         catch (javax.crypto.BadPaddingException e) { }
         catch (IllegalBlockSizeException e) { }
-        catch (UnsupportedEncodingException e) { }
+        catch (UnsupportedEncodingException e) {/*never happen*/}
         catch (java.io.IOException e) { }
 
         return null;
