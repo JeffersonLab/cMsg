@@ -32,6 +32,7 @@ import java.nio.ByteBuffer;
 
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.cMsgNetworkConstants;
+import org.jlab.coda.cMsg.remoteExec.IExecutorThread;
 import org.jlab.coda.cMsg.common.cMsgSubdomainInterface;
 import org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer;
 
@@ -46,7 +47,7 @@ import org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer;
  * @author Carl Timmer
  * @version 1.0
  */
-public class cMsgNameServer extends Thread {
+public class cMsgNameServer extends Thread implements IExecutorThread {
 
     /** This server's name. */
     String serverName;
@@ -90,14 +91,14 @@ public class cMsgNameServer extends Thread {
     /**
      * There are 2 threads which must be running before client connections are allowed.
      * Use this object to signal the point at which both of these threads have been
-     * successfully started (during {@link #startServer(String, boolean)}) .
+     * successfully started (during {@link #startServer()}) .
      */
     CountDownLatch preConnectionThreadsStartedSignal = new CountDownLatch(2);
 
     /**
      * There are 2 threads which must be running before client connections are allowed.
      * Use this object to signal the point at which both of these threads have been
-     * successfully started (during {@link #startServer(String, boolean)}) .
+     * successfully started (during {@link #startServer()}) .
      */
     CountDownLatch postConnectionThreadsStartedSignal = new CountDownLatch(2);
 
@@ -164,6 +165,9 @@ public class cMsgNameServer extends Thread {
     /** String which contains the monitor data of this particular name server (xml format). */
     String nsMonitorXML;
 
+    /** If true, this server does NOT send an XML string containing its state to all clients. */
+    volatile boolean monitoringOff;
+
     /**
      * Password that clients need to match before being allowed to connect.
      * This is subdomain independent and applies to the server as a whole.
@@ -186,6 +190,12 @@ public class cMsgNameServer extends Thread {
      * to/from other cMsg subdomain servers?
      */
     volatile boolean standAlone;
+
+    /**
+     * cMsg server whose cloud this server is to be joined to.
+     * It is in the form <host>:port .
+     */
+    private String serverToJoin;
 
     /** Server this name server is in the middle of or starting to connect to. */
     volatile cMsgServerBridge bridgeBeingCreated;
@@ -357,14 +367,18 @@ public class cMsgNameServer extends Thread {
      * @param port TCP listening port for communication from clients
      * @param domainPort  listening port for receiving 2 permanent connections from each client
      * @param udpPort UDP listening port for receiving multicasts from clients
-     * @param standAlone  if true no other cMsg servers are allowed to attached to this one and form a cloud
+     * @param standAlone   if true no other cMsg servers are allowed to attached to this one and form a cloud
+     * @param monitoringOff if true clients are NOT sent monitoring data
      * @param clientPassword password client needs to provide to connect to this server
      * @param cloudPassword  password server needs to provide to connect to this server to become part of a cloud
+     * @param serverToJoin server whose cloud this server is to be joined to
      * @param debug desired level of debug output
      * @param clientsMax max number of clients per cMsgDomainServerSelect object for regime = low
      */
-    public cMsgNameServer(int port, int domainPort, int udpPort, boolean standAlone,
-                          String clientPassword, String cloudPassword, int debug, int clientsMax) {
+    public cMsgNameServer(int port, int domainPort, int udpPort,
+                          boolean standAlone, boolean monitoringOff,
+                          String clientPassword, String cloudPassword, String serverToJoin,
+                          int debug, int clientsMax) {
 
         domainServers        = new ConcurrentHashMap<cMsgDomainServer,String>(20);
         domainServersSelect  = new ConcurrentHashMap<cMsgDomainServerSelect,String>(20);
@@ -374,8 +388,16 @@ public class cMsgNameServer extends Thread {
         this.debug          = debug;
         this.clientsMax     = clientsMax;
         this.standAlone     = standAlone;
+        this.monitoringOff  = monitoringOff;
         this.cloudPassword  = cloudPassword;
         this.clientPassword = clientPassword;
+        this.serverToJoin   = serverToJoin;
+        if (standAlone) {
+            if (serverToJoin != null) {
+                System.out.println("\nCannot have \"serverToJoin != null\" and \"standalone = true\" simultaneously");
+                System.exit(-1);
+            }
+        }
 
         // read env variable for domain server port number
         if (domainPort < 1) {
@@ -559,6 +581,7 @@ public class cMsgNameServer extends Thread {
                              "            [-Dserver=<hostname:serverport>]\n" +
                              "            [-Ddebug=<level>]\n" +
                              "            [-Dstandalone]\n" +
+                             "            [-DmonitorOff]\n" +
                              "            [-Dpassword=<password>]\n" +
                              "            [-Dcloudpassword=<password>]\n" +
                              "            [-DlowRegimeSize=<size>]  cMsgNameServer\n");
@@ -579,6 +602,7 @@ public class cMsgNameServer extends Thread {
         System.out.println("                          none   for no debug output (default)");
         System.out.println("       standalone     means no other servers may connect or vice versa,");
         System.out.println("                      is incompatible with \"server\" option");
+        System.out.println("       monitorOff     means montoring data is NOT sent to client,");
         System.out.println("       password       is used to block clients without this password in their UDL's");
         System.out.println("       cloudpassword  is used to join a password-protected cloud or to allow");
         System.out.println("                      servers with this password to join this cloud");
@@ -616,6 +640,7 @@ public class cMsgNameServer extends Thread {
         int port = 0, udpPort = 0, domainPort=0;
         int clientsMax = cMsgConstants.regimeLowMaxClients;
         boolean standAlone    = false;
+        boolean monitorOff    = false;
         String serverToJoin   = null;
         String cloudPassword  = null;
         String clientPassword = null;
@@ -725,6 +750,9 @@ public class cMsgNameServer extends Thread {
                 }
                 standAlone = true;
             }
+            else if (s.equalsIgnoreCase("monitorOff")) {
+                monitorOff = true;
+            }
             else if (s.equalsIgnoreCase("cloudpassword")) {
                 cloudPassword = System.getProperty(s);
             }
@@ -734,24 +762,39 @@ public class cMsgNameServer extends Thread {
         }
 
         // create server object
-        cMsgNameServer server = new cMsgNameServer(port, domainPort, udpPort, standAlone,
-                                                   clientPassword, cloudPassword, debug, clientsMax);
+        cMsgNameServer server = new cMsgNameServer(port, domainPort, udpPort,
+                                                   standAlone, monitorOff,
+                                                   clientPassword, cloudPassword, serverToJoin,
+                                                   debug, clientsMax);
 
         // start server
-        server.startServer(serverToJoin, standAlone);
+        server.startServer();
     }
 
 
+    //-------------------------------------------------------------------
+    // IExecutor Interface methods so it can be started/stopped remotely
+    //-------------------------------------------------------------------
+    public void startItUp() {
+        startServer();
+    }
+
+    public void shutItDown() {
+        shutdown();
+    }
+
+    public void waitUntilDone() throws InterruptedException {
+        join();
+    }
+    //-------------------------------------------------------------
+
+
     /**
-     * Method to start up this server and join the cMsg server cloud that the
-     * argument, serverToJoin, is a part of. If the argument is null, this
+     * Method to start up this server and join the cMsg server cloud that
+     * serverToJoin is a part of. If the serverToJoin is null, this
      * server is the nucleas of a new server cloud.
-     *
-     * @param serverToJoin server whose cloud this server is to be joined to
-     * @param standAlone true if this server will not join a cloud and will not
-     *                   allow any server to join this one
      */
-    public void startServer(String serverToJoin, boolean standAlone) {
+    public void startServer() {
 
         // Start thread to gather monitor info
         if (debug >= cMsgConstants.debugInfo) {
@@ -816,7 +859,7 @@ public class cMsgNameServer extends Thread {
                     }
                 }
                 catch (cMsgException e) {
-//System.out.println("Server to join not in \"host:port\" format:\n" + e.getMessage());
+System.out.println("Server to join not in \"host:port\" format:\n" + e.getMessage());
                 }
             }
 
@@ -867,6 +910,14 @@ public class cMsgNameServer extends Thread {
 System.out.println(">> **** cMsg server sucessfully started at " + (new Date()) + " **** <<");
     }
 
+
+    /**
+     * Implement IExecutorThread interface so cMsgNameServer can be
+     * run using the Commander/Executor framework.
+     */
+    public void cleanUp() {
+        shutdown();
+    }
 
     /**
      * Method to gracefully shutdown all threads associated with this server
@@ -1491,10 +1542,10 @@ System.out.println("Main server IO error");
 
             try {
                 // First, check to see if password matches.
-//System.out.println("local cloudpassword = " + cloudPassword +
-//                   ", given password = " + myCloudPassword);
+System.out.println("local cloudpassword = " + cloudPassword +
+                   ", given password = " + myCloudPassword);
                 if (cloudPassword != null && !cloudPassword.equals(myCloudPassword)) {
-//System.out.println(">> NS: PASSWORDS DO NOT MATCH");
+System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                     cMsgException ex = new cMsgException("wrong password - connection refused");
                     ex.setReturnCode(cMsgConstants.errorWrongPassword);
                     throw ex;
@@ -1502,6 +1553,7 @@ System.out.println("Main server IO error");
 
                 // Second, check to see if this is a stand alone server.
                 if (standAlone) {
+System.out.println(">> NS: This is a standalone server, refuse server connection");
                     cMsgException ex = new cMsgException("stand alone server - no server connections allowed");
                     ex.setReturnCode(cMsgConstants.error);
                     throw ex;
@@ -1509,7 +1561,7 @@ System.out.println("Main server IO error");
 
                 // Third, check to see if this server is already connected.
                 if (nameServers.contains(name)) {
-//System.out.println(">> NS: ALREADY CONNECTED TO " + name);
+System.out.println(">> NS: ALREADY CONNECTED TO " + name);
                     cMsgException ex = new cMsgException("already connected");
                     ex.setReturnCode(cMsgConstants.errorAlreadyExists);
                     throw ex;
@@ -1549,7 +1601,7 @@ System.out.println("Main server IO error");
                 if (!allowConnection) {
                     try {
                         // Wait here up to 5 sec if the connecting server is not allowed to connect.
-//System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connection");
+System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connection");
                         if (!allowConnectionsCloudSignal.await(5L, TimeUnit.SECONDS)) {
                             cMsgException ex = new cMsgException("nameserver not in server cloud - timeout error");
                             ex.setReturnCode(cMsgConstants.errorTimeout);
@@ -1609,32 +1661,32 @@ System.out.println("Main server IO error");
             try {
                 // If this is not a reciprocal connection, we need to make one.
                 if (!isReciprocalConnection) {
-//System.out.println(">> NS: Create reciprocal bridge to " + name);
+System.out.println(">> NS: Create reciprocal bridge to " + name);
                     cMsgServerBridge b = new cMsgServerBridge(cMsgNameServer.this, name,
                                                               port, multicastPort);
                     // connect as reciprocal (originating = false)
                     b.connect(false, cloudPassword, clientPassword, false);
-//System.out.println(">> NS: Add " + name + " to bridges");
+System.out.println(">> NS: Add " + name + " to bridges");
                     bridges.put(name, b);
                     // If status was NONCLOUD, it is now BECOMINGCLOUD,
                     // and if we're here it is not INCLOUD.
                     b.setCloudStatus(cMsgNameServer.BECOMINGCLOUD);
-//System.out.println(">> NS: set bridge (" + b + ") status to " + b.getCloudStatus());
+System.out.println(">> NS: set bridge (" + b + ") status to " + b.getCloudStatus());
                 }
                 // If this is a reciprocal connection, look up bridge for
                 // connecting server and change its cloud status.
                 else {
-//System.out.println(">> NS: Do NOT create reciprocal bridge to " + name);
+System.out.println(">> NS: Do NOT create reciprocal bridge to " + name);
                     // We cannot look up the bridge in "bridges" as it is still
                     // in the middle of being created and has not been added
                     // to that collection yet. We have saved a reference, however.
                     cMsgServerBridge b = bridgeBeingCreated;
                     if (b != null) {
                         b.setCloudStatus(connectingCloudStatus);
-//System.out.println(">> NS: set bridge (" + b + ") status to " + b.getCloudStatus());
+System.out.println(">> NS: set bridge (" + b + ") status to " + b.getCloudStatus());
                     }
                     else {
-                        System.out.println(">> NS: bridge  = " + b);
+System.out.println(">> NS: bridge  = " + b);
                     }
                 }
             }
