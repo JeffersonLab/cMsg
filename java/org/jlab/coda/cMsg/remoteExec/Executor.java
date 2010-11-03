@@ -468,7 +468,7 @@ System.out.println("commandtype = " + commandType);
         }
         catch (IOException e) {
             // probably best to ignore this error
-System.out.println("startProcess: io error gathering error output");
+System.out.println("startProcess: io error gathering (error) output");
         }
 
         if (sb.length() > 0) {

@@ -1,6 +1,7 @@
 package org.jlab.coda.cMsg.remoteExec;
 
 import java.util.HashMap;
+import java.util.Collection;
 
 
 /**
@@ -133,6 +134,15 @@ public class ExecutorInfo {
      */
     Integer getExecutorId(int commanderId) {
         return processAndThreadMap.get(commanderId);
+    }
+
+    /**
+     * Get all the commander ids.
+     *
+     * @return array of all the commander ids.
+     */
+    Collection<Integer> getCommanderIds() {
+        return processAndThreadMap.values();
     }
 
     /**

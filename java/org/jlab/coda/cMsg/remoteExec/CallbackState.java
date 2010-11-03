@@ -8,10 +8,22 @@ package org.jlab.coda.cMsg.remoteExec;
  */
 public enum CallbackState {
 
-    NONE      ("none"),      // no callback
-    RUN       ("run"),       // callback already run
-    PENDING   ("pending"),   // callback scheduled to be run
-    CANCELLED ("cancelled"); // callback was cancelled (not run)
+    /** No callback exists. */
+    NONE      ("none"),
+    /** Callback was already run. */
+    RUN       ("run"),
+    /** Callback cancelled because error getting process or thread to run. */
+    ERROR     ("error"),
+    /** Callback is scheduled to be run. */
+    PENDING   ("pending"),
+    /** Callback was cancelled by killing executor with calls to
+     * {@link Commander#kill  or {@link Commander#killAll(boolean)}. */
+    KILLED   ("killed"),
+    /** Callback was cancelled by stopping executor process or thread with
+     *  calls to {@link Commander#stop}  or {@link Commander#stopAll}. */
+    STOPPED   ("stopped"),
+    /** Callback was cancelled by calling {@link Commander#cancelCallback(CommandReturn)}. */
+    CANCELLED ("cancelled");
 
     private String value;
 
