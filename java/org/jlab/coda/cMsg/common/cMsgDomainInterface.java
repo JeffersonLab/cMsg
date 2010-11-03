@@ -110,7 +110,7 @@ public interface cMsgDomainInterface {
      * The response may be null.
      *
      * @param message message sent to server
-     * @param timeout time in milliseconds to wait for a response message
+     * @param timeout time in milliseconds to wait for a response message, zero means wait forever.
      * @return response message
      * @throws cMsgException
      * @throws TimeoutException if timeout occurs
