@@ -499,10 +499,10 @@ System.out.println("Received msg --------> thread/process ended");
      * @throws cMsgException if arg is null, cmsg communication fails or takes too long, or internal protocol error
      */
     public CommandReturn startXterm(ExecutorInfo exec, String cmd, String geometry, String title)
-            throws cMsgException, TimeoutException {
+            throws cMsgException {
 
         // xterm with scrollbar
-        String realCmd = "xterm -sb ";
+        String realCmd = "xterm -sb";
 
         // window geometry
         if (geometry != null) {
@@ -516,7 +516,7 @@ System.out.println("Received msg --------> thread/process ended");
 
         // cmd to run in xterm
         if (cmd != null && cmd.length() > 0) {
-            realCmd += " -e " + cmd;
+            realCmd += " -hold -e " + cmd;
         }
 
         return startProcess(exec, realCmd, false, null, null);
@@ -1016,8 +1016,38 @@ System.out.println("Received msg --------> thread/process ended");
      * This method is example of how to make a bunch of identical xterm windows
      * fill the screen in a conveniently packed manner.
      *
+     * @param executors list of Executors to use.
+     * @param command command to run in each executor.
+     * @param widthChars width of each xterm in characters.
+     * @param heightChars number of lines in each xterm.
+     *
+     * @return list of CommandReturn objects.
+     *
+     * @throws cMsgException
+     */
+    public List<CommandReturn> startCmdInWindows(List<ExecutorInfo> executors,
+                                                  String command,
+                                                  int widthChars, int heightChars)
+            throws cMsgException {
+
+        List<String> geometries = xtermGeometry(executors.size(), widthChars, heightChars);
+        ArrayList<CommandReturn> returnList = new ArrayList<CommandReturn>(executors.size());
+
+        for (int i=0; i <executors.size(); i++) {
+            // create xterm and add return object to list
+            returnList.add(startXterm(executors.get(i), command,
+                                      geometries.get(i), executors.get(i).getName()));
+        }
+
+        return returnList;
+    }
+
+
+    /**
+     * This method is example of how to make a bunch of identical xterm windows
+     * fill the screen in a conveniently packed manner.
+     *
      * @param exec Executor to use.
-     * @param cmdr Commander to use.
      * @param count number of windows to make.
      * @param widthChars width of each xterm in characters.
      * @param heightChars number of lines in each xterm.
@@ -1025,23 +1055,49 @@ System.out.println("Received msg --------> thread/process ended");
      * @return list of CommandReturn objects.
      *
      * @throws cMsgException
-     * @throws TimeoutException
      */
-    public List<CommandReturn> startWindows(ExecutorInfo exec, Commander cmdr, String title,
+    public List<CommandReturn> startWindows(ExecutorInfo exec, String title,
                                             int count, int widthChars, int heightChars)
-            throws cMsgException, TimeoutException {
+            throws cMsgException {
 
         List<String> geometries = xtermGeometry(count, widthChars, heightChars);
         ArrayList<CommandReturn> returnList = new ArrayList<CommandReturn>(geometries.size());
         for (String geo : geometries) {
             // create xterm and add return object to list
-            returnList.add(cmdr.startXterm(exec, null, geo, title));
+            returnList.add(startXterm(exec, null, geo, title));
         }
 
         return returnList;
     }
 
 
+
+    public static void main(String[] args) {
+
+        try {
+            String[] arggs = decodeCommandLine(args);
+System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
+            List<ExecutorInfo> execList = cmdr.getExecutors();
+            for (ExecutorInfo info : execList) {
+                System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
+            }
+
+
+            if (execList.size() > 0) {
+                List<CommandReturn> retList = cmdr.startCmdInWindows(execList, "who", 85, 8);
+            }
+
+            while(true) {
+                try {Thread.sleep(1000);}
+                catch (InterruptedException e) {}
+            }
+        }
+        catch (cMsgException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+    }
 
     public static void main1(String[] args) {
 
@@ -1055,7 +1111,7 @@ System.out.println("Received msg --------> thread/process ended");
             }
 
             if (execList.size() > 0) {
-                List<CommandReturn> retList = cmdr.startWindows(execList.get(0), cmdr,
+                List<CommandReturn> retList = cmdr.startWindows(execList.get(0),
                                                                 execList.get(0).getName(),
                                                                 20, 85, 8);
                 for (CommandReturn ret : retList) {
@@ -1064,10 +1120,6 @@ System.out.println("Received msg --------> thread/process ended");
                     catch (InterruptedException e) {}
                 }
             }
-        }
-        catch (TimeoutException e) {
-            e.printStackTrace();
-            System.exit(-1);
         }
         catch (cMsgException e) {
             e.printStackTrace();
@@ -1078,7 +1130,7 @@ System.out.println("Received msg --------> thread/process ended");
     /**
      * Run as a stand-alone application
      */
-    public static void main0(String[] args) {
+    public static void main2(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
@@ -1204,7 +1256,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
     /**
      * Run as a stand-alone application
      */
-    public static void main(String[] args) {
+    public static void main4(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
