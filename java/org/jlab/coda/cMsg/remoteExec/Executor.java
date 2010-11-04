@@ -63,6 +63,8 @@ public class Executor {
         boolean monitor;
         boolean wait;
         boolean isProcess;
+        volatile boolean killed;
+        volatile boolean stopped;
         cMsgMessage argsMessage;
     }
 
@@ -343,7 +345,7 @@ System.out.println("commandtype = " + commandType);
                             break;
 
                         case STOP_ALL:
-                            stopAll();
+                            stopAll(false);
                             break;
 
                         case STOP:
@@ -363,7 +365,7 @@ System.out.println("commandtype = " + commandType);
                             if (item != null) {
                                 killProcesses = item.getInt() != 0;
                             }
-                            if (killProcesses) stopAll();
+                            if (killProcesses) stopAll(true);
                             System.exit(0);
                             break;
 
@@ -406,15 +408,28 @@ System.out.println("commandtype = " + commandType);
 
     /**
      * Stop all processes and threads currently running.
+     * @param kill have we been commanded to kill executor?
      */
-    private void stopAll() {
+    private void stopAll(boolean kill) {
         // stop processes
         for (CommandInfo info : processMap.values()) {
+            if (kill) {
+                info.killed = true;
+            }
+            else {
+                info.stopped = true;
+            }
             info.process.destroy();
         }
 
         // stop threads (doesn't matter they're alive or not)
         for (CommandInfo info : threadMap.values()) {
+            if (kill) {
+                info.killed = true;
+            }
+            else {
+                info.stopped = true;
+            }
             info.execThread.shutItDown();
         }
     }
@@ -437,10 +452,12 @@ System.out.println("commandtype = " + commandType);
 
         // stop process
         if (info.isProcess) {
+            info.stopped = true;
             info.process.destroy();
         }
         // stop thread (doesn't matter if alive or not)
         else {
+            info.stopped = true;
             info.execThread.shutItDown();
         }
 
@@ -638,6 +655,24 @@ System.out.println("startProcess: io error gathering (error) output");
             //---------------------------------------------------------
             String[] stringsOut = gatherAllOutput(process, responseMsg, info.monitor);
 
+            //---------------------------------------------------------
+            // if process was stopped/killed, include that in return message
+            //---------------------------------------------------------
+            if (info.killed) {
+                try {
+                    cMsgPayloadItem item = new cMsgPayloadItem("killed", 1);
+                    responseMsg.addPayloadItem(item);
+                }
+                catch (cMsgException e) {/* never happen */}
+            }
+            else if (info.stopped) {
+                try {
+                    cMsgPayloadItem item = new cMsgPayloadItem("stopped", 1);
+                    responseMsg.addPayloadItem(item);
+                }
+                catch (cMsgException e) {/* never happen */}
+            }
+
             try {
                 //----------------------------------------------------------------
                 // Respond to initial sendAndGet if we haven't done so already
@@ -671,14 +706,32 @@ System.out.println("SENDING MSG TO FOR WAITER ......");
                 imDoneMsg.addPayloadItem(item1);
                 cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);
                 imDoneMsg.addPayloadItem(item2);
+
                 if (stringsOut[0] != null && info.monitor) {
                     cMsgPayloadItem item = new cMsgPayloadItem("output", stringsOut[0]);
                     imDoneMsg.addPayloadItem(item);
                 }
+
                 if (stringsOut[1] != null) {
                     cMsgPayloadItem item = new cMsgPayloadItem("error", stringsOut[1]);
                     imDoneMsg.addPayloadItem(item);
                 }
+
+                if (info.killed) {
+                    try {
+                        cMsgPayloadItem item = new cMsgPayloadItem("killed", 1);
+                        imDoneMsg.addPayloadItem(item);
+                    }
+                    catch (cMsgException e) {/* never happen */}
+                }
+                else if (info.stopped) {
+                    try {
+                        cMsgPayloadItem item = new cMsgPayloadItem("stopped", 1);
+                        imDoneMsg.addPayloadItem(item);
+                    }
+                    catch (cMsgException e) {/* never happen */}
+                }
+
 System.out.println("SENDING MSG TO RUN CALLBACK FOR PROCESS ......");
                 cmsgConnection.send(imDoneMsg);
             }
@@ -996,6 +1049,24 @@ System.out.println("SENDING MSG TO RUN CALLBACK FOR PROCESS ......");
             }
             catch (cMsgException e) {/* never happen */}
 
+            //---------------------------------------------------------
+            // if thread was stopped/killed, include that in return message
+            //---------------------------------------------------------
+            if (info.killed) {
+                try {
+                    cMsgPayloadItem item = new cMsgPayloadItem("killed", 1);
+                    responseMsg.addPayloadItem(item);
+                }
+                catch (cMsgException e) {/* never happen */}
+            }
+            else if (info.stopped) {
+                try {
+                    cMsgPayloadItem item = new cMsgPayloadItem("stopped", 1);
+                    responseMsg.addPayloadItem(item);
+                }
+                catch (cMsgException e) {/* never happen */}
+            }
+
             // send msg back to Commander
             try {
                 //----------------------------------------------------------------
@@ -1027,6 +1098,20 @@ System.out.println("SENDING MSG TO RUN CALLBACK FOR PROCESS ......");
                 imDoneMsg.addPayloadItem(item1);
                 cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);
                 imDoneMsg.addPayloadItem(item2);
+                if (info.killed) {
+                    try {
+                        cMsgPayloadItem item = new cMsgPayloadItem("killed", 1);
+                        imDoneMsg.addPayloadItem(item);
+                    }
+                    catch (cMsgException e) {/* never happen */}
+                }
+                else if (info.stopped) {
+                    try {
+                        cMsgPayloadItem item = new cMsgPayloadItem("stopped", 1);
+                        imDoneMsg.addPayloadItem(item);
+                    }
+                    catch (cMsgException e) {/* never happen */}
+                }
                 cmsgConnection.send(imDoneMsg);
             }
             catch (cMsgException e) {

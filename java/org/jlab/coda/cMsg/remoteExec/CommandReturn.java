@@ -35,9 +35,12 @@ public class CommandReturn {
 
 
     /**
-     * No-arg constructor.
+     * Constructor.
+     * @param state state of the callback
      */
-    public CommandReturn() {}
+    public CommandReturn(CallbackState state) {
+        callbackState = state;
+    }
 
 
     /**
@@ -49,11 +52,10 @@ public class CommandReturn {
      * @param terminated has process terminated already?
      * @param regularOutput regular output (if any) of the started process
      * @param errorOutput error output (if any) of the started process
-     * @param state state of the callback
      */
     public CommandReturn(int id, int processId, boolean error, boolean terminated,
-                         String regularOutput, String errorOutput, CallbackState state) {
-        setValues(id, processId, error, terminated, regularOutput, errorOutput, state);
+                         String regularOutput, String errorOutput) {
+        setValues(id, processId, error, terminated, regularOutput, errorOutput);
     }
 
 
@@ -66,10 +68,9 @@ public class CommandReturn {
      * @param terminated has process terminated already?
      * @param regularOutput regular output (if any) of the started process
      * @param errorOutput error output (if any) of the started process
-     * @param state state of the callback
      */
     synchronized public void setValues(int id, int processId, boolean error, boolean terminated,
-                          String regularOutput, String errorOutput, CallbackState state) {
+                          String regularOutput, String errorOutput) {
         // ensure consistency
         if (errorOutput != null) error = true;
 
@@ -79,7 +80,6 @@ public class CommandReturn {
         this.terminated = terminated;
         this.regularOutput = regularOutput;
         this.errorOutput = errorOutput;
-        this.callbackState = state;
     }
 
     /**

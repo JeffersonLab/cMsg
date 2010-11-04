@@ -1,7 +1,7 @@
 package org.jlab.coda.cMsg.remoteExec;
 
-import java.util.HashMap;
 import java.util.Collection;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -31,7 +31,7 @@ public class ExecutorInfo {
      * Commander id used to look up executor id when process or thread needs to
      * be stopped.
      */
-    private HashMap<Integer, Integer> processAndThreadMap = new HashMap<Integer, Integer>(30);
+    private ConcurrentHashMap<Integer, Integer> processAndThreadMap = new ConcurrentHashMap<Integer, Integer>(30);
 
 
     /**
@@ -111,9 +111,10 @@ public class ExecutorInfo {
      */
     void addCommanderId(int commanderId, int executorId) {
         // do not allow duplicate entries
-        if (!processAndThreadMap.containsKey(commanderId)) {
-             processAndThreadMap.put(commanderId, executorId);
+        if (processAndThreadMap.containsKey(commanderId)) {
+            System.out.println("addCommanderId: already have commanderId = " + commanderId + " in hashmap");
         }
+        processAndThreadMap.put(commanderId, executorId);
     }
 
     /**
@@ -142,7 +143,7 @@ public class ExecutorInfo {
      * @return array of all the commander ids.
      */
     Collection<Integer> getCommanderIds() {
-        return processAndThreadMap.values();
+        return processAndThreadMap.keySet();
     }
 
     /**

@@ -164,11 +164,11 @@ public class Commander {
 
 
     /**
-     * Get the list of known Executors.
-     * @return list of known Executors.
+     * Get the collection of known Executors.
+     * @return collection of known Executors.
      */
-    public List<ExecutorInfo> getExecutors() {
-        return new ArrayList<ExecutorInfo>(executors.values());
+    public Collection<ExecutorInfo> getExecutors() {
+        return executors.values();
     }
 
 
@@ -218,26 +218,38 @@ System.out.println("Received msg --------> thread/process ended");
 
                             CommandReturn cmdRet = cmdReturns.remove(id);
                             if (cmdRet != null) {
-                                // Although theoretically we should never get to this
-                                // point with a cancelled/run/no callback, check for it
-                                // just to make sure.
-                                if (cmdRet.getCallbackState() != CallbackState.PENDING) {
-                                    System.out.println("Reject message, callback not pending");
-                                    return;
-                                }
-
                                 // Update cmdRet with the results of the process
 
-                                // Was there an error?
+                                // Was there any error output of the process?
                                 item = msg.getPayloadItem("error");
                                 if (item != null) {
                                     cmdRet.setError(item.getString());
                                 }
 
-                                // Any output of the process?
+                                // Was there any regular output of the process?
                                 item = msg.getPayloadItem("output");
                                 if (item != null) {
                                     cmdRet.setOutput(item.getString());
+                                }
+
+                                // Was the process/thread stopped?
+                                item = msg.getPayloadItem("stopped");
+                                if (item != null) {
+System.out.println("send msg set to stopped, caught in callback");
+                                    cmdRet.setCallbackState(CallbackState.STOPPED);
+                                }
+
+                                // Was the process/thread killed?
+                                item = msg.getPayloadItem("killed");
+                                if (item != null) {
+System.out.println("send msg set to killed, caught in callback");
+                                    cmdRet.setCallbackState(CallbackState.KILLED);
+                                }
+
+                                // Only run pending callbacks (theoretically should never be true).
+                                if (cmdRet.getCallbackState() != CallbackState.PENDING) {
+                                    System.out.println("Reject message, callback not pending");
+                                    return;
                                 }
 
                                 cmdRet.hasTerminated(true);
@@ -344,6 +356,17 @@ System.out.println("Received msg --------> thread/process ended");
         }
 
         // Remove all callbacks
+        // If callback defined, commander id will be in exec's hashmap
+        // since return from startThread is immediate & startProcess is .1 sec.
+        // There is a race condition here since another thread may call this
+        // method just before a startThread/Process actually returns. In that
+        // case, the callback is not removed here since the exec does not yet
+        // have the commander id entry in its hashmap. When the message to stop
+        // all processes/threads reaches the exec, it will stop them resulting
+        // in a message sent to this commander telling the callback to execute.
+        // It is on the multithreaded user to call this method at a time when
+        // all desired processes can be stopped.
+        // If no cb defined, then there will be no id in exec's hashmap.
         Collection<Integer> commanderIds = exec.getCommanderIds();
         for (Integer id : commanderIds) {
             CommandReturn cmdRet = cmdReturns.remove(id);
@@ -418,6 +441,8 @@ System.out.println("Received msg --------> thread/process ended");
 
     /**
      * Stop the given process or thread on the specified executor.
+     * This can only be called if startProcess or startThread has
+     * returned with a CommandReturn object.
      *
      * @param exec object specifying executor.
      * @param commandReturn object specifying process or thread to stop
@@ -429,6 +454,8 @@ System.out.println("Received msg --------> thread/process ended");
 
     /**
      * Stop the given process or thread on the specified executor.
+     * This can only be called if startProcess or startThread has
+     * returned with a CommandReturn object.
      *
      * @param exec object specifying executor.
      * @param commandId id of process or thread to stop
@@ -439,13 +466,17 @@ System.out.println("Received msg --------> thread/process ended");
             throw new cMsgException("not connect to cMsg server");
         }
 
-        // Remove any callback
+        // Remove any callback:
         CommandReturn cmdRet = cmdReturns.remove(commandId);
         if (cmdRet != null) {
+            System.out.println("set to stooped in stop");
             cmdRet.setCallbackState(CallbackState.STOPPED);
         }
 
-        // Retrieve executor id (id meaningful to executor) and remove from storage
+        // Retrieve executor id (id meaningful to executor) and remove from storage.
+        // Since this method can only be called if startProcess or startThread has
+        // returned with a CommandReturn object, exec will have a commandId key in
+        // its hashmap.
         Integer execId = exec.removeCommanderId(commandId);
         if (execId == null) {
             // No such id exists for this Executor since it was already terminated
@@ -479,7 +510,18 @@ System.out.println("Received msg --------> thread/process ended");
             throw new cMsgException("not connect to cMsg server");
         }
 
-        // Remove all callbacks
+        // Remove all callbacks.
+        // If callback defined, commander id will be in exec's hashmap
+        // since return from startThread is immediate & startProcess is .1 sec.
+        // There is a race condition here since another thread may call this
+        // method just before a startThread/Process actually returns. In that
+        // case, the callback is not removed here since the exec does not yet
+        // have the commander id entry in its hashmap. When the message to stop
+        // all processes/threads reaches the exec, it will stop them resulting
+        // in a message sent to this commander telling the callback to execute.
+        // It is on the multithreaded user to call this method at a time when
+        // all desired processes can be stopped.
+        // If no cb defined, then there will be no id in exec's hashmap.
         Collection<Integer> commanderIds = exec.getCommanderIds();
         for (Integer id : commanderIds) {
             CommandReturn cmdRet = cmdReturns.remove(id);
@@ -691,13 +733,12 @@ System.out.println("Received msg --------> thread/process ended");
 
         int myId = uniqueId.incrementAndGet();
 
-        CallbackState cbState = CallbackState.NONE;
-        CommandReturn cmdRet = new CommandReturn();
+        CommandReturn cmdRet = new CommandReturn(CallbackState.NONE);
         // register callback for execution on process termination
         if (callback != null) {
             cmdRet.registerCallback(callback, userObject);
+            cmdRet.setCallbackState(CallbackState.PENDING);
             cmdReturns.put(myId, cmdRet);
-            cbState = CallbackState.PENDING;
         }
 
         cMsgMessage msg = new cMsgMessage();
@@ -746,8 +787,8 @@ System.out.println("Received msg --------> thread/process ended");
                 // If it was an immediate error, cancel
                 // callback since process never ran.
                 if (immediateError) {
-                    if (cbState == CallbackState.PENDING) {
-                        cbState = CallbackState.ERROR;
+                    if (cmdRet.getCallbackState() == CallbackState.PENDING) {
+                        cmdRet.setCallbackState(CallbackState.ERROR);
                     }
                 }
             }
@@ -758,6 +799,8 @@ System.out.println("Received msg --------> thread/process ended");
             if (item != null) {
                 terminated = item.getInt() != 0;
             }
+
+            // Has the process been killed or stopped?
 
             // If it hasn't, get its id
             int processId = 0;
@@ -770,6 +813,24 @@ System.out.println("Received msg --------> thread/process ended");
                 // Store mapping between the 2 ids to help terminating it in future.
                 exec.addCommanderId(myId, processId);
             }
+            else {
+                // was this process killed by call to kill() or killAll()?
+                boolean killed = false;
+                item = returnMsg.getPayloadItem("killed");
+                if (item != null) {
+                    killed = item.getInt() != 0;
+System.out.println("startProcess: Executor set to killed");
+                    cmdRet.setCallbackState(CallbackState.KILLED);
+                }
+                if (!killed) {
+                    // was this process stopped by call to stop() or stopAll()?
+                    item = returnMsg.getPayloadItem("stopped");
+                    if (item != null) {
+System.out.println("startProcess: Executor set to stopped");
+                        cmdRet.setCallbackState(CallbackState.STOPPED);
+                    }
+                }
+            }
 
             // If we requested the output of the process ...
             String output = null;
@@ -780,7 +841,7 @@ System.out.println("Received msg --------> thread/process ended");
                 }
             }
 
-            cmdRet.setValues(myId, processId, (err != null), terminated, output, err, cbState);
+            cmdRet.setValues(myId, processId, (err != null), terminated, output, err);
             return cmdRet;
         }
         else {
@@ -881,13 +942,12 @@ System.out.println("Received msg --------> thread/process ended");
 
         int myId = uniqueId.incrementAndGet();
 
-        CallbackState cbState = CallbackState.NONE;
-        CommandReturn cmdRet = new CommandReturn();
+        CommandReturn cmdRet = new CommandReturn(CallbackState.NONE);
         // register callback for execution on process termination
         if (callback != null) {
             cmdRet.registerCallback(callback, userObject);
+            cmdRet.setCallbackState(CallbackState.PENDING);
             cmdReturns.put(myId, cmdRet);
-            cbState = CallbackState.PENDING;
         }
 
         cMsgMessage msg = new cMsgMessage();
@@ -926,10 +986,11 @@ System.out.println("Received msg --------> thread/process ended");
             cMsgPayloadItem item = msg.getPayloadItem("error");
             if (item != null) {
                 String err = item.getString();
-                if (cbState == CallbackState.PENDING) {
-                    cbState = CallbackState.ERROR;
+                if (cmdRet.getCallbackState() == CallbackState.PENDING) {
+                    cmdRet.setCallbackState(CallbackState.ERROR);
                 }
-                return new CommandReturn(myId, 0, true, true, null, err, cbState);
+                cmdRet.setValues(myId, 0, true, true, null, err);
+                return cmdRet;
             }
 
             // Has the thread terminated? (i.e. did we wait for it?)
@@ -950,8 +1011,24 @@ System.out.println("Received msg --------> thread/process ended");
                 // Store mapping between the 2 ids to help terminating it in future.
                 exec.addCommanderId(myId, threadId);
             }
+            else {
+                // was this thread killed by call to kill() or killAll()?
+                boolean killed = false;
+                item = returnMsg.getPayloadItem("killed");
+                if (item != null) {
+                    killed = item.getInt() != 0;
+                    cmdRet.setCallbackState(CallbackState.KILLED);
+                }
+                if (!killed) {
+                    // was this thread stopped by call to stop() or stopAll()?
+                    item = returnMsg.getPayloadItem("stopped");
+                    if (item != null) {
+                        cmdRet.setCallbackState(CallbackState.STOPPED);
+                    }
+                }
+            }
 
-            cmdRet.setValues(myId, threadId, false, false, null, null, cbState);
+            cmdRet.setValues(myId, threadId, false, false, null, null);
             return cmdRet;
         }
         else {
@@ -1149,14 +1226,15 @@ System.out.println("Received msg --------> thread/process ended");
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
-            List<ExecutorInfo> execList = cmdr.getExecutors();
+            Collection<ExecutorInfo> execList = cmdr.getExecutors();
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
 
 
             if (execList.size() > 0) {
-                List<CommandReturn> retList = cmdr.startCmdInWindows(execList, "who", 85, 8);
+                List<CommandReturn> retList = cmdr.startCmdInWindows(new ArrayList<ExecutorInfo>(execList),
+                                                                     "who", 85, 8);
             }
 
             while(true) {
@@ -1176,17 +1254,18 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
             String[] arggs = decodeCommandLine(args);
  System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
-            List<ExecutorInfo> execList = cmdr.getExecutors();
+            Collection<ExecutorInfo> execList = cmdr.getExecutors();
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
 
             if (execList.size() > 0) {
-                List<CommandReturn> retList = cmdr.startWindows(execList.get(0),
-                                                                execList.get(0).getName(),
+                ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
+                List<CommandReturn> retList = cmdr.startWindows(list.get(0),
+                                                                list.get(0).getName(),
                                                                 20, 85, 8);
                 for (CommandReturn ret : retList) {
-                    cmdr.stop(execList.get(0), ret);
+                    cmdr.stop(list.get(0), ret);
                     try {Thread.sleep(200);}
                     catch (InterruptedException e) {}
                 }
@@ -1206,7 +1285,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
-            List<ExecutorInfo> execList = cmdr.getExecutors();
+            Collection<ExecutorInfo> execList = cmdr.getExecutors();
             System.out.println("execList =  "+ execList);
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
@@ -1230,7 +1309,8 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                     dimCon.addPrimitiveArg("int", "1");
                     dimCon.addPrimitiveArg("int", "2");
 
-                    CommandReturn ret = cmdr.startThread(execList.get(0),
+                    ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
+                    CommandReturn ret = cmdr.startThread(list.get(0),
                                                          "org.jlab.coda.cMsg.remoteExec.ExampleThread",
                                                          new myCB(), null, exThrCon);
 System.out.println("Return = " + ret);
@@ -1247,7 +1327,7 @@ System.out.println("Return = " + ret);
                     //}
 
                     //cmdr.stopAll(execList.get(0));
-                    cmdr.stop(execList.get(0), ret);
+                    cmdr.stop(list.get(0), ret);
 
                 }
 
@@ -1271,7 +1351,7 @@ System.out.println("Return = " + ret);
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
-            List<ExecutorInfo> execList = cmdr.getExecutors();
+            Collection<ExecutorInfo> execList = cmdr.getExecutors();
             System.out.println("execList =  "+ execList);
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
@@ -1299,7 +1379,8 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                 serverCon.addPrimitiveArg("int", ""+cMsgConstants.debugInfo); // debug level
                 serverCon.addPrimitiveArg("int", ""+cMsgConstants.regimeLowMaxClients); // max clients/domain server in low regime
 
-                CommandReturn ret = cmdr.startThread(execList.get(0),
+                ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
+                CommandReturn ret = cmdr.startThread(list.get(0),
                                                      "org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer",
                                                      new myCB(), null, serverCon);
                 System.out.println("Return = " + ret);
@@ -1315,7 +1396,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                 catch (InterruptedException e) {}
                 //}
 
-                cmdr.stop(execList.get(0), ret);
+                cmdr.stop(list.get(0), ret);
             }
         }
         catch (cMsgException e) {
@@ -1333,7 +1414,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
             //cmdr.findExecutors();   // already done in constructor
-            List<ExecutorInfo> execList = cmdr.getExecutors();
+            Collection<ExecutorInfo> execList = cmdr.getExecutors();
             System.out.println("execList =  "+ execList);
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
@@ -1363,9 +1444,10 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
             while(true) {
                 in = inputStr("% ");
                 if (execList.size() > 0) {
+                    ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
                     //                                                      monitor, wait
                     //CommandReturn ret = cmdr.startProcess(execList.get(0), in, true, true, new myCB(), null, 10000);
-                    CommandReturn ret = cmdr.startProcess(execList.get(0), in, true,  new myCB(), null);
+                    CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  new myCB(), null);
                     System.out.println("Return = " + ret);
                     if (ret.hasError()) {
                         System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
@@ -1405,29 +1487,22 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
       * Run as a stand-alone application
       */
      public static void main(String[] args) {
-         try {
              String[] arggs = decodeCommandLine(args);
  System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
-             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
-             //cmdr.findExecutors();   // already done in constructor
-             List<ExecutorInfo> execList = cmdr.getExecutors();
+        Commander cmdr = null;
+        try {
+            cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
+        }
+        catch (cMsgException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        Collection<ExecutorInfo> execList = cmdr.getExecutors();
              System.out.println("execList =  "+ execList);
              for (ExecutorInfo info : execList) {
                  System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
              }
-//
-//            for (ExecutorInfo info : execList) {
-//                System.out.println("Killing you " + info.getName());
-//                cmdr.kill(info, true);
-//            }
-//            System.out.println("Killing all");
-//            cmdr.killAll(true);
-//            if (execList.size() > 0) {
-//                CommandReturn ret = cmdr.startProcess(execList.get(0), "java org/jlab/coda/cMsg/test/cMsgTest", false, false, 1000);
-//                    if (ret.getOutput() != null)
-//                        System.out.println(ret.getOutput());
-//
-//            }
 
              class myCB implements CommandCallback {
                  public void callback(Object userObject, CommandReturn commandReturn) {
@@ -1439,44 +1514,47 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
              String in;
              while(true) {
                  in = inputStr("% ");
-                 if (execList.size() > 0) {
-                     //                                                      monitor, wait
-                     //CommandReturn ret = cmdr.startProcess(execList.get(0), in, true, true, new myCB(), null, 10000);
-                     CommandReturn ret = cmdr.startProcess(execList.get(0), in, true,  new myCB(), null);
-                     System.out.println("Return = " + ret);
-                     if (ret.hasError()) {
-                         System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
-                     }
-                     if (ret.getOutput() != null) {
-                         System.out.println("Regular output:\n" + ret.getOutput());
-                     }
-                     System.out.println("Callback state = " + ret.getCallbackState());
+                 try {
+                     cmdr.findExecutors(500);
+                 }
+                 catch (cMsgException e) {
+                     e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+                 }
+                 for (ExecutorInfo exec : execList) {
+                     //                                    exec, cmd, monitor,     cb,  cb arg
+                     try {
+                         CommandReturn ret = cmdr.startProcess(exec, in, true,  new myCB(), null);
+                         System.out.println("Return = " + ret);
+                         if (ret.hasError()) {
+                             System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
+                         }
+                         if (ret.getOutput() != null) {
+                             System.out.println("Regular output:\n" + ret.getOutput());
+                         }
+                         System.out.println("Callback state = " + ret.getCallbackState());
 
-                    try {Thread.sleep(3000);}
-                    catch (InterruptedException e) {}
+                         try {Thread.sleep(3000);}
+                         catch (InterruptedException e) {}
 
-                    System.out.println("Stop process now");
-                    cmdr.stop(execList.get(0), ret.getId());
+                         System.out.println("Stop process now");
+                         cmdr.stop(exec, ret);
+//                         System.out.println("Kill process now");
+//                         cmdr.kill(exec, true);
 
 //                    while (true) {
                          try {Thread.sleep(1000);}
                          catch (InterruptedException e) {}
-                     System.out.println("After 1 sec --> Callback state = " + ret.getCallbackState());
+                         System.out.println("After 1 sec --> Callback state = " + ret.getCallbackState());
 
 //                    }
+                     }
+                     catch (cMsgException e) {
+                         e.printStackTrace();
+                         System.exit(-1);
+                     }
                  }
              }
 
-             //cmdr.kill(execList.get(0), true);
-         }
-//        catch (TimeoutException e) {
-//            e.printStackTrace();
-//            System.exit(-1);
-//        }
-         catch (cMsgException e) {
-             e.printStackTrace();
-             System.exit(-1);
-         }
      }
 
 
