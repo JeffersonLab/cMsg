@@ -330,6 +330,8 @@ System.out.println("Received msg --------> thread/process ended");
 
     /**
      * Kill the specified executor and, optionally, all processes it has started.
+     * The executor will destroy all started processes and shutdown all started
+     * threads before exiting.
      *
      * @param exec object specifying executor.
      * @param killProcesses <code>false</code> to leave spawned processes running,
@@ -341,7 +343,19 @@ System.out.println("Received msg --------> thread/process ended");
             throw new cMsgException("not connect to cMsg server");
         }
 
-        // send kill msg to executor
+        // Remove all callbacks
+        Collection<Integer> commanderIds = exec.getCommanderIds();
+        for (Integer id : commanderIds) {
+            CommandReturn cmdRet = cmdReturns.remove(id);
+            if (cmdRet != null) {
+                cmdRet.setCallbackState(CallbackState.KILLED);
+            }
+        }
+
+        // Clear out record of all commands not terminated yet
+        exec.clearIds();
+
+        // Send kill msg to executor
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
@@ -358,6 +372,8 @@ System.out.println("Received msg --------> thread/process ended");
 
     /**
      * Kill all executors and, optionally, all processes they have started.
+     * Each executor will destroy all started processes and shutdown all started
+     * threads before exiting.
      *
      * @param killProcesses <code>false</code> to leave spawned processes running,
      *                      else <code>true</code> to kill them too.
@@ -368,7 +384,24 @@ System.out.println("Received msg --------> thread/process ended");
             throw new cMsgException("not connect to cMsg server");
         }
 
-        // send kill msg to all executors
+        for (ExecutorInfo exec : executors.values()) {
+            // Set status of each callback and remove from map
+            Collection<Integer> commanderIds = exec.getCommanderIds();
+            for (Integer id : commanderIds) {
+                CommandReturn cmdRet = cmdReturns.remove(id);
+                if (cmdRet != null) {
+                    cmdRet.setCallbackState(CallbackState.KILLED);
+                }
+            }
+
+            // Clear out record of all commands not terminated yet
+            exec.clearIds();
+        }
+
+        // Make sure we got rid of all callbacks
+        cmdReturns.clear();
+
+        // Send kill msg to all executors
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
@@ -415,11 +448,11 @@ System.out.println("Received msg --------> thread/process ended");
         // Retrieve executor id (id meaningful to executor) and remove from storage
         Integer execId = exec.removeCommanderId(commandId);
         if (execId == null) {
-            // no such id exists for this Executor since it was already terminated
+            // No such id exists for this Executor since it was already terminated
             return;
         }
 
-        // send stop msg to executor
+        // Send stop msg to executor
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
@@ -455,10 +488,10 @@ System.out.println("Received msg --------> thread/process ended");
             }
         }
 
-        // no threads or processes will be running after this command
+        // Clear out record of all commands not terminated yet
         exec.clearIds();
 
-        // send stop-all msg to executor
+        // Send stop-all msg to executor
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
@@ -480,9 +513,8 @@ System.out.println("Received msg --------> thread/process ended");
             throw new cMsgException("not connect to cMsg server");
         }
 
-        // for each executor ...
         for (ExecutorInfo exec : executors.values()) {
-            // Remove all callbacks
+            // Set status of each callback and remove from map
             Collection<Integer> commanderIds = exec.getCommanderIds();
             for (Integer id : commanderIds) {
                 CommandReturn cmdRet = cmdReturns.remove(id);
@@ -491,11 +523,14 @@ System.out.println("Received msg --------> thread/process ended");
                 }
             }
 
-            // no threads or processes will be running after this command
+            // Clear out record of all commands not terminated yet
             exec.clearIds();
         }
 
-        // send stop-all msg to all executors
+        // Make sure we got rid of all callbacks
+        cmdReturns.clear();
+
+        // Send stop-all msg to all executors
         cMsgMessage msg = new cMsgMessage();
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
