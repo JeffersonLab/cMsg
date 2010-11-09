@@ -189,7 +189,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             throws IOException, cMsgException {
 
         if (out == null || !channel.isOpen()) {
-            throw new cMsgException("Call createClientConnection first to create connection to client");
+            throw new cMsgException("Channel to client is closed");
         }
 
         if (msgType == cMsgConstants.msgShutdownClients) {
@@ -228,7 +228,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             throws IOException, cMsgException {
 
         if (!channel.isOpen()) {
-            throw new cMsgException("Call createClientConnection first to create connection to client");
+            throw new cMsgException("Channel to client is closed");
         }
 
         if (msgType == cMsgConstants.msgShutdownClients) {
@@ -259,15 +259,12 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
         while (buffer.hasRemaining()) {
             bytesWritten = channel.write(buffer);
             totalBytesWritten += bytesWritten;
-            // client may be dead so bail
-            if (bytesWritten < 1 && totalBytesWritten < 1) {
-                throw new IOException("Client is presumed dead");
-            }
-            // don't wait more than .1 sec total before giving up on writing
-            else if (totalBytesWritten < buffer.limit()) {
-//                if  (++tries > 9) {
-//                    throw new IOException("Client is presumed dead or deadlocked");
-//                }
+            // Client may be dead or TCP socket buffer may be
+            // full due to overwhelmed & backed up client.
+            if (totalBytesWritten < buffer.limit()) {
+                if (!channel.isOpen()) {
+                    throw new cMsgException("Channel to client is closed");
+                }
                 try { Thread.sleep(10); }
                 catch (InterruptedException e) {}
             }
@@ -290,7 +287,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             throws IOException, cMsgException {
 
         if (out == null || !channel.isOpen()) {
-            throw new cMsgException("Call createClientConnection first to create connection to client");
+            throw new cMsgException("Channel to client is closed");
         }
 
         // lengths of ints to send
@@ -335,7 +332,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             throws IOException, cMsgException {
 
         if (!channel.isOpen()) {
-            throw new cMsgException("Call createClientConnection first to create connection to client");
+            throw new cMsgException("Channel to client is closed");
         }
 
         // lengths of ints to send
@@ -375,15 +372,12 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
         while (buffer.hasRemaining()) {
             bytesWritten = channel.write(buffer);
             totalBytesWritten += bytesWritten;
-            // client may be dead so bail
-            if (bytesWritten < 1 && totalBytesWritten < 1) {
-                throw new IOException("Client is presumed dead");
-            }
-            // don't wait more than .1 sec total before giving up on writing
-            else if (totalBytesWritten < buffer.limit()) {
-//                if  (++tries > 9) {
-//                    throw new IOException("Client is presumed dead or deadlocked");
-//                }
+            // Client may be dead or TCP socket buffer may be
+            // full due to overwhelmed & backed up client.
+            if (totalBytesWritten < buffer.limit()) {
+                if (!channel.isOpen()) {
+                    throw new cMsgException("Channel to client is closed");
+                }
                 try { Thread.sleep(10); }
                 catch (InterruptedException e) {}
             }
@@ -407,7 +401,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             throws IOException, cMsgException {
 
         if (!channel.isOpen()) {
-            throw new cMsgException("Call createClientConnection first to create connection to client");
+            throw new cMsgException("Channel to client is closed");
         }
 
 // CHANGED the protocol by getting rid of acknowledges & adding syncSend response
@@ -510,21 +504,32 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
 //                    "), connected (" + channel.isConnected() + ")");
             bytesWritten = channel.write(buffer);
             totalBytesWritten += bytesWritten;
-            // client may be dead so bail
-            if (bytesWritten < 1 && totalBytesWritten < 1) {
-                throw new IOException("Client is presumed dead");
-            }
-            // Keep trying to write. Throwing an error before finishing
-            // the write will cause massive chaos in the client. It's
-            // better to be deadlocked then cause exceptions and seg faults.
-            else if (totalBytesWritten < buffer.limit()) {
-//                if  (++tries > 9) {
-//System.out.println("deliverer (NIO) : Cannot deliver full MSG");
-//                    throw new IOException("Client is dead or deadlocked");
-//                }
+
+            // Client may be dead or TCP socket buffer may be
+            // full due to overwhelmed & backed up client.
+            if (totalBytesWritten < buffer.limit()) {
+                if (!channel.isOpen()) {
+                    throw new cMsgException("Channel to client is closed");
+                }
                 try { Thread.sleep(10); }
                 catch (InterruptedException e) {}
             }
+// OLD WAY OF DOING THIS ...
+//            // client may be dead so bail
+//            if (bytesWritten < 1 && totalBytesWritten < 1) {
+//                throw new IOException("Client is presumed dead");
+//            }
+//            // Keep trying to write. Throwing an error before finishing
+//            // the write will cause massive chaos in the client. It's
+//            // better to be deadlocked then cause exceptions and seg faults.
+//            else if (totalBytesWritten < buffer.limit()) {
+////                if  (++tries > 9) {
+////System.out.println("deliverer (NIO) : Cannot deliver full MSG");
+////                    throw new IOException("Client is dead or deadlocked");
+////                }
+//                try { Thread.sleep(10); }
+//                catch (InterruptedException e) {}
+//            }
         }
 //System.out.println("deliverer (NIO) : done sending msg");
      
@@ -545,7 +550,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
 
         //if (in == null || out == null || !channel.isOpen()) {
         if (out == null || !channel.isOpen()) {
-            throw new cMsgException("Call createClientConnection first to create connection to client");
+            throw new cMsgException("Channel to client is closed");
         }
 
 // CHANGED the protocol by getting rid of acknowledges & adding syncSend reponse
