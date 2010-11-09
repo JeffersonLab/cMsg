@@ -83,17 +83,17 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
     private cMsgConnectionHandler connectionHandler;
 
     /**
-     * Thread which monitors the health of clients. It also sends and receives
+     * Threads which monitor the health of clients. It also sends and receives
      * general monitoring information.
      */
-    private cMsgMonitorClient monitorThread;
+    private cMsgMonitorClient monitorHandler;
 
     /**
-     * There are 2 threads which must be running before client connections are allowed.
+     * There are 3 threads which must be running before client connections are allowed.
      * Use this object to signal the point at which both of these threads have been
      * successfully started (during {@link #startServer()}) .
      */
-    CountDownLatch preConnectionThreadsStartedSignal = new CountDownLatch(2);
+    CountDownLatch preConnectionThreadsStartedSignal = new CountDownLatch(3);
 
     /**
      * There are 2 threads which must be running before client connections are allowed.
@@ -800,8 +800,19 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println(">> NS: Start keepalive/monitoring thread ");
         }
-        monitorThread = new cMsgMonitorClient(this, debug);
-        monitorThread.start();
+        
+        try {
+            monitorHandler = new cMsgMonitorClient(this, debug);
+            monitorHandler.start();
+        }
+        catch (IOException e) {
+            // cannot start up selector for reading of monitoring data
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println(">> NS: Cannot start up selector for reading monitoring data");
+            }
+            shutdown();
+            return;
+        }
 
         // Start domain server connection thread
         if (debug >= cMsgConstants.debugInfo) {
@@ -934,8 +945,8 @@ System.out.println(">> **** cMsg server sucessfully started at " + (new Date()) 
         multicastThread.killThread();
         // Shutdown connecting new clients thread
         connectionHandler.killThread();
-        // Shutdown monitoring clients thread
-        monitorThread.killThread();
+        // Shutdown monitoring clients threads
+        monitorHandler.shutdown();
 
         // Shutdown all domain servers
         for (cMsgDomainServer server : domainServers.keySet()) {
@@ -1796,6 +1807,8 @@ System.out.println(">> NS: bridge  = " + b);
             dsServer.addClient(info);
             // store ref to this domain server
             domainServersSelect.put(dsServer, "");
+            // start monitoring client
+            monitorHandler.addClient(info, dsServer);
         }
 
 
@@ -2176,6 +2189,8 @@ System.out.println(">> NS: bridge  = " + b);
                 else {
                     dsServer.addClient(info); /* deliverer gets message channel */
                 }
+                // start monitoring client
+                monitorHandler.addClient(info, dsServer);
             }
             else {
                 // kill this thread too if name server thread quits
@@ -2184,7 +2199,10 @@ System.out.println(">> NS: bridge  = " + b);
                 dServer.startThreads();
                 // store ref to this domain server
                 domainServers.put(dServer, "");
+                // start monitoring client
+                monitorHandler.addClient(info, dServer);
             }
+
 
             return;
         }
