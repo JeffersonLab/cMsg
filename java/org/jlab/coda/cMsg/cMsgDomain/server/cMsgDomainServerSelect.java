@@ -67,7 +67,7 @@ class cMsgDomainServerSelect extends Thread {
     ConcurrentHashMap<cMsgClientData, String> clients;
 
     /**
-     * Set of all clients waiting to be registed with the selector of this domain server.
+     * Set of all clients waiting to be registered with the selector of this domain server.
      * The value is just a dummy so the concurrent hashmap could be used.
      */
     ConcurrentHashMap<cMsgClientData, String> clients2register;
@@ -335,15 +335,13 @@ class cMsgDomainServerSelect extends Thread {
      * @param info information on client trying to connect to this domain server
      * @return
      */
-    boolean addClient(cMsgClientData info) throws IOException {
+    synchronized boolean addClient(cMsgClientData info) throws IOException {
 
-        synchronized (this) {
-            if (clients.size() >= clientsMax) {
-                return false;
-            }
-
-            clients.put(info, "");
+        if (clients.size() >= clientsMax) {
+            return false;
         }
+
+        clients.put(info, "");
 
         myClientInfo = info;
 
@@ -412,6 +410,7 @@ class cMsgDomainServerSelect extends Thread {
 
         // close all sockets to clients
         for (cMsgClientData cd : clients.keySet()) {
+//System.out.println("    **** (shutdown) Close both channels for client " + cd.getName());
             try { cd.keepAliveChannel.close(); }    catch (IOException e) {}
             try { cd.getMessageChannel().close(); } catch (IOException e) {}
         }
@@ -536,6 +535,10 @@ class cMsgDomainServerSelect extends Thread {
     synchronized void deleteClient(cMsgClientData cd) {
 //System.out.println("    **** deleteClient: deleting client " + cd.getName());
 //        Thread.dumpStack();
+        if (!clients.containsKey(cd)) {
+            return;
+        }
+
         // remove from hashmap (otherwise the cMsgMonitorClient object will try to run this method)
         removeClient(cd);
 
@@ -670,6 +673,7 @@ class cMsgDomainServerSelect extends Thread {
             catch (cMsgException e) { e.printStackTrace(); }
         }
 
+//System.out.println("    **** (deleteClient) Close both channels for client " + cd.getName());
         // close all sockets to client and cancels selection keys (removes from select)
         try { cd.keepAliveChannel.close(); }    catch (IOException e) {}
         try { cd.getMessageChannel().close(); } catch (IOException e) {}
