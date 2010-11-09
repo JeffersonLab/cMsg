@@ -19,12 +19,14 @@ package org.jlab.coda.cMsg.cMsgDomain.server;
 import org.jlab.coda.cMsg.cMsgConstants;
 import org.jlab.coda.cMsg.cMsgException;
 
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.text.DateFormat;
 import java.util.Date;
+import java.util.Iterator;
+import java.util.concurrent.*;
 
 /**
  * This class implements an object to monitor the health of all cMsg clients connected
@@ -41,35 +43,68 @@ class cMsgMonitorClient extends Thread {
     /** Domain server object. */
     private cMsgNameServer server;
 
-    /** A direct outBuffer is necessary for nio socket IO. */
+    /** Create XML string for output. */
+    private StringBuilder xml;
+
+    /** A direct output buffer is necessary for nio socket IO. */
     private ByteBuffer outBuffer;
 
-    /** A direct outBuffer is necessary for nio socket IO. */
+    /** A direct output buffer is necessary for nio socket IO. */
     private ByteBuffer outBuffer2;
 
-    /** A direct outBuffer is necessary for nio socket IO. */
+    /** A direct input buffer is necessary for nio socket IO. */
     private ByteBuffer inBuffer;
 
     /** Level of debug output for this class. */
     private int debug;
 
-    /** Time in milliseconds to write keepalive to, and read keepalive from clients. */
-    private final long updatePeriod = 2100;
+    /** Time in milliseconds to attempt to read keepalive data from clients. */
+    private final int readTimeout = 3000;
+
+    /** Time in milliseconds between writes of monitoring data to clients. */
+    private final long updatePeriod = 2000;
 
     /** Time in milliseconds elapsed between client keepalives received before calling client dead. */
-    private final long deadTime = 10000;
+    private final long deadTime = 15000;
 
-    /** Kill this thread if true. */
-    volatile boolean killThisThread;
-
+    /**
+     * Do we send and read meaningful monitoring data (false)?
+     * Or do we send the minimum and ignore what we read (true)?
+     */
     private boolean monitoringOff;
 
-    private StringBuilder xml;
+    /**
+     * Set of all clients waiting to be registered with the selector of this domain server.
+     * The value is just a dummy so the concurrent hashmap could be used.
+     */
+    private ConcurrentHashMap<cMsgClientData, String> clients2register;
+
+    /** Set of all clients. The value is cMsgDomainServer(Select) object. */
+    private ConcurrentHashMap<cMsgClientData, Object> clients;
+
+    /** Selector object each client's channel is registered with. Used for reading. */
+    private Selector selector;
+
+    /**
+     * This member is a pool of threads for reading all the monitoring data coming in.
+     * The reason a pool is desirable is because if a single thread
+     * is used, one uncooperative client can block the reading of all
+     * clients. It limits how much time we can spend trying to read
+     * one guy and put all the rest on hold.
+     *
+     * Run up to 5 threads with infinite queue. Wait 1 min before terminating
+     * extra (more than 1) unused threads.
+     */
+    private ThreadPoolExecutor readingThreadPool;
+
+    /** Kill these threads if true. */
+    volatile private boolean killThreads;
 
 
-    /** Kills this thread. */
-    void killThread() {
-        killThisThread = true;
+    /** Shuts down all client monitoring threads. */
+    void shutdown() {
+        readingThreadPool.shutdownNow();
+        killThreads = true;
         this.interrupt();
     }
 
@@ -79,8 +114,9 @@ class cMsgMonitorClient extends Thread {
      *
      * @param server domain server which created this monitor
      * @param debug level of debug output
+     * @throws IOException if selector cannot be opened
      */
-    public cMsgMonitorClient(cMsgNameServer server, int debug) {
+    public cMsgMonitorClient(cMsgNameServer server, int debug) throws IOException {
         this.debug  = debug;
         this.server = server;
 
@@ -89,81 +125,488 @@ class cMsgMonitorClient extends Thread {
         outBuffer2 = ByteBuffer.allocateDirect(1024);
         inBuffer   = ByteBuffer.allocateDirect(2048);
         xml        = new StringBuilder(1000);
+        clients          = new ConcurrentHashMap<cMsgClientData, Object>(500);
+        clients2register = new ConcurrentHashMap<cMsgClientData, String>(100);
+
+        // Create thread pool. Run up to 5 threads with infinite queue.
+        // Wait 1 min before terminating extra (more than 1) unused threads.
+        readingThreadPool = new ThreadPoolExecutor(1, 5, 60L, TimeUnit.SECONDS,
+                                                  new LinkedBlockingQueue<Runnable>());
+
+        // allow clients to be registered with the selector
+        selector = Selector.open();
+
+        // start thread for reading
+        ReadMonitorData rd = new ReadMonitorData();
+        rd.start();
+
+        // start thread for writing
+        WriteMonitorData wr = new WriteMonitorData();
+        wr.start();
     }
 
 
-    public void run() {
-
-        int size1=0, size2=0, size3=0, count=0;
-
-        // tell startServer that this thread has started
-        server.preConnectionThreadsStartedSignal.countDown();
-
-        // There is a problem with vxWorks clients in that its sockets are
-        // global and do not close when the client disappears. In fact, the
-        // board can reboot and the other end of the socket will know nothing
-        // about this since apparently no "reset" is sent on that socket.
-        // Since sockets have no timeout on Solaris, the only solution is to
-        // store times between receiving monitor data on a socket, and dealing
-        // with those that take too long or timeout.
-
-        emptySendBuffers();
-
-        while (true) {
-
-            if (!monitoringOff) {
-                fillSendBuffers();
-            }
-            
-            ByteBuffer outBuf;
+    /**
+     * Method to add another client for monitoring.
+     * @param info information on client
+     */
+    void addClient(cMsgClientData info, cMsgDomainServerSelect dss) throws IOException {
+        // Put client's channel in list to be registered with the selector for reading
+        // (once selector is woken up).
+        clients2register.put(info, "");
+        clients.put(info, dss);
+        selector.wakeup();
+        // assume client is alive even though it hasn't sent anything yet
+        info.updateTime = System.currentTimeMillis();
+    }
 
 
-            for (cMsgDomainServerSelect dss : server.domainServersSelect.keySet()) {
+    /**
+     * Method to add another client for monitoring.
+     * @param info information on client
+     */
+    void addClient(cMsgClientData info, cMsgDomainServer ds) throws IOException {
+        // Put client's channel in list to be registered with the selector for reading
+        // (once selector is woken up).
+        clients2register.put(info, "");
+        clients.put(info, ds);
+        selector.wakeup();
+        // assume client is alive even though it hasn't sent anything yet
+        info.updateTime = System.currentTimeMillis();
+    }
 
-                if (dss.clientIsServer()) {
-                    outBuf = outBuffer2;
+    
+    /**
+     * Method to remove a client from being monitored.
+     * @param info information on client
+     */
+    void removeClient(cMsgClientData info) {
+        // Remove client from list of clients the selector uses for reading
+        clients2register.remove(info);
+        clients.remove(info);
+    }
+
+
+    /**
+     * Class used to read monitoring info from clients by being run in a thread pool.
+     */
+    private class DataReader implements Runnable {
+
+        cMsgClientData cd;
+
+        /** Constructor. */
+        public DataReader(cMsgClientData cd) {
+            this.cd = cd;
+        }
+
+
+        public void run() {
+
+            Object dssObject;
+            cMsgDomainServer ds;
+            cMsgDomainServerSelect dss;
+
+            try {
+                // read monitor info from client
+                if (monitoringOff) {
+//System.out.println("Read&Dump from " + cd.getName());
+                    readAndDumpMonitorInfo(cd);
                 }
                 else {
-                    outBuf = outBuffer;
+                    // timeout
+//System.out.println("Read from " + cd.getName());
+                    readMonitorInfo(cd, readTimeout);
+                }
+//System.out.println("Done reading");
+            }
+            catch (cMsgException e) {
+                // during read: internal cMsg protocol error, or too many tries to read data
+                if (debug >= cMsgConstants.debugError) {
+                    System.out.println("cMsgMonitorClient: client " + cd.getName() +
+                            " has keepalive protocol error or took too long to read data at " +
+                             (new Date()));
                 }
 
-                // concurrent hashmap so no sync required
-                for (cMsgClientData cd : dss.clients.keySet()) {
-                    // send monitor info to client
-                    // BUGBUG don't send time first as before
+                dssObject = clients.get(cd);
+                // Writing thread may delete this client first, so check for null.
+                if (dssObject != null) {
+                    if (dssObject instanceof cMsgDomainServerSelect) {
+                        dss = (cMsgDomainServerSelect) dssObject;
+                        dss.deleteClient(cd);
+                    }
+                    else {
+                        ds = (cMsgDomainServer) dssObject;
+                        ds.shutdown();
+                    }
 
-                    // get outBuffer ready for writing
-                    outBuf.rewind();
-                    try {
-                        // Write monitor info to client.
-                        // NOTE: If vxworks client, its death will not be detected
-                        // when writing, so be careful not to get stuck in infinite
-                        // loop.
-                        int bytesWritten = 0, totalBytesWritten = 0, tries = 0;
-                        while (outBuf.hasRemaining()) {
-//System.out.println("Write KA info to " + cd.getName());
-                            bytesWritten = cd.keepAliveChannel.write(outBuf);
-                            totalBytesWritten += bytesWritten;
-                            // client may be dead so bail
-                            if (bytesWritten < 1 && totalBytesWritten < 1) {
-System.out.println("\n !!! cMsgMonitorClient: bail on write for (dead) " + cd.getName() );
-                                break;
+                    removeClient(cd);
+                }
+            }
+            catch (IOException e) {
+                // socket & therefore client dead
+                if (debug >= cMsgConstants.debugError) {
+                    System.out.println("cMsgMonitorClient: IO error, client " +
+                            cd.getName() + " is dead at " +
+                            (new Date()));
+                }
+
+                dssObject = clients.get(cd);
+                if (dssObject != null) {
+                    if (dssObject instanceof cMsgDomainServerSelect) {
+                        dss = (cMsgDomainServerSelect) dssObject;
+                        dss.deleteClient(cd);
+                    }
+                    else {
+                        ds = (cMsgDomainServer) dssObject;
+                        ds.shutdown();
+                    }
+
+                    removeClient(cd);
+                }
+            }
+        }
+    }
+
+
+    /**
+     * This Class uses select to read monitoring data from clients.
+     */
+    private class ReadMonitorData extends Thread {
+
+        public void run() {
+
+            if (debug >= cMsgConstants.debugInfo) {
+                System.out.println("  cMsgMonitorClient(read): Running Reader Thread");
+            }
+
+            // tell startServer that this thread has started
+            server.preConnectionThreadsStartedSignal.countDown();
+
+            int n;
+            cMsgClientData clientData = null;
+
+            try {
+
+                while (true) {
+
+                    // 1 second timeout
+                    n = selector.select(1000);
+
+                    // register any clients waiting for it
+                    if (clients2register.size() > 0) {
+                        for (Iterator it = clients2register.keySet().iterator(); it.hasNext();) {
+                            clientData = (cMsgClientData)it.next();
+                            if (debug >= cMsgConstants.debugInfo) {
+                                System.out.println("  cMsgMonitorClient(read): Registering client " + clientData.getName() + " with selector");
                             }
-                            // don't wait more than .1 sec total before giving up on writing
-                            else if (totalBytesWritten < outBuf.limit()) {
-//System.out.println("\n !!! cMsgMonitorClient: tried to write (" + (tries+1) + " times) for " + cd.getName() );
-                                if  (++tries > 9) {
-System.out.println("\n !!! cMsgMonitorClient: EEEEE write error, giving up after writing " + totalBytesWritten + " bytes" );
-                                    break;
-                                }
-                                try { Thread.sleep(10); }
-                                catch (InterruptedException e) {}
+
+                            try {
+                                clientData.keepAliveChannel.register(selector, SelectionKey.OP_READ, clientData);
                             }
-//System.out.println("cMsgMonitorClient: read " + totalBytesWritten + " bytes for " + cd.getName() );
+                            catch (ClosedChannelException e) { /* if we can't register it, client is dead already */ }
+                            catch (IllegalArgumentException e) { /* never happen */ }
+                            catch (IllegalBlockingModeException e) { /* never happen */}
+
+                            it.remove();
                         }
+                    }
 
-                        // read monitor info from client
-                        readMonitorInfo(cd);
+                    // first check to see if we've been commanded to die
+                    if (killThreads) {
+                        System.out.println("    cMsgMonitorClient(read): ending main thread 1");
+                        return;
+                    }
+
+                    // if no channels (sockets) are ready, listen some more
+                    if (n < 1) {
+//System.out.println("    cMsgMonitorClient(read): selector woke up with no ready channels");
+                        selector.selectedKeys().clear();
+                        continue;
+                    }
+
+                    // get an iterator of selected keys (ready sockets)
+                    Iterator it = selector.selectedKeys().iterator();
+                    DataReader reader;
+
+                    // look at each key
+                    while (it.hasNext()) {
+                        SelectionKey key = (SelectionKey) it.next();
+
+                        // channel ready to read?
+                        if (key.isValid() && key.isReadable()) {
+
+                            // cMsgClientData object of TCP channel being read
+                            clientData = (cMsgClientData) key.attachment();
+                            if (clientData == null) {
+                                it.remove();
+                                continue;
+                            }
+
+                            // have client's monitor data read by a thread in the thread pool
+                            reader = new DataReader(clientData);
+                            readingThreadPool.execute(reader);
+
+                        } // if valid key
+
+                        // remove key from selected set since it's been handled
+                        it.remove();
+                    }
+
+                    // delay next round of reading for 1 second
+                    try {Thread.sleep(1000);}
+                    catch (InterruptedException e) { }
+                }
+            }
+            catch (IOException ex) {
+                ex.printStackTrace();
+            }
+            finally {
+                try {selector.close();}
+                catch (IOException e) { }
+            }
+//System.out.println("    cMsgMonitorClient(read): ending thread");
+
+            return;
+        }
+    }
+
+
+    /**
+     * This method reads a given of number of bytes from a nonblocking channel into a buffer.
+     * If there is nothing to read, zero can be returned. If not, the full amount is read.
+     * If it takes too many tries to read all the data, an exception is thrown.
+     *
+     * @param buffer        a byte buffer which channel data is read into
+     * @param channel       nio socket communication channel
+     * @param bytes         minimum number of bytes to read from channel
+     * @param timeout       time to wait (milliseconds) for read to complete before throwing exception
+     * @param returnOnZero  return immediately if read returns 0 bytes
+     *
+     * @return number of bytes read
+     * @throws cMsgException if too many tries used to read all the data
+     * @throws IOException   if channel is closed or cannot be read from
+     */
+    private int readSocketBytes(ByteBuffer buffer, SocketChannel channel, int bytes,
+                                int timeout, boolean returnOnZero)
+            throws cMsgException, IOException {
+
+        if (bytes <= 0) return 0;
+
+        int n, count = 0;
+        long t2, t1 = System.currentTimeMillis();
+
+        buffer.clear();
+        buffer.limit(bytes);
+
+        // Keep reading until we have exactly "bytes" number of bytes,
+        // or have tried "tries" number of times to read.
+        while (count < bytes) {
+            if ((n = channel.read(buffer)) < 0) {
+                throw new IOException("readSocketBytes: client's socket is dead");
+            }
+
+            count += n;
+            if (count >= bytes) {
+                break;
+            }
+            else if (count == 0 && returnOnZero) {
+                return 0;
+            }
+
+            t2 = System.currentTimeMillis();
+            if (t2 - t1 >= timeout) {
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("    readSocketBytes: timed out, read " + count +
+                            " out of " + bytes + " bytes");
+                }
+                throw new cMsgException("readSocketBytes: timed out trying to read " + bytes +
+                        " bytes, read only " + count);
+            }
+
+            // wait small amount
+            try { Thread.sleep(10); }
+            catch (InterruptedException e) {}
+        }
+        return count;
+    }
+
+
+    /**
+     * This method reads a nonblocking socket for monitor data from a cMsg client.
+     * It reads as much as it can and then discards the data. This is used when
+     * monitoring is turned off in the cMsgNameServer.
+     *
+     * @param cd client data object
+     * @throws IOException  if channel is closed or cannot be read from
+     */
+    private void readAndDumpMonitorInfo(cMsgClientData cd) throws IOException {
+        // read as much as possible, since we don't want keepalive signals to pile up
+        int n;
+
+        do {
+            inBuffer.clear();
+            n = cd.keepAliveChannel.read(inBuffer);
+            if (n < 1) {
+                return;
+            }
+            else {
+                // record when some keepalive info read
+                cd.updateTime = System.currentTimeMillis();
+            }
+        } while (n >= inBuffer.capacity());
+    }
+
+
+    /**
+     * This method reads a nonblocking socket for monitor data from a cMsg client.
+     *
+     * @param cd             client data object
+     * @param timeout        time to wait (milliseconds) for read to complete before throwing exception
+     * @throws cMsgException if timeout while trying to read all the data or internal protocol error
+     * @throws IOException   if channel is closed or cannot be read from
+     */
+    private void readMonitorInfo(cMsgClientData cd, int timeout) throws cMsgException, IOException {
+
+        // read as much as possible, since we don't want keepalive signals to pile up
+        while (true) {
+            // read 1 int of data
+            int n = readSocketBytes(inBuffer, cd.keepAliveChannel, 4, timeout, true);
+            if (n == 0) {
+                return;
+            }
+
+            inBuffer.flip();
+            // size of buffer data in bytes
+            int size = inBuffer.getInt();
+            if (size > inBuffer.capacity()) {
+                inBuffer = ByteBuffer.allocateDirect(size + 512);
+            }
+            else if (size < 0) {
+                throw new cMsgException("Internal cMsg keepalive protocol error from " + cd.getName());
+            }
+
+            if (size > 0) {
+                // read size bytes of data
+                inBuffer.clear();
+                // wait until everything is read
+                readSocketBytes(inBuffer, cd.keepAliveChannel, size, timeout, false);
+                inBuffer.flip();
+                size                          = inBuffer.getInt();   // xml length in chars/bytes
+                cd.monData.isJava             = inBuffer.getInt() == 1;
+                cd.monData.pendingSubAndGets  = inBuffer.getInt();
+                cd.monData.pendingSendAndGets = inBuffer.getInt();
+
+                cd.monData.clientTcpSends     = inBuffer.getLong();
+                cd.monData.clientUdpSends     = inBuffer.getLong();
+                cd.monData.clientSyncSends    = inBuffer.getLong();
+                cd.monData.clientSendAndGets  = inBuffer.getLong();
+                cd.monData.clientSubAndGets   = inBuffer.getLong();
+                cd.monData.clientSubscribes   = inBuffer.getLong();
+                cd.monData.clientUnsubscribes = inBuffer.getLong();
+
+                byte[] buf = new byte[size];
+                inBuffer.get(buf, 0, size);
+                cd.monData.monXML = new String(buf, 0, size, "US-ASCII");
+                // record when keepalive info received
+                cd.updateTime = System.currentTimeMillis();
+            }
+        }
+    }
+
+
+    /**
+     * Writes this server's monitor data to a single client.
+     *
+     * @param cd client to write data to
+     * @param isServer is this client a cMsg server?
+     * @throws IOException if error writing data or channel is closed
+     */
+    private void writeMonitorInfo(cMsgClientData cd, boolean isServer) throws IOException {
+
+        ByteBuffer outBuf;
+
+        if (isServer) {
+            outBuf = outBuffer2;
+        }
+        else {
+            outBuf = outBuffer;
+        }
+
+        // get outBuffer ready for writing
+        outBuf.rewind();
+
+        // Write monitor info to client.
+        // NOTE: If vxworks client, its death will not be detected when
+        // writing, so be careful not to get stuck in infinite loop.
+        // todo: writing should always work unless socket buffer full -
+        // todo: which should not be the case for monitoring communications
+
+        int bytesWritten = 0, totalBytesWritten = 0, tries = 0;
+
+        while (outBuf.hasRemaining()) {
+//System.out.println("Write KA info to " + cd.getName());
+            bytesWritten = cd.keepAliveChannel.write(outBuf);
+            totalBytesWritten += bytesWritten;
+
+            if (totalBytesWritten < outBuf.limit()) {
+                if (!cd.keepAliveChannel.isOpen()) {
+                    throw new IOException("Keepalive channel to client is closed");
+                }
+
+                // print warning every second or so
+                if  (++tries%100 == 0) {
+                    System.out.println("writeMonitorInfo: monitor data write not finished" );
+                }
+
+                try { Thread.sleep(10); }
+                catch (InterruptedException e) {}
+            }
+//System.out.println("cMsgMonitorClient: read " + totalBytesWritten + " bytes for " + cd.getName() );
+        }
+    }
+
+
+    /**
+     * This class is used to write this server's monitoring data to all clients.
+     */
+    private class WriteMonitorData extends Thread {
+
+        public void run() {
+
+            // tell startServer that this thread has started
+            server.preConnectionThreadsStartedSignal.countDown();
+
+            // There is a problem with vxWorks clients in that its sockets are
+            // global and do not close when the client disappears. In fact, the
+            // board can reboot and the other end of the socket will know nothing
+            // about this since apparently no "reset" is sent on that socket.
+            // Since sockets have no timeout on Solaris, the only solution is to
+            // store times between receiving monitor data on a socket, and dealing
+            // with those that take too long or timeout.
+
+            emptySendBuffers();
+
+            Object dssObject;
+            cMsgDomainServer ds;
+            cMsgDomainServerSelect dss;
+
+            while (true) {
+
+                // for each go-round, send updated monitoring info
+                if (!monitoringOff) {
+                    fillSendBuffers();
+                }
+
+                // look at each client ...
+                cMsgClientData cd;
+                for (Iterator it = clients.keySet().iterator(); it.hasNext();) {
+
+                    cd = (cMsgClientData)it.next();
+
+                    try {
+                        // send monitor info to client
+//System.out.println("Write to " + cd.getName());
+                        writeMonitorInfo(cd, cd.isServer());
 
                         // check for non-responding client
                         if (clientDead(cd)) {
@@ -173,17 +616,22 @@ System.out.println("\n !!! cMsgMonitorClient: EEEEE write error, giving up after
                                         " has not responded for " + (deadTime/1000) + " seconds at " + (new Date()) +
                                         ", consider it dead");
                             }
-                            dss.deleteClient(cd);
+
+                            dssObject = clients.get(cd);
+                            // Reading thread may delete this client first, so check for null.
+                            if (dssObject != null) {
+                                if (dssObject instanceof cMsgDomainServerSelect) {
+                                    dss = (cMsgDomainServerSelect) dssObject;
+                                    dss.deleteClient(cd);
+                                }
+                                else {
+                                    ds = (cMsgDomainServer) dssObject;
+                                    ds.shutdown();
+                                }
+
+                                it.remove();
+                            }
                         }
-                    }
-                    catch (cMsgException e) {
-                        // during read: internal cMsg protocol error, or too many tries to read data
-                        if (debug >= cMsgConstants.debugError) {
-                            System.out.println("cMsgMonitorClient: client " + cd.getName() +
-                                    " has keepalive protocol error or too many tries to read data at " +
-                                    (new Date()));
-                        }
-                        dss.deleteClient(cd);
                     }
                     catch (IOException e) {
                         // socket & therefore client dead
@@ -191,86 +639,34 @@ System.out.println("\n !!! cMsgMonitorClient: EEEEE write error, giving up after
                             System.out.println("cMsgMonitorClient: IO error, client " + cd.getName() + " is dead at " +
                                     (new Date()));
                         }
-                        dss.deleteClient(cd);
-                    }
-                }
-            }
 
-            for (cMsgDomainServer ds : server.domainServers.keySet()) {
-                // send monitor info to client
-                // BUGBUG don't send time first as before
-                if (ds.info.isServer()) {
-                    outBuf = outBuffer2;
-                }
-                else {
-                    outBuf = outBuffer;
-                }
-
-                // get outBuffer ready for writing
-                outBuf.rewind();
-                try {
-                    // Write monitor info to client.
-                    // NOTE: If vxworks client, its death will not be detected
-                    // when writing, so be careful not to get stuck in infinite
-                    // loop.
-                    int bytesWritten = 0, totalBytesWritten = 0, tries = 0;
-                    while (outBuf.hasRemaining()) {
-//System.out.println("Write KA info to " + cd.getName());
-                        bytesWritten = ds.info.keepAliveChannel.write(outBuf);
-                        totalBytesWritten += bytesWritten;
-                        // client may be dead so bail
-                        if (bytesWritten < 1 && totalBytesWritten < 1) {
-//System.out.println("cMsgMonitorClient: bail on write for (dead) " + ds.info.getName() );
-                            break;
-                        }
-                        // don't wait more than .1 sec total before giving up on writing
-                        else if (totalBytesWritten < outBuf.limit()) {
-//System.out.println("cMsgMonitorClient: tried to write (" + (tries+1) + " times) for " + ds.info.getName() );
-                            if  (++tries > 9) {
-                                break;
+                        dssObject = clients.get(cd);
+                        // Reading thread may delete this client first, so check for null.
+                        if (dssObject != null) {
+                            if (dssObject instanceof cMsgDomainServerSelect) {
+                                dss = (cMsgDomainServerSelect) dssObject;
+                                dss.deleteClient(cd);
                             }
-                            try { Thread.sleep(10); }
-                            catch (InterruptedException e) {}
+                            else {
+                                ds = (cMsgDomainServer) dssObject;
+                                ds.shutdown();
+                            }
+
+                            it.remove();
                         }
-//System.out.println("cMsgMonitorClient: read " + totalBytesWritten + " bytes for " + ds.info.getName() );
                     }
-
-                    // read monitor info from client
-                    readMonitorInfo(ds.info);
-
-                    // check for non-responding client
-//                    if (clientDead(ds.info)) {
-//                        // do something
-//                        if (debug >= cMsgConstants.debugError) {
-//                            System.out.println("cMsgMonitorClient: (ds) client " + ds.info.getName() +
-//                                    " has not responded for " + (deadTime/1000) + " seconds, so consider it dead");
-//                        }
-//                        ds.shutdown();
-//                    }
                 }
-                catch (cMsgException e) {
-                    if (debug >= cMsgConstants.debugError) {
-                        System.out.println("cMsgMonitorClient: (ds) client " + ds.info.getName() +
-                                " has keepalive protocol error or too many tries to read data");
-                    }
-                    ds.shutdown();
-                }
-                catch (IOException e) {
-                    // socket & therefore client dead
-                    if (debug >= cMsgConstants.debugError) {
-                        System.out.println("cMsgMonitorClient: IO error, (ds) client " + ds.info.getName() + " is dead");
-                    }
-                    ds.shutdown();
+
+                // wait between rounds
+                try { Thread.sleep(updatePeriod); }
+                catch (InterruptedException e) {}
+
+                if (killThreads) {
+//System.out.println("    cMsgMonitorClient(write): ending thread");
+                    return;
                 }
             }
-
-            // wait 2 seconds between rounds
-            try { Thread.sleep(updatePeriod); }
-            catch (InterruptedException e) {}
-
-            if (killThisThread) return;
         }
-
     }
 
 
@@ -410,157 +806,6 @@ System.out.println("\n !!! cMsgMonitorClient: inconsistency!!! try again");
         return (System.currentTimeMillis() - cd.updateTime) > deadTime;
     }
 
-
-    /**
-     * This method reads a given of number of bytes from a nonblocking channel into a buffer.
-     * If there is nothing to read, zero can be returned. If not, the full amount is read.
-     * If it takes too many tries to read all the data, an exception is thrown.
-     *
-     * @param buffer       a byte buffer which channel data is read into
-     * @param channel      nio socket communication channel
-     * @param bytes        minimum number of bytes to read from channel
-     * @param returnOnZero return immediately if read returns 0 bytes
-     *
-     * @return number of bytes read
-     * @throws cMsgException If too many tries used to read all the data
-     * @throws IOException   If channel is closed or cannot be read from
-     */
-    private int readSocketBytes(ByteBuffer buffer, SocketChannel channel, int bytes, boolean returnOnZero)
-            throws cMsgException, IOException {
-
-        if (bytes <= 0) return 0;
-
-        int n, tries = 0, count = 0, maxTries=200;
-        
-        buffer.clear();
-        buffer.limit(bytes);
-
-        // Keep reading until we have exactly "bytes" number of bytes,
-        // or have tried "tries" number of times to read.
-
-        while (count < bytes) {
-            if ((n = channel.read(buffer)) < 0) {
-                throw new IOException("readSocketBytes: client's socket is dead");
-            }
-
-            count += n;
-            if (count >= bytes) {
-                break;
-            }
-            else if (count == 0 && returnOnZero) {
-                return 0;
-            }
-
-            tries++;
-            if (tries >= maxTries) {
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("    readSocketBytes: called read " + tries + " times, read " + count + " bytes");
-                }
-                throw new cMsgException("readSocketBytes: too many tries to read " + bytes + " bytes, read only " + count);
-            }
-
-            // wait minimum amount
-            try { Thread.sleep(1); }
-            catch (InterruptedException e) {}
-        }
-        return count;
-    }
-
-
-    /**
-     * This method reads a nonblocking socket for monitor data from a cMsg client.
-     *
-     * @param cd client data object
-     * @throws cMsgException If too many tries used to read all the data or internal protocol error
-     * @throws IOException   If channel is closed or cannot be read from
-     */
-    private void readMonitorInfo(cMsgClientData cd) throws cMsgException, IOException {
-        // read as much as possible, since we don't want keepalive signals to pile up
-        boolean firstPass = true;
-        int n;
-        do {
-            inBuffer.clear();
-            n = cd.keepAliveChannel.read(inBuffer);
-            if (n < 1) {
-                // if brand new client, pretend things are OK
-                if (firstPass && cd.updateTime == 0L) {
-                    cd.updateTime = System.currentTimeMillis();
-                }
-                return;
-            }
-            else {
-                // record when some keepalive info read
-                cd.updateTime = System.currentTimeMillis();
-            }
-            firstPass = false;
-        } while (n >= inBuffer.capacity());
-
-    }
-
-    /**
-     * This method reads a nonblocking socket for monitor data from a cMsg client.
-     *
-     * @param cd client data object
-     * @throws cMsgException If too many tries used to read all the data or internal protocol error
-     * @throws IOException   If channel is closed or cannot be read from
-     */
-    private void readMonitorInfoOrig(cMsgClientData cd) throws cMsgException, IOException {
-
-
-        // read as much as possible, since we don't want keepalive signals to pile up
-        while (true) {
-            // read 1 int of data
-            int n = readSocketBytes(inBuffer, cd.keepAliveChannel, 4, true);
-            if (n == 0) {
-                // if brand new client, pretend things are OK
-                if (cd.updateTime == 0L) {
-                    cd.updateTime = System.currentTimeMillis();
-                }
-//                if (debug >= cMsgConstants.debugWarn) {
-//                    System.out.println("cMsgMonitorClient: nothing to read from client " + cd.getName() + " at " +
-//                            (new Date()).toString() + ", go to next client");
-//                }
-                return;
-            }
-
-            inBuffer.flip();
-            // size of buffer data in bytes
-            int size = inBuffer.getInt();
-            if (size > inBuffer.capacity()) {
-                inBuffer = ByteBuffer.allocateDirect(size + 512);
-            }
-            else if (size < 0) {
-                throw new cMsgException("Internal cMsg keepalive protocol error from " + cd.getName());
-            }
-
-            if (size > 0) {
-                // read size bytes of data
-                inBuffer.clear();
-// wait until everything is read
-readSocketBytes(inBuffer, cd.keepAliveChannel, size, false);
-                inBuffer.flip();
-                size                          = inBuffer.getInt();   // xml length in chars/bytes
-                cd.monData.isJava             = inBuffer.getInt() == 1;
-                cd.monData.pendingSubAndGets  = inBuffer.getInt();
-                cd.monData.pendingSendAndGets = inBuffer.getInt();
-
-                cd.monData.clientTcpSends     = inBuffer.getLong();
-                cd.monData.clientUdpSends     = inBuffer.getLong();
-                cd.monData.clientSyncSends    = inBuffer.getLong();
-                cd.monData.clientSendAndGets  = inBuffer.getLong();
-                cd.monData.clientSubAndGets   = inBuffer.getLong();
-                cd.monData.clientSubscribes   = inBuffer.getLong();
-                cd.monData.clientUnsubscribes = inBuffer.getLong();
-
-                byte[] buf = new byte[size];
-                inBuffer.get(buf, 0, size);
-                cd.monData.monXML = new String(buf, 0, size, "US-ASCII");
-                // record when keepalive info received
-                cd.updateTime = System.currentTimeMillis();
-//System.out.println("  KeepAlive at " + (new Date()) + " from " + cd.getName());
-            }
-        }
-    }
 
 
     /**
