@@ -469,7 +469,7 @@ System.out.println("send msg set to killed, caught in callback");
         // Remove any callback:
         CommandReturn cmdRet = cmdReturns.remove(commandId);
         if (cmdRet != null) {
-            System.out.println("set to stooped in stop");
+            System.out.println("set to stopped in stop");
             cmdRet.setCallbackState(CallbackState.STOPPED);
         }
 
@@ -1346,7 +1346,7 @@ System.out.println("Return = " + ret);
     /**
      * Run as a stand-alone application
      */
-    public static void main3(String[] args) {
+    public static void main(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
@@ -1486,7 +1486,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
     /**
       * Run as a stand-alone application
       */
-     public static void main(String[] args) {
+     public static void main5(String[] args) {
              String[] arggs = decodeCommandLine(args);
  System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
         Commander cmdr = null;
@@ -1514,12 +1514,12 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
              String in;
              while(true) {
                  in = inputStr("% ");
-                 try {
-                     cmdr.findExecutors(500);
-                 }
-                 catch (cMsgException e) {
-                     e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-                 }
+//                 try {
+//                     cmdr.findExecutors(500);
+//                 }
+//                 catch (cMsgException e) {
+//                     e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+//                 }
                  for (ExecutorInfo exec : execList) {
                      //                                    exec, cmd, monitor,     cb,  cb arg
                      try {
@@ -1533,7 +1533,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                          }
                          System.out.println("Callback state = " + ret.getCallbackState());
 
-                         try {Thread.sleep(3000);}
+                         try {Thread.sleep(1000);}
                          catch (InterruptedException e) {}
 
                          System.out.println("Stop process now");
@@ -1550,7 +1550,6 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                      }
                      catch (cMsgException e) {
                          e.printStackTrace();
-                         System.exit(-1);
                      }
                  }
              }

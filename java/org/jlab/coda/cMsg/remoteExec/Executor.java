@@ -164,9 +164,15 @@ public class Executor {
         }
 
         public void run() {
-            // make connection to server or keep trying
+
+            // make connection to server or keep trying to connect
             while (true) {
-                if (!connected) {
+
+                try { Thread.sleep(1000); }
+                catch (InterruptedException e) { return; }
+
+                if (cmsgConnection == null || !cmsgConnection.isConnected()) {
+//System.out.println("Try to reconnect");
                     try {
                         // connect
                         cmsgConnection = new cMsg(udl, name, "cmsg executor");
@@ -176,22 +182,14 @@ public class Executor {
                         cmsgConnection.subscribe(Commander.remoteExecSubjectType, name,  cb, null);
                         cmsgConnection.subscribe(Commander.remoteExecSubjectType, Commander.allSubjectType, cb, null);
                         cmsgConnection.start();
-                        connected = true;
 
                         // Send out a general message telling all commanders
                         // that there is a new executor running.
                         sendStatusTo(Commander.allSubjectType);
                     }
                     catch (cMsgException e) {
-                        e.printStackTrace();
+                        //e.printStackTrace();
                     }
-                }
-
-                try {
-                    Thread.sleep(1000);
-                }
-                catch (InterruptedException e) {
-                    return;
                 }
             }
         }
