@@ -92,7 +92,7 @@ class cMsgMonitorClient extends Thread {
      * clients. It limits how much time we can spend trying to read
      * one guy and put all the rest on hold.
      *
-     * Run up to 5 threads with infinite queue. Wait 1 min before terminating
+     * Run up to 3 threads with infinite queue. Wait 1 min before terminating
      * extra (more than 1) unused threads.
      */
     private ThreadPoolExecutor readingThreadPool;
@@ -128,10 +128,10 @@ class cMsgMonitorClient extends Thread {
         clients          = new ConcurrentHashMap<cMsgClientData, Object>(500);
         clients2register = new ConcurrentHashMap<cMsgClientData, String>(100);
 
-        // Create thread pool. Run up to 5 threads with infinite queue.
+        // Create thread pool. Run up to 3 threads with infinite queue.
         // Wait 1 min before terminating extra (more than 1) unused threads.
-        readingThreadPool = new ThreadPoolExecutor(1, 5, 60L, TimeUnit.SECONDS,
-                                                  new LinkedBlockingQueue<Runnable>());
+        readingThreadPool = new ThreadPoolExecutor(1, 3, 60L, TimeUnit.SECONDS,
+                                                   new LinkedBlockingQueue<Runnable>());
 
         // allow clients to be registered with the selector
         selector = Selector.open();
