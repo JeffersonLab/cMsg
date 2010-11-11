@@ -352,9 +352,7 @@ System.out.println("commandtype = " + commandType);
                                 System.out.println("Reject message, no id");
                                 return;
                             }
-                            int id = item.getInt();
-
-                            stop(id);
+                            stop(item.getInt());
                             break;
 
                         case DIE:
