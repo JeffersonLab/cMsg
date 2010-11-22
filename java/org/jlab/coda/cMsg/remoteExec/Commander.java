@@ -34,8 +34,11 @@ public class Commander {
     /** Connection to cMsg server. */
     private cMsg cmsgConnection;
 
-    /** Password needed to talk to Executor. */
+    /** Encrypted password needed to talk to Executor. */
     private String password;
+
+    /** Length of actual (non-encrypted) password needed to talk to Executor. */
+    private int passwordLength;
 
     /**
      * Used to generate unique id numbers in a thread-safe manner
@@ -65,11 +68,20 @@ public class Commander {
      *
      * @param udl   UDL to connect to cMsg server.
      * @param name  unique name used to connect to cMsg server.
+     * @param password  unique string used to connect to cMsg server.
+     *                  It may be null but must be <= 16 characters if not null.
      * @param description description used to connect to cMsg server.
-     * @throws cMsgException if error connecting to cMsg server.
+     * @throws cMsgException if error connecting to cMsg server; password is > 16 characters
      */
     public Commander(String udl, String name, String description, String password) throws cMsgException {
-        this.password = ExecutorSecurity.encrypt(password);
+        if (password != null) {
+            if (password.length() > 16) {
+                throw new cMsgException("Password must be <= 16 characters");
+            }
+            this.password = ExecutorSecurity.encrypt(password);
+            this.passwordLength = password.length();
+        }
+
         connectToServer(udl, name, description);
         // once we're connected, see who's out there ...
         findExecutors(500);
@@ -147,12 +159,17 @@ public class Commander {
             msg.setHistoryLengthMax(0);
             msg.setSubject(remoteExecSubjectType);
             msg.setType(allSubjectType);
-            cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
-            cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.IDENTIFY.getValue());
-            cMsgPayloadItem item2 = new cMsgPayloadItem("commander", myName);
-            msg.addPayloadItem(item0);
-            msg.addPayloadItem(item1);
+            if (password != null) {
+System.out.println("Sending password = " + password);
+                cMsgPayloadItem item0 = new cMsgPayloadItem("p",  password);
+                cMsgPayloadItem item1 = new cMsgPayloadItem("pl", passwordLength);
+                msg.addPayloadItem(item0);
+                msg.addPayloadItem(item1);
+            }
+            cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.IDENTIFY.getValue());
+            cMsgPayloadItem item3 = new cMsgPayloadItem("commander", myName);
             msg.addPayloadItem(item2);
+            msg.addPayloadItem(item3);
             cmsgConnection.send(msg);
         }
         catch (cMsgException e) {/*never happen*/}
@@ -383,12 +400,16 @@ System.out.println("send msg set to killed, caught in callback");
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(exec.getName());
-        cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
-        cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.DIE.getValue());
-        cMsgPayloadItem item2 = new cMsgPayloadItem("killProcesses", killProcesses ? 1 : 0);
-        msg.addPayloadItem(item0);
-        msg.addPayloadItem(item1);
+        if (password != null) {
+            cMsgPayloadItem item0 = new cMsgPayloadItem("p",  password);
+            cMsgPayloadItem item1 = new cMsgPayloadItem("pl", passwordLength);
+            msg.addPayloadItem(item0);
+            msg.addPayloadItem(item1);
+        }
+        cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.DIE.getValue());
+        cMsgPayloadItem item3 = new cMsgPayloadItem("killProcesses", killProcesses ? 1 : 0);
         msg.addPayloadItem(item2);
+        msg.addPayloadItem(item3);
         cmsgConnection.send(msg);
     }
 
@@ -429,12 +450,16 @@ System.out.println("send msg set to killed, caught in callback");
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(allSubjectType);
-        cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
-        cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.DIE.getValue());
-        cMsgPayloadItem item2 = new cMsgPayloadItem("killProcesses", killProcesses ? 1 : 0);
-        msg.addPayloadItem(item0);
-        msg.addPayloadItem(item1);
+        if (password != null) {
+            cMsgPayloadItem item0 = new cMsgPayloadItem("p",  password);
+            cMsgPayloadItem item1 = new cMsgPayloadItem("pl", passwordLength);
+            msg.addPayloadItem(item0);
+            msg.addPayloadItem(item1);
+        }
+        cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.DIE.getValue());
+        cMsgPayloadItem item3 = new cMsgPayloadItem("killProcesses", killProcesses ? 1 : 0);
         msg.addPayloadItem(item2);
+        msg.addPayloadItem(item3);
         cmsgConnection.send(msg);
     }
 
@@ -488,12 +513,16 @@ System.out.println("send msg set to killed, caught in callback");
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(exec.getName());
-        cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
-        cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.STOP.getValue());
-        cMsgPayloadItem item2 = new cMsgPayloadItem("id", execId);
-        msg.addPayloadItem(item0);
-        msg.addPayloadItem(item1);
+        if (password != null) {
+            cMsgPayloadItem item0 = new cMsgPayloadItem("p",  password);
+            cMsgPayloadItem item1 = new cMsgPayloadItem("pl", passwordLength);
+            msg.addPayloadItem(item0);
+            msg.addPayloadItem(item1);
+        }
+        cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.STOP.getValue());
+        cMsgPayloadItem item3 = new cMsgPayloadItem("id", execId);
         msg.addPayloadItem(item2);
+        msg.addPayloadItem(item3);
 
         cmsgConnection.send(msg);
     }
@@ -538,10 +567,14 @@ System.out.println("send msg set to killed, caught in callback");
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(exec.getName());
-        cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
-        cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.STOP_ALL.getValue());
-        msg.addPayloadItem(item0);
-        msg.addPayloadItem(item1);
+        if (password != null) {
+            cMsgPayloadItem item0 = new cMsgPayloadItem("p",  password);
+            cMsgPayloadItem item1 = new cMsgPayloadItem("pl", passwordLength);
+            msg.addPayloadItem(item0);
+            msg.addPayloadItem(item1);
+        }
+        cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.STOP_ALL.getValue());
+        msg.addPayloadItem(item2);
         cmsgConnection.send(msg);
     }
 
@@ -577,10 +610,14 @@ System.out.println("send msg set to killed, caught in callback");
         msg.setHistoryLengthMax(0);
         msg.setSubject(remoteExecSubjectType);
         msg.setType(allSubjectType);
-        cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
-        cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.STOP_ALL.getValue());
-        msg.addPayloadItem(item0);
-        msg.addPayloadItem(item1);
+        if (password != null) {
+            cMsgPayloadItem item0 = new cMsgPayloadItem("p",  password);
+            cMsgPayloadItem item1 = new cMsgPayloadItem("pl", passwordLength);
+            msg.addPayloadItem(item0);
+            msg.addPayloadItem(item1);
+        }
+        cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.STOP_ALL.getValue());
+        msg.addPayloadItem(item2);
         cmsgConnection.send(msg);
     }
 
@@ -747,20 +784,24 @@ System.out.println("send msg set to killed, caught in callback");
         msg.setType(exec.getName());
 
         try {
-            cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
-            msg.addPayloadItem(item0);
-            cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.START_PROCESS.getValue());
-            msg.addPayloadItem(item1);
-            cMsgPayloadItem item2 = new cMsgPayloadItem("command", cmd);
+            if (password != null) {
+                cMsgPayloadItem item0 = new cMsgPayloadItem("p",  password);
+                cMsgPayloadItem item1 = new cMsgPayloadItem("pl", passwordLength);
+                msg.addPayloadItem(item0);
+                msg.addPayloadItem(item1);
+            }
+            cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.START_PROCESS.getValue());
             msg.addPayloadItem(item2);
-            cMsgPayloadItem item3 = new cMsgPayloadItem("monitor", monitor ? 1 : 0);
+            cMsgPayloadItem item3 = new cMsgPayloadItem("command", cmd);
             msg.addPayloadItem(item3);
-            cMsgPayloadItem item4 = new cMsgPayloadItem("wait", wait ? 1 : 0);
+            cMsgPayloadItem item4 = new cMsgPayloadItem("monitor", monitor ? 1 : 0);
             msg.addPayloadItem(item4);
-            cMsgPayloadItem item5 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
+            cMsgPayloadItem item5 = new cMsgPayloadItem("wait", wait ? 1 : 0);
             msg.addPayloadItem(item5);
-            cMsgPayloadItem item6 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            cMsgPayloadItem item6 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
             msg.addPayloadItem(item6);
+            cMsgPayloadItem item7 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            msg.addPayloadItem(item7);
         }
         catch (cMsgException e) { /* no invalid names or null objects */ }
 
@@ -956,22 +997,26 @@ System.out.println("startProcess: Executor set to stopped");
         msg.setType(exec.getName());
 
         try {
-            cMsgPayloadItem item0 = new cMsgPayloadItem("password", password);
-            msg.addPayloadItem(item0);
-            cMsgPayloadItem item1 = new cMsgPayloadItem("commandType", CommandType.START_THREAD.getValue());
-            msg.addPayloadItem(item1);
-            cMsgPayloadItem item2 = new cMsgPayloadItem("className", className);
+            if (password != null) {
+                cMsgPayloadItem item0 = new cMsgPayloadItem("p",  password);
+                cMsgPayloadItem item1 = new cMsgPayloadItem("pl", passwordLength);
+                msg.addPayloadItem(item0);
+                msg.addPayloadItem(item1);
+            }
+            cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.START_THREAD.getValue());
             msg.addPayloadItem(item2);
-            cMsgPayloadItem item3 = new cMsgPayloadItem("wait", wait ? 1 : 0);
+            cMsgPayloadItem item3 = new cMsgPayloadItem("className", className);
             msg.addPayloadItem(item3);
-            cMsgPayloadItem item4 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
+            cMsgPayloadItem item4 = new cMsgPayloadItem("wait", wait ? 1 : 0);
             msg.addPayloadItem(item4);
-            cMsgPayloadItem item5 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            cMsgPayloadItem item5 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
             msg.addPayloadItem(item5);
+            cMsgPayloadItem item6 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            msg.addPayloadItem(item6);
             if (constructorArgs != null) {
                 // msg contains constructor args
-                cMsgPayloadItem item6 = new cMsgPayloadItem("args", constructorArgs.createMessageFromArgs());
-                msg.addPayloadItem(item6);
+                cMsgPayloadItem item7 = new cMsgPayloadItem("args", constructorArgs.createMessageFromArgs());
+                msg.addPayloadItem(item7);
             }
         }
         catch (cMsgException e) { /* no invalid names or null objects */ }
@@ -1346,7 +1391,7 @@ System.out.println("Return = " + ret);
     /**
      * Run as a stand-alone application
      */
-    public static void main(String[] args) {
+    public static void main3(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
@@ -1408,7 +1453,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
     /**
      * Run as a stand-alone application
      */
-    public static void main4(String[] args) {
+    public static void main(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
