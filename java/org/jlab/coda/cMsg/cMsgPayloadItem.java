@@ -201,7 +201,7 @@ public final class cMsgPayloadItem implements Cloneable {
                 byte[][] bb = (byte[][]) item;
                 result.item = new byte[count][];
                 for (int i = 0; i < bb.length; i++) {
-                    ((byte[][])result.item)[i] = (byte[])bb[i].clone();
+                    ((byte[][])result.item)[i] = bb[i].clone();
                 }
             }
             return result;
