@@ -1,3 +1,19 @@
+/*---------------------------------------------------------------------------*
+*  Copyright (c) 2010        Jefferson Science Associates,                   *
+*                            Thomas Jefferson National Accelerator Facility  *
+*                                                                            *
+*    This software was developed under a United States Government license    *
+*    described in the NOTICE file included as part of this distribution.     *
+*                                                                            *
+*    C.Timmer, 22-Nov-2010, Jefferson Lab                                    *
+*                                                                            *
+*    Authors: Carl Timmer                                                    *
+*             timmer@jlab.org                   Jefferson Lab, #10           *
+*             Phone: (757) 269-5130             12000 Jefferson Ave.         *
+*             Fax:   (757) 269-6248             Newport News, VA 23606       *
+*                                                                            *
+*----------------------------------------------------------------------------*/
+
 package org.jlab.coda.cMsg.remoteExec;
 
 import org.jlab.coda.cMsg.cMsgException;
