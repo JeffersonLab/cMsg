@@ -1,8 +1,23 @@
+/*---------------------------------------------------------------------------*
+*  Copyright (c) 2010        Jefferson Science Associates,                   *
+*                            Thomas Jefferson National Accelerator Facility  *
+*                                                                            *
+*    This software was developed under a United States Government license    *
+*    described in the NOTICE file included as part of this distribution.     *
+*                                                                            *
+*    C.Timmer, 22-Nov-2010, Jefferson Lab                                    *
+*                                                                            *
+*    Authors: Carl Timmer                                                    *
+*             timmer@jlab.org                   Jefferson Lab, #10           *
+*             Phone: (757) 269-5130             12000 Jefferson Ave.         *
+*             Fax:   (757) 269-6248             Newport News, VA 23606       *
+*                                                                            *
+*----------------------------------------------------------------------------*/
+
 package org.jlab.coda.cMsg.remoteExec;
 
 import org.jlab.coda.cMsg.*;
 
-import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
@@ -73,16 +88,28 @@ public class Executor {
      * Constructor. If name arg is null, local hostname becomes our cmsg client name.
      *
      * @param password password needed to be sent by Commander for any process or thread to be run here.
+     *                 Password may be null if not used, but must not exceed 16 characters in length
+     *                 otherwise.
      * @param udl UDL for connecting to cMsg server.
      * @param name client name for connecting to cMsg server.
-     * @throws cMsgException if cannot find our hostname or host platform information
+     * @throws cMsgException if cannot find our hostname or host platform information;
+     *                       udl arg is null; password != null && > 16 characters
      */
     public Executor(String password, String udl, String name) throws cMsgException {
+
+        if (udl == null) {
+            throw new cMsgException("Need to specify a udl");
+        }
+
+        if (password != null && password.length() > 16) {
+            throw new cMsgException("Password must be <= 16 characters");
+        }
+
         this.udl = udl;
         this.password = password;
 
         // Find out who we are.
-        String host = null;
+        String host;
         try {
             host = InetAddress.getLocalHost().getCanonicalHostName();
         } catch (UnknownHostException e) {
@@ -175,7 +202,7 @@ public class Executor {
 //System.out.println("Try to reconnect");
                     try {
                         // connect
-                        cmsgConnection = new cMsg(udl, name, "cmsg executor");
+                        cmsgConnection = new cMsg(udl, name, "cmsg java executor");
                         cmsgConnection.connect();
                         // add subscriptions
                         CommandCallback cb = new CommandCallback();
@@ -211,7 +238,8 @@ public class Executor {
                 String commandType;
 
                 try {
-                    item = msg.getPayloadItem("password");
+                    // read password
+                    item = msg.getPayloadItem("p");
                     if (item != null) {
                         // decrypt password here
                         passwd = ExecutorSecurity.decrypt(item.getString());
