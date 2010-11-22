@@ -1,20 +1,33 @@
+/*---------------------------------------------------------------------------*
+*  Copyright (c) 2010        Jefferson Science Associates,                   *
+*                            Thomas Jefferson National Accelerator Facility  *
+*                                                                            *
+*    This software was developed under a United States Government license    *
+*    described in the NOTICE file included as part of this distribution.     *
+*                                                                            *
+*    C.Timmer, 22-Nov-2010, Jefferson Lab                                    *
+*                                                                            *
+*    Authors: Carl Timmer                                                    *
+*             timmer@jlab.org                   Jefferson Lab, #10           *
+*             Phone: (757) 269-5130             12000 Jefferson Ave.         *
+*             Fax:   (757) 269-6248             Newport News, VA 23606       *
+*                                                                            *
+*----------------------------------------------------------------------------*/
+
 package org.jlab.coda.cMsg.remoteExec;
 
 import org.jlab.coda.cMsg.common.Base64;
 
 import javax.crypto.*;
-import javax.crypto.spec.DESKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
-import java.security.InvalidKeyException;
 
 
 /**
  * This class is used to encrypt passwords which in turn allow
  * users to retrict the ability of Commanders to work with
- * password-enbled Executors. Can use either DES (64 bit) or
- * AES (128 bit) encryption.
+ * password-enbled Executors. Uses AES (128 bit key) encryption.
  * Singleton.
  *
  * @author timmer
@@ -22,48 +35,28 @@ import java.security.InvalidKeyException;
  */
 public class ExecutorSecurity {
 
-    static Cipher encipherDES = null;
-    static Cipher decipherDES = null;
-
     static Cipher encipherAES = null;
     static Cipher decipherAES = null;
 
+    static String cipherType    = "AES";  // is equivalent to "AES/ECB/PKCS5Padding"
+    static String secretKeyType = "AES";
+
     static {
         try {
-            encipherDES = Cipher.getInstance("DES");
-            decipherDES = Cipher.getInstance("DES");
-
-            encipherAES = Cipher.getInstance("AES");
-            decipherAES = Cipher.getInstance("AES");
-
-            // Previously generated keys, in byte array form.
-            byte[] keyDataDES = {(byte)-94, (byte)-97, (byte)37,  (byte)-91,
-                                 (byte)30,  (byte)-37, (byte)123, (byte)-13,
-                                 (byte)-82, (byte)93 , (byte)-2,  (byte)20,
-                                 (byte)-49, (byte)22,  (byte)119, (byte)36};
+            encipherAES = Cipher.getInstance(cipherType);
+            decipherAES = Cipher.getInstance(cipherType);
 
             byte[] keyDataAES = {(byte)-121, (byte)-59,  (byte)-26, (byte)12,
                                  (byte)-51,  (byte)-29,  (byte)-26, (byte)86,
                                  (byte)110,  (byte)25 ,  (byte)-23, (byte)-27,
                                  (byte)112,  (byte)-80,  (byte)77,  (byte)102 };
 
-            // Create SecretKey from DES keyData
-            DESKeySpec desKeySpec = new DESKeySpec(keyDataDES);
-            SecretKeyFactory keyFactory = SecretKeyFactory.getInstance("DES");
-            SecretKey secretKey = keyFactory.generateSecret(desKeySpec);
-
             // Create SecretKey from AES keyData
-            SecretKeySpec skeySpec = new SecretKeySpec(keyDataAES, "AES");
+            SecretKeySpec skeySpec = new SecretKeySpec(keyDataAES, secretKeyType);
 
             // Create objects to encode/decode strings
-            encipherDES.init(Cipher.ENCRYPT_MODE, secretKey);
-            decipherDES.init(Cipher.DECRYPT_MODE, secretKey);
-
             encipherAES.init(Cipher.ENCRYPT_MODE, skeySpec);
             decipherAES.init(Cipher.DECRYPT_MODE, skeySpec);
-        }
-        catch (java.security.spec.InvalidKeySpecException e) {
-            e.printStackTrace();
         }
         catch (javax.crypto.NoSuchPaddingException e) {
             e.printStackTrace();
@@ -85,7 +78,7 @@ public class ExecutorSecurity {
     static public byte[] generateKeyDataAES() {
 
         try {
-            KeyGenerator kgen = KeyGenerator.getInstance("AES");
+            KeyGenerator kgen = KeyGenerator.getInstance(cipherType);
             kgen.init(128); // 192 and 256 bits may not be available
             SecretKey key = kgen.generateKey();
             return key.getEncoded();
@@ -95,26 +88,6 @@ public class ExecutorSecurity {
         return null;
     }
 
-    /**
-     * Use this method to generate a new DES key in byte array form.
-     * This array used in the static block when it is turned back into a key.
-     * @return secret key in byte array form
-     */
-    static public byte[] generateKeyDataDES() {
-
-        try {
-            SecretKey key = KeyGenerator.getInstance("DES").generateKey();
-            Cipher wrapCipher = Cipher.getInstance("DES");
-            wrapCipher.init(Cipher.WRAP_MODE, key);
-            return wrapCipher.wrap(key);
-        }
-        catch (NoSuchAlgorithmException e) {}
-        catch (NoSuchPaddingException e) {}
-        catch (InvalidKeyException e) {}
-        catch (IllegalBlockSizeException e) {}
-
-        return null;
-    }
 
     /**
      * Encrypt string.
@@ -126,7 +99,7 @@ public class ExecutorSecurity {
             // Encode the string into bytes using utf-8
             byte[] utf8 = str.getBytes("UTF8");
 
-            // Encrypt (change AES to DES or vice versa for different encryption algorithm)
+            // Encrypt
             byte[] enc = encipherAES.doFinal(utf8);
 
             // Encode bytes to base64 to get a string
@@ -150,7 +123,7 @@ public class ExecutorSecurity {
             // Decode base64 to get bytes
             byte[] dec = Base64.decodeToBytes(str, "UTF8");
 
-            // Decrypt (change AES to DES or vice versa for different decryption algorithm)
+            // Decrypt
             byte[] utf8 = decipherAES.doFinal(dec);
 
             // Decode using utf-8
