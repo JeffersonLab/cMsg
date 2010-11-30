@@ -570,7 +570,7 @@ System.out.println("startProcess: io error gathering (error) output");
      * tied up running one command.
      */
     private class ProcessRun extends Thread {
-        private int id;
+
         private CommandInfo info;
         private cMsgMessage responseMsg;
 
@@ -628,10 +628,25 @@ System.out.println("startProcess: io error gathering (error) output");
             catch (Exception e) { terminated = false;  }
 
             //----------------------------------------------------------------
+            // If process is NOT terminated, then put this process in
+            // hash table storage so it can be terminated later.
+            //----------------------------------------------------------------
+            int id = 0;
+            if (!terminated) {
+                id = uniqueId.incrementAndGet();
+                try {
+                    cMsgPayloadItem item = new cMsgPayloadItem("id", id);
+                    responseMsg.addPayloadItem(item);
+                }
+                catch (cMsgException e) {/* never happen */}
+                info.process = process;
+                processMap.put(id, info);
+            }
+
+            //----------------------------------------------------------------
             // If commander NOT waiting for process to finish,
             // send return message at once.
             //----------------------------------------------------------------
-            int id = 0;
             if (!info.wait) {
                 try {
                     // Grab any output available if process already terminated.
@@ -640,17 +655,6 @@ System.out.println("startProcess: io error gathering (error) output");
                         responseMsg.addPayloadItem(item1);
                         // grab any output and put in response message
                         gatherAllOutput(process, responseMsg, info.monitor);
-                    }
-                    // Store Process id/object so Commander can terminate it later.
-                    else {
-                        id = uniqueId.incrementAndGet();
-                        try {
-                            cMsgPayloadItem item = new cMsgPayloadItem("id", id);
-                            responseMsg.addPayloadItem(item);
-                        }
-                        catch (cMsgException e) {/* never happen */}
-                        info.process = process;
-                        processMap.put(id, info);
                     }
 
                     // Send response to Commander's sendAndGet.
@@ -697,6 +701,9 @@ System.out.println("startProcess: io error gathering (error) output");
                 catch (cMsgException e) {/* never happen */}
             }
 
+            // remove the process from map since it's now terminated
+            processMap.remove(id);
+
             try {
                 //----------------------------------------------------------------
                 // Respond to initial sendAndGet if we haven't done so already
@@ -708,9 +715,6 @@ System.out.println("SENDING MSG TO FOR WAITER ......");
                     cmsgConnection.send(responseMsg);
                     return;
                 }
-
-                // remove the process from map since it's now terminated
-                processMap.remove(id);
 
                 //----------------------------------------------------------------
                 // If we're here it's because the Commander is not synchronously
