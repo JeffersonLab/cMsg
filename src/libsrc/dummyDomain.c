@@ -42,8 +42,8 @@ int   cmsg_dummy_connect(const char *myUDL, const char *myName, const char *myDe
               const char *UDLremainder, void **domainId);
 int   cmsg_dummy_reconnect(void *domainId);
 int   cmsg_dummy_send(void *domainId, void *msg);
-int   cmsg_dummy_syncSend(void *domainId, void *msg, int *response);
-int   cmsg_dummy_flush(void *domainId);
+int   cmsg_dummy_syncSend(void *domainId, void *msg, const struct timespec *timeout, int *response);
+int   cmsg_dummy_flush(void *domainId, const struct timespec *timeout);
 int   cmsg_dummy_subscribe(void *domainId, const char *subject, const char *type,
                            cMsgCallbackFunc *callback, void *userArg,
                            cMsgSubscribeConfig *config, void **handle);
@@ -60,13 +60,13 @@ int   cmsg_dummy_sendAndGet(void *domainId, void *sendMsg, const struct timespec
 int   cmsg_dummy_monitor(void *domainId, const char *command, void **replyMsg);
 int   cmsg_dummy_start(void *domainId);
 int   cmsg_dummy_stop(void *domainId);
-int   cmsg_dummy_disconnect(void *domainId);
+int   cmsg_dummy_disconnect(void **domainId);
 int   cmsg_dummy_shutdownClients(void *domainId, const char *client, int flag);
 int   cmsg_dummy_shutdownServers(void *domainId, const char *server, int flag);
 int   cmsg_dummy_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
 int   cmsg_dummy_isConnected(void *domainId, int *connected);
 int   cmsg_dummy_setUDL(void *domainId, const char *udl, const char *remainder);
-int   cmsg_dummy_getCurrentUDL(void *domainId, char **udl);
+int   cmsg_dummy_getCurrentUDL(void *domainId, const char **udl);
 
 
 /** List of the functions which implement the standard tasks in this domain. */
@@ -99,11 +99,10 @@ int cmsg_dummy_setUDL(void *domainId, const char *newUDL, const char *newRemaind
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_dummy_getCurrentUDL(void *domainId, char **udl) {
+int cmsg_dummy_getCurrentUDL(void *domainId, const char **udl) {
   printf("getCurrentUDL\n");
   return(CMSG_OK);
 }
-
 
 
 /*-------------------------------------------------------------------*/
@@ -137,7 +136,7 @@ int cmsg_dummy_send(void *domainId, void *vmsg) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_dummy_syncSend(void *domainId, void *vmsg, int *response) {
+int cmsg_dummy_syncSend(void *domainId, void *vmsg, const struct timespec *timeout, int *response) {
   if (response != NULL) *response=0;
   printf("SyncSend\n");
   return(cmsg_dummy_send(domainId, vmsg));
@@ -167,7 +166,7 @@ int cmsg_dummy_sendAndGet(void *domainId, void *sendMsg, const struct timespec *
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_dummy_flush(void *domainId) {
+int cmsg_dummy_flush(void *domainId, const struct timespec *timeout) {
   printf("Flush\n");
   return(CMSG_OK);
 }
@@ -277,7 +276,7 @@ int cmsg_dummy_stop(void *domainId) {
 /*-------------------------------------------------------------------*/
 
 
-int cmsg_dummy_disconnect(void *domainId) {
+int cmsg_dummy_disconnect(void **domainId) {
   printf("Disconnect\n");
   return(CMSG_OK);
 }
