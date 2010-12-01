@@ -8,7 +8,10 @@ headerList = ['cMsg.h',
               'cMsgConstants.h',
               'cMsgDomain.h',
               'cMsgNetwork.h',
-              'cMsgPrivate.h']
+              'cMsgPrivate.h',
+              'polarssl_config.h',
+              'polarssl_padlock.h',
+              'polarssl_aes.h']
 
 linkList = [archIncDir + sep + 'cMsg.h',
             archIncDir + sep + 'cMsgConstants.h',
@@ -31,7 +34,9 @@ fileList = ['cMsg.c',
            'rcDomain.c',
            'rcDomainListenThread.c',
            'rwlock.c',
-           'sunConcurrency.c']
+           'sunConcurrency.c',
+           'polarssl_padlock.c',
+           'polarssl_aes.c']
 
 docList = ['cMsg.h',
            'cMsgConstants.h',
