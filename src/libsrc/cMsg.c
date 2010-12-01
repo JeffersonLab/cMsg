@@ -225,10 +225,22 @@ static trim(char *s) {
 
 /** Implementation of strdup for vxWorks. */
 char *strdup(const char *s1) {
-    char *s;    
-    if (s1 == NULL) return NULL;    
-    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;    
+    char *s;
+    if (s1 == NULL) return NULL;
+    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;
     return strcpy(s, s1);
+}
+
+/** Implementation of strndup for vxWorks. */
+char *strndup(const char *s1, size_t count) {
+    int len;
+    char *s;
+    if (s1 == NULL) return NULL;
+
+    len = strlen(s1) > count ? count : strlen(s1);
+    if ((s = (char *) malloc(len+1)) == NULL) return NULL;
+    s[len] = '\0';
+    return strncpy(s, s1, len);
 }
 
 /** Implementation of strcasecmp for vxWorks. */
@@ -321,6 +333,24 @@ int strncasecmp(const char *s1, const char *s2, size_t n) {
   
   return 0;
 }
+
+
+/* else if not vxworks */
+#else
+
+#if !defined linux || !defined _GNU_SOURCE
+/** Implementation of strndup for vxWorks. */
+char *strndup(const char *s1, size_t count) {
+    int len;
+    char *s;
+    if (s1 == NULL) return NULL;
+
+    len = strlen(s1) > count ? count : strlen(s1);
+    if ((s = (char *) malloc(len+1)) == NULL) return NULL;
+    s[len] = '\0';
+    return strncpy(s, s1, len);
+}
+#endif
 
 #endif
 
@@ -3593,7 +3623,9 @@ void *cMsgCreateResponseMessage(const void *vmsg) {
     newMsg->senderToken = msg->senderToken;
     newMsg->sysMsgId    = msg->sysMsgId;
     newMsg->info        = CMSG_IS_GET_RESPONSE;
-    
+    newMsg->subject     = (char *)strdup("dummy");
+    newMsg->type        = (char *)strdup("dummy");
+
     return (void *)newMsg;
 }
 
@@ -3630,6 +3662,8 @@ void *cMsgCreateNullResponseMessage(const void *vmsg) {
     newMsg->senderToken = msg->senderToken;
     newMsg->sysMsgId    = msg->sysMsgId;
     newMsg->info        = CMSG_IS_GET_RESPONSE | CMSG_IS_NULL_GET_RESPONSE;
+    newMsg->subject     = (char *)strdup("dummy");
+    newMsg->type        = (char *)strdup("dummy");
     
     return (void *)newMsg;
 }
@@ -5681,7 +5715,7 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
          strncpy(pchar," </float>\n",10);      pchar+=10;
         } break;
       case CMSG_CP_STR:
-      {char *s,*str; ok=cMsgGetString(msg, name, &s); if(ok!=CMSG_OK) {
+      {char *s,*str; ok=cMsgGetString(msg, name, (const char **)&s); if(ok!=CMSG_OK) {
          if(level < 1){free(buffer);} free(offsett);free(offset5); if(margin>0){free(indent);} return(CMSG_ERROR);}
          strncpy(pchar,offsett,offsetLen);     pchar+=offsetLen;
          strncpy(pchar,"<string name=\"",14);  pchar+=14;
@@ -5992,7 +6026,7 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
          strncpy(pchar,"</float_array>\n",15);   pchar+=15;
         } break;
       case CMSG_CP_STR_A:
-      {const char **s;char *str; ok=cMsgGetStringArray(msg, name, &s, &count); if(ok!=CMSG_OK) {
+      {char **s;char *str; ok=cMsgGetStringArray(msg, name, (const char ***)&s, &count); if(ok!=CMSG_OK) {
         if(level < 1){free(buffer);} free(offsett);free(offset5);if(margin>0){free(indent);} return(CMSG_ERROR);}
          strncpy(pchar,offsett,offsetLen);            pchar+=offsetLen;
          strncpy(pchar,"<string_array name=\"",20);   pchar+=20;
