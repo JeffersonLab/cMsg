@@ -1039,7 +1039,7 @@ int to;				/* to this number of times (maybe INFINITY) */
 #	define	N	2
 #	define	INF	3
 #	define	REP(f, t)	((f)*8 + (t))
-#	define	MAP(n)	(((n) <= 1) ? (n) : ((n) == INFINITY) ? INF : N)
+#	define	MAPP(n)	(((n) <= 1) ? (n) : ((n) == INFINITY) ? INF : N)
 	register sopno copy;
 
 	if (p->error != 0)	/* head off possible runaway recursion */
@@ -1047,7 +1047,7 @@ int to;				/* to this number of times (maybe INFINITY) */
 
 	assert(from <= to);
 
-	switch (REP(MAP(from), MAP(to))) {
+	switch (REP(MAPP(from), MAPP(to))) {
 	case REP(0, 0):			/* must be user doing this */
 		DROP(finish-start);	/* drop the operand */
 		break;
