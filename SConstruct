@@ -13,6 +13,7 @@
 ################################
 
 # get operating system info, various libs
+import re
 import sys
 import glob
 import os, string, subprocess, SCons.Node.FS
@@ -23,7 +24,7 @@ os.umask(022)
 
 # Software version
 versionMajor = '3'
-versionMinor = '1'
+versionMinor = '2'
 
 # determine the os and machine names
 uname    = os.uname();
@@ -241,19 +242,50 @@ else:
 
 vxInc = ''
 execLibs = ['']
+vxVersion = 6
 
 # If using vxworks
 if useVxworks:
-    print "\nDoing vxworks\n"
+    print "\nDoing vxworks"
     osname = 'vxworks-ppc'
 
+    # Figure out which version of vxworks is being used.
+    # Do this by finding out which ccppc is first in our PATH.
+    vxCompilerPath = Popen('which ccppc', shell=True, stdout=PIPE, stderr=PIPE).communicate()[0]
+    
+    # Then ty to grab the major version number from the PATH
+    matchResult = re.match('/site/vxworks/(\\d).+', vxCompilerPath)
+    if matchResult != None:
+        # Test if version number was obtained
+        try:
+            vxVersion = int(matchResult.group(1))
+        except IndexError:
+            print 'ERROR finding vxworks version, set to 6 by default\n'
+
+    print 'Assume we have vxworks version ' + str(vxVersion)
+    
+    if vxVersion == 5:
+        vxbase = os.getenv('WIND_BASE', '/site/vxworks/5.5/ppc')
+        vxInc  = [vxbase + '/target/h']
+    elif vxVersion == 6:
+        vxbase = os.getenv('WIND_BASE', '/site/vxworks/6.0/ppc/gnu/3.3.2-vxworks60')
+        vxInc  = ['/site/vxworks/6.0/ppc/vxworks-6.0/target/h', '/site/vxworks/6.0/ppc/vxworks-6.0/target/h/wrn/coreip']
+    else:
+        print 'Vxworks version ' + str(vxVersion) + ' not supported\n'
+        raise SystemExit
+
+    print
+
     if platform == 'Linux':
-        vxbase = os.getenv('WIND_BASE', '/site/vxworks/5.5/ppc')
-        vxbin = vxbase + '/x86-linux/bin'
+        if vxVersion == 5:
+            vxbin = vxbase + '/host/x86-linux/bin'
+        else:
+            vxbin = vxbase + '/x86-linux2/bin'
     elif platform == 'SunOS':
-        vxbase = os.getenv('WIND_BASE', '/site/vxworks/5.5/ppc')
-        print "WIND_BASE = ", vxbase
-        vxbin = vxbase + '/sun4-solaris/bin'
+        if vxVersion > 5:
+            print '\nVxworks 6.x compilation not allowed on solaris\n'
+            raise SystemExit
+        vxbin = vxbase + '/host/sun4-solaris2/bin'
         if machine == 'i86pc':
             print '\nVxworks compilation not allowed on x86 solaris\n'
             raise SystemExit
@@ -265,11 +297,12 @@ if useVxworks:
     # get rid of -shared and use -r
     env.Replace(SHLINKFLAGS = '-r')
     # redefine SHCFLAGS/SHCCFLAGS to get rid of -fPIC (in Linux)
-    env.Replace(SHCFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
-    env.Replace(SHCCFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
-    env.Append(CFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
-    env.Append(CCFLAGS = '-fno-for-scope -fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604')
-    env.Append(CPPPATH = vxbase + '/target/h')
+    vxFlags = '-fno-builtin -fvolatile -fstrength-reduce -mlongcall -mcpu=604'
+    env.Replace(SHCFLAGS  = vxFlags)
+    env.Replace(SHCCFLAGS = vxFlags)
+    env.Append(CFLAGS     = vxFlags)
+    env.Append(CCFLAGS    = vxFlags)
+    env.Append(CPPPATH    = vxInc)
     env.Append(CPPDEFINES = ['CPU=PPC604', 'VXWORKS', '_GNU_TOOL', 'VXWORKSPPC', 'POSIX_MISTAKE'])
     env['CC']     = 'ccppc'
     env['CXX']    = 'g++ppc'
@@ -435,9 +468,10 @@ env.SConscript('src/regexp/SConscript',   variant_dir='src/regexp/'+archDir,   d
 env.SConscript('src/libsrc/SConscript',   variant_dir='src/libsrc/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc++/SConscript', variant_dir='src/libsrc++/'+archDir, duplicate=0)
 
-# for vxworks only make libs and examples
+# for vxworks
 if useVxworks:
     env.SConscript('src/examples/SConscript.vx', variant_dir='src/examples/'+archDir, duplicate=0)
+    env.SConscript('src/execsrc/SConscript.vx',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
 else:
     env.SConscript('src/examples/SConscript', variant_dir='src/examples/'+archDir, duplicate=0)
     env.SConscript('src/execsrc/SConscript',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
