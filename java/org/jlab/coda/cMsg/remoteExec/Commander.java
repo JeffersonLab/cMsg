@@ -1508,10 +1508,14 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                     ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
                     //                                                      monitor, wait
                     //CommandReturn ret = cmdr.startProcess(execList.get(0), in, true, true, new myCB(), null, 10000);
-                    CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  new myCB(), null);
+                    //CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  new myCB(), null);
+                    CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  12000);
                     System.out.println("Return = " + ret);
                     if (ret.hasError()) {
                         System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
+                    }
+                    if (ret.hasTerminated()) {
+                        System.out.println("Process TERMINATED");
                     }
                     if (ret.getOutput() != null) {
                         System.out.println("Regular output:\n" + ret.getOutput());
@@ -1534,10 +1538,10 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
 
             //cmdr.kill(execList.get(0), true);
         }
-//        catch (TimeoutException e) {
-//            e.printStackTrace();
-//            System.exit(-1);
-//        }
+        catch (TimeoutException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
         catch (cMsgException e) {
             e.printStackTrace();
             System.exit(-1);
