@@ -5,7 +5,8 @@ Import('env', 'binDir', 'archDir', 'execLibs', 'debugSuffix')
 ccfileList = ['cMsgCommand.cc',
               'cMsgMonitor.cc',
               'cMsgPayloadTest.cc',
-              'cMsgReceive.cc']
+              'cMsgReceive.cc',
+              'cMsgExecutor.c']
               
 # compile and install
 for fileName in ccfileList:
