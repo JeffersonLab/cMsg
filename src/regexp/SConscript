@@ -11,7 +11,7 @@ libFiles   = ['regcomp.c',
               'regexec.c',
               'regfree.c']
 
-env.AppendUnique(CPPPATH = '.')
+env.AppendUnique(CPPPATH = ['.'])
 regexpLib = env.SharedLibrary(target = 'cmsgRegex'+debugSuffix, source = libFiles)
 
 env.Alias("install", env.Install(target = incDir, source = headerList))
