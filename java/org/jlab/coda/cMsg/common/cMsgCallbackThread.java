@@ -83,6 +83,8 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
     public void dieNow(boolean callInterrupt) {
         dieNow = true;
         clearQueue();
+        // wake up paused threads so they can die
+        restart();
         //System.out.println("CallbackThd: Will interrupt callback thread");
         if (callInterrupt) this.interrupt();
         //System.out.println("CallbackThd: Interrupted callback thread");
@@ -274,6 +276,9 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                             return;
                         }
                     }
+                    if (dieNow) {
+                        return;
+                    }
                 }
                 // run callback with copied msg so multiple callbacks don't clobber each other
                 msgCount++;
@@ -361,11 +366,16 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
         threads.incrementAndGet();
 //System.out.println("Worker: +1");
 
+        // There's no need to add any more threads if messages
+        // are serialized so we can abandon this thread.
+        if (callback.mustSerializeMessages()) {
+            return;
+        }
+
+
         while (true) {
 
             if (dieNow) {
-                // all worker threads will die when they wake
-                restart();
 //System.out.println("CB: -1");
                 return;
             }
@@ -374,8 +384,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
             threadsExisting = threads.get();
 //System.out.println(threadsExisting + " threads, Q size = " + qSize);
 
-            if (!callback.mustSerializeMessages() &&
-                threadsExisting < callback.getMaximumThreads() &&
+            if (threadsExisting < callback.getMaximumThreads() &&
                 qSize > callback.getMessagesPerThread()) {
 
                 // find number of threads needed
@@ -411,11 +420,10 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
             qSizeNotChanged = qSize - messageQueue.size() == 0;
             while (qSizeNotChanged) {
                 if (dieNow) {
-                    restart();
 //System.out.println("CB: -1");
                     return;
                 }
-                try {Thread.sleep(10); }
+                try {Thread.sleep(40); }  // sleep 40 millisec
                 catch (InterruptedException e) {}
                 qSizeNotChanged = qSize - messageQueue.size() == 0;
             }
