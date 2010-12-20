@@ -344,6 +344,37 @@ int executorMain(char *udl, char *password, char *name) {
     
     hashInit(&idTable,  64);
 
+#ifdef VXWORKS
+    if (ptyDrv () == ERROR) {
+    printErr ("Unable to initialize pty driver\n");
+    exit(-1);
+    }
+    
+    if (ptyDevCreate ("system.", 4096, 4096) == ERROR) {
+        printErr ("Unable to create pty device\n");
+        exit(-1);
+    }
+    
+    if (ptyDevCreate ("err.", 4096, 4096) == ERROR) {
+        printErr ("Unable to create pty device\n");
+        exit(-1);
+    }
+    
+    if (ptyDevCreate ("out.", 4096, 4096) == ERROR) {
+        printErr ("Unable to create pty device\n");
+        exit(-1);
+    }
+    
+    
+    /*
+     * In vxworks 6.0, at least when running a script, the arguments given in taskSpawn are
+     * NOT pointing to permanent memory and must be copied once that script has ended.
+     */
+    udl = strdup(udl);
+    name = strdup(name);
+    password = strdup(password);
+#endif
+
     /* Limit length of password to 16 chars. */
     if (password != NULL) {
         if (strlen(password) > 16) {
@@ -846,6 +877,101 @@ printf("stopAll(): stop id = %s\n", entries[i].key);
     free(entries);
 }
 
+/**
+ * This routine counts the number of times that characters in str2 occur in str1.
+ *
+ * @param str1 NULL-terminated string in which search.
+ * @param str2 NULL-terminated string containing characters to look for.
+ * @return number of times that characters in str2 occur in str1.
+ */
+static int strCharCount(const char *str1, const char *str2) {
+    int count=0;
+    if (str1 == NULL || str2 == NULL) return 0;
+    while (*str1 != '\0') {
+        str1 = strpbrk(str1, str2);
+        if (str1 == NULL) break;
+        str1++;
+        count++;
+    }
+    return count;
+}
+
+/**
+ * This routine counts the number of times that the whole string str2 occurs in str1.
+ *
+ * @param str1 NULL-terminated string in which search.
+ * @param str2 NULL-terminated string to look for.
+ * @return number of times that the whole string str2 occurs in str1.
+ */
+static int strStringCount(const char *str1, const char *str2) {
+    int str2Len,count=0;
+    if (str1 == NULL || str2 == NULL) return 0;
+    str2Len = strlen(str2);
+    while (*str1 != '\0') {
+        str1 = strstr(str1, str2);
+        if (str1 == NULL) break;
+        str1 += str2Len;
+        count++;
+    }
+    return count;
+}
+
+/**
+ * This routine increases a buffer's size by copying it into a new, larger buffer
+ * which was initialized to all zeros.
+ * Original buffer is freed. New buffer will need to eventually be freed.
+ *
+ * @param buffer buffer to increase.
+ * @param bufLen size of data in buffer to copy.
+ * @param size   size of new buffer in bytes.
+ * @return pointer to new buffer or NULL if no memory can be allocated.
+ */
+static char *upBufferSize(char *buffer, size_t bufLen, size_t size) {
+    char *newBuf = (char *)calloc(1, size);
+    if (newBuf == NULL) {
+        return NULL;
+    }
+    memcpy(newBuf, buffer, bufLen);
+    free(buffer);
+    return newBuf;
+}
+
+/**
+ * This routine takes the output of a shell command and removes the initial
+ * echo of the given command by returning the pointer to the character
+ * following the echo.
+ * The command (with newline) is echoed twice and is also preceded by a new line.
+ *
+ * @param buffer buffer to examine.
+ * @param cmd command whose echo we want to skip (WITHOUT newline at the end).
+ * @return pointer to place in buffer after echo; or NULL if no echo or NULL arg(s).
+ */
+static char *removeCmdEcho(char *buffer, char *cmd) {
+    int   cmdLen;
+    char *pChar;
+
+    if (buffer == NULL || cmd == NULL) return NULL;
+
+    cmdLen = strlen(cmd);
+
+    /* skip 1st command echo */
+    pChar = strstr(buffer, cmd);
+    if (pChar == NULL) {
+        return NULL;
+    }
+    pChar += cmdLen + 1;
+    printf("removeCmdEcho: found 1st cmd echo\n");
+
+    /* skip 2nd command echo */
+    pChar = strstr(pChar, cmd);
+    if (pChar == NULL) {
+        return NULL;
+    }
+    pChar += cmdLen + 1;
+    printf("removeCmdEcho: found 2nd cmd echo\n");
+
+    return pChar;
+}
 
 
 /**
@@ -862,38 +988,207 @@ static void *processThread(void *arg) {
 
     void *imDoneMsg;
     char *stringsOut[2];
-    int id = 0, err, terminated;
+    int id = 0, len, err, errr, terminated;
     struct timespec wait = {0, 100000000}; /* 0.1 sec */
 
-    int fdSlave, fdMaster;
+    int fdSlave1, fdMaster1, fdSlave3, fdMaster3, shellId;
+    int rc, cmdCount=0, valueCount=0, bytesUnread=0, bytesRead=0, totalBytesRead=0;
+    size_t maxReadSize, bufSize=3300;
     char *shellTaskName;
-    char inBuf[512];
-    memset(inBuf, 0, 512);
+    char *inBuf=NULL, *pBuf;
+
+    int cmdFinished=0, foundError=0, delayTicks;
 
     printf("Run fake process thread with command -> %s\n", info->command);
-    printf("Sizeof(inBuf) -> %d\n", (int)sizeof(inBuf));
 
 
     //----------------------------------------------------------------
     // run the command HERE
     //----------------------------------------------------------------
     err = CMSG_OK; /* run command here */
+    
+    /* Get rid of leading & trailing white space in place */
+    cMsgTrim(info->command);
+
+    /* Get rid of any leading, trailing, or doubled semicolons in place. */
+    cMsgTrimChar(info->command, ';');
+    cMsgTrimDoubleChars(info->command, ';');
+    printf("trimmed command = %s\n", info->command);
+
+    /* Multiple commands can be combined by placing semicolons between them.
+     * Counting the semicolons now gives the number of commands in the string
+     * (assuming command arguments do not contain semicolons). */
+    cmdCount = strCharCount(info->command, ";") + 1;
+
+    printf("\nDETECTED %d commands\n\n", cmdCount);
+    
 #ifdef VXWORKS
-    ptyDevCreate("system.", 512, 512);
-    fdSlave  = open("system.S", O_RDWR, 0644);
-    fdMaster = open("system.M", O_RDWR, 0644);
-    shellGenericInit("INTERPRETER=Cmd", 0, NULL, &shellTaskName, FALSE, FALSE, fdSlave, fdSlave, fdSlave);
+
+    fdSlave1  = open("system.S", O_RDWR, 0777);
+    fdMaster1 = open("system.M", O_RDWR, 0777);
+    
+    fdSlave3  = open("err.S", O_RDWR, 0777);
+    fdMaster3 = open("err.M", O_RDWR, 0777);
+    
+    ioctl(fdSlave1, FIOSETOPTIONS, OPT_TERMINAL);
+    ioctl(fdSlave3, FIOSETOPTIONS, OPT_TERMINAL);
+
+restart:
+
+    if (inBuf != NULL) {
+        free(inBuf);
+    }
+    inBuf = (char *)calloc(1, bufSize);
+    if (inBuf == NULL) {
+        printf("Cannot allocate memory 0\n");
+        ptyDevRemove("system.");
+        ptyDevRemove("err.");
+        exit(-1);
+    }
+
+printf("Start shell\n");
+    shellGenericInit("INTERPRETER=C", 0, NULL, &shellTaskName, FALSE, FALSE, fdSlave1, fdSlave1, fdSlave3);
+printf("Wait 1 sec\n");
     taskDelay(sysClkRateGet());
-    write(fdMaster, info->command, strlen(info->command));
-    err = read(fdMaster, inBuf, 512);
-    if (err == ERROR) {
-        printf("Error reading command output\n");
+printf("Write cmd to shell\n");
+    write(fdMaster1, info->command, strlen(info->command));
+    write(fdMaster1, "\n", strlen("\n"));
+printf("Wait 1 sec, task name = %s\n", shellTaskName);
+    taskDelay(2*sysClkRateGet());
+    
+    pBuf = inBuf;
+    maxReadSize = bufSize;
+    delayTicks = sysClkRateGet()/10; /* 0.1 sec */
+
+    /* Trying reading any error output first since usually that happens right away ... */
+    while (1) {
+
+        /* Delay 0.1 sec */
+        taskDelay(delayTicks);
+
+        /* Are there any error bytes to be read? */
+        rc = ioctl(fdSlave3, FIONWRITE, (int)&bytesUnread);
+
+        if (rc == ERROR) {
+            /* Internal error, bad file descriptor */
+            foundError = 1;
+        }
+
+        if (bytesUnread < 1) {
+            printf("XX There are NO (more) error bytes to read, try to read regular output\n");
+            break;
+        }
+  
+        foundError = 1;
+        
+        /* if we have more to read than will fit in our buffer ... */
+        if  ( (totalBytesRead + bytesUnread) > bufSize ) {
+            /* increase buffer size */
+            bufSize = totalBytesRead + bytesUnread + 1024;
+            inBuf = upBufferSize(inBuf, totalBytesRead, bufSize);
+            maxReadSize = bytesUnread + 1024;
+            pBuf = inBuf + totalBytesRead;
+            printf("Reset buf size to %d\n", bufSize);
+        }
+ 
+        /* read everything we can */
+        bytesRead = read(fdMaster3, pBuf, maxReadSize);
+        if (bytesRead == ERROR) {
+            printf("Error reading command output\n");
+            /* todo: something intelligent here */
+        }
+        else {
+            printf("Error output = %s\n",inBuf);
+        }
+    
+        pBuf += bytesRead;
+        totalBytesRead += bytesRead;
+        /* Make sure we don't overflow our read buffer. */
+        maxReadSize = bufSize - totalBytesRead;
     }
-    else {
-        printf("Command output = %s\n",inBuf);
+
+    /* store error somewhere */
+    if (foundError) {
+        printf("ERROR FOUND\n");
     }
-    close(fdMaster);
-    close(fdSlave);
+
+    /* reset variables for reading regular output */
+    memset(inBuf, 0, bufSize);
+    pBuf = inBuf;
+    maxReadSize = bufSize;
+    totalBytesRead = 0;
+
+    /* While command not finished running ... */
+    while (!cmdFinished) {
+
+        /* Delay 0.1 sec */
+        taskDelay(delayTicks);
+
+        /* Are there any bytes to be read yet? */
+        rc = ioctl(fdSlave1, FIONWRITE, (int)&bytesUnread);
+
+        if (rc == ERROR) {
+            /* Internal error, bad file descriptor */
+            foundError = 1;
+            break;
+        }
+
+        /* If no bytes to read, wait some more ... */
+        if (bytesUnread < 1) {
+            printf("XX There are no unread bytes\n");
+            if (foundError) {
+                break;
+            }
+            continue;
+        }
+        
+        printf("There are %d unread bytes\n", bytesUnread);
+
+        /* if we have more to read than will fit in our buffer ... */
+        if  ( (totalBytesRead + bytesUnread) > bufSize ) {
+            /* increase buffer size */
+            bufSize = totalBytesRead + bytesUnread + 1024;
+            inBuf = upBufferSize(inBuf, totalBytesRead, bufSize);
+            maxReadSize = bytesUnread + 1024;
+            pBuf = inBuf + totalBytesRead;
+        }
+ 
+        /* read everything we can */
+        bytesRead = read(fdMaster1, pBuf, maxReadSize);
+        if (bytesRead == ERROR) {
+            printf("Error reading command output\n");
+            /* todo: something intelligent here */
+        }
+
+        pBuf += bytesRead;
+        totalBytesRead += bytesRead;
+        /* Make sure we don't overflow our read buffer. */
+        maxReadSize = bufSize - totalBytesRead;
+
+        /* Are we done with the command, or must we wait some more? */
+        valueCount = strStringCount(inBuf, "value = ");
+        if (valueCount >= cmdCount) {
+            /* we're done so extract output */
+            cmdFinished = 1;
+            /* store output HERE */
+            pBuf = removeCmdEcho(inBuf, info->command);
+            printf("New command output = %s",pBuf);
+        }
+    }
+
+    close(fdMaster1);
+    close(fdSlave1);
+        
+    close(fdMaster3);
+    close(fdSlave3);
+
+    free(inBuf);
+
+    if ( (shellId = taskNameToId(shellTaskName)) != ERROR ) {
+        shellTerminate(shellId);
+        printf("Terminated Shell by Hand\n");
+    }
+
 #endif
 
     /* Allow process a chance to run before testing if its terminated. */
@@ -908,18 +1203,27 @@ static void *processThread(void *arg) {
         if (err != CMSG_OK) {
             /* only possible error at this point */
             printf("Cannot allocate memory 1\n");
+#ifdef VXWORKS
+            ptyDevRemove("system.");
+#endif
             exit(-1);
         }
     
         err = cMsgAddString(responseMsg, "error", "some error");
         if (err != CMSG_OK) {
             printf("Cannot allocate memory 2\n");
-            exit(-1);
+#ifdef VXWORKS
+            ptyDevRemove("system.");
+#endif
+          exit(-1);
         }
     
         err = cMsgAddInt32(responseMsg, "immediateError", 1);
         if (err != CMSG_OK) {
             printf("Cannot allocate memory 3\n");
+#ifdef VXWORKS
+            ptyDevRemove("system.");
+#endif
             exit(-1);
         }
     
@@ -948,6 +1252,9 @@ printf("Send a response msg to command\n");
         err = cMsgAddInt32(responseMsg, "id", id);
         if (err != CMSG_OK) {
             printf("Cannot allocate memory 5\n");
+#ifdef VXWORKS
+            ptyDevRemove("system.");
+#endif
             exit(-1);
         }
 
@@ -967,6 +1274,9 @@ printf("Send a response msg to command\n");
             err = cMsgAddInt32(responseMsg, "terminated", 1);
             if (err != CMSG_OK) {
                 printf("Cannot allocate memory 4\n");
+#ifdef VXWORKS
+                ptyDevRemove("system.");
+#endif
                 exit(-1);
             }
 
@@ -988,6 +1298,9 @@ printf("SENDING MSG TO CMDR FOR NON-WAITER ......\n");
     err = cMsgAddInt32(responseMsg, "terminated", 1);
     if (err != CMSG_OK) {
         printf("Cannot allocate memory 6\n");
+#ifdef VXWORKS
+        ptyDevRemove("system.");
+#endif
         exit(-1);
     }
 
@@ -1007,6 +1320,9 @@ printf("SENDING MSG TO CMDR FOR NON-WAITER ......\n");
         err = cMsgAddInt32(responseMsg, "killed", 1);
         if (err != CMSG_OK) {
             printf("Cannot allocate memory 7\n");
+#ifdef VXWORKS
+            ptyDevRemove("system.");
+#endif
             exit(-1);
         }
     }
@@ -1014,6 +1330,9 @@ printf("SENDING MSG TO CMDR FOR NON-WAITER ......\n");
         err = cMsgAddInt32(responseMsg, "stopped", 1);
         if (err != CMSG_OK) {
             printf("Cannot allocate memory 8\n");
+#ifdef VXWORKS
+            ptyDevRemove("system.");
+#endif
             exit(-1);
         }
     }
@@ -1046,6 +1365,9 @@ printf("SENDING MSG TO CMDR FOR WAITER ......\n");
     imDoneMsg = cMsgCreateMessage();
     if (imDoneMsg == NULL) {
         printf("Cannot allocate memory 9\n");
+#ifdef VXWORKS
+        ptyDevRemove("system.");
+#endif
         exit(-1);
     }
     
@@ -1055,12 +1377,18 @@ printf("SENDING MSG TO CMDR FOR WAITER ......\n");
     err = cMsgAddString(imDoneMsg, "returnType", "process_end");
     if (err != CMSG_OK) {
         printf("Cannot allocate memory 10\n");
+#ifdef VXWORKS
+        ptyDevRemove("system.");
+#endif
         exit(-1);
     }
 
     err = cMsgAddInt32(imDoneMsg, "id", info->commandId);
     if (err != CMSG_OK) {
         printf("Cannot allocate memory 11\n");
+#ifdef VXWORKS
+        ptyDevRemove("system.");
+#endif
         exit(-1);
     }
 
@@ -1068,6 +1396,9 @@ printf("SENDING MSG TO CMDR FOR WAITER ......\n");
         err = cMsgAddString(imDoneMsg, "output", "output_here");
         if (err != CMSG_OK) {
             printf("Cannot allocate memory 12\n");
+#ifdef VXWORKS
+            ptyDevRemove("system.");
+#endif
             exit(-1);
         }
     }
@@ -1076,6 +1407,9 @@ printf("SENDING MSG TO CMDR FOR WAITER ......\n");
         err = cMsgAddString(imDoneMsg, "error", "error_here");
         if (err != CMSG_OK) {
             printf("Cannot allocate memory 13\n");
+#ifdef VXWORKS
+            ptyDevRemove("system.");
+#endif
             exit(-1);
         }
     }
@@ -1084,6 +1418,9 @@ printf("SENDING MSG TO CMDR FOR WAITER ......\n");
         err = cMsgAddInt32(imDoneMsg, "killed", 1);
         if (err != CMSG_OK) {
             printf("Cannot allocate memory 14\n");
+#ifdef VXWORKS
+            ptyDevRemove("system.");
+#endif
             exit(-1);
         }
     }
@@ -1091,6 +1428,9 @@ printf("SENDING MSG TO CMDR FOR WAITER ......\n");
         err = cMsgAddInt32(imDoneMsg, "stopped", 1);
         if (err != CMSG_OK) {
             printf("Cannot allocate memory 15\n");
+#ifdef VXWORKS
+            ptyDevRemove("system.");
+#endif
             exit(-1);
         }
     }
