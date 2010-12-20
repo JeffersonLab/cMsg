@@ -973,6 +973,53 @@ static char *removeCmdEcho(char *buffer, char *cmd) {
     return pChar;
 }
 
+/**
+ * This routine returns an error message to the Commander currently sending
+ * us commands.
+ * 
+ * @param domainId cMsg connection id
+ * @param msg cMsg message to send
+ * @param error error string to send
+ * @return status of cmsg error if any, else CMSG_OK
+ */
+static int sendErrorMsg(void *domainId, void *msg, const char *error) {
+
+    int err = cMsgAddInt32(msg, "terminated", 1);
+    if (err != CMSG_OK) {
+#ifdef VXWORKS
+        ptyDevRemove("system.");
+#endif
+        /* only possible error at this point is out-of-memory */
+        return err;
+    }
+    
+    err = cMsgAddString(msg, "error", error);
+    if (err != CMSG_OK) {
+#ifdef VXWORKS
+        ptyDevRemove("system.");
+#endif
+        /* only possible error at this point is out-of-memory */
+        return err;
+    }
+    
+    err = cMsgAddInt32(msg, "immediateError", 1);
+    if (err != CMSG_OK) {
+#ifdef VXWORKS
+        ptyDevRemove("system.");
+#endif
+        /* only possible error at this point is out-of-memory */
+        return err;
+    }
+    
+    printf("Send a response msg to command\n");
+
+    err = cMsgSend(domainId, msg);
+    if (err != CMSG_OK) {
+        printf("PROBLEMS sending sendAndGet return msg -> %s\n", cMsgPerror(err));
+    }
+    return err;
+}
+
 
 /**
  * Thread to run command in.
@@ -992,7 +1039,7 @@ static void *processThread(void *arg) {
     struct timespec wait = {0, 100000000}; /* 0.1 sec */
 
     int fdSlave1, fdMaster1, fdSlave3, fdMaster3, shellId;
-    int rc, cmdCount=0, valueCount=0, bytesUnread=0, bytesRead=0, totalBytesRead=0;
+    int rc, timeCount=0, cmdCount=0, valueCount=0, bytesUnread=0, bytesRead=0, totalBytesRead=0;
     size_t maxReadSize, bufSize=3300;
     char *shellTaskName;
     char *inBuf=NULL, *pBuf;
@@ -1047,14 +1094,30 @@ restart:
     }
 
 printf("Start shell\n");
-    shellGenericInit("INTERPRETER=C", 0, NULL, &shellTaskName, FALSE, FALSE, fdSlave1, fdSlave1, fdSlave3);
-printf("Wait 1 sec\n");
-    taskDelay(sysClkRateGet());
+    errr = shellGenericInit("INTERPRETER=C", 0, NULL, &shellTaskName,
+                            FALSE, FALSE, fdSlave1, fdSlave1, fdSlave3);
+    if (errr == ERROR) {
+        /* shell session cannot be created */
+        sendErrorMsg(domainId, responseMsg, "Shell cannot be started 1");
+        return;
+    }
+    
+    /* wait until shell shows up in table */
+    while (taskNameToId(shellTaskName) == ERROR) {
+        taskDelay(.1*sysClkRateGet()); /* wait 0.1 sec */
+        if (++timeCount >= 20) {
+            // return error msg to commander after 2 second wait
+            sendErrorMsg(domainId, responseMsg, "Shell cannot be started 2");
+            return;
+        }
+    }
+printf("Waited %g secs\n", .1*timeCount);
+   
 printf("Write cmd to shell\n");
     write(fdMaster1, info->command, strlen(info->command));
     write(fdMaster1, "\n", strlen("\n"));
-printf("Wait 1 sec, task name = %s\n", shellTaskName);
-    taskDelay(2*sysClkRateGet());
+printf("Wait .5 sec, task name = %s\n", shellTaskName);
+    taskDelay(.4*sysClkRateGet());
     
     pBuf = inBuf;
     maxReadSize = bufSize;
@@ -1088,7 +1151,7 @@ printf("Wait 1 sec, task name = %s\n", shellTaskName);
             inBuf = upBufferSize(inBuf, totalBytesRead, bufSize);
             maxReadSize = bytesUnread + 1024;
             pBuf = inBuf + totalBytesRead;
-            printf("Reset buf size to %d\n", bufSize);
+printf("Reset buf size to %d\n", bufSize);
         }
  
         /* read everything we can */
@@ -1165,7 +1228,13 @@ printf("Wait 1 sec, task name = %s\n", shellTaskName);
         /* Make sure we don't overflow our read buffer. */
         maxReadSize = bufSize - totalBytesRead;
 
-        /* Are we done with the command, or must we wait some more? */
+        /* Are we done with the command(s), or must we wait some more?
+         * The vxworks shell prints out the string "value = ..."
+         * at the end of each command. So we count these to make
+         * sure we have one for each command given. (A single command
+         * string sent by the user may contain more than one shell command
+         * by separating them with semicolons.)
+         */
         valueCount = strStringCount(inBuf, "value = ");
         if (valueCount >= cmdCount) {
             /* we're done so extract output */
