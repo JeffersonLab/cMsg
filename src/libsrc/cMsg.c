@@ -180,7 +180,7 @@ static int   cMsgPayloadToStringImpl(const void *vmsg, char **string, int level,
  *
  * @param s string to be trimmed
  */
-static trim(char *s) {
+void cMsgTrim(char *s) {
     int i, len, frontCount=0;
     char *firstChar, *lastChar;
     
@@ -219,6 +219,83 @@ static trim(char *s) {
     }
     /* add null at end */
     s[len] = '\0';
+}
+
+/**
+ * Routine to trim a given character from front and back of given string.
+ * Changes made to argument string in place.
+ *
+ * @param s string to be trimmed
+ * @param trimChar character to be trimmed
+ */
+void cMsgTrimChar(char *s, char trimChar) {
+    int i, len, frontCount=0;
+    char *firstChar, *lastChar;
+    
+    if (s == NULL) return;
+
+    len = strlen(s);
+
+    if (len < 1) return;
+    
+    firstChar = s;
+    lastChar  = s + len - 1;
+
+    /* find first front end non trimChar */
+    while (*firstChar == trimChar && *firstChar != '\0') {
+        firstChar++;
+    }
+    frontCount = firstChar - s;
+
+    /* Check to see if string all trim char, if so send back blank string. */
+    if (frontCount >= len) {
+        s[0] = '\0';
+        return;
+    }
+
+    /* find first back end non trimChar */
+    while (*lastChar == trimChar) {
+        lastChar--;
+    }
+
+    /* number of non trimChars */
+    len = lastChar - firstChar + 1;
+
+    /* move chars to front of string */
+    for (i=0; i < len; i++) {
+        s[i] = s[frontCount + i];
+    }
+    /* add null at end */
+    s[len] = '\0';
+}
+
+/**
+ * Routine to eliminate contiguous occurrences of a given character in given string.
+ * Changes made to argument string in place.
+ *
+ * @param s string to be trimmed
+ * @param trimChar character to be trimmed
+ */
+void cMsgTrimDoubleChars(char *s, char trimChar) {
+    char *pc, *nextChar = s + 1;
+    
+    if (s == NULL || strlen(s) < 2) return;
+
+    /* while we haven't hit the end of the string ... */
+    while (*s != '\0') {
+        /* while 2 identical chars side-by-side, shift everything down */
+        while (*s == trimChar && *nextChar == trimChar) {
+            /* move chars one spot to left */
+            pc = nextChar;
+            while (*pc != '\0') {
+                *pc = *(pc + 1);
+                 pc++;
+            }
+        }
+        
+        nextChar = ++s + 1;
+    }
+
 }
 
 #ifdef VXWORKS
@@ -499,7 +576,7 @@ static int readConfigFile(char *fileName, char **newUDL) {
     
 /*printf("readConfigFile: string = %s\n", str);*/
       /* Remove white space at beginning and end. */
-      trim(str);
+      cMsgTrim(str);
       
       /* if first char is #, treat as comment */
       if (str[0] == '#') {
@@ -561,7 +638,7 @@ static int splitUDL(const char *myUDL, parsedUDL** list, int *count) {
   
   while (p != NULL) {
     /* Parse the UDL (Uniform Domain Locator) */
-    trim(p); /* get rid of any leading/trailing whitespace */
+    cMsgTrim(p); /* get rid of any leading/trailing whitespace */
     if ( (err = parseUDL(p, &domain, &remainder)) != CMSG_OK ) {
       /* There's been a parsing error */
       free(udl);

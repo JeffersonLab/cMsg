@@ -243,7 +243,10 @@ int clock_gettime(int dummy, struct timespec *t1);
                                     int compact, int noSystemFields);
   int    cMsgPayloadToString       (const void *vmsg, char **string, int binary,
                                     int compact, int noSystemFields);
-  
+  void   cMsgTrim                  (char *s);
+  void   cMsgTrimChar              (char *s, char trimChar);
+  void   cMsgTrimDoubleChars       (char *s, char trimChar);
+ 
   /* ***************************************** */
   /* compound payload stuff - 66 user routines */
   /* ***************************************** */
