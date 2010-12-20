@@ -359,12 +359,7 @@ int executorMain(char *udl, char *password, char *name) {
         printErr ("Unable to create pty device\n");
         exit(-1);
     }
-    
-    if (ptyDevCreate ("out.", 4096, 4096) == ERROR) {
-        printErr ("Unable to create pty device\n");
-        exit(-1);
-    }
-    
+        
     
     /*
      * In vxworks 6.0, at least when running a script, the arguments given in taskSpawn are
@@ -1034,14 +1029,14 @@ static void *processThread(void *arg) {
     hashTable *idTable = (hashTable *)args->arg4;
 
     void *imDoneMsg;
-    char *stringsOut[2];
-    int id = 0, len, err, errr, terminated;
+    char *stringsOut[2], **commands, *pCmdCpy;
+    int i, id = 0, len, err, errr, terminated;
     struct timespec wait = {0, 100000000}; /* 0.1 sec */
 
     int fdSlave1, fdMaster1, fdSlave3, fdMaster3, shellId;
     int rc, timeCount=0, cmdCount=0, valueCount=0, bytesUnread=0, bytesRead=0, totalBytesRead=0;
     size_t maxReadSize, bufSize=3300;
-    char *shellTaskName;
+    char *shellTaskName, *errorStr=NULL;
     char *inBuf=NULL, *pBuf;
 
     int cmdFinished=0, foundError=0, delayTicks;
@@ -1066,6 +1061,22 @@ static void *processThread(void *arg) {
      * Counting the semicolons now gives the number of commands in the string
      * (assuming command arguments do not contain semicolons). */
     cmdCount = strCharCount(info->command, ";") + 1;
+
+    if (cmdCount > 1) {
+        commands = (char **) calloc(cmdCount, sizeof(char *));
+        i = 0;
+        pCmdCpy = strdup(info->command);
+        commands[0] = strtok(pCmdCpy, ";");
+        if (commands[0]) printf("%s",commands[0]);
+        for (i=1; i<cmdCount; i++) {
+            commands[i] = strtok('\0', ";");
+            if (commands[i]) printf("|%s",commands[i]);
+            else break;
+        }
+    }
+    else {
+        commands[0] = info->command;
+    }
 
     printf("\nDETECTED %d commands\n\n", cmdCount);
     
@@ -1106,143 +1117,159 @@ printf("Start shell\n");
     while (taskNameToId(shellTaskName) == ERROR) {
         taskDelay(.1*sysClkRateGet()); /* wait 0.1 sec */
         if (++timeCount >= 20) {
-            // return error msg to commander after 2 second wait
             sendErrorMsg(domainId, responseMsg, "Shell cannot be started 2");
             return;
         }
     }
 printf("Waited %g secs\n", .1*timeCount);
    
-printf("Write cmd to shell\n");
-    write(fdMaster1, info->command, strlen(info->command));
-    write(fdMaster1, "\n", strlen("\n"));
-printf("Wait .5 sec, task name = %s\n", shellTaskName);
-    taskDelay(.4*sysClkRateGet());
-    
-    pBuf = inBuf;
-    maxReadSize = bufSize;
     delayTicks = sysClkRateGet()/10; /* 0.1 sec */
-
-    /* Trying reading any error output first since usually that happens right away ... */
-    while (1) {
-
-        /* Delay 0.1 sec */
-        taskDelay(delayTicks);
-
-        /* Are there any error bytes to be read? */
-        rc = ioctl(fdSlave3, FIONWRITE, (int)&bytesUnread);
-
-        if (rc == ERROR) {
-            /* Internal error, bad file descriptor */
-            foundError = 1;
-        }
-
-        if (bytesUnread < 1) {
-            printf("XX There are NO (more) error bytes to read, try to read regular output\n");
-            break;
-        }
-  
-        foundError = 1;
-        
-        /* if we have more to read than will fit in our buffer ... */
-        if  ( (totalBytesRead + bytesUnread) > bufSize ) {
-            /* increase buffer size */
-            bufSize = totalBytesRead + bytesUnread + 1024;
-            inBuf = upBufferSize(inBuf, totalBytesRead, bufSize);
-            maxReadSize = bytesUnread + 1024;
-            pBuf = inBuf + totalBytesRead;
-printf("Reset buf size to %d\n", bufSize);
-        }
- 
-        /* read everything we can */
-        bytesRead = read(fdMaster3, pBuf, maxReadSize);
-        if (bytesRead == ERROR) {
-            printf("Error reading command output\n");
-            /* todo: something intelligent here */
-        }
-        else {
-            printf("Error output = %s\n",inBuf);
-        }
     
-        pBuf += bytesRead;
-        totalBytesRead += bytesRead;
-        /* Make sure we don't overflow our read buffer. */
-        maxReadSize = bufSize - totalBytesRead;
-    }
 
-    /* store error somewhere */
-    if (foundError) {
-        printf("ERROR FOUND\n");
-    }
+    for (i=0; i <cmdCount; i++) {
 
-    /* reset variables for reading regular output */
-    memset(inBuf, 0, bufSize);
-    pBuf = inBuf;
-    maxReadSize = bufSize;
-    totalBytesRead = 0;
+        printf("Write %s to shell\n", commands[i]);
+        
+        write(fdMaster1, commands[i], strlen(commands[i]));
+        write(fdMaster1, "\n", strlen("\n"));
+        
+        printf("Wait .5 sec, task name = %s\n", shellTaskName);
+        taskDelay(.4*sysClkRateGet());
+    
+        memset(inBuf, 0, bufSize);
+        pBuf = inBuf;
+        maxReadSize = bufSize;
+        totalBytesRead = 0;
 
-    /* While command not finished running ... */
-    while (!cmdFinished) {
-
-        /* Delay 0.1 sec */
-        taskDelay(delayTicks);
-
-        /* Are there any bytes to be read yet? */
-        rc = ioctl(fdSlave1, FIONWRITE, (int)&bytesUnread);
-
-        if (rc == ERROR) {
-            /* Internal error, bad file descriptor */
-            foundError = 1;
-            break;
-        }
-
-        /* If no bytes to read, wait some more ... */
-        if (bytesUnread < 1) {
-            printf("XX There are no unread bytes\n");
-            if (foundError) {
+        /* Trying reading any error output first since usually that happens right away ... */
+        while (1) {
+    
+            /* Delay 0.1 sec */
+            taskDelay(delayTicks);
+    
+            /* Are there any error bytes to be read? */
+            rc = ioctl(fdSlave3, FIONWRITE, (int)&bytesUnread);
+    
+            if (rc == ERROR) {
+                /* Internal error, bad file descriptor */
+                errorStr = "bad file descriptor in ioctl";
+                foundError = 1;
                 break;
             }
-            continue;
-        }
+    
+            if (bytesUnread < 1) {
+                printf("XX There are NO (more) error bytes to read, try to read regular output\n");
+                break;
+            }
+      
+            foundError = 1;
+            
+            /* if we have more to read than will fit in our buffer ... */
+            if  ( (totalBytesRead + bytesUnread) > bufSize ) {
+                /* increase buffer size */
+                bufSize = totalBytesRead + bytesUnread + 1024;
+                inBuf = upBufferSize(inBuf, totalBytesRead, bufSize);
+                maxReadSize = bytesUnread + 1024;
+                pBuf = inBuf + totalBytesRead;
+    printf("Reset buf size to %d\n", bufSize);
+            }
+     
+            /* read everything we can */
+            bytesRead = read(fdMaster3, pBuf, maxReadSize);
+            if (bytesRead == ERROR) {
+                /* pseudo-terminal driver error */
+                errorStr = "pseudo-terminal driver error";
+                break;
+            }
+            else {
+                printf("Error output = %s\n",inBuf);
+            }
         
-        printf("There are %d unread bytes\n", bytesUnread);
-
-        /* if we have more to read than will fit in our buffer ... */
-        if  ( (totalBytesRead + bytesUnread) > bufSize ) {
-            /* increase buffer size */
-            bufSize = totalBytesRead + bytesUnread + 1024;
-            inBuf = upBufferSize(inBuf, totalBytesRead, bufSize);
-            maxReadSize = bytesUnread + 1024;
-            pBuf = inBuf + totalBytesRead;
+            pBuf += bytesRead;
+            totalBytesRead += bytesRead;
+            /* Make sure we don't overflow our read buffer. */
+            maxReadSize = bufSize - totalBytesRead;
         }
- 
-        /* read everything we can */
-        bytesRead = read(fdMaster1, pBuf, maxReadSize);
-        if (bytesRead == ERROR) {
-            printf("Error reading command output\n");
-            /* todo: something intelligent here */
+    
+        /* store error somewhere */
+        if (foundError) {
+            printf("ERROR FOUND\n");
+ //           sendErrorMsg(domainId, responseMsg, errorStr);
+ //           return;
+        }
+    
+        /* see if terminated already by looking in task table ??? */
+    
+        /* reset variables for reading regular output */
+        memset(inBuf, 0, bufSize);
+        pBuf = inBuf;
+        maxReadSize = bufSize;
+        totalBytesRead = 0;
+    
+        /* While command not finished running ... */
+        while (1) {
+    
+            /* Delay 0.1 sec */
+            taskDelay(delayTicks);
+    
+            /* Are there any bytes to be read yet? */
+            rc = ioctl(fdSlave1, FIONWRITE, (int)&bytesUnread);
+    
+            if (rc == ERROR) {
+                /* Internal error, bad file descriptor */
+                foundError = 1;
+                break;
+            }
+    
+            /* If no bytes to read, wait some more ... */
+            if (bytesUnread < 1) {
+                printf("XX There are no unread bytes\n");
+                if (foundError) {
+                    break;
+                }
+                continue;
+            }
+            
+            printf("There are %d unread bytes\n", bytesUnread);
+    
+            /* if we have more to read than will fit in our buffer ... */
+            if  ( (totalBytesRead + bytesUnread) > bufSize ) {
+                /* increase buffer size */
+                bufSize = totalBytesRead + bytesUnread + 1024;
+                inBuf = upBufferSize(inBuf, totalBytesRead, bufSize);
+                maxReadSize = bytesUnread + 1024;
+                pBuf = inBuf + totalBytesRead;
+            }
+     
+            /* read everything we can */
+            bytesRead = read(fdMaster1, pBuf, maxReadSize);
+            if (bytesRead == ERROR) {
+                printf("Error reading command output\n");
+                /* todo: something intelligent here */
+            }
+    
+            pBuf += bytesRead;
+            totalBytesRead += bytesRead;
+            /* Make sure we don't overflow our read buffer. */
+            maxReadSize = bufSize - totalBytesRead;
+    
+            /* Are we done with the command(s), or must we wait some more?
+             * The vxworks shell prints out the string "value = ..."
+             * at the end of each command. So we count these to make
+             * sure we have one for each command given. (A single command
+             * string sent by the user may contain more than one shell command
+             * by separating them with semicolons.)
+             */
+            valueCount = strStringCount(inBuf, "value = ");
+            if (valueCount >= 1) {
+                /* we're done so extract output */
+                /* store output HERE */
+                pBuf = removeCmdEcho(inBuf, info->command);
+                printf("New command output = %s",pBuf);
+                break;
+            }
         }
 
-        pBuf += bytesRead;
-        totalBytesRead += bytesRead;
-        /* Make sure we don't overflow our read buffer. */
-        maxReadSize = bufSize - totalBytesRead;
-
-        /* Are we done with the command(s), or must we wait some more?
-         * The vxworks shell prints out the string "value = ..."
-         * at the end of each command. So we count these to make
-         * sure we have one for each command given. (A single command
-         * string sent by the user may contain more than one shell command
-         * by separating them with semicolons.)
-         */
-        valueCount = strStringCount(inBuf, "value = ");
-        if (valueCount >= cmdCount) {
-            /* we're done so extract output */
-            cmdFinished = 1;
-            /* store output HERE */
-            pBuf = removeCmdEcho(inBuf, info->command);
-            printf("New command output = %s",pBuf);
-        }
     }
 
     close(fdMaster1);
