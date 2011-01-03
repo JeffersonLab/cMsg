@@ -1062,6 +1062,7 @@ static void *processThread(void *arg) {
      * (assuming command arguments do not contain semicolons). */
     cmdCount = strCharCount(info->command, ";") + 1;
 
+    /* split up commands so we can execute one-by-one, at least for a trial */
     if (cmdCount > 1) {
         commands = (char **) calloc(cmdCount, sizeof(char *));
         i = 0;
@@ -1191,14 +1192,14 @@ printf("Waited %g secs\n", .1*timeCount);
             maxReadSize = bufSize - totalBytesRead;
         }
     
-        /* store error somewhere */
+        /* store error somewhere, in response Message?? */
         if (foundError) {
             printf("ERROR FOUND\n");
  //           sendErrorMsg(domainId, responseMsg, errorStr);
  //           return;
         }
     
-        /* see if terminated already by looking in task table ??? */
+        /* see if terminated already by looking in task table ??? NO because shell task is not done until closed */
     
         /* reset variables for reading regular output */
         memset(inBuf, 0, bufSize);
