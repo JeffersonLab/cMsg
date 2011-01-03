@@ -313,7 +313,17 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
         context       = new myContext();
 
         setDaemon(true);
-        start();
+
+        // Start one permanent worker thread
+        new WorkerThread(true);
+        threads.incrementAndGet();
+//System.out.println("Worker: +1");
+
+        // If messages are NOT serialized, start up the thread
+        // which manages the number of worker threads.
+        if (!callback.mustSerializeMessages()) {
+            start();
+        }
     }
 
 
@@ -356,22 +366,10 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
     }
 
 
-    /** This method is executed as a thread which runs the callback method */
+    /** This method is executed as a thread which starts up the right number of worker threads */
     public void run() {
         boolean qSizeNotChanged;
         int threadsAdded, threadsExisting, need, maxToAdd, wantToAdd, qSize;
-
-        // start one permanent worker thread
-        new WorkerThread(true);
-        threads.incrementAndGet();
-//System.out.println("Worker: +1");
-
-        // There's no need to add any more threads if messages
-        // are serialized so we can abandon this thread.
-        if (callback.mustSerializeMessages()) {
-            return;
-        }
-
 
         while (true) {
 
