@@ -1469,7 +1469,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
     /**
      * Run as a stand-alone application
      */
-    public static void main(String[] args) {
+    public static void main4(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
@@ -1551,7 +1551,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
     /**
       * Run as a stand-alone application
       */
-     public static void main5(String[] args) {
+     public static void main(String[] args) {
              String[] arggs = decodeCommandLine(args);
  System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
         Commander cmdr = null;
