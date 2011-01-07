@@ -1507,7 +1507,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                 if (execList.size() > 0) {
                     ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
                     //                                                      monitor, wait
-                    //CommandReturn ret = cmdr.startProcess(execList.get(0), in, true, true, new myCB(), null, 10000);
+                    //CommandReturn ret = cmdr.startProcess(list.get(0), in, true, true, new myCB(), null, 10000);
                     //CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  new myCB(), null);
                     CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  12000);
                     System.out.println("Return = " + ret);
@@ -1521,11 +1521,12 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                         System.out.println("Regular output:\n" + ret.getOutput());
                     }
                     System.out.println("Callback state = " + ret.getCallbackState());
-//                    try {Thread.sleep(5000);}
-//                    catch (InterruptedException e) {}
-//
-//                    System.out.println("Stop process now");
-//                    cmdr.stop(execList.get(0), ret.getId());
+
+                    try {Thread.sleep(1000);}
+                    catch (InterruptedException e) {}
+
+                    System.out.println("Stop process now");
+                    cmdr.stop(list.get(0), ret.getId());
 
 //                    while (true) {
                         try {Thread.sleep(1000);}
