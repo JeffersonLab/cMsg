@@ -864,7 +864,7 @@ System.out.println("send msg set to killed, caught in callback");
             if (!terminated) {
                 item = returnMsg.getPayloadItem("id");
                 if (item == null) {
-                    throw new cMsgException("startProcess: internal protocol error");
+                    throw new cMsgException("startProcess: internal protocol error 1");
                 }
                 processId = item.getInt();
                 // Store mapping between the 2 ids to help terminating it in future.
@@ -902,7 +902,7 @@ System.out.println("startProcess: Executor set to stopped");
             return cmdRet;
         }
         else {
-            throw new cMsgException("startProcess: internal protocol error");
+            throw new cMsgException("startProcess: internal protocol error 2");
         }
     }
 
@@ -1066,7 +1066,7 @@ System.out.println("startProcess: Executor set to stopped");
             if (!terminated) {
                 item = returnMsg.getPayloadItem("id");
                 if (item == null) {
-                    throw new cMsgException("startProcess: internal protocol error");
+                    throw new cMsgException("startThread: internal protocol error");
                 }
                 threadId = item.getInt();
                 // Store mapping between the 2 ids to help terminating it in future.
@@ -1093,7 +1093,7 @@ System.out.println("startProcess: Executor set to stopped");
             return cmdRet;
         }
         else {
-            throw new cMsgException("startProcess: internal protocol error");
+            throw new cMsgException("startThread: internal protocol error");
         }
     }
 
@@ -1522,11 +1522,11 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                     }
                     System.out.println("Callback state = " + ret.getCallbackState());
 
-                    try {Thread.sleep(1000);}
-                    catch (InterruptedException e) {}
-
-                    System.out.println("Stop process now");
-                    cmdr.stop(list.get(0), ret.getId());
+//                    try {Thread.sleep(1000);}
+//                    catch (InterruptedException e) {}
+//
+//                    System.out.println("Stop process now");
+//                    cmdr.stop(list.get(0), ret.getId());
 
 //                    while (true) {
                         try {Thread.sleep(1000);}
