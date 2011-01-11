@@ -1573,7 +1573,8 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
              class myCB implements CommandCallback {
                  public void callback(Object userObject, CommandReturn commandReturn) {
                      System.out.println(" %%%%%%%%%%% Ran callback %%%%%%%%%%");
-                     System.out.println("               error output = \n" + commandReturn.getError());
+                     System.out.println("               error   output = \n" + commandReturn.getError());
+                     System.out.println("               regular output = \n" + commandReturn.getOutput());
                  }
              }
 
@@ -1602,8 +1603,8 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                          try {Thread.sleep(1000);}
                          catch (InterruptedException e) {}
 
-                         System.out.println("Stop process now");
-                         cmdr.stop(exec, ret);
+//                         System.out.println("Stop process now");
+//                         cmdr.stop(exec, ret);
 //                         System.out.println("Kill process now");
 //                         cmdr.kill(exec, true);
 
