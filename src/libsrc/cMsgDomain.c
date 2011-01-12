@@ -1014,6 +1014,7 @@ static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) 
     char   *buffer;
     int    err, status, len, passwordLen, sockfd, isLocal;
     int    outGoing[5], multicastTO=0, gotResponse=0;
+    unsigned char ttl = 32;
 
     pthread_t rThread, bThread;
     thdArg    rArg,    bArg;
@@ -1030,7 +1031,14 @@ static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) 
     if (sockfd < 0) {
         return(CMSG_SOCKET_ERROR);
     }
-       
+
+    /* Set TTL to 32 so it will make it through routers. */
+    err = setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_TTL, (void *) &ttl, sizeof(ttl));
+    if (err < 0){
+        close(sockfd);
+        return(CMSG_SOCKET_ERROR);
+    }
+      
     memset((void *)&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
 /*printf("Multicast thd uses port %hu\n", ((uint16_t)domain->currentUDL.nameServerUdpPort));*/
