@@ -303,6 +303,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     int    i, index=0, outGoing[7], multicastTO=0, connectTO=0;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
+    unsigned char ttl = 32;
     unsigned short startingPort;
     cMsgDomainInfo *domain;
     cMsgThreadInfo *threadArg;
@@ -494,6 +495,19 @@ printf("EXPID is not set!\n");
     /* create UDP socket */
     domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (domain->sendSocket < 0) {
+        cMsgRestoreSignals(domain);
+        pthread_cancel(domain->pendThread);
+        cMsgDomainFree(domain);
+        free(domain);
+        free(serverHost);
+        free(expid);
+        return(CMSG_SOCKET_ERROR);
+    }
+
+    /* Set TTL to 32 so it will make it through routers. */
+    err = setsockopt(domain->sendSocket, IPPROTO_IP, IP_MULTICAST_TTL, (void *) &ttl, sizeof(ttl));
+    if (err < 0) {
+        close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
