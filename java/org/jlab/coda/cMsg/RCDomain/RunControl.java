@@ -89,7 +89,7 @@ public class RunControl extends cMsgDomainAdapter {
     DatagramPacket sendUdpPacket;
 
     /** Socket over which to UDP multicast to and receive UDP packets from the RCMulticast server. */
-    DatagramSocket multicastUdpSocket;
+    MulticastSocket multicastUdpSocket;
 
     /** Socket over which to end messages to the RC server over UDP. */
     DatagramSocket udpSocket;
@@ -298,8 +298,9 @@ public class RunControl extends cMsgDomainAdapter {
                 out.close();
 
                 // create socket to receive at anonymous port & all interfaces
-                multicastUdpSocket = new DatagramSocket();
-
+                multicastUdpSocket = new MulticastSocket();
+                multicastUdpSocket.setTimeToLive(32); // Make it through routers
+              
                 // create packet to multicast from the byte array
                 byte[] buf = baos.toByteArray();
                 udpPacket = new DatagramPacket(buf, buf.length,
