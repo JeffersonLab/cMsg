@@ -209,6 +209,7 @@ public class RCMulticast extends cMsgDomainAdapter {
 
                 // create socket to send multicasts to other RCMulticast servers
                 multicastSocket = new MulticastSocket();
+                multicastSocket.setTimeToLive(32);
                 localTempPort = multicastSocket.getLocalPort();
 
                 InetAddress rcServerMulticastAddress=null;
