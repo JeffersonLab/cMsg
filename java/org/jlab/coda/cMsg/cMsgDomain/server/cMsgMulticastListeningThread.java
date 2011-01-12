@@ -25,7 +25,7 @@ import java.io.DataOutputStream;
 import java.io.UnsupportedEncodingException;
 
 /**
- * This class implements a thread to listen to cMsg clients broadcasting
+ * This class implements a thread to listen to cMsg clients multicasting
  * in order to find and then fully connect to a cMsg server.
  *
  * @author Carl Timmer
