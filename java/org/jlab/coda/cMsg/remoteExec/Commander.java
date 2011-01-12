@@ -1469,7 +1469,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
     /**
      * Run as a stand-alone application
      */
-    public static void main4(String[] args) {
+    public static void main(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
@@ -1494,12 +1494,12 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
 //
 //            }
 
-            class myCB implements CommandCallback {
-                public void callback(Object userObject, CommandReturn commandReturn) {
-                    System.out.println("In callback, process output = \n" + commandReturn.getOutput());
-                    System.out.println("               error output = \n" + commandReturn.getError());
-                }
-            }
+//            class myCB implements CommandCallback {
+//                public void callback(Object userObject, CommandReturn commandReturn) {
+//                    System.out.println("In callback, process output = \n" + commandReturn.getOutput());
+//                    System.out.println("               error output = \n" + commandReturn.getError());
+//                }
+//            }
 
             String in;
             while(true) {
@@ -1552,7 +1552,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
     /**
       * Run as a stand-alone application
       */
-     public static void main(String[] args) {
+     public static void main5(String[] args) {
              String[] arggs = decodeCommandLine(args);
  System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
         Commander cmdr = null;
