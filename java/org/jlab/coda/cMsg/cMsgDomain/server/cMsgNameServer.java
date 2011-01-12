@@ -527,6 +527,7 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
             multicastSocket = new MulticastSocket(udpPort);
             multicastSocket.setReceiveBufferSize(65535);
             multicastSocket.setReuseAddress(true);
+            multicastSocket.setTimeToLive(32);
             // If using standalone laptop, joinGroup throws an exception:
             // java.net.SocketException: No such device. This catch allows
             // usage with messed up / nonexistant network.

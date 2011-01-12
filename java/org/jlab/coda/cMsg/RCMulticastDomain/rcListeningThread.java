@@ -86,6 +86,7 @@ class rcListeningThread extends Thread {
             }
             multicastSocket.setReceiveBufferSize(65535);
             multicastSocket.setReuseAddress(true);
+            multicastSocket.setTimeToLive(32);
         }
         catch (IOException e) {
             throw new cMsgException("Port " + multicastPort + " is taken", e);

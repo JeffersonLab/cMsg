@@ -574,6 +574,7 @@ public class cMsg extends cMsgDomainAdapter {
             // create socket to receive at anonymous port & all interfaces
             udpSocket = new MulticastSocket();
             udpSocket.setReceiveBufferSize(1024);
+            udpSocket.setTimeToLive(32); // Need to get thru routers
 
             // create multicast packet from the byte array
             byte[] buf = baos.toByteArray();
@@ -731,7 +732,7 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
                 while (true) {
 
                     try {
-//System.out.println("Send multicast packet to RC Multicast server");
+//System.out.println("Send multicast packet to cMsg server");
                         udpSocket.send(packet);
                     }
                     catch (IOException e) {
