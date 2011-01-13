@@ -1515,17 +1515,17 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                     //CommandReturn ret = cmdr.startProcess(list.get(0), in, true, true, new myCB(), null, 10000);
                     //CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  new myCB(), null);
                     CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  12000);
-                    System.out.println("Return = " + ret);
+                    System.out.println("Synchronous return:");
+                    System.out.println("  Callback state = " + ret.getCallbackState());
                     if (ret.hasError()) {
-                        System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
+                        System.out.println("  Error = " + ret.getError());
                     }
                     if (ret.hasTerminated()) {
-                        System.out.println("Process TERMINATED");
+                        System.out.println("  Process = TERMINATED");
                     }
                     if (ret.getOutput() != null) {
-                        System.out.println("Regular output:\n" + ret.getOutput());
+                        System.out.println("  Output = " + ret.getOutput());
                     }
-                    System.out.println("Callback state = " + ret.getCallbackState());
 
 //                    try {Thread.sleep(1000);}
 //                    catch (InterruptedException e) {}
