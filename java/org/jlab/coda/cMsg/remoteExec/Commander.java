@@ -1541,8 +1541,10 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                     try {Thread.sleep(1000);}
                     catch (InterruptedException e) {}
 
-                    System.out.println("Stop process now");
-                    cmdr.stop(list.get(0), ret.getId());
+                    //System.out.println("Stop process now");
+                    //cmdr.stop(list.get(0), ret.getId());
+                    System.out.println("StopAll now");
+                    cmdr.stopAll(list.get(0));
 
 //                    while (true) {
                         try {Thread.sleep(1000);}
