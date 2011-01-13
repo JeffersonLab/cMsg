@@ -1524,7 +1524,9 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                         System.out.println("  Process = TERMINATED");
                     }
                     if (ret.getOutput() != null) {
-                        System.out.println("  Output = " + ret.getOutput());
+                        System.out.println("  Output = --");
+                        System.out.println("<------------");
+                        System.out.println(ret.getOutput());
                     }
 
 //                    try {Thread.sleep(1000);}
