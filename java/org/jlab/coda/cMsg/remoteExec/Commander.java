@@ -274,14 +274,14 @@ System.out.println("Received msg --------> thread/process ended");
                                 item = msg.getPayloadItem("stopped");
                                 if (item != null) {
 System.out.println("send msg set to stopped, caught in callback");
-                                    cmdRet.setCallbackState(CallbackState.STOPPED);
+                                    cmdRet.setCallbackStateIfLocked(CallbackState.STOPPED);
                                 }
 
                                 // Was the process/thread killed?
                                 item = msg.getPayloadItem("killed");
                                 if (item != null) {
 System.out.println("send msg set to killed, caught in callback");
-                                    cmdRet.setCallbackState(CallbackState.KILLED);
+                                    cmdRet.setCallbackStateIfLocked(CallbackState.KILLED);
                                 }
 
                                 // Only run pending callbacks (theoretically should never be true).
