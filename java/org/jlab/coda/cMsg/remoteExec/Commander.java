@@ -21,9 +21,8 @@ import org.jlab.coda.cMsg.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
-import java.util.Collection;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.awt.*;
@@ -74,8 +73,8 @@ public class Commander {
      * status and output of a command or thread. They are also passed to callbacks
      * and can be used to stop processes and threads.
      */
-    private ConcurrentHashMap<Integer, CommandReturn> cmdReturns =
-            new ConcurrentHashMap<Integer, CommandReturn>();
+    private Map<Integer, CommandReturn> cmdReturns =
+            Collections.synchronizedMap(new HashMap<Integer, CommandReturn>());
 
 
     /**
@@ -516,7 +515,7 @@ System.out.println("send msg set to killed, caught in callback");
         // Remove any callback:
         CommandReturn cmdRet = cmdReturns.remove(commandId);
         if (cmdRet != null) {
-            System.out.println("set to stopped in stop");
+System.out.println("set to stopped in stop");
             cmdRet.setCallbackState(CallbackState.STOPPED);
         }
 
