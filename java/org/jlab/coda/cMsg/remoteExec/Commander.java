@@ -1509,8 +1509,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                         System.out.println("  Process = TERMINATED");
                     }
                     if (ret.getOutput() != null) {
-                        System.out.println("  Output = -,");
-                        System.out.println("<-----------'");
+                        System.out.println("  Output =");
                         System.out.println(ret.getOutput());
                     }
                 }
@@ -1535,16 +1534,15 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
 //                        System.out.println("  Process = TERMINATED");
 //                    }
 //                    if (ret.getOutput() != null) {
-//                        System.out.println("  Output = -,");
-//                        System.out.println("<-----------'");
+//                        System.out.println("  Output =");
 //                        System.out.println(ret.getOutput());
 //                    }
 
-//                    try {Thread.sleep(1000);}
-//                    catch (InterruptedException e) {}
-//
-//                    System.out.println("Stop process now");
-//                    cmdr.stop(list.get(0), ret.getId());
+                    try {Thread.sleep(1000);}
+                    catch (InterruptedException e) {}
+
+                    System.out.println("Stop process now");
+                    cmdr.stop(list.get(0), ret.getId());
 
 //                    while (true) {
                         try {Thread.sleep(1000);}
