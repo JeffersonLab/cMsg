@@ -49,6 +49,15 @@ public class CommandReturn {
     /** What is the state of the callback? */
     private CallbackState callbackState;
 
+    /**
+     * When this is true, no more changes should be made to this object.
+     * This is to prevent a possible race condition in which the Commander's
+     * main callback receives an "I'm done" msg from the Executor <b>BEFORE</b>
+     * the return of the startProcess/Thread methods' sendAndGet which then sets
+     * members in this object to old values.
+     */
+    private boolean locked;
+
 
     /**
      * Constructor.
@@ -87,6 +96,8 @@ public class CommandReturn {
      */
     synchronized public void setValues(int id, int processId, boolean error, boolean terminated,
                           String regularOutput, String errorOutput) {
+        if (locked) return;
+
         // ensure consistency
         if (errorOutput != null) error = true;
 
@@ -96,6 +107,21 @@ public class CommandReturn {
         this.terminated = terminated;
         this.regularOutput = regularOutput;
         this.errorOutput = errorOutput;
+    }
+
+    /**
+     * Is this object locked from further updates?
+     * @return <code>true</code> if locked, else <code>false</code>
+     */
+    synchronized public boolean isLocked() {
+        return locked;
+    }
+
+    /**
+     * Lock this object from further updates.
+     */
+    synchronized void lock() {
+        locked = true;
     }
 
     /**

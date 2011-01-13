@@ -250,6 +250,11 @@ System.out.println("Received msg --------> thread/process ended");
                             }
 
                             CommandReturn cmdRet = cmdReturns.remove(id);
+                            // Prevent any further changes to this object from the
+                            // startProcess/Thread methods if the sendAndGet return
+                            // of startProcess/Thread occurs after this.
+                            cmdRet.lock();
+                            
                             if (cmdRet != null) {
                                 // Update cmdRet with the results of the process
 
