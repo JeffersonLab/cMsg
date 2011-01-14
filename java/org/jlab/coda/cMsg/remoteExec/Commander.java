@@ -1522,31 +1522,31 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                     ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
                     //                                                      monitor, wait
                     //CommandReturn ret = cmdr.startProcess(list.get(0), in, true, true, new myCB(), null, 10000);
-//                    CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  new myCB(), null);
+                    CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  new myCB(), null);
 
-                    CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  12000);
-                    System.out.println("Synchronous return:");
-                    System.out.println("  Callback state = " + ret.getCallbackState());
-                    if (ret.hasError()) {
-                        System.out.println("  Error = " + ret.getError());
-                    }
-                    if (ret.hasTerminated()) {
-                        System.out.println("  Process = TERMINATED");
-                    }
-                    if (ret.getOutput() != null) {
-                        System.out.println("  Output =");
-                        System.out.println(ret.getOutput());
-                    }
+//                    CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  12000);
+//                    System.out.println("Synchronous return:");
+//                    System.out.println("  Callback state = " + ret.getCallbackState());
+//                    if (ret.hasError()) {
+//                        System.out.println("  Error = " + ret.getError());
+//                    }
+//                    if (ret.hasTerminated()) {
+//                        System.out.println("  Process = TERMINATED");
+//                    }
+//                    if (ret.getOutput() != null) {
+//                        System.out.println("  Output =");
+//                        System.out.println(ret.getOutput());
+//                    }
 
                     try {Thread.sleep(1000);}
                     catch (InterruptedException e) {}
 
-                    //System.out.println("Stop process now");
-                    //cmdr.stop(list.get(0), ret.getId());
+                    System.out.println("Stop process now");
+                    cmdr.stop(list.get(0), ret.getId());
                     //System.out.println("StopAll now");
                     //cmdr.stopAll(list.get(0));
-                    System.out.println("Kill process now");
-                    cmdr.kill(list.get(0), true);
+//                    System.out.println("Kill process now");
+//                    cmdr.kill(list.get(0), true);
 
 //                    while (true) {
                         try {Thread.sleep(1000);}
@@ -1559,10 +1559,10 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
 
             //cmdr.kill(execList.get(0), true);
         }
-        catch (TimeoutException e) {
-            e.printStackTrace();
-            System.exit(-1);
-        }
+//        catch (TimeoutException e) {
+//            e.printStackTrace();
+//            System.exit(-1);
+//        }
         catch (cMsgException e) {
             e.printStackTrace();
             System.exit(-1);
