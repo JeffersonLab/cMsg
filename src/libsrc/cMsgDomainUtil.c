@@ -1526,6 +1526,56 @@ typedef struct cbWorkerArg_t {
 } cbWorkerArg;
 
 
+/**
+ * Routine to cancel all callback worker threads.
+ * @param cb pointer to callback
+ * @param threads array of callback worker pthread ids
+ * @param used array of booleans stating whether element in threads array is used or not
+ */
+static void cancelCallbacks(subscribeCbInfo *cb, pthread_t *threads, int *used) {
+    int i;
+    
+    /* cancel all worker threads */
+    for (i=0; i<cb->config.maxThreads; i++) {
+        if (!used[i]) continue;
+        /*printf("cb thd: cancelling worker #%d\n",i);*/
+        pthread_cancel(threads[i]);
+    }
+}
+
+
+/**
+ * Routine to join all callback worker threads (ensure they've ended).
+ * @param cb pointer to callback
+ * @param threads array of callback worker pthread ids
+ * @param used array of booleans stating whether element in threads array is used or not
+ */
+static void joinCallbackWorkers(subscribeCbInfo *cb, pthread_t *threads, int *used) {
+    void *p;
+    int i, status;
+    
+    for (i=0; i<cb->config.maxThreads; i++) {
+        if (!used[i]) continue;
+        /*printf("cb thd: try joining worker #%d\n",i);*/
+        status = pthread_join(threads[i], &p);
+        /*
+         * If inside of a callback, disconnect is called & the thread ends,
+         * then p will != PTHREAD_CANCELED, but will = 0. Similarly, if inside
+         * of a callback, disconnect is called followed by exit, then the
+         * pthread_join will fail - returning an error. Thus we cannot, in
+         * general, assume that an error here is a bad thing. So we ignore
+         * them for now.
+         */
+        /*
+        if (status != 0 || p != PTHREAD_CANCELED) {
+            cmsg_err_abort(status, "Failed pend thread join");
+        }
+        */
+        /*printf("cb thd: joined worker #%d, status = %d, exit val = %p\n",i,status,p);*/
+    }
+}
+
+
 /** This routine is run as a thread which controls a single subscription's callback. */
 void *cMsgCallbackThread(void *arg)
 {
@@ -1540,8 +1590,7 @@ void *cMsgCallbackThread(void *arg)
     pthread_t *threads;
     cbWorkerArg *workerArg;
     char *subject, *type, *udl;
-    void *p;
-    
+
            
     /* release system resources when thread finishes */
     pthread_detach(pthread_self());
@@ -1601,33 +1650,18 @@ void *cMsgCallbackThread(void *arg)
         cMsgMutexLock(&cb->mutex);
 
         if (cb->quit) {
-            /* kill all worker threads */
-            for (i=0; i<cb->config.maxThreads; i++) {
-                if (!used[i]) continue;
-                /*printf("cb thd: cancelling worker #%d\n",i);*/
-                pthread_cancel(threads[i]);
-            }
-            
+            cancelCallbacks(cb, threads, used);
             cMsgMutexUnlock(&cb->mutex);
             
             /* wait until all worker threads finish before releasing memory */
             sched_yield();
-            for (i=0; i<cb->config.maxThreads; i++) {
-                if (!used[i]) continue;
-                /*printf("cb thd: try joining worker #%d\n",i);*/
-                pthread_join(threads[i], NULL);
-                if (status != 0 || p != PTHREAD_CANCELED) {
-                    cmsg_err_abort(status, "Failed pend thread join");
-                }
-                /*printf("cb thd: joined worker #%d, status = %d\n",i,status);*/
-            }
-
-            free(used); free(threads); free(subject); free(type); free(udl);
+            joinCallbackWorkers(cb, threads, used);
+            
             /* free callback stuff */
             cMsgCallbackInfoFree(cb);
             free(cb);
-
-            /* done */
+            free(used); free(threads); free(subject); free(type); free(udl);
+            
             /*printf("cb thd: done\n");*/
             pthread_exit(NULL);
         }
@@ -1717,33 +1751,19 @@ void *cMsgCallbackThread(void *arg)
         }
 
         if (cb->quit) {
-            /*printf("cb thd b: have mutex = %p\n", &cb->mutex);*/
-
-            for (i=0; i<cb->config.maxThreads; i++) {
-                if (!used[i]) continue;
-                /*printf("cb thd b: cancelling worker #%d\n",i);*/
-                pthread_cancel(threads[i]);
-            }
-            cMsgMutexUnlock(&cb->mutex); 
-            /*printf("cb thd b: released mutex = %p\n", &cb->mutex);*/
-
-            /* wait all worker threads to finish before releasing memory */
+            cancelCallbacks(cb, threads, used);
+            cMsgMutexUnlock(&cb->mutex);
+            
+            /* wait until all worker threads finish before releasing memory */
             sched_yield();
-            for (i=0; i<cb->config.maxThreads; i++) {
-                if (!used[i]) continue;
-                /*printf("cb thd b: try joining worker #%d\n",i);*/
-                status = pthread_join(threads[i], &p);
-                if (status != 0 || p != PTHREAD_CANCELED) {
-                    cmsg_err_abort(status, "Failed pend thread join");
-                }
-                /*printf("cb thd b: joined worker #%d, status = %d\n",i,status);*/
-            }
-
-            free(used); free(threads); free(subject); free(type); free(udl);
+            joinCallbackWorkers(cb, threads, used);
+            
+            /* free callback stuff */
             cMsgCallbackInfoFree(cb);
             free(cb);
-   
-            /*printf("cb thd b: done\n");*/
+            free(used); free(threads); free(subject); free(type); free(udl);
+            
+            /*printf("cb thd: done\n");*/
             pthread_exit(NULL);
         }
 
@@ -1788,14 +1808,6 @@ static void cleanUpHandler(void *arg) {
  * This routine is run as a thread in which a callback is executed in
  * parallel with other similar threads. Worker threads may be created
  * as needed to keep the callback cue size manageable.
- *
- * BUGBUG: There is a bit of a race condition here. These worker
- * threads either read "cb->quit" to determine whether to
- * quit or get pthread_cancelled by the callback thread.
- * When the main callback thread is told to quit, it cancels all worker
- * threads, then waits 1 second before release the callback's memory.
- * That means if this thread fails to shutdown within 1 second of the
- * main cb thread, we may get a seg fault.
  */
 void *cMsgCallbackWorkerThread(void *arg)
 {
