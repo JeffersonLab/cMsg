@@ -811,7 +811,8 @@ System.out.println("set to stopped in stop");
                 msg.addPayloadItem(item0);
                 msg.addPayloadItem(item1);
             }
-            cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.START_PROCESS.getValue());
+            //cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.START_PROCESS.getValue());
+            cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", "BlahBlah");
             msg.addPayloadItem(item2);
             cMsgPayloadItem item3 = new cMsgPayloadItem("command", cmd);
             msg.addPayloadItem(item3);
