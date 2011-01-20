@@ -3645,7 +3645,7 @@ int cMsgGetStringArray(const void *vmsg, const char *name, const char ***array, 
 
 
 /**
- * This routine adds a named field of binary data to the compound payload of a message.
+ * This routine adds/overwrites a named field of binary data to the compound payload of a message.
  * Used internally with control over adding fields with names starting with "cmsg".
  *
  * @param vmsg pointer to message
@@ -3664,8 +3664,7 @@ int cMsgGetStringArray(const void *vmsg, const char *name, const char ***array, 
  * @return CMSG_OUT_OF_MEMORY if no more memory
  * @return CMSG_BAD_FORMAT if name is not properly formed,
  *                          or if error in binary-to-text transformation
- * @return CMSG_ALREADY_EXISTS if name is being used already
- */   
+ */
 static int addBinary(void *vmsg, const char *name, const char *src, int size,
                      int isSystem, int endian) {
   payloadItem *item;
@@ -3678,8 +3677,8 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
   if (msg == NULL || name == NULL ||
       src == NULL || size < 1)              return(CMSG_BAD_ARGUMENT);
   if (!isValidFieldName(name, isSystem))    return(CMSG_BAD_FORMAT);
-  if (cMsgPayloadContainsName(vmsg, name))  return(CMSG_ALREADY_EXISTS);
   if (isSystem) isSystem = 1; /* force it to be = 1, need to it be 1 digit */
+  
   if ((endian != CMSG_ENDIAN_BIG)   && (endian != CMSG_ENDIAN_LITTLE)   &&
       (endian != CMSG_ENDIAN_LOCAL) && (endian != CMSG_ENDIAN_NOTLOCAL))  {
       return(CMSG_BAD_ARGUMENT);
@@ -3780,6 +3779,11 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
     
   item->length = strlen(item->text);
 /*printf("addBinary: total string len = %d\n", item->length);*/
+  /* remove any existing item with that name */
+  if (cMsgPayloadContainsName(vmsg, name)) {
+      removeItem(msg, name, NULL);
+  }
+  
   /* place payload item in msg's linked list */
   addItem(msg, item);
 
@@ -3819,7 +3823,7 @@ int cMsgAddBinary(void *vmsg, const char *name, const char *src,
 
 
 /**
- * This routine adds a named field of binary data to the compound payload of a message.
+ * This routine adds/overwrites a named field of binary data to the compound payload of a message.
  * Used internally with control over adding fields with names starting with "cmsg".
  *
  * @param vmsg pointer to message
@@ -3840,7 +3844,6 @@ int cMsgAddBinary(void *vmsg, const char *name, const char *src,
  * @return CMSG_OUT_OF_MEMORY if no more memory
  * @return CMSG_BAD_FORMAT if name is not properly formed,
  *                          or if error in binary-to-text transformation
- * @return CMSG_ALREADY_EXISTS if name is being used already
  */
 static int addBinaryArray(void *vmsg, const char *name, const char *src[],
                           int number, const int size[], int isSystem,
@@ -3855,7 +3858,6 @@ static int addBinaryArray(void *vmsg, const char *name, const char *src[],
     if (msg == NULL || name == NULL ||
         src == NULL || number < 1)            return(CMSG_BAD_ARGUMENT);
     if (!isValidFieldName(name, isSystem))    return(CMSG_BAD_FORMAT);
-    if (cMsgPayloadContainsName(vmsg, name))  return(CMSG_ALREADY_EXISTS);
     if (isSystem) isSystem = 1; /* force it to be = 1, need to it be 1 digit */
 
     endians = (int *) malloc(number*sizeof(int));
@@ -4006,6 +4008,11 @@ static int addBinaryArray(void *vmsg, const char *name, const char *src[],
 
     item->length = strlen(item->text);
 /*printf("addBinaryArray: total string len = %d\n", item->length);*/
+    /* remove any existing item with that name */
+    if (cMsgPayloadContainsName(vmsg, name)) {
+        removeItem(msg, name, NULL);
+    }
+
     /* place payload item in msg's linked list */
     addItem(msg, item);
 
@@ -4050,7 +4057,7 @@ int cMsgAddBinaryArray(void *vmsg, const char *name, const char *src[],
 
 
 /**
- * This routine adds any kind of real number field to the compound payload of a message.
+ * This routine adds/overwrites any kind of real number field to the compound payload of a message.
  * Used internally with control over adding fields with names starting with "cmsg".
  *
  * @param vmsg pointer to message
@@ -4064,8 +4071,7 @@ int cMsgAddBinaryArray(void *vmsg, const char *name, const char *src[],
  *                            wrong type being added
  * @return CMSG_OUT_OF_MEMORY if no more memory
  * @return CMSG_BAD_FORMAT if name is not properly formed
- * @return CMSG_ALREADY_EXISTS if name is being used already
- */   
+ */
 static int addReal(void *vmsg, const char *name, double val, int type, int isSystem) {
   payloadItem *item;
   int byte, textLen, totalLen, len;
@@ -4079,7 +4085,6 @@ static int addReal(void *vmsg, const char *name, double val, int type, int isSys
 
   if (msg == NULL || name == NULL)         return(CMSG_BAD_ARGUMENT);
   if (!isValidFieldName(name, isSystem))   return(CMSG_BAD_FORMAT);
-  if (cMsgPayloadContainsName(vmsg, name)) return(CMSG_ALREADY_EXISTS);
   if (type != CMSG_CP_FLT  &&
       type != CMSG_CP_DBL)                 return(CMSG_BAD_ARGUMENT);
   if (isSystem) isSystem = 1; /* force it to be = 1, need to it be 1 digit */
@@ -4164,6 +4169,10 @@ static int addReal(void *vmsg, const char *name, double val, int type, int isSys
   item->length = strlen(item->text);
   item->dval   = val;
 
+  if (cMsgPayloadContainsName(vmsg, name)) {
+      removeItem(msg, name, NULL);
+  }
+  
   addItem(msg, item);
   
   return(CMSG_OK);
@@ -4220,7 +4229,7 @@ int cMsgAddDouble(void *vmsg, const char *name, double val) {
 
 
 /**
- * This routine adds a float or double array field to the compound payload of a message.
+ * This routine adds/overwrites a float or double array field to the compound payload of a message.
  * Used internally with control over adding fields with names starting with "cmsg".
  * Zero suppression is implemented where contiguous zeros are replaced by one string
  * of hex starting with Z and the rest of the chars containing the number of zeros.
@@ -4237,8 +4246,7 @@ int cMsgAddDouble(void *vmsg, const char *name, double val) {
  * @return CMSG_BAD_ARGUMENT if message, name, or vals is NULL; len < 1
  * @return CMSG_OUT_OF_MEMORY if no more memory
  * @return CMSG_BAD_FORMAT if name is not properly formed
- * @return CMSG_ALREADY_EXISTS if name is being used already
- */   
+ */
 static int addRealArray(void *vmsg, const char *name, const double *vals,
                         int type, int len, int isSystem, int copy) {
   payloadItem *item;
@@ -4251,8 +4259,7 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
 
   if (msg == NULL  || name == NULL ||
       vals == NULL || len < 1)               return(CMSG_BAD_ARGUMENT);
-  if (!isValidFieldName(name, isSystem))        return(CMSG_BAD_FORMAT);
-  if (cMsgPayloadContainsName(vmsg, name))   return(CMSG_ALREADY_EXISTS);
+  if (!isValidFieldName(name, isSystem))     return(CMSG_BAD_FORMAT);
   if (type != CMSG_CP_FLT_A &&
       type != CMSG_CP_DBL_A)                 return(CMSG_BAD_ARGUMENT);
   if (isSystem) isSystem = 1; /* force it to be = 1, need to it be 1 digit */
@@ -4506,6 +4513,10 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
   
   item->length = strlen(item->text);
 /*printf("Real array txt =\n%s\n", item->text);*/
+  if (cMsgPayloadContainsName(vmsg, name)) {
+      removeItem(msg, name, NULL);
+  }
+  
   addItem(msg, item);
   
   return(CMSG_OK);
@@ -4560,7 +4571,7 @@ int cMsgAddDoubleArray(void *vmsg, const char *name, const double vals[], int le
 
 
 /**
- * This routine adds any kind of int field to the compound payload of a message.
+ * This routine adds/overwrites any kind of int field to the compound payload of a message.
  * Used internally with control over adding fields with names starting with "cmsg".
  *
  * @param vmsg pointer to message
@@ -4574,17 +4585,15 @@ int cMsgAddDoubleArray(void *vmsg, const char *name, const double vals[], int le
  *                            wrong type being added
  * @return CMSG_OUT_OF_MEMORY if no more memory
  * @return CMSG_BAD_FORMAT if name is not properly formed
- * @return CMSG_ALREADY_EXISTS if name is being used already
- */   
+ */
 static int addInt(void *vmsg, const char *name, int64_t val, int type, int isSystem) {
   payloadItem *item;
   int totalLen, textLen=0;
   
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
-  if (msg == NULL || name == NULL)    return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL || name == NULL)       return(CMSG_BAD_ARGUMENT);
   if (!isValidFieldName(name, isSystem)) return(CMSG_BAD_FORMAT);
-  if (cMsgPayloadContainsName(vmsg, name))         return(CMSG_ALREADY_EXISTS);
   if (isSystem) isSystem = 1;
 
   if (type != CMSG_CP_INT8   &&
@@ -4650,6 +4659,10 @@ static int addInt(void *vmsg, const char *name, int64_t val, int type, int isSys
   item->length = strlen(item->text);
   item->val    = val;
 
+  if (cMsgPayloadContainsName(vmsg, name)) {
+      removeItem(msg, name, NULL);
+  }
+  
   addItem(msg, item);
   
   return(CMSG_OK);
@@ -4865,7 +4878,7 @@ int cMsgAddUint64(void *vmsg, const char *name, uint64_t val) {
 
 
 /**
- * This routine adds any kind of int array field to the compound payload of a message.
+ * This routine adds/overwrites any kind of int array field to the compound payload of a message.
  * Used internally with control over adding fields with names starting with "cmsg".
  *
  * @param vmsg pointer to message
@@ -4881,8 +4894,7 @@ int cMsgAddUint64(void *vmsg, const char *name, uint64_t val) {
  * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
  * @return CMSG_OUT_OF_MEMORY if no more memory
  * @return CMSG_BAD_FORMAT if name is not properly formed
- * @return CMSG_ALREADY_EXISTS if name is being used already
- */   
+ */
 static int addIntArray(void *vmsg, const char *name, const int *vals,
                        int type, int len, int isSystem, int copy) {
   int err;
@@ -4892,8 +4904,7 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
   if (msg == NULL  || name == NULL ||
       vals == NULL || len < 1)              return(CMSG_BAD_ARGUMENT);
   if (!isValidFieldName(name, isSystem))    return(CMSG_BAD_FORMAT);
-  if (cMsgPayloadContainsName(vmsg, name))  return(CMSG_ALREADY_EXISTS);
-  
+
   if (type != CMSG_CP_INT8_A   && type != CMSG_CP_INT16_A  &&
       type != CMSG_CP_INT32_A  && type != CMSG_CP_INT64_A  &&
       type != CMSG_CP_UINT8_A  && type != CMSG_CP_UINT16_A &&
@@ -4904,6 +4915,10 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
   
   err = createIntArrayItem(name, vals, type, len, isSystem, copy, &item);
   if (err != CMSG_OK) return err;
+  
+  if (cMsgPayloadContainsName(vmsg, name)) {
+      removeItem(msg, name, NULL);
+  }
   
   addItem(msg, item);
   return(CMSG_OK);
@@ -5483,7 +5498,7 @@ int cMsgAddUint64Array(void *vmsg, const char *name, const uint64_t vals[], int 
 
 
 /**
- * This routine adds a named string field to the compound payload of a message.
+ * This routine adds/overwrites a named string field to the compound payload of a message.
  * Used internally with control over adding fields with names starting with "cmsg".
  *
  * @param vmsg pointer to message
@@ -5496,7 +5511,6 @@ int cMsgAddUint64Array(void *vmsg, const char *name, const uint64_t vals[], int 
  * @return CMSG_BAD_ARGUMENT if message, val or name is NULL
  * @return CMSG_OUT_OF_MEMORY if no more memory
  * @return CMSG_BAD_FORMAT if name is not properly formed
- * @return CMSG_ALREADY_EXISTS if name is being used already
  */
 static int addString(void *vmsg, const char *name, const char *val, int isSystem, int copy) {
   payloadItem *item;
@@ -5505,8 +5519,7 @@ static int addString(void *vmsg, const char *name, const char *val, int isSystem
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL || name == NULL || val == NULL) return(CMSG_BAD_ARGUMENT);
-  if (!isValidFieldName(name, isSystem))             return(CMSG_BAD_FORMAT);
-  if (cMsgPayloadContainsName(vmsg, name))        return(CMSG_ALREADY_EXISTS);
+  if (!isValidFieldName(name, isSystem))          return(CMSG_BAD_FORMAT);
   if (isSystem) isSystem = 1;
   
   /* payload item */
@@ -5561,6 +5574,11 @@ static int addString(void *vmsg, const char *name, const char *val, int isSystem
                                                   isSystem, textLen, valLen, val);
   item->length = strlen(item->text);
 
+  /* remove any existing item with that name */
+  if (cMsgPayloadContainsName(vmsg, name)) {
+      removeItem(msg, name, NULL);
+  }
+  
   /* place payload item in msg's linked list */
   addItem(msg, item);
   
@@ -5695,7 +5713,7 @@ static int createStringArrayItem(const char *name, const char **vals, int len,
 
 
 /**
- * This routine adds a named string array field to the compound payload
+ * This routine adds/overwrites a named string array field to the compound payload
  * of a message. Names may not be longer than CMSG_PAYLOAD_NAME_LEN,
  * or contain white space or quotes.
  *
@@ -5710,8 +5728,7 @@ static int createStringArrayItem(const char *name, const char **vals, int len,
  * @return CMSG_BAD_ARGUMENT if message, vals, or name is NULL; len < 1
  * @return CMSG_OUT_OF_MEMORY if no more memory
  * @return CMSG_BAD_FORMAT if name is not properly formed
- * @return CMSG_ALREADY_EXISTS if name is being used already
- */   
+ */
 static int addStringArray(void *vmsg, const char *name, const char **vals, int len,
                           int isSystem, int copy) {
   int err;
@@ -5719,11 +5736,15 @@ static int addStringArray(void *vmsg, const char *name, const char **vals, int l
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL) return(CMSG_BAD_ARGUMENT);
-  if (cMsgPayloadContainsName(vmsg, name)) return(CMSG_ALREADY_EXISTS);
-  
+
   /* payload item */
   err = createStringArrayItem(name, vals, len, isSystem, copy, &item);
   if (err != CMSG_OK) return(err);
+  
+  /* remove any existing item with that name */
+  if (cMsgPayloadContainsName(vmsg, name)) {
+      removeItem(msg, name, NULL);
+  }
   
   /* place payload item in msg's linked list */
   addItem(msg, item);
@@ -5760,7 +5781,7 @@ int cMsgAddStringArray(void *vmsg, const char *name, const char **vals, int len)
 
 
 /**
- * This routine adds a named cMsg message field to the compound payload of a message.
+ * This routine adds/overwrites a named cMsg message field to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than CMSG_PAYLOAD_NAME_LEN,
  * or contain white space or quotes.
  * The string representation of the message is the same format as that used for 
@@ -5776,7 +5797,6 @@ int cMsgAddStringArray(void *vmsg, const char *name, const char **vals, int len)
  * @return CMSG_BAD_FORMAT if name is not properly formed,
  *                          or if error in binary-to-text transformation
  * @return CMSG_OUT_OF_MEMORY if no more memory
- * @return CMSG_ALREADY_EXISTS if name is being used already
  *
  */   
 static int addMessage(void *vmsg, const char *name, const void *vmessage,
@@ -5794,7 +5814,6 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
       name == NULL ||
       message == NULL)                      return(CMSG_BAD_ARGUMENT);
   if (!isValidFieldName(name, isSystem))    return(CMSG_BAD_FORMAT);
-  if (cMsgPayloadContainsName(vmsg, name))  return(CMSG_ALREADY_EXISTS);
   if (isSystem) isSystem = 1;
 
   memset((void *)length, 0, 12*sizeof(int));
@@ -6119,6 +6138,11 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   /* store length of text */
   item->length = strlen(item->text);
 
+  /* remove any existing item with that name */
+  if (cMsgPayloadContainsName(vmsg, name)) {
+      removeItem(msg, name, NULL);
+  }
+  
   /* place payload item in msg's linked list */
   addItem(msg, item);
 
@@ -6157,7 +6181,7 @@ int cMsgAddMessage(void *vmsg, const char *name, const void *vmessage) {
 
 
 /**
- * This routine adds a named field of an array of cMsg messages to the
+ * This routine adds/overwrites a named field of an array of cMsg messages to the
  * compound payload of a message. Names may not begin with "cmsg" (case insensitive),
  * be longer than CMSG_PAYLOAD_NAME_LEN, or contain white space or quotes.
  *
@@ -6172,7 +6196,6 @@ int cMsgAddMessage(void *vmsg, const char *name, const void *vmessage) {
  * @return CMSG_BAD_FORMAT if name is not properly formed,
  *                          or if error in binary-to-text transformation
  * @return CMSG_OUT_OF_MEMORY if no more memory
- * @return CMSG_ALREADY_EXISTS if name is being used already
  *
  */   
 static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
@@ -6190,7 +6213,6 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
   if (msg == NULL || name == NULL ||
       vmessage == NULL || number < 1)      return(CMSG_BAD_ARGUMENT);
   if (!isValidFieldName(name, isSystem))   return(CMSG_BAD_FORMAT);
-  if (cMsgPayloadContainsName(vmsg, name)) return(CMSG_ALREADY_EXISTS);
   if (isSystem) isSystem = 1;
   
   /* payload item to add to msg */
@@ -6546,6 +6568,11 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
   /* store length of text */
   item->length = strlen(item->text);
 /*printf("MSG ARRAY TXT:\n%s", item->text); */ 
+  
+  /* remove any existing item with that name */
+  if (cMsgPayloadContainsName(vmsg, name)) {
+      removeItem(msg, name, NULL);
+  }
   
   /* place payload item in msg's linked list */
   addItem(msg, item);
