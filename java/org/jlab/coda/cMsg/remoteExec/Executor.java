@@ -23,6 +23,7 @@ import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -57,9 +58,9 @@ public class Executor {
     private volatile boolean connected;
 
     /** Map of running processes indexed by unique id. */
-    private HashMap<Integer, CommandInfo> processMap = new HashMap<Integer, CommandInfo>(100);
+    private Hashtable<Integer, CommandInfo> processMap = new Hashtable<Integer, CommandInfo>(100);
     /** Map of running threads indexed by unique id. */
-    private HashMap<Integer, CommandInfo>  threadMap = new HashMap<Integer, CommandInfo>(100);
+    private Hashtable<Integer, CommandInfo>  threadMap = new Hashtable<Integer, CommandInfo>(100);
 
     /**
      * Message containing info about this executor to be
@@ -436,25 +437,29 @@ System.out.println("commandtype = " + commandType);
      */
     private void stopAll(boolean kill) {
         // stop processes
-        for (CommandInfo info : processMap.values()) {
-            if (kill) {
-                info.killed = true;
+        synchronized(processMap) {
+            for (CommandInfo info : processMap.values()) {
+                if (kill) {
+                    info.killed = true;
+                }
+                else {
+                    info.stopped = true;
+                }
+                info.process.destroy();
             }
-            else {
-                info.stopped = true;
-            }
-            info.process.destroy();
         }
 
         // stop threads (doesn't matter they're alive or not)
-        for (CommandInfo info : threadMap.values()) {
-            if (kill) {
-                info.killed = true;
+        synchronized(threadMap) {
+            for (CommandInfo info : threadMap.values()) {
+                if (kill) {
+                    info.killed = true;
+                }
+                else {
+                    info.stopped = true;
+                }
+                info.execThread.shutItDown();
             }
-            else {
-                info.stopped = true;
-            }
-            info.execThread.shutItDown();
         }
     }
 
