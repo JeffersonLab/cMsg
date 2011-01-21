@@ -469,6 +469,9 @@ System.out.println("commandtype = " + commandType);
      * @param id id number specified process or thread currently running.
      */
     private void stop(int id) {
+        // We don't have to remove this process/thread from the hashtable
+        // because the ProcessRun or ThreadRun class will do it after it
+        // is interrupted.
         CommandInfo info = processMap.get(id);
         if (info == null) {
             info = threadMap.get(id);
