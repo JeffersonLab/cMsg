@@ -19,7 +19,20 @@
  * This file defines the Executor which is software designed to take commands
  * from a Commander. In short, the Commander tells an Executor which program
  * to run on its host in a shell. The Executor runs it and reports the results
- * back to the Commander. This code is designed to run on VXWORKS only.
+ * back to the Commander. This code is designed to run on VXWORKS only.<p>
+ *
+ * The following is a boot script I used to run an executor on vxworks 6.0:<p>
+ *
+ * <pre><code>
+ * hostAdd "alula", "129.57.29.90"
+ * hostAdd "alula.jlab.org", "129.57.29.90"
+ * cd "/group/da/ct/cMsg-3.2/vxworks-ppc"
+ * ld &lt; lib/libcmsgRegex.o
+ * ld &lt; lib/libcmsg.o
+ * ld &lt; bin/cMsgExecutor.o
+ * taskSpawn "executor", 51, "VX_FP_TASK", 20000, executorMain, "cmsg://alula/cMsg/ns", "heyho"
+ * taskDelay(5*60)
+ * </code></pre>
  */
 
 #ifdef VXWORKS
