@@ -89,15 +89,16 @@ typedef struct passedArg_t {
     void *arg2;
     void *arg3;
     void *arg4;
+    void *arg5;
 } passedArg;
 
 
 
 /** cMsg message subject or type used in internal Commander/Executor communication. */
-static char* allSubjectType = ".all";
+static const char* allSubjectType = ".all";
 
 /** cMsg message subject or type used in internal Commander/Executor communication. */
-static char* remoteExecSubjectType = "cMsgRemoteExec";
+static const char* remoteExecSubjectType = "cMsgRemoteExec";
 
 /** Pthread mutex serializing calls to getUniqueId(). */
 static pthread_mutex_t idMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -119,7 +120,7 @@ static int   getUniqueId();
 static int   getPtyId();
 static int   sendStatusTo(void *domainId, void *msg, const char *subject);
 static void *createStatusMessage(const char *name, const char *host);
-static char *decryptPassword(const char *string, int len);
+static int   decryptPassword(const char *string, int len, char **passwd);
 static void  callback(void *msg, void *arg);
 static void *processThread(void *arg);
 static void  stop(int id, hashTable *pTable);
@@ -189,7 +190,13 @@ static void processMapRemove(hashTable *pTable, int id) {
         cmsg_err_abort(status, "Failed processMapPut mutex lock");
     }
 
-    hashRemove(pTable, key, NULL);
+    if (hashRemove(pTable, key, NULL)) {
+printf("Removed key = %s from hash\n", key);
+    }
+    else {
+printf("Failed removing key = %s from hash\n", key);
+    }
+printf("New hash table size = %d\n", hashSize(pTable));
 
     status = pthread_mutex_unlock(&hashMutex);
     if (status != 0) {
@@ -254,8 +261,9 @@ static int getPtyId() {
  * @return status of cMsgSend command
  */
 static int sendStatusTo(void *domainId, void *msg, const char *subject) {
-    printf("sendStatusTo: %s\n", subject);
-    cMsgSetSubject(msg, subject);
+    /*printf("sendStatusTo: %s\n", subject);*/
+    int err = cMsgSetSubject(msg, subject);
+    if (err != CMSG_OK) return err;
     return cMsgSend(domainId, msg);
 }
 
@@ -275,7 +283,7 @@ void executorMain(char *_udl, char *_password, char *_name) {
     char *udl, *password, *name;
     char *myDescription = "cmsg C executor";
     char  host[CMSG_MAXHOSTNAMELEN];
-    int   err, connected = 0, previouslyConnected = 0;
+    int   err, status, quit=0, connected=0, previouslyConnected=0;
     void *domainId, *unsubHandle1, *unsubHandle2, *statusMsg;
     cMsgSubscribeConfig *config;
     passedArg args;
@@ -285,36 +293,36 @@ void executorMain(char *_udl, char *_password, char *_name) {
 
     /* Init pseudo terminal driver. */
     if (ptyDrv () == ERROR) {
-        printErr("executorMain: Unable to initialize pty driver\n");
-        return;
+        printf("executorMain: Unable to initialize pty driver\n");
+        exit(-1);
     }
     
     /* Process args, udl is necessary. */
     if (_udl == NULL) {
-        printErr("executorMain: udl must not be NULL\n");
-        return;
+        printf("executorMain: udl must not be NULL\n");
+        exit(-1);
     }
 
     /* Limit length of password to 16 chars. */
     if (_password != NULL) {
         if (strlen(_password) > 16) {
-            printErr("executorMain: password must not be more than 16 characters\n");
-            return;
+            printf("executorMain: password must not be more than 16 characters\n");
+            exit(-1);
         }
     }
 
     /* Create subscription configuration. */
     config = cMsgSubscribeConfigCreate();
     if (config == NULL) {
-        printErr("executorMain: cannot allocate memory\n");
-        return;
+        printf("executorMain: cannot allocate memory\n");
+        exit(-1);
     }
    
     /* Find the name of the host we're running on. */
     err = cMsgLocalHost(host, CMSG_MAXHOSTNAMELEN);
     if (err != CMSG_OK) {
-        printErr("executorMain: cannot get host name\n");
-        return;
+        printf("executorMain: cannot get host name\n");
+        exit(-1);
     }
 
     /* If Executor is not given a name, use the host as its name. */
@@ -325,8 +333,8 @@ void executorMain(char *_udl, char *_password, char *_name) {
     /* Create a status message to send to Commanders telling them about this Executor. */
     statusMsg = createStatusMessage(_name, host);
     if (statusMsg == NULL) {
-        printErr("executorMain: cannot allocate memory\n");
-        return;
+        printf("executorMain: cannot allocate memory\n");
+        exit(-1);
     }
       
     /*
@@ -337,16 +345,38 @@ void executorMain(char *_udl, char *_password, char *_name) {
     name     = strdup(_name);
     password = strdup(_password);
 
-printf("Running Executor %s\n", name);
-
-    config = cMsgSubscribeConfigCreate();
     hashInit(&idTable, 64);
+
+printf("Running Executor %s\n", name);
 
     /* Make a connection to a cMsg server or keep trying to connect. */
     while (1) {
         
         /* 1 sec delay */
         nanosleep(&wait, NULL);
+
+        /* Mutex needed here so we can see the flag value set by another thread. */
+        status = pthread_mutex_lock(&idMutex);
+        if (status != 0) {
+            cmsg_err_abort(status, "Failed executorMain mutex lock");
+        }
+    
+        if (quit) {
+            pthread_mutex_unlock(&idMutex);
+            break;
+        }
+    
+        status = pthread_mutex_unlock(&idMutex);
+        if (status != 0) {
+            cmsg_err_abort(status, "Failed executorMain mutex unlock");
+        }
+
+        /* Are we (still) connected to the cMsg server? */
+        err = cMsgGetConnectState(domainId, &connected);
+        if (err != CMSG_OK) {
+/*printf("executorMain: NOT connected to cMsg server\n");*/
+            connected = 0;
+        }
 
         if (!connected) {
 
@@ -361,6 +391,8 @@ printf("Running Executor %s\n", name);
                 continue;
             }
 
+            connected = previouslyConnected = 1;
+
             cMsgReceiveStart(domainId);
 
             /* pass in user arg to subscriptions */
@@ -368,50 +400,47 @@ printf("Running Executor %s\n", name);
             args.arg2 = (void *)&domainId;
             args.arg3 = statusMsg;
             args.arg4 = &idTable;
+            args.arg5 = &quit;
 
             /* add subscriptions */
             err = cMsgSubscribe(domainId, remoteExecSubjectType, name, callback,
                                 (void *)&args, config, &unsubHandle1);
             if (err != CMSG_OK) {
 /*printf("executorMain: %s\n",cMsgPerror(err));*/
-                goto end;
+                continue;
             }
 
             err = cMsgSubscribe(domainId, remoteExecSubjectType, allSubjectType,
                                 callback, (void *)&args, config, &unsubHandle2);
             if (err != CMSG_OK) {
 /*printf("executorMain: %s\n",cMsgPerror(err));*/
-                goto end;
+                continue;
             }
 
             /* Send out message telling all commanders that there is a new executor running. */
-            sendStatusTo(domainId, statusMsg, allSubjectType);
-            previouslyConnected = 1;
-        }
-
-        /* Are we (still) connected to the cMsg server? */
-        err = cMsgGetConnectState(domainId, &connected);
-        if (err != CMSG_OK) {
-/*printf("executorMain: NOT connected to cMsg server\n");*/
-            connected = 0;
+            err = sendStatusTo(domainId, statusMsg, allSubjectType);
+            if (err != CMSG_OK) {
+/*printf("executorMain: %s\n",cMsgPerror(err));*/
+                continue;
+            }
         }
     }
 
-end:
-              
 printf("Executor quitting\n");
+
     cMsgDisconnect(&domainId);
+    cMsgFreeMessage(&statusMsg);
     hashDestroy(&idTable, NULL, NULL);
-    free(_udl);
-    if (_name != NULL) free (_name);
-    if (_password != NULL) free(_password);
+    free(udl);
+    if (name != NULL) free (name);
+    if (password != NULL) free(password);
 }
 
 
 /**
  * Create a status message sent out to all commanders as soon
  * as we connect to the cMsg server and to all commanders who
- * specifically ask for it.
+ * specifically ask for it. Returned msg must be freed by caller.
  *
  * @param name name of this Executor.
  * @param host host this Executor is running on.
@@ -435,50 +464,43 @@ static void *createStatusMessage(const char *name, const char *host) {
 
     err = cMsgAddString(statusMsg, "returnType", "reporting");
     if (err != CMSG_OK) {
-        /* only possible error at this point */
-        printf("Reject message, cannot allocate memory");
-        exit(-1);
+        /* out-of-memory = only possible error at this point */
+        return NULL;
     }
     
     err = cMsgAddString(statusMsg, "name", name);
     if (err != CMSG_OK) {
-        /* only possible error at this point */
-        printf("Reject message, cannot allocate memory");
-        exit(-1);
+        return NULL;
     }
     
     err = cMsgAddString(statusMsg, "host", host);
     if (err != CMSG_OK) {
-        /* only possible error at this point */
-        printf("Reject message, cannot allocate memory");
-        exit(-1);
+        return NULL;
     }
     
     os        = "vxworks";
     release   = "6.0";
     machine   = "unknown";
     processor = "unknown";
-    /* look at version() */
 
     err = cMsgAddString(statusMsg, "os", os);
     if (err != CMSG_OK) {
-        /* cannot allocate memory = only possible error at this point */
-        exit(-1);
+        return NULL;
     }
     
     err = cMsgAddString(statusMsg, "machine", machine);
     if (err != CMSG_OK) {
-        exit(-1);
+        return NULL;
     }
     
     err = cMsgAddString(statusMsg, "processor", processor);
     if (err != CMSG_OK) {
-        exit(-1);
+        return NULL;
     }
 
     err = cMsgAddString(statusMsg, "release", release);
     if (err != CMSG_OK) {
-        exit(-1);
+        return NULL;
     }
     
     return statusMsg;
@@ -492,9 +514,10 @@ static void *createStatusMessage(const char *name, const char *host) {
  * 
  * @param string input string
  * @param len length (number of characters) in non-encrypted password
- * @return password from Commander
+ * @param passwd pointer to string which gets filled with the password
+ * @return CMSG_OK or CMSG_OUT_OF_MEMORY
  */
-static char *decryptPassword(const char *string, int len) {
+static int decryptPassword(const char *string, int len, char **passwd) {
     char pswrd[16];
     char *bytes;
     aes_context ctx;
@@ -507,7 +530,7 @@ static char *decryptPassword(const char *string, int len) {
     bytesLen = cMsg_b64_decode_len(string, strlen(string));
     bytes = (char *) calloc(1, bytesLen);
     if (bytes == NULL) {
-        exit(-1);
+        return CMSG_OUT_OF_MEMORY;
     }
     
     /* string is in B64 form, decode to byte array */
@@ -520,7 +543,12 @@ static char *decryptPassword(const char *string, int len) {
     aes_crypt_ecb(&ctx, AES_DECRYPT, bytes, pswrd);
 
     free(bytes);
-    return strndup(pswrd, len);
+    
+    if (passwd != NULL) {
+       *passwd = strndup(pswrd, len);
+    }
+    
+    return CMSG_OK;
 }
 
 
@@ -533,9 +561,12 @@ static char *decryptPassword(const char *string, int len) {
  */
 static void callback(void *msg, void *arg) {
 
-    int err, status, payloadCount;
+    int err, status, payloadCount, *pQuit, debug=0;
+    int32_t intVal;
+    char *passwd = NULL;
+    const char *val, *commandType;
     pthread_t tid;
-    passedArg *args2, *args = (passedArg *)arg;
+    
     /*
      * The domain id may change if a new cMsg connection is made.
      * Thus, we passed the pointer to the domain Id so it can be
@@ -545,185 +576,237 @@ static void callback(void *msg, void *arg) {
     char *password;
     void *statusMsg;
     hashTable *pTable;
+    passedArg *args2, *args = (passedArg *)arg;
 
     domainId  = (void *) *((void **)args->arg2);
     password  = (char *)args->arg1;
     statusMsg = args->arg3;
     pTable    = (hashTable *)args->arg4;
+    pQuit     = (int *)args->arg5;
 
     /* There must be a payload. */
     cMsgHasPayload(msg, &payloadCount);
-    if (payloadCount > 0) {
-
-        int32_t intVal;
-        const char *val;
-        char *passwd = NULL;
-        const char *commandType;
-
-        err = cMsgGetString(msg, "p", &val);
-        if (err == CMSG_OK) {
-            int32_t pswdLen;
-            err = cMsgGetInt32(msg, "pl", &pswdLen);
-            if (err != CMSG_OK) {
-                printf("Reject message, no password length");
-                cMsgFreeMessage(&msg);
-                return;
-            }
-            
-            /* decrypt password here */
-            passwd = decryptPassword(val, pswdLen);
-/*printf("Decrypted password -> -----%s-----\n", passwd);*/
-        }
-
-        /* check password if required */
-        if (password != NULL && strcmp(password, passwd) != 0) {
-            cMsgFreeMessage(&msg);
-            if (passwd != NULL) {
-                free(passwd);
-            }
-            return;
-        }
-
-        if (passwd != NULL) {
-            free(passwd);
-        }
-
-        /* What command are we given? */
-        err = cMsgGetString(msg, "commandType", &commandType);
+    
+    if (payloadCount < 1) {
+        if (debug) printf("Reject message, bad format - no payload items");
+        cMsgFreeMessage(&msg);
+        return;
+    }
+    
+    err = cMsgGetString(msg, "p", &val);
+    if (err == CMSG_OK) {
+        int32_t pswdLen;
+        err = cMsgGetInt32(msg, "pl", &pswdLen);
         if (err != CMSG_OK) {
-/*printf("Reject message, no command type\n");*/
+            if (debug) printf("Reject message, no password length");
             cMsgFreeMessage(&msg);
             return;
         }
-            
-/*printf("commandtype = %s\n", commandType);*/
 
-        if (strcmp(commandType, "start_process") == 0) {
-            /* Store incoming data here */
-            int monitor, wait, isGetRequest;
-            passedArg *arg;
-            void *responseMsg;
-            commandInfo *info;
-             
-            /* Is the msg from a sendAndGet? */
-            isGetRequest = 0;
-            cMsgGetGetRequest(msg, &isGetRequest);
-            if (!isGetRequest) {
-/*printf("Reject message, start_process cmd must be sendAndGet msg");*/
-                cMsgFreeMessage(&msg);
-                return;
-            }
-
-            info = (commandInfo *) malloc(sizeof(commandInfo));
-            if (info == NULL) {
-                exit(-1);
-            }
-            initCommandInfo(info);
-
-            err = cMsgGetString(msg, "command", &val);
-            if (err != CMSG_OK) {
-/*printf("Reject message, no command");*/
-                cMsgFreeMessage(&msg);
-                return;
-            }
-            info->command = strdup(val);
-
-            monitor = 0;
-            err = cMsgGetInt32(msg, "monitor", &intVal);
-            if (err == CMSG_OK) {
-                monitor = intVal;
-            }
-            info->monitor = monitor;
-
-            wait = 0;
-            err = cMsgGetInt32(msg, "wait", &intVal);
-            if (err == CMSG_OK) {
-                wait = intVal;
-            }
-            info->wait = wait;
-
-            err = cMsgGetString(msg, "commander", &val);
-            if (err != CMSG_OK) {
-/*printf("Reject message, no commander");*/
-                cMsgFreeMessage(&msg);
-                return;
-            }
-            info->commander = strdup(val);
-
-            err = cMsgGetInt32(msg, "id", &intVal);
-            if (err != CMSG_OK) {
-/*printf("Reject message, no commander id");*/
-                cMsgFreeMessage(&msg);
-                return;
-            }
-            info->commandId = intVal;
-
-            /* Return must be placed in sendAndGet response msg. */
-            responseMsg = cMsgCreateResponseMessage(msg);
-
-            /* Create arg to new thread. */
-            args2 = (passedArg *) malloc(sizeof(passedArg));
-            args2->arg1 = (void *)info;
-            args2->arg2 = responseMsg;
-            args2->arg3 = domainId;
-            args2->arg4 = args->arg4; /* pass along hash table pointer */
-
-            /* Start up new thread. */
-            status = pthread_create(&tid, NULL, processThread, (void *)args2);
-            if (status != 0) {
-/*printf("Error creating update server thread");*/
-                exit(-1);
-            }
-        }
-        else if (strcmp(commandType, "start_thread") == 0) {
-            /* todo: we should send back an error here */
-            printf("Reject message, start_thread cmd is not supported on vxworks");
+        /* decrypt password here (val cannot be NULL) */
+        err = decryptPassword(val, pswdLen, &passwd);
+        if (err != CMSG_OK) {
+            if (debug) printf("Cannot allocate memory");
             cMsgFreeMessage(&msg);
             return;
         }
-        else if (strcmp(commandType, "stop_all") == 0) {
-printf("Got STOPALL msg\n");
-            stopAll(0, pTable);
-        }
-        else if (strcmp(commandType, "stop") == 0) {
-printf("Got STOP msg\n");
-            err = cMsgGetInt32(msg, "id", &intVal);
-            if (err != CMSG_OK) {
-                printf("Reject message, no id");
-                cMsgFreeMessage(&msg);
-                return;
-            }
-            stop(intVal, pTable);
-        }
-        else if (strcmp(commandType, "die") == 0) {
-            int killProcesses = 0;
-printf("Got DIE msg\n");
-            err = cMsgGetInt32(msg, "killProcesses", &intVal);
-            if (err == CMSG_OK) {
-                killProcesses = intVal;
-            }
+        if (debug) printf("Decrypted password -> -----%s-----\n", passwd);
+    }
 
-            if (killProcesses) stopAll(1, pTable);
-            exit(0);
-        }
-        else if (strcmp(commandType, "identify") == 0) {
-            err = cMsgGetString(msg, "commander", &val);
-            if (err != CMSG_OK) {
-printf("Reject message, no commander");
-                cMsgFreeMessage(&msg);
-                return;
-            }
+    /* check password if required */
+    if (password != NULL && strcmp(password, passwd) != 0) {
+        if (debug) printf("Wrong password");
+        cMsgFreeMessage(&msg);
+        if (passwd != NULL) free(passwd);
+        return;
+    }
 
-            sendStatusTo(domainId, statusMsg, val);
+    if (passwd != NULL) free(passwd);
+
+    /* What command are we given? */
+    err = cMsgGetString(msg, "commandType", &commandType);
+    if (err != CMSG_OK) {
+        if (debug) printf("Reject message, no command type\n");
+        cMsgFreeMessage(&msg);
+        return;
+    }
+        
+    if (debug) printf("commandtype = %s\n", commandType);
+
+    if (strcmp(commandType, "start_process") == 0) {
+        /* Store incoming data here */
+        int monitor, wait, isGetRequest;
+        passedArg *arg;
+        void *responseMsg;
+        commandInfo *info;
+
+        /* Is the msg from a sendAndGet? */
+        isGetRequest = 0;
+        cMsgGetGetRequest(msg, &isGetRequest);
+        if (!isGetRequest) {
+            if (debug) printf("Reject message, start_process cmd must be sendAndGet msg");
+            cMsgFreeMessage(&msg);
+            return;
         }
-        else {
-            /*printf("Reject message, invalid command");*/
+
+        info = (commandInfo *) malloc(sizeof(commandInfo));
+        if (info == NULL) {
+            if (debug) printf("Cannot allocate memory");
+            cMsgFreeMessage(&msg);
+            return;
+        }
+        initCommandInfo(info);
+
+        err = cMsgGetString(msg, "command", &val);
+        if (err != CMSG_OK) {
+            if (debug) printf("Reject message, no command");
+            free(info);
+            cMsgFreeMessage(&msg);
+            return;
+        }
+        info->command = strdup(val);
+
+        monitor = 0;
+        err = cMsgGetInt32(msg, "monitor", &intVal);
+        if (err == CMSG_OK) {
+            monitor = intVal;
+        }
+        info->monitor = monitor;
+
+        wait = 0;
+        err = cMsgGetInt32(msg, "wait", &intVal);
+        if (err == CMSG_OK) {
+            wait = intVal;
+        }
+        info->wait = wait;
+
+        err = cMsgGetString(msg, "commander", &val);
+        if (err != CMSG_OK) {
+            if (debug) printf("Reject message, no commander");
+            free(info->command);
+            free(info);
+            cMsgFreeMessage(&msg);
+            return;
+        }
+        info->commander = strdup(val);
+        if (info->commander == NULL) {
+            free(info->command);
+            free(info);
+            cMsgFreeMessage(&msg);
+            return;
+        }
+
+        err = cMsgGetInt32(msg, "id", &intVal);
+        if (err != CMSG_OK) {
+            if (debug) printf("Reject message, no commander id");
+            free(info->commander);
+            free(info->command);
+            free(info);
+            cMsgFreeMessage(&msg);
+            return;
+        }
+        info->commandId = intVal;
+
+        /* Return must be placed in sendAndGet response msg. */
+        responseMsg = cMsgCreateResponseMessage(msg);
+        if (responseMsg == NULL) {
+            if (debug) printf("Cannot allocate memory 1");
+            free(info->commander);
+            free(info->command);
+            free(info);
+            cMsgFreeMessage(&msg);
+            return;
+        }
+
+        /* Create arg to new thread. */
+        args2 = (passedArg *) malloc(sizeof(passedArg));
+        if (args2 == NULL) {
+            if (debug) printf("Cannot allocate memory 2");
+            free(info->commander);
+            free(info->command);
+            free(info);
+            cMsgFreeMessage(&msg);
+            cMsgFreeMessage(&responseMsg);
+            return;
+        }
+        args2->arg1 = (void *)info;
+        args2->arg2 = responseMsg;
+        args2->arg3 = domainId;
+        args2->arg4 = args->arg4; /* pass along hash table pointer */
+
+        /* Start up new thread. */
+        status = pthread_create(&tid, NULL, processThread, (void *)args2);
+        if (status != 0) {
+            cmsg_err_abort(status, "Cannot create process thread");
         }
     }
+    
+    else if (strcmp(commandType, "start_thread") == 0) {
+        void *responseMsg = cMsgCreateResponseMessage(msg);
+        if (responseMsg != NULL) {
+            sendResponseMsg(domainId, responseMsg, "\"start_thread\" cmd is not supported on vxworks", 1, 1);
+        }
+        cMsgFreeMessage(&responseMsg);
+    }
+    
+    else if (strcmp(commandType, "stop_all") == 0) {
+        if (debug) printf("Got STOPALL msg\n");
+        stopAll(0, pTable);
+    }
+    
+    else if (strcmp(commandType, "stop") == 0) {
+        if (debug) printf("Got STOP msg\n");
+        err = cMsgGetInt32(msg, "id", &intVal);
+        if (err != CMSG_OK) {
+            if (debug) printf("Rejectstop  message, no id");
+            cMsgFreeMessage(&msg);
+            return;
+        }
+        stop(intVal, pTable);
+    }
+    
+    else if (strcmp(commandType, "die") == 0) {
+        int killProcesses = 0;
+        if (debug) printf("Got DIE msg\n");
+        err = cMsgGetInt32(msg, "killProcesses", &intVal);
+        if (err == CMSG_OK) {
+            killProcesses = intVal;
+        }
+
+        if (killProcesses) stopAll(1, pTable);
+
+        /*
+         * Mutex used here so main thread can see new value of "quit".
+         * Quitting is handled in the main thread.
+         */
+        status = pthread_mutex_lock(&idMutex);
+        if (status != 0) {
+            cmsg_err_abort(status, "Failed callback mutex lock");
+        }
+
+        *pQuit = 1;
+
+        status = pthread_mutex_unlock(&idMutex);
+        if (status != 0) {
+            cmsg_err_abort(status, "Failed callback mutex unlock");
+        }
+    }
+    
+    else if (strcmp(commandType, "identify") == 0) {
+        err = cMsgGetString(msg, "commander", &val);
+        if (err != CMSG_OK) {
+            if (debug) printf("Reject message, no commander");
+            cMsgFreeMessage(&msg);
+            return;
+        }
+
+        sendStatusTo(domainId, statusMsg, val);
+    }
+    
     else {
-        /*printf("Reject message, no payload");*/
+        if (debug) printf("Reject message, invalid command");
     }
-
+    
     cMsgFreeMessage(&msg);
 }
 
@@ -809,7 +892,10 @@ static void stopAll(int kill, hashTable *pTable) {
         }
     
         for (i=0; i < size; i++) {
+            /* key must be freed when calling hashClear and 2nd arg != NULL */
+            free((void *)entries[i].key);
             info = (commandInfo *)entries[i].data;
+      
             if (kill) {
                 info->killed = 1;
 /*printf("stopAll(): kill id = %s\n", entries[i].key);*/
@@ -927,19 +1013,37 @@ static char *removeCmdEcho(char *buffer, char *cmd) {
 
     cmdLen = strlen(cmd);
 
-    /* skip 1st command echo */
+    /******************************/
+    /* skip 1st command echo line */
+    /******************************/
     pChar = strstr(buffer, cmd);
     if (pChar == NULL) {
         return NULL;
     }
-    pChar += cmdLen + 1;
-
-    /* skip 2nd command echo */
+    pChar += cmdLen;
+    
+    /* Now that we're past the 1st cmd, skip its whole line */
+    pChar = strchr(pChar, '\n');
+    if (pChar == NULL) {
+        return NULL;
+    }
+    pChar += 1;
+   
+    /******************************/
+    /* skip 2nd command echo line */
+    /******************************/
     pChar = strstr(pChar, cmd);
     if (pChar == NULL) {
         return NULL;
     }
-    pChar += cmdLen + 1;
+    pChar += cmdLen;
+
+    /* Now that we're past the 2nd cmd, skip its whole line */
+    pChar = strchr(pChar, '\n');
+    if (pChar == NULL) {
+        return NULL;
+    }
+    pChar += 1;
 
     return pChar;
 }
@@ -947,7 +1051,7 @@ static char *removeCmdEcho(char *buffer, char *cmd) {
 
 /**
  * This routine takes the output of a shell command
- * and removes everything past the last "value = ".
+ * and removes the last "value = " and everything after.
  *
  * @param buf buffer to examine.
  */
@@ -970,7 +1074,7 @@ static void removeLastValueEquals(char *buf) {
         return;
     }
 
-    /* Cut off everything past the last "value = " */
+    /* Cut off the last "value = " and everything after */
     *pLastVal = '\0';
 }
 
@@ -1001,7 +1105,6 @@ static int sendResponseMsg(void *domainId, void *msg, const char *error,
     if (immediate) {
         err = cMsgAddInt32(msg, "immediateError", 1);
         if (err != CMSG_OK) {
-            /* only possible error at this point is out-of-memory */
             return err;
         }
     }
@@ -1009,7 +1112,6 @@ static int sendResponseMsg(void *domainId, void *msg, const char *error,
     if (error != NULL) {
         err = cMsgAddString(msg, "error", error);
         if (err != CMSG_OK) {
-            /* only possible error at this point is out-of-memory */
             return err;
         }
     }
@@ -1019,7 +1121,13 @@ static int sendResponseMsg(void *domainId, void *msg, const char *error,
 
 
 /**
- * Thread to run command in.
+ * Thread to run command in. Noticed that whenever this thread is run,
+ * it leaves 128 bytes of allocated memory lost. It appears to be a
+ * vxworks issue since as a test I quit this thread only after the first
+ * 2 statements, sending an error msg back, and freeing all memory.
+ * If I never run this thread, send error msg back and free all mem,
+ * no memory leak is found.
+ * 
  * @param arg pointer to structure holding arguments.
  */
 static void *processThread(void *arg) {
@@ -1043,8 +1151,11 @@ static void *processThread(void *arg) {
     char  ptyErr[19], ptyErrS[19], ptyErrM[19];
     char *shellTaskName, *errorStr, *inBuf=NULL, *pBuf;
 
-/*printf("Run fake process thread with command -> %s\n", info->command);*/
+    free(arg);
 
+    /* release system resources when thread finishes */
+    pthread_detach(pthread_self());
+    
     /*
      * Create 2 pseudo terminal devices with unique names (err<id>. & sys<id>.),
      * one for regular IO and the other for error output.
@@ -1057,12 +1168,16 @@ static void *processThread(void *arg) {
 
     if (ptyDevCreate (ptySys, 4096, 4096) == ERROR) {
         sendResponseMsg(domainId, responseMsg, "Unable to create pty device", 1, 1);
+        cMsgFreeMessage(&responseMsg);
+        free(info->commander); free(info->command); free(info);
         return;
     }
     
     if (ptyDevCreate (ptyErr, 4096, 4096) == ERROR) {
-        ptyDevRemove(ptySys);
         sendResponseMsg(domainId, responseMsg, "Unable to create pty device", 1, 1);
+        cMsgFreeMessage(&responseMsg);
+        ptyDevRemove(ptySys);
+        free(info->commander); free(info->command); free(info);
         return;
     }
 
@@ -1096,7 +1211,6 @@ static void *processThread(void *arg) {
     commands = (char **) calloc(cmdCount, sizeof(char *));
     if (commands == NULL) {
         sendResponseMsg(domainId, responseMsg, "Cannot allocate memory", 1, 1);
-/*printf("processThread: cannot allocate memory\n");*/
         exit(-1);
     }
     pCmdCpy = strdup(info->command);
@@ -1112,7 +1226,7 @@ static void *processThread(void *arg) {
     
     fdSlaveE  = open(ptyErrS, O_RDWR, 0777);
     fdMasterE = open(ptyErrM, O_RDWR, 0777);
-    
+
     ioctl(fdSlaveS, FIOSETOPTIONS, OPT_TERMINAL);
     ioctl(fdSlaveE, FIOSETOPTIONS, OPT_TERMINAL);
 
@@ -1130,20 +1244,25 @@ static void *processThread(void *arg) {
     if (err == ERROR) {
         /* shell session cannot be created */
         sendResponseMsg(domainId, responseMsg, "Shell cannot be started", 1, 1);
+        cMsgFreeMessage(&responseMsg);
         ptyDevRemove(ptyErr);
         ptyDevRemove(ptySys);
-        free(commands);
+        free(pCmdCpy); free(commands); free(inBuf);
+        free(info->commander); free(info->command); free(info);
         return;
     }
+/*printf("Shell name = %s\n", shellTaskName);*/
     
     /* Wait until shell shows up in table. */
     while ( (info->shellId = taskNameToId(shellTaskName)) == ERROR) {
         taskDelay(.1*sysClkRateGet()); /* wait 0.1 sec */
         if (++timeCount >= 20) {
             sendResponseMsg(domainId, responseMsg, "Shell cannot be started", 1, 1);
+            cMsgFreeMessage(&responseMsg);
             ptyDevRemove(ptyErr);
             ptyDevRemove(ptySys);
-            free(commands);
+            free(pCmdCpy); free(commands); free(inBuf);
+            free(info->commander); free(info->command); free(info);
             return;
         }
     }
@@ -1168,7 +1287,6 @@ static void *processThread(void *arg) {
 
         /* Trying reading any error output first since usually that happens right away ... */
         while (1) {
-    
             /* Delay 0.1 sec */
             taskDelay(delayTicks);
     
@@ -1183,6 +1301,8 @@ static void *processThread(void *arg) {
                 /* If there was an error output ... */
                 if (totalBytesRead > 0) {
 /*printf("  NO more error bytes to read\n");*/
+                    /* Get rid of newlines before and aft. */
+                    cMsgTrim(inBuf);
                     errorStr = inBuf;
                     break;
                 }
@@ -1230,9 +1350,11 @@ static void *processThread(void *arg) {
             }
             else {
                 sendResponseMsg(domainId, responseMsg, errorStr, 1, 1);
+                cMsgFreeMessage(&responseMsg);
                 ptyDevRemove(ptyErr);
                 ptyDevRemove(ptySys);
-                free(commands);
+                free(pCmdCpy); free(commands); free(inBuf);
+                free(info->commander); free(info->command); free(info);
                 return;
             }
         }
@@ -1351,24 +1473,34 @@ static void *processThread(void *arg) {
             if (valueCount > 0) {
                 /* If Commander is interested in the output, store it. */
                 if (info->monitor) {
-                    int len=0;
-                    char *pChar;
+                    int len=0, addingOn=0;
+                    char *pChar, *oldString=NULL;
 
                     /* We're done with command so extract output. */
                     pBuf = removeCmdEcho(inBuf, commands[i]);
                     
-                    /* Remove "value = " from end of buffer. */
+                    /* Remove "value = " & following from end of buffer. */
                     removeLastValueEquals(pBuf);
 
                     /* Get rid of newlines before and aft. */
                     cMsgTrim(pBuf);
 
+                    /* If there's no text left, there was no real output. */
+                    if (strlen(pBuf) < 1) {
+                        break;
+                    }
+
                     /* Store output by appending to any existing output from previous commands. */
                     err = cMsgGetString(responseMsg, "output", &val);
                     /* If we have previously stored results ... */
                     if (err == CMSG_OK) {
-                        len += strlen(val);
+                        /* Add one cause we're going to put newline at end since we're
+                           concatenating output from multiple commands. */
+                        len += strlen(val) + 1;
+                        /* copy string from payload because we're going to free it next */
+                        oldString = strdup(val);
                         cMsgPayloadRemove(responseMsg, "output");
+                        addingOn = 1;
                     }
                     len += strlen(pBuf) + 1;
 
@@ -1382,8 +1514,10 @@ static void *processThread(void *arg) {
                         exit(-1);
                     }
 
-                    if (err == CMSG_OK) {
-                        strcat(pChar, val);
+                    if (addingOn) {
+                        strcat(pChar, oldString);
+                        strcat(pChar, "\n");
+                        free(oldString);
                     }
                     strcat(pChar, pBuf);
 
@@ -1397,7 +1531,7 @@ static void *processThread(void *arg) {
                         ptyDevRemove(ptySys);
                         exit(-1);
                     }
-/*printf("Command output = %s",pChar);*/
+/*printf("Command output = %s\n",pChar);*/
                 }
 
                 break;
@@ -1413,9 +1547,11 @@ static void *processThread(void *arg) {
             }
             else {
                 sendResponseMsg(domainId, responseMsg, errorStr, 1, 1);
+                cMsgFreeMessage(&responseMsg);
                 ptyDevRemove(ptyErr);
                 ptyDevRemove(ptySys);
-                free(commands);
+                free(pCmdCpy); free(commands); free(inBuf);
+                free(info->commander); free(info->command); free(info);
                 return;
             }
         }
@@ -1430,16 +1566,16 @@ static void *processThread(void *arg) {
      * callback waiting to hear from this finished process. */
     terminated:
 
+    if (inHash) processMapRemove(idTable, id);
+
     err = cMsgAddInt32(responseMsg, "terminated", 1);
     if (err != CMSG_OK) {
         /* Cannot allocate memory */
         ptyDevRemove(ptyErr);
         ptyDevRemove(ptySys);
-        exir(-1);
+        exit(-1);
     }
          
-    free(commands);
-
     close(fdSlaveS);
     close(fdMasterS);
 
@@ -1447,20 +1583,26 @@ static void *processThread(void *arg) {
     close(fdMasterE);
 
     free(inBuf);
+    free(pCmdCpy);
+    free(commands);
 
     if ( (shellId = taskNameToId(shellTaskName)) != ERROR ) {
         /*printf("Terminated Shell by Hand\n");*/
         shellTerminate(shellId);
     }
-    
+
     /*----------------------------------------------------------------
     // Respond to initial sendAndGet if we haven't done so already
     // so "startProcess" can return if it has not timed out already
     // (in which case it is not interested in this result anymore).
     //----------------------------------------------------------------*/
     if (info->wait) {
-/*printf("SENDING MSG TO CMDR FOR WAITER ......\n");*/
+/*printf("Sending msg to Cmdr if it's waiting ......\n");*/
         cMsgSend(domainId, responseMsg);
+        cMsgFreeMessage(&responseMsg);
+        ptyDevRemove(ptyErr);
+        ptyDevRemove(ptySys);
+        free(info->commander); free(info->command); free(info);
         return;
     }
 
@@ -1541,13 +1683,14 @@ static void *processThread(void *arg) {
         }
     }
 
-/*printf("SENDING MSG TO RUN CALLBACK FOR PROCESS ......\n");*/
+/*printf("Sending msg to run callback for Cmdr ......\n");*/
     cMsgSend(domainId, imDoneMsg);
 
-    cMsgFreeMessage(&responseMsg);
     cMsgFreeMessage(&imDoneMsg);
-    free(info);
-    free(args);
+    cMsgFreeMessage(&responseMsg);
+    free(info->commander); free(info->command); free(info);
+    ptyDevRemove(ptyErr);
+    ptyDevRemove(ptySys);
 }
 
 /******************************************************************/
