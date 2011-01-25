@@ -1240,9 +1240,9 @@ System.out.println("startProcess: Executor set to stopped");
      *
      * @throws cMsgException
      */
-    public List<CommandReturn> startCmdInWindows(List<ExecutorInfo> executors,
-                                                 String command,
-                                                 int widthChars, int heightChars)
+    public List<CommandReturn> startCommandInWindows(List<ExecutorInfo> executors,
+                                                     String command,
+                                                     int widthChars, int heightChars)
             throws cMsgException {
 
         List<String> geometries = xtermGeometry(executors.size(), widthChars, heightChars);
@@ -1272,9 +1272,9 @@ System.out.println("startProcess: Executor set to stopped");
      *
      * @throws cMsgException
      */
-    public List<CommandReturn> startCmdInWindows(List<ExecutorInfo> executors,
-                                                 List<String> commands,
-                                                 int widthChars, int heightChars)
+    public List<CommandReturn> startCommandsInWindows(List<ExecutorInfo> executors,
+                                                      List<String> commands,
+                                                      int widthChars, int heightChars)
             throws cMsgException {
 
         List<String> geometries = xtermGeometry(executors.size(), widthChars, heightChars);
@@ -1332,8 +1332,8 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
 
 
             if (execList.size() > 0) {
-                List<CommandReturn> retList = cmdr.startCmdInWindows(new ArrayList<ExecutorInfo>(execList),
-                                                                     "who", 85, 8);
+                List<CommandReturn> retList = cmdr.startCommandInWindows(new ArrayList<ExecutorInfo>(execList),
+                                                                         "who", 85, 8);
             }
 
             while(true) {
