@@ -1228,7 +1228,8 @@ System.out.println("startProcess: Executor set to stopped");
 
     /**
      * This method is example of how to make a bunch of identical xterm windows
-     * fill the screen in a conveniently packed manner.
+     * fill the screen in a conveniently packed manner and run a single given command
+     * in each of the xterms.
      *
      * @param executors list of Executors to use.
      * @param command command to run in each executor.
@@ -1240,8 +1241,8 @@ System.out.println("startProcess: Executor set to stopped");
      * @throws cMsgException
      */
     public List<CommandReturn> startCmdInWindows(List<ExecutorInfo> executors,
-                                                  String command,
-                                                  int widthChars, int heightChars)
+                                                 String command,
+                                                 int widthChars, int heightChars)
             throws cMsgException {
 
         List<String> geometries = xtermGeometry(executors.size(), widthChars, heightChars);
@@ -1250,6 +1251,38 @@ System.out.println("startProcess: Executor set to stopped");
         for (int i=0; i <executors.size(); i++) {
             // create xterm and add return object to list
             returnList.add(startXterm(executors.get(i), command,
+                                      geometries.get(i), executors.get(i).getName()));
+        }
+
+        return returnList;
+    }
+
+
+    /**
+     * This method is example of how to make a bunch of identical xterm windows
+     * fill the screen in a conveniently packed manner and run a single, different
+     * command in each of the xterms.
+     *
+     * @param executors list of Executors to use.
+     * @param commands list of commands to run, one in each executor.
+     * @param widthChars width of each xterm in characters.
+     * @param heightChars number of lines in each xterm.
+     *
+     * @return list of CommandReturn objects.
+     *
+     * @throws cMsgException
+     */
+    public List<CommandReturn> startCmdInWindows(List<ExecutorInfo> executors,
+                                                 List<String> commands,
+                                                 int widthChars, int heightChars)
+            throws cMsgException {
+
+        List<String> geometries = xtermGeometry(executors.size(), widthChars, heightChars);
+        ArrayList<CommandReturn> returnList = new ArrayList<CommandReturn>(executors.size());
+
+        for (int i=0; i <executors.size(); i++) {
+            // create xterm and add return object to list
+            returnList.add(startXterm(executors.get(i), commands.get(i),
                                       geometries.get(i), executors.get(i).getName()));
         }
 
