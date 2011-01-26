@@ -1554,8 +1554,8 @@ System.out.println("Main server IO error");
 
             try {
                 // First, check to see if password matches.
-System.out.println("local cloudpassword = " + cloudPassword +
-                   ", given password = " + myCloudPassword);
+//System.out.println("local cloudpassword = " + cloudPassword +
+//                   ", given password = " + myCloudPassword);
                 if (cloudPassword != null && !cloudPassword.equals(myCloudPassword)) {
 System.out.println(">> NS: PASSWORDS DO NOT MATCH");
                     cMsgException ex = new cMsgException("wrong password - connection refused");
@@ -1673,32 +1673,32 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
             try {
                 // If this is not a reciprocal connection, we need to make one.
                 if (!isReciprocalConnection) {
-System.out.println(">> NS: Create reciprocal bridge to " + name);
+//System.out.println(">> NS: Create reciprocal bridge to " + name);
                     cMsgServerBridge b = new cMsgServerBridge(cMsgNameServer.this, name,
                                                               port, multicastPort);
                     // connect as reciprocal (originating = false)
                     b.connect(false, cloudPassword, clientPassword, false);
-System.out.println(">> NS: Add " + name + " to bridges");
+//System.out.println(">> NS: Add " + name + " to bridges");
                     bridges.put(name, b);
                     // If status was NONCLOUD, it is now BECOMINGCLOUD,
                     // and if we're here it is not INCLOUD.
                     b.setCloudStatus(cMsgNameServer.BECOMINGCLOUD);
-System.out.println(">> NS: set bridge (" + b + ") status to " + b.getCloudStatus());
+//System.out.println(">> NS: set bridge (" + b.serverName + ") status to BECOMINGCLOUD");
                 }
                 // If this is a reciprocal connection, look up bridge for
                 // connecting server and change its cloud status.
                 else {
-System.out.println(">> NS: Do NOT create reciprocal bridge to " + name);
+//System.out.println(">> NS: Do NOT create reciprocal bridge to " + name);
                     // We cannot look up the bridge in "bridges" as it is still
                     // in the middle of being created and has not been added
                     // to that collection yet. We have saved a reference, however.
                     cMsgServerBridge b = bridgeBeingCreated;
                     if (b != null) {
                         b.setCloudStatus(connectingCloudStatus);
-System.out.println(">> NS: set bridge (" + b + ") status to " + b.getCloudStatus());
+//System.out.println(">> NS: set bridge (" + b.serverName + ") status to " + b.getCloudStatus());
                     }
                     else {
-System.out.println(">> NS: bridge  = " + b);
+//System.out.println(">> NS: bridge  = " + b);
                     }
                 }
             }
@@ -2274,7 +2274,7 @@ System.out.println(">> NS: bridge  = " + b);
             // If there are no connections to other servers (bridges), do local registration only
             if (bridges.size() < 1) {
                 subdomainHandler.registerClient(info);
-//System.out.println(">> NS: no bridges so DID regular registration of client in subdomain handler");
+//System.out.println(">> NS: no bridges so DID regular registration of " + info.getName() + " in subdomain handler");
                 return;
             }
 
@@ -2313,10 +2313,16 @@ System.out.println(">> NS: bridge  = " + b);
                         }
 
                         // Second, Grab our own registration lock
-//System.out.println(">> NS: try to grab this registration lock");
-                        if (!gotRegistrationLock && subdomainHandler.registrationLock(500)) {
-//System.out.println(">> NS: grabbed registration lock");
-                            gotRegistrationLock = true;
+
+                        if (!gotRegistrationLock) {
+//System.out.print(">> NS: " + info.getName() + " trying to grab registration lock ...");
+                            if (subdomainHandler.registrationLock(500)) {
+                                gotRegistrationLock = true;
+//System.out.println(" ... DONE!");
+                            }
+                            else {
+//System.out.println(" ... CANNOT DO IT!");
+                            }
                         }
 
                         // Can't grab a/both locks, wait and try again (at most 3 times)
@@ -2334,7 +2340,7 @@ System.out.println(">> NS: bridge  = " + b);
                                 continue startOver;
                             }
 
-//System.out.println(">> NS: cannot grab a/both locks, wait .01 sec and try againr");
+//System.out.println(">> NS: cannot grab a/both locks, wait .01 sec and try again");
                             try {Thread.sleep(10);}
                             catch (InterruptedException e) {}
                         }
@@ -2359,25 +2365,34 @@ System.out.println(">> NS: bridge  = " + b);
                             // If it's already locked or not in the cloud, skip it
                             if (lockedServers.contains(bridge) ||
                                 bridge.getCloudStatus() != cMsgNameServer.INCLOUD) {
+
+//                                if (bridge.getCloudStatus() != cMsgNameServer.INCLOUD) {
+//System.out.println(">> NS: skip locking " + bridge.serverName + "'s registration locks as NOT in cloud");
+//                                }
+//                                else {
+//System.out.println(">> NS: skip locking " + bridge.serverName + "'s registration locks as already locked");
+//                                }
                                 continue;
                             }
 
                             try {
                                 // If sucessfull in locking remote server ...
-//System.out.println(">> NS: Try to lock bridge to " + bridge.server);
+//System.out.print(">> NS: Try to lock bridge to " + bridge.serverName);
                                 if (bridge.registrationLock(200)) {
-//System.out.println(">> NS: LOCKED IT!!");
+//System.out.println("  ... LOCKED IT!!");
                                     lockedServers.add(bridge);
                                     numberOfLockedCloudMembers++;
                                 }
                                 // else if cannot lock remote server, try next one
                                 else {
-//System.out.println(">> NS: CANNOT Lock it, so skip it");
+//System.out.println(" ... CANNOT Lock it, so skip it");
                                 }
                             }
                             // We're here if lock or unlock fails in its communication with server.
                             // If we cannot talk to the server, it's probably dead.
-                            catch (IOException e) { }
+                            catch (IOException e) {
+                                e.printStackTrace();
+                            }
                         }
 
                         //System.out.println(">> NS: FAILED TO LOCKED IT!!");
@@ -2398,10 +2413,16 @@ System.out.println(">> NS: bridge  = " + b);
                         else {
                             // release all locks
                             for (cMsgServerBridge b : lockedServers) {
-                                try {b.registrationUnlock();}
+                                try {
+//System.out.print(">> NS: " + b.serverName + " trying to release registration lock 1 ...");
+                                    b.registrationUnlock();
+//System.out.println(" ... DONE!");
+                                }
                                 catch (IOException e) {}
                             }
+//System.out.print(">> NS: " + info.getName() + " trying to release registration lock 2 ...");
                             subdomainHandler.registrationUnlock();
+//System.out.println(" ... DONE!");
                             cloudUnlock();
 
                             // try to lock 'em again
@@ -2446,17 +2467,23 @@ System.out.println(">> NS: bridge  = " + b);
                         }
 
                         // FINALLY, REGISTER CLIENT!!!
-System.out.println(">> NS: TRY REGISTERING CLIENT (in subdomain handler)");
+//System.out.println(">> NS: TRY REGISTERING CLIENT (in subdomain handler)");
                         subdomainHandler.registerClient(info);
                     }
                     finally {
                         // release the locks
-                        for (cMsgServerBridge b : bridges.values()) {
-                            try {b.registrationUnlock();}
+                        for (cMsgServerBridge b : lockedServers) {
+                            try {
+//System.out.print(">> NS: " + b.serverName + " trying to release registration lock 3 ...");
+                                b.registrationUnlock();
+//System.out.println(" ... DONE!");
+                            }
                             catch (IOException e) {}
                         }
+//System.out.print(">> NS: " + info.getName() + " trying to release registration lock 4 ...");
                         subdomainHandler.registrationUnlock();
                         cloudUnlock();
+//System.out.println(" ... DONE!");
                     }
 
 //System.out.println(">> NS: registration is successful!\n\n");
@@ -2467,13 +2494,15 @@ System.out.println(">> NS: TRY REGISTERING CLIENT (in subdomain handler)");
                 // If we could not register the client due to not being able to get the required locks ...
                 if (!registrationSuccessful) {
                     // release the locks
-                    for (cMsgServerBridge b : bridges.values()) {
+                    for (cMsgServerBridge b : lockedServers) {
                         try {b.registrationUnlock();}
                         catch (IOException e) {}
                     }
 
                     if (gotRegistrationLock) {
+//System.out.print(">> NS: " + info.getName() + " trying to release registration lock ...");
                         subdomainHandler.registrationUnlock();
+//System.out.println(" ... DONE!");
                     }
 
                     if (gotCloudLock) {
