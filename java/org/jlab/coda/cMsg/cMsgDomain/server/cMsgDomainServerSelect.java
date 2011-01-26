@@ -1217,7 +1217,9 @@ class cMsgDomainServerSelect extends Thread {
 
 
                         case cMsgConstants.msgServerRegistrationUnlock: // release lock for client registration
+//System.out.print("DSS: " + info.getName() + " trying to release registration lock ...");
                             info.cMsgSubdomainHandler.registrationUnlock();
+//System.out.println(" ... DONE!");
                             break;
 
                         case cMsgConstants.msgServerRegistrationLock: // grab lock for global registration  BUGBUG
@@ -1225,7 +1227,14 @@ class cMsgDomainServerSelect extends Thread {
                             int delay = cMsgUtilities.bytesToInt(array, 4);
                             // Send yes (1) to indicate lock grabbed , or no (0) back as return value.
                             // This may block for up to 1/2 second.
+//System.out.print("DSS: " + info.getName() + " trying to grab registration lock ...");
                             boolean gotLock = info.cMsgSubdomainHandler.registrationLock(delay);
+//                            if (gotLock) {
+//                                System.out.println(" ... DONE!");
+//                            }
+//                            else {
+//                                System.out.println(" ... CANNOT DO IT!");
+//                            }
                             int answer =  gotLock ? 1 : 0;
                             info.getDeliverer().deliverMessage(answer, 0, cMsgConstants.msgServerRegistrationLockResponse);
                             break;
