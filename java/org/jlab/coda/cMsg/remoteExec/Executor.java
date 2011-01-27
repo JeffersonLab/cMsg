@@ -155,7 +155,7 @@ public class Executor {
 
                 cMsgPayloadItem item0 = new cMsgPayloadItem("returnType", InfoType.REPORTING.getValue());
                 statusMsg.addPayloadItem(item0);
-                cMsgPayloadItem item1 = new cMsgPayloadItem("name", name);
+                cMsgPayloadItem item1 = new cMsgPayloadItem("name", this.name);
                 statusMsg.addPayloadItem(item1);
                 cMsgPayloadItem item2 = new cMsgPayloadItem("os", os);
                 statusMsg.addPayloadItem(item2);
