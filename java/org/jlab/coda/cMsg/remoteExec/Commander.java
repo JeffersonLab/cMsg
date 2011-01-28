@@ -1364,13 +1364,10 @@ System.out.println("startProcess: Executor set to stopped");
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
 
+            // Run the "ls" command in each Executor. This Commander will exit,
+            // but the xterms will still continue to run.
             if (execList.size() > 0) {
                 cmdr.startCommandInWindows(new ArrayList<ExecutorInfo>(execList), "ls", 85, 8);
-            }
-
-            while(true) {
-                try {Thread.sleep(1000);}
-                catch (InterruptedException e) {}
             }
         }
         catch (cMsgException e) {
@@ -1381,7 +1378,7 @@ System.out.println("startProcess: Executor set to stopped");
 
 
     /** Start up 20 xterms in one Executor, then shut them down one-by-one. */
-    public static void main(String[] args) {
+    public static void main1(String[] args) {
 
         try {
             String[] arggs = decodeCommandLine(args);
@@ -1395,10 +1392,16 @@ System.out.println("startProcess: Executor set to stopped");
             }
 
             if (execList.size() > 0) {
+                // Put Executor collection into list form for convenience.
                 ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
+
+                // Start 20 xterms in the first Executor. Each xterm will generate
+                // a CommandReturn object. These are collected and returned as a list.
                 List<CommandReturn> retList = cmdr.startWindows(list.get(0),
                                                                 list.get(0).getName(),
                                                                 20, 85, 8);
+
+                // Stop each xterm, waiting 0.2 seconds between each stop.
                 for (CommandReturn ret : retList) {
                     ret.stop();
                     try {Thread.sleep(200);}
@@ -1412,125 +1415,54 @@ System.out.println("startProcess: Executor set to stopped");
         }
     }
 
+
     /**
-     * Run as a stand-alone application
+     * Run the ExampleThread object as a thread in a single
+     * Executor, wait 5 sec, and then shut it down.
      */
     public static void main2(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
-System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
+
             Collection<ExecutorInfo> execList = cmdr.getExecutors();
-            System.out.println("execList =  "+ execList);
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
 
+            // define callback
             class myCB implements CommandCallback {
                 public void callback(Object userObject, CommandReturn commandReturn) {
-                    System.out.println("In callback, process output = \n" + commandReturn.getOutput());
-                    System.out.println("               error output = \n" + commandReturn.getError());
-                }
-            }
-
-                if (execList.size() > 0) {
-
-                    ConstructorInfo exThrCon = new ConstructorInfo();
-                    ConstructorInfo recCon = new ConstructorInfo();
-                    ConstructorInfo dimCon = new ConstructorInfo();
-
-                    exThrCon.addReferenceArg("java.awt.Rectangle", recCon);
-                    recCon.addReferenceArg("java.awt.Dimension", dimCon);
-                    dimCon.addPrimitiveArg("int", "1");
-                    dimCon.addPrimitiveArg("int", "2");
-
-                    ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
-                    CommandReturn ret = cmdr.startThread(list.get(0),
-                                                         "org.jlab.coda.cMsg.remoteExec.ExampleThread",
-                                                         new myCB(), null, exThrCon);
-System.out.println("Return = " + ret);
-                    if (ret.hasError()) {
-                        System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
-                    }
-                    if (ret.getOutput() != null) {
-                        System.out.println("Regular output:\n" + ret.getOutput());
-                    }
-
-                    //while(true) {
-                        try {Thread.sleep(10000);}
-                        catch (InterruptedException e) {}
-                    //}
-
-                    //cmdr.stopAll(execList.get(0));
-                    cmdr.stop(list.get(0), ret);
-
-                }
-
-        }
-//        catch (TimeoutException e) {
-//            e.printStackTrace();
-//            System.exit(-1);
-//        }
-        catch (cMsgException e) {
-            e.printStackTrace();
-            System.exit(-1);
-        }
-    }
-
-
-    /**
-     * Run as a stand-alone application
-     */
-    public static void main3(String[] args) {
-        try {
-            String[] arggs = decodeCommandLine(args);
-System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
-            Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
-            Collection<ExecutorInfo> execList = cmdr.getExecutors();
-            System.out.println("execList =  "+ execList);
-            for (ExecutorInfo info : execList) {
-                System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
-            }
-
-            class myCB implements CommandCallback {
-                public void callback(Object userObject, CommandReturn commandReturn) {
-                    System.out.println("In callback, process output = \n" + commandReturn.getOutput());
-                    System.out.println("               error output = \n" + commandReturn.getError());
+                    System.out.println("Callback was run");
                 }
             }
 
             if (execList.size() > 0) {
-                // try starting up cMsg server ...
-                ConstructorInfo serverCon = new ConstructorInfo();
+                // define contructor info so ExampleThread object can be created in Executor
+                ConstructorInfo exThrCon = new ConstructorInfo();
+                ConstructorInfo recCon = new ConstructorInfo();
+                ConstructorInfo dimCon = new ConstructorInfo();
 
-                serverCon.addPrimitiveArg("int", ""+47000);  // port
-                serverCon.addPrimitiveArg("int", ""+47001);  // domain port
-                serverCon.addPrimitiveArg("int", ""+47000);  // udp port
-                serverCon.addPrimitiveArg("boolean", "true"); // stand alone
-                serverCon.addPrimitiveArg("boolean", "true"); // monitoring off
-                serverCon.addReferenceArg("java.lang.String", null);   // client password
-                serverCon.addReferenceArg("java.lang.String", null);   // cloud password
-                serverCon.addReferenceArg("java.lang.String", null);   // server to join in cloud
-                serverCon.addPrimitiveArg("int", ""+cMsgConstants.debugInfo); // debug level
-                serverCon.addPrimitiveArg("int", ""+cMsgConstants.regimeLowMaxClients); // max clients/domain server in low regime
+                dimCon.addPrimitiveArg("int", "1");
+                dimCon.addPrimitiveArg("int", "2");
+                recCon.addReferenceArg("java.awt.Dimension", dimCon);
+                exThrCon.addReferenceArg("java.awt.Rectangle", recCon);
 
+                // put Executor collection into list form for convenience
                 ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
+                
+                // start thread up asynchronously (i.e. with callback)
                 CommandReturn ret = cmdr.startThread(list.get(0),
-                                                     "org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer",
-                                                     new myCB(), null, serverCon);
-                System.out.println("Return = " + ret);
-                if (ret.hasError()) {
-                    System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
-                }
-                if (ret.getOutput() != null) {
-                    System.out.println("Regular output:\n" + ret.getOutput());
-                }
+                                                     "org.jlab.coda.cMsg.remoteExec.ExampleThread",
+                                                     new myCB(), null, exThrCon);
 
-                //while(true) {
-                try {Thread.sleep(10000);}
+                // wait 5 seconds
+                try {Thread.sleep(5000);}
                 catch (InterruptedException e) {}
-                //}
 
+                // shut thread down
                 cmdr.stop(list.get(0), ret);
             }
         }
@@ -1540,42 +1472,133 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
         }
     }
 
+
     /**
-     * Run as a stand-alone application
+     * Run a cMsg server a thread in a single
+     * Executor, wait 5 sec, and then shut it down.
      */
-    public static void main4(String[] args) {
+    public static void main3(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
-System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
-            //cmdr.findExecutors();   // already done in constructor
+
             Collection<ExecutorInfo> execList = cmdr.getExecutors();
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
-//
-//            for (ExecutorInfo info : execList) {
-//                System.out.println("Killing you " + info.getName());
-//                cmdr.kill(info, true);
-//            }
-//            System.out.println("Killing all");
-//            cmdr.killAll(true);
-//            if (execList.size() > 0) {
-//                CommandReturn ret = cmdr.startProcess(execList.get(0), "java org/jlab/coda/cMsg/test/cMsgTest", false, false, 1000);
-//                    if (ret.getOutput() != null)
-//                        System.out.println(ret.getOutput());
-//
-//            }
 
             class myCB implements CommandCallback {
-                public void callback(Object userObject, CommandReturn ret) {                    
-                    System.out.println("Callback return:");
-                    System.out.println("  Callback state = " + ret.getCallbackState());
+                public void callback(Object userObject, CommandReturn commandReturn) {
+                    System.out.println("Callback was run");
+                }
+            }
+
+            if (execList.size() > 0) {
+                // Try starting up cMsg server. This requires using a constructor
+                // with 10 arguments, each of which must be defined here.
+                ConstructorInfo serverCon = new ConstructorInfo();
+
+                serverCon.addPrimitiveArg("int", ""+47000);          // main port
+                serverCon.addPrimitiveArg("int", ""+47001);          // domain port
+                serverCon.addPrimitiveArg("int", ""+47000);          // udp port
+                serverCon.addPrimitiveArg("boolean", "true");        // stand alone?
+                serverCon.addPrimitiveArg("boolean", "true");        // monitoring off?
+                serverCon.addReferenceArg("java.lang.String", null); // client password
+                serverCon.addReferenceArg("java.lang.String", null); // cloud password
+                serverCon.addReferenceArg("java.lang.String", null); // server to join in cloud
+                serverCon.addPrimitiveArg("int", ""+cMsgConstants.debugInfo); // debug level
+                serverCon.addPrimitiveArg("int", ""+cMsgConstants.regimeLowMaxClients); // max clients/domain server in low regime
+
+                ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
+                CommandReturn ret = cmdr.startThread(list.get(0),
+                                                     "org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer",
+                                                     new myCB(), null, serverCon);
+                
+                // Look at the object immediately returned by startThread
+                if (ret.hasError()) {
+                    System.out.println("CommandReturn object has error = " + ret.getError());
+                }
+                if (ret.getOutput() != null) {
+                    System.out.println("Regular output = " + ret.getOutput());
+                }
+
+                // wait 5 seconds
+                try {Thread.sleep(5000);}
+                catch (InterruptedException e) {}
+
+                // shut cMsg server down
+                ret.stop();
+            }
+        }
+        catch (cMsgException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+    }
+
+
+    /** Kill all Executors & their spawned processes either 1-by-1 or all at once. */
+    public static void main4(String[] args) {
+
+        boolean killAtOnce = true;
+
+        try {
+            String[] arggs = decodeCommandLine(args);
+            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+
+            Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
+
+            Collection<ExecutorInfo> execList = cmdr.getExecutors();
+            for (ExecutorInfo info : execList) {
+                System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
+            }
+
+            if (!killAtOnce) {
+                // kill Executors one-by-one
+                for (ExecutorInfo info : execList) {
+                    // wait 1 second before killing each Executor
+                    try {Thread.sleep(1000);}
+                    catch (InterruptedException e) {}
+                    System.out.println("Killing Executor " + info.getName());
+                    cmdr.kill(info, true);
+                }
+            }
+            else {
+                System.out.println("Killing all Executors at once");
+                cmdr.killAll(true);
+            }
+        }
+        catch (cMsgException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
+    }
+
+
+    /**
+     * Take keyboard input, pass as commands to one Executor,
+     * and print results - like a simple remote terminal.
+     */
+    public static void main(String[] args) {
+        try {
+            String[] arggs = decodeCommandLine(args);
+            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+
+            Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
+
+            Collection<ExecutorInfo> execList = cmdr.getExecutors();
+            for (ExecutorInfo info : execList) {
+                System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
+            }
+
+            // callback prints results or any error
+            class myCB implements CommandCallback {
+                public void callback(Object userObject, CommandReturn ret) {
+                    System.out.println("In callback:");
                     if (ret.hasError()) {
                         System.out.println("  Error = " + ret.getError());
-                    }
-                    if (ret.hasTerminated()) {
-                        System.out.println("  Process = TERMINATED");
                     }
                     if (ret.getOutput() != null) {
                         System.out.println("  Output =");
@@ -1584,133 +1607,39 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
                 }
             }
 
+
             String in;
+            ExecutorInfo info;
+
             while(true) {
+                // read keyboard input
                 in = inputStr("% ");
-                if (execList.size() > 0) {
-                    ArrayList<ExecutorInfo> list = new ArrayList<ExecutorInfo>(execList);
-                    //                                                      monitor, wait
-                    //CommandReturn ret = cmdr.startProcess(list.get(0), in, true, true, new myCB(), null, 10000);
-                    CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  new myCB(), null);
 
-//                    CommandReturn ret = cmdr.startProcess(list.get(0), in, true,  12000);
-//                    System.out.println("Synchronous return:");
-//                    System.out.println("  Callback state = " + ret.getCallbackState());
-//                    if (ret.hasError()) {
-//                        System.out.println("  Error = " + ret.getError());
-//                    }
-//                    if (ret.hasTerminated()) {
-//                        System.out.println("  Process = TERMINATED");
-//                    }
-//                    if (ret.getOutput() != null) {
-//                        System.out.println("  Output =");
-//                        System.out.println(ret.getOutput());
-//                    }
-
-                    //try {Thread.sleep(1000);}
-                    //catch (InterruptedException e) {}
-
-                    //System.out.println("Stop process now");
-                    //cmdr.stop(list.get(0), ret.getId());
-                    //System.out.println("StopAll now");
-                    //cmdr.stopAll(list.get(0));
-//                    System.out.println("Kill process now");
-//                    cmdr.kill(list.get(0), true);
-
-//                    while (true) {
-                        try {Thread.sleep(1000);}
-                        catch (InterruptedException e) {}
-                    System.out.println("After 1 sec --> Callback state = " + ret.getCallbackState());
-
-//                    }
+                // update our list of Executors
+                try {
+                    cmdr.findExecutors(500);
+                    execList = cmdr.getExecutors();
                 }
-            }
+                catch (cMsgException e) {}
 
-            //cmdr.kill(execList.get(0), true);
+                if (execList.size() > 0) {
+                    // pick first one on list to talk to
+                    info = (new ArrayList<ExecutorInfo>(execList)).get(0);
+
+                    // turn input into Executor command
+                    cmdr.startProcess(info, in, true,  new myCB(), null);
+                }
+
+                // 0.1 sec wait
+                try {Thread.sleep(100);}
+                catch (InterruptedException e) {}
+            }
         }
-//        catch (TimeoutException e) {
-//            e.printStackTrace();
-//            System.exit(-1);
-//        }
         catch (cMsgException e) {
             e.printStackTrace();
             System.exit(-1);
         }
     }
-
-    /**
-      * Run as a stand-alone application
-      */
-     public static void main5(String[] args) {
-             String[] arggs = decodeCommandLine(args);
- System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
-        Commander cmdr = null;
-        try {
-            cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
-        }
-        catch (cMsgException e) {
-            e.printStackTrace();
-            return;
-        }
-
-        Collection<ExecutorInfo> execList = cmdr.getExecutors();
-             System.out.println("execList =  "+ execList);
-             for (ExecutorInfo info : execList) {
-                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
-             }
-
-             class myCB implements CommandCallback {
-                 public void callback(Object userObject, CommandReturn commandReturn) {
-                     System.out.println(" %%%%%%%%%%% Ran callback %%%%%%%%%%");
-                     System.out.println("               error   output = \n" + commandReturn.getError());
-                     System.out.println("               regular output = \n" + commandReturn.getOutput());
-                 }
-             }
-
-             String in;
-             while(true) {
-                 in = inputStr("% ");
-//                 try {
-//                     cmdr.findExecutors(500);
-//                 }
-//                 catch (cMsgException e) {
-//                     e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-//                 }
-                 for (ExecutorInfo exec : execList) {
-                     //                                    exec, cmd, monitor,     cb,  cb arg
-                     try {
-                         CommandReturn ret = cmdr.startProcess(exec, in, true,  new myCB(), null);
-                         System.out.println("Return = " + ret);
-                         if (ret.hasError()) {
-                             System.out.println("@@@@@@@ ERROR @@@@@@@:\n" + ret.getError());
-                         }
-                         if (ret.getOutput() != null) {
-                             System.out.println("Regular output:\n" + ret.getOutput());
-                         }
-                         System.out.println("Callback state = " + ret.getCallbackState());
-
-                         try {Thread.sleep(1000);}
-                         catch (InterruptedException e) {}
-
-//                         System.out.println("Stop process now");
-//                         cmdr.stop(exec, ret);
-//                         System.out.println("Kill process now");
-//                         cmdr.kill(exec, true);
-
-//                    while (true) {
-                         try {Thread.sleep(1000);}
-                         catch (InterruptedException e) {}
-                         System.out.println("After 1 sec --> Callback state = " + ret.getCallbackState());
-
-//                    }
-                     }
-                     catch (cMsgException e) {
-                         e.printStackTrace();
-                     }
-                 }
-             }
-
-     }
 
 
 }
