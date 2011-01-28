@@ -1515,13 +1515,10 @@ System.out.println("startProcess: Executor set to stopped");
                 CommandReturn ret = cmdr.startThread(list.get(0),
                                                      "org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer",
                                                      new myCB(), null, serverCon);
-                
-                // Look at the object immediately returned by startThread
-                if (ret.hasError()) {
-                    System.out.println("CommandReturn object has error = " + ret.getError());
-                }
-                if (ret.getOutput() != null) {
-                    System.out.println("Regular output = " + ret.getOutput());
+
+                // Only print out error here if the callback will never be run.
+                if (ret.callbackCancelled()) {
+                    System.out.println("Error: " + ret.getError());
                 }
 
                 // wait 5 seconds
@@ -1610,6 +1607,7 @@ System.out.println("startProcess: Executor set to stopped");
 
             String in;
             ExecutorInfo info;
+            CommandReturn ret;
 
             while(true) {
                 // read keyboard input
@@ -1627,7 +1625,12 @@ System.out.println("startProcess: Executor set to stopped");
                     info = (new ArrayList<ExecutorInfo>(execList)).get(0);
 
                     // turn input into Executor command
-                    cmdr.startProcess(info, in, true,  new myCB(), null);
+                    ret = cmdr.startProcess(info, in, true,  new myCB(), null);
+
+                    // Only print out error here if the callback will never be run.
+                    if (ret.callbackCancelled() && ret.hasError()) {
+                        System.out.println("Error: " + ret.getError());
+                    }
                 }
 
                 // 0.1 sec wait
