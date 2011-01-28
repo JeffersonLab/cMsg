@@ -23,6 +23,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.*;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.awt.*;
@@ -1206,10 +1208,17 @@ System.out.println("startProcess: Executor set to stopped");
      * @param title window title. May be null.
      * @return object containing id number and any process output/error captured
      * @throws cMsgException if arg is null, cmsg communication fails or takes too long,
-     *                       or internal protocol error
+     *                       internal protocol error, or white space in cmd
      */
     public CommandReturn startXterm(ExecutorInfo exec, String cmd, String geometry, String title)
             throws cMsgException {
+
+        // look for while space in the command which is FORBIDDEN
+        Pattern pattern = Pattern.compile("[\\s]+");
+        Matcher matcher = pattern.matcher(cmd);
+        if (matcher.find()) {
+            throw new cMsgException("No white space allowed in command");
+        }
 
         // xterm with scrollbar
         String realCmd = "xterm -sb";
