@@ -611,7 +611,6 @@ System.out.println("startProcess: io error gathering (error) output");
                 catch (InterruptedException e) {}
             }
             catch (Exception e) {
-                e.printStackTrace();
                 // return error message if execution failed
                 try {
                     cMsgPayloadItem item1 = new cMsgPayloadItem("terminated", 1);
