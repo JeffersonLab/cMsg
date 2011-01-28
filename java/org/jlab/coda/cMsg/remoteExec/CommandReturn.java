@@ -190,6 +190,16 @@ public class CommandReturn {
     }
 
     /**
+     * Has the callback been cancelled for any reason?
+     * @return <code>true</code> if callback has already been cancelled, else <code>false</code>.
+     */
+    synchronized public boolean callbackCancelled() {
+        return (callbackState != CallbackState.RUN &&
+                callbackState != CallbackState.NONE &&
+                callbackState != CallbackState.PENDING);
+    }
+
+    /**
      * Get the state of the callback.
      * @return the state of the callback.
      */
