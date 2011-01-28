@@ -1196,9 +1196,9 @@ System.out.println("startProcess: Executor set to stopped");
      * from executor before throwing exeception. Reading from xterm
      * output blocks for some reason so no monitoring of it.<p>
      *
-     * <b>NOTE: The command to run must not have any arguments or it will
-     * most likely fail. If the desired command needs arguments, put it
-     * in a shell script and use the script name as the command.</b>
+     * <b>NOTE: The command to run must not have any arguments (or white space)
+     * or it will most likely fail. If the desired command needs arguments, put
+     * it in a shell script and use the script name as the command.</b>
      *
      * @param exec Executor to start process with.
      * @param cmd command that Executor will run inside xterm. May be null.
@@ -1276,9 +1276,9 @@ System.out.println("startProcess: Executor set to stopped");
      * fill the screen in a conveniently packed manner and run a single given command
      * in each of the xterms.<p>
      *
-     * <b>NOTE: The command to run must not have any arguments or it will
-     * most likely fail. If the desired command needs arguments, put it
-     * in a shell script and use the script name as the command.</b>
+     * <b>NOTE: The command to run must not have any arguments (or white space)
+     * or it will most likely fail. If the desired command needs arguments, put
+     * it in a shell script and use the script name as the command.</b>
      *
      * @param executors list of Executors to use.
      * @param command command to run in each executor which must <b>not</b> have args.
@@ -1312,9 +1312,9 @@ System.out.println("startProcess: Executor set to stopped");
      * fill the screen in a conveniently packed manner and run a single, different
      * command in each of the xterms.<p>
      *
-     * <b>NOTE: The commands to run must not have any arguments or they will
-     * most likely fail. If the desired commands need arguments, put each
-     * in its own shell script and use the script name as the command.</b>
+     * <b>NOTE: The commands to run must not have any arguments (or white space)
+     * or they will most likely fail. If the desired commands need arguments, put
+     * each in its own shell script and use the script name as the command.</b>
      *
      * @param executors list of Executors to use.
      * @param commands list of commands to run, one in each executor. Must <b>not</b> have args.
