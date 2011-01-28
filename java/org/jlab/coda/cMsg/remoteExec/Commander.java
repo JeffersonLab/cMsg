@@ -656,45 +656,6 @@ System.out.println("set to stopped in stop");
 
 
     /**
-     * Start an xterm with a process using the specified executor.
-     * Do not wait for it to exit. Allows 2 seconds for return message
-     * from executor before throwing exeception. Reading from xterm
-     * output blocks for some reason so no monitoring of it.
-     *
-     * @param exec Executor to start process with.
-     * @param cmd command that Executor will run inside xterm. May be null.
-     * @param geometry geometry info in the form WxH+-X+-Y with W & H in chars, X & Y in pixels;
-     *                 for example 75x10+0+200 or 75x10-10-20. May be null.
-     * @param title window title. May be null.
-     * @return object containing id number and any process output/error captured
-     * @throws cMsgException if arg is null, cmsg communication fails or takes too long, or internal protocol error
-     */
-    public CommandReturn startXterm(ExecutorInfo exec, String cmd, String geometry, String title)
-            throws cMsgException {
-
-        // xterm with scrollbar
-        String realCmd = "xterm -sb";
-
-        // window geometry
-        if (geometry != null) {
-            realCmd += " -geometry " + geometry;
-        }
-
-        // window title
-        if (title != null) {
-            realCmd += " -T " + title;
-        }
-
-        // cmd to run in xterm
-        if (cmd != null && cmd.length() > 0) {
-            realCmd += " -hold -e " + cmd;
-        }
-
-        return startProcess(exec, realCmd, false, null, null);
-    }
-
-
-    /**
      * This method is an asynchronous means of starting an external process
      * using the specified executor.
      * The executor waits 0.1 seconds for the process to finish. If the process has terminated,
@@ -791,7 +752,7 @@ System.out.println("set to stopped in stop");
 
         int myId = uniqueId.incrementAndGet();
 
-        CommandReturn cmdRet = new CommandReturn(CallbackState.NONE);
+        CommandReturn cmdRet = new CommandReturn(this, exec, CallbackState.NONE);
         // register callback for execution on process termination
         if (callback != null) {
             cmdRet.registerCallback(callback, userObject);
@@ -1004,7 +965,7 @@ System.out.println("startProcess: Executor set to stopped");
 
         int myId = uniqueId.incrementAndGet();
 
-        CommandReturn cmdRet = new CommandReturn(CallbackState.NONE);
+        CommandReturn cmdRet = new CommandReturn(this, exec, CallbackState.NONE);
         // register callback for execution on process termination
         if (callback != null) {
             cmdRet.registerCallback(callback, userObject);
@@ -1226,67 +1187,50 @@ System.out.println("startProcess: Executor set to stopped");
         return geoList;
     }
 
-    /**
-     * This method is example of how to make a bunch of identical xterm windows
-     * fill the screen in a conveniently packed manner and run a single given command
-     * in each of the xterms.
-     *
-     * @param executors list of Executors to use.
-     * @param command command to run in each executor.
-     * @param widthChars width of each xterm in characters.
-     * @param heightChars number of lines in each xterm.
-     *
-     * @return list of CommandReturn objects.
-     *
-     * @throws cMsgException
-     */
-    public List<CommandReturn> startCommandInWindows(List<ExecutorInfo> executors,
-                                                     String command,
-                                                     int widthChars, int heightChars)
-            throws cMsgException {
-
-        List<String> geometries = xtermGeometry(executors.size(), widthChars, heightChars);
-        ArrayList<CommandReturn> returnList = new ArrayList<CommandReturn>(executors.size());
-
-        for (int i=0; i <executors.size(); i++) {
-            // create xterm and add return object to list
-            returnList.add(startXterm(executors.get(i), command,
-                                      geometries.get(i), executors.get(i).getName()));
-        }
-
-        return returnList;
-    }
-
 
     /**
-     * This method is example of how to make a bunch of identical xterm windows
-     * fill the screen in a conveniently packed manner and run a single, different
-     * command in each of the xterms.
+     * Start an xterm and run the specified command in it using the specified executor.
+     * Do not wait for it to exit. Allows 2 seconds for return message
+     * from executor before throwing exeception. Reading from xterm
+     * output blocks for some reason so no monitoring of it.<p>
      *
-     * @param executors list of Executors to use.
-     * @param commands list of commands to run, one in each executor.
-     * @param widthChars width of each xterm in characters.
-     * @param heightChars number of lines in each xterm.
+     * <b>NOTE: The command to run must not have any arguments or it will
+     * most likely fail. If the desired command needs arguments, put it
+     * in a shell script and use the script name as the command.</b>
      *
-     * @return list of CommandReturn objects.
-     *
-     * @throws cMsgException
+     * @param exec Executor to start process with.
+     * @param cmd command that Executor will run inside xterm. May be null.
+     *            Must <b>not</b> have args.
+     * @param geometry geometry info in the form WxH+-X+-Y with W & H in chars, X & Y in pixels;
+     *                 for example 75x10+0+200 or 75x10-10-20. May be null.
+     * @param title window title. May be null.
+     * @return object containing id number and any process output/error captured
+     * @throws cMsgException if arg is null, cmsg communication fails or takes too long,
+     *                       or internal protocol error
      */
-    public List<CommandReturn> startCommandsInWindows(List<ExecutorInfo> executors,
-                                                      List<String> commands,
-                                                      int widthChars, int heightChars)
+    public CommandReturn startXterm(ExecutorInfo exec, String cmd, String geometry, String title)
             throws cMsgException {
 
-        List<String> geometries = xtermGeometry(executors.size(), widthChars, heightChars);
-        ArrayList<CommandReturn> returnList = new ArrayList<CommandReturn>(executors.size());
+        // xterm with scrollbar
+        String realCmd = "xterm -sb";
 
-        for (int i=0; i <executors.size(); i++) {
-            // create xterm and add return object to list
-            returnList.add(startXterm(executors.get(i), commands.get(i),
-                                      geometries.get(i), executors.get(i).getName()));
+        // window geometry
+        if (geometry != null) {
+            realCmd += " -geometry " + geometry;
         }
 
-        return returnList;
+        // window title
+        if (title != null) {
+            realCmd += " -T " + title;
+        }
+
+        // cmd to run in xterm
+        if (cmd != null && cmd.length() > 0) {
+            realCmd += " -hold -e "  + cmd + ";tcsh";
+        }
+//System.out.println("CMD = " + realCmd);
+
+        return startProcess(exec, realCmd, false, null, null);
     }
 
 
@@ -1318,22 +1262,98 @@ System.out.println("startProcess: Executor set to stopped");
     }
 
 
+    /**
+     * This method is example of how to make a bunch of identical xterm windows
+     * fill the screen in a conveniently packed manner and run a single given command
+     * in each of the xterms.<p>
+     *
+     * <b>NOTE: The command to run must not have any arguments or it will
+     * most likely fail. If the desired command needs arguments, put it
+     * in a shell script and use the script name as the command.</b>
+     *
+     * @param executors list of Executors to use.
+     * @param command command to run in each executor which must <b>not</b> have args.
+     * @param widthChars width of each xterm in characters.
+     * @param heightChars number of lines in each xterm.
+     *
+     * @return list of CommandReturn objects.
+     *
+     * @throws cMsgException
+     */
+    public List<CommandReturn> startCommandInWindows(List<ExecutorInfo> executors,
+                                                     String command,
+                                                     int widthChars, int heightChars)
+            throws cMsgException {
 
-    public static void main0(String[] args) {
+        List<String> geometries = xtermGeometry(executors.size(), widthChars, heightChars);
+        ArrayList<CommandReturn> returnList = new ArrayList<CommandReturn>(executors.size());
+
+        for (int i=0; i <executors.size(); i++) {
+            // create xterm and add return object to list
+            returnList.add(startXterm(executors.get(i), command,
+                                      geometries.get(i), executors.get(i).getName()));
+        }
+
+        return returnList;
+    }
+
+
+    /**
+     * This method is example of how to make a bunch of identical xterm windows
+     * fill the screen in a conveniently packed manner and run a single, different
+     * command in each of the xterms.<p>
+     *
+     * <b>NOTE: The commands to run must not have any arguments or they will
+     * most likely fail. If the desired commands need arguments, put each
+     * in its own shell script and use the script name as the command.</b>
+     *
+     * @param executors list of Executors to use.
+     * @param commands list of commands to run, one in each executor. Must <b>not</b> have args.
+     * @param widthChars width of each xterm in characters.
+     * @param heightChars number of lines in each xterm.
+     *
+     * @return list of CommandReturn objects.
+     *
+     * @throws cMsgException
+     */
+    public List<CommandReturn> startCommandsInWindows(List<ExecutorInfo> executors,
+                                                      List<String> commands,
+                                                      int widthChars, int heightChars)
+            throws cMsgException {
+
+        List<String> geometries = xtermGeometry(executors.size(), widthChars, heightChars);
+        ArrayList<CommandReturn> returnList = new ArrayList<CommandReturn>(executors.size());
+
+        for (int i=0; i <executors.size(); i++) {
+            // create xterm and add return object to list
+            returnList.add(startXterm(executors.get(i), commands.get(i),
+                                      geometries.get(i), executors.get(i).getName()));
+        }
+
+        return returnList;
+    }
+
+
+    //-------------------------------------------
+    // Some examples of using the Commander class
+    //-------------------------------------------
+
+    
+    public static void main(String[] args) {
 
         try {
             String[] arggs = decodeCommandLine(args);
-System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
+
             Collection<ExecutorInfo> execList = cmdr.getExecutors();
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
             }
 
-
             if (execList.size() > 0) {
-                List<CommandReturn> retList = cmdr.startCommandInWindows(new ArrayList<ExecutorInfo>(execList),
-                                                                         "who", 85, 8);
+                cmdr.startCommandInWindows(new ArrayList<ExecutorInfo>(execList), "hey", 85, 8);
             }
 
             while(true) {
@@ -1507,7 +1527,7 @@ System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = 
     /**
      * Run as a stand-alone application
      */
-    public static void main(String[] args) {
+    public static void main4(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
 System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
