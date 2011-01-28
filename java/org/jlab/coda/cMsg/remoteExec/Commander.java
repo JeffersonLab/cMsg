@@ -1226,7 +1226,7 @@ System.out.println("startProcess: Executor set to stopped");
 
         // cmd to run in xterm
         if (cmd != null && cmd.length() > 0) {
-            realCmd += " -hold -e "  + cmd + ";tcsh";
+            realCmd += " -hold -e "  + cmd + ";bash";
         }
 //System.out.println("CMD = " + realCmd);
 
@@ -1338,7 +1338,7 @@ System.out.println("startProcess: Executor set to stopped");
     // Some examples of using the Commander class
     //-------------------------------------------
 
-    
+    /** Run command "ls" inside xterm in all Executors. */
     public static void main(String[] args) {
 
         try {
@@ -1353,7 +1353,7 @@ System.out.println("startProcess: Executor set to stopped");
             }
 
             if (execList.size() > 0) {
-                cmdr.startCommandInWindows(new ArrayList<ExecutorInfo>(execList), "hey", 85, 8);
+                cmdr.startCommandInWindows(new ArrayList<ExecutorInfo>(execList), "ls", 85, 8);
             }
 
             while(true) {
@@ -1367,12 +1367,15 @@ System.out.println("startProcess: Executor set to stopped");
         }
     }
 
+
     public static void main1(String[] args) {
 
         try {
             String[] arggs = decodeCommandLine(args);
- System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
+
             Collection<ExecutorInfo> execList = cmdr.getExecutors();
             for (ExecutorInfo info : execList) {
                 System.out.println("Found executor: name = " + info.getName() + " running on " + info.getOS());
