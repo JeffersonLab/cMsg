@@ -1214,10 +1214,12 @@ System.out.println("startProcess: Executor set to stopped");
             throws cMsgException {
 
         // look for while space in the command which is FORBIDDEN
-        Pattern pattern = Pattern.compile("[\\s]+");
-        Matcher matcher = pattern.matcher(cmd);
-        if (matcher.find()) {
-            throw new cMsgException("No white space allowed in command");
+        if (cmd != null) {
+            Pattern pattern = Pattern.compile("[\\s]+");
+            Matcher matcher = pattern.matcher(cmd);
+            if (matcher.find()) {
+                throw new cMsgException("No white space allowed in command");
+            }
         }
 
         // xterm with scrollbar
@@ -1347,8 +1349,9 @@ System.out.println("startProcess: Executor set to stopped");
     // Some examples of using the Commander class
     //-------------------------------------------
 
-    /** Run command "ls" inside xterm in all Executors. */
-    public static void main(String[] args) {
+
+    /** Run the command "ls" inside an xterm in all Executors. */
+    public static void main0(String[] args) {
 
         try {
             String[] arggs = decodeCommandLine(args);
@@ -1377,7 +1380,8 @@ System.out.println("startProcess: Executor set to stopped");
     }
 
 
-    public static void main1(String[] args) {
+    /** Start up 20 xterms in one Executor, then shut them down one-by-one. */
+    public static void main(String[] args) {
 
         try {
             String[] arggs = decodeCommandLine(args);
@@ -1396,7 +1400,7 @@ System.out.println("startProcess: Executor set to stopped");
                                                                 list.get(0).getName(),
                                                                 20, 85, 8);
                 for (CommandReturn ret : retList) {
-                    cmdr.stop(list.get(0), ret);
+                    ret.stop();
                     try {Thread.sleep(200);}
                     catch (InterruptedException e) {}
                 }
