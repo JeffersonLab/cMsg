@@ -259,7 +259,7 @@ public class Executor {
                         return;
                     }
                     commandType = item.getString();
-System.out.println("commandtype = " + commandType);
+//System.out.println("commandtype = " + commandType);
                     CommandType type = CommandType.getCommandType(commandType);
                     if (type == null) {
                         System.out.println("Reject message, command type not recognized");
@@ -719,7 +719,7 @@ System.out.println("startProcess: io error gathering (error) output");
                 // (in which case it is not interested in this result anymore).
                 //----------------------------------------------------------------
                 if (info.wait) {
-System.out.println("SENDING MSG TO FOR WAITER ......");
+//System.out.println("Sending msg to waiting Commander ......");
                     cmsgConnection.send(responseMsg);
                     return;
                 }
@@ -768,7 +768,7 @@ System.out.println("SENDING MSG TO FOR WAITER ......");
                     catch (cMsgException e) {/* never happen */}
                 }
 
-System.out.println("SENDING MSG TO RUN CALLBACK FOR PROCESS ......");
+//System.out.println("Sending msg to run callback for Commander ......");
                 cmsgConnection.send(imDoneMsg);
             }
             catch (cMsgException e) {
