@@ -235,9 +235,7 @@ class rcListeningThread extends Thread {
 
 
     /**
-     * Class to handle a socket connection to the client of which
-     * there are 2. One connections handles the server's keepAlive
-     * requests of the client. The other handles everything else.
+     * Class to handle a socket connection to the client.
      */
     private class ClientHandler extends Thread {
         /** Socket channel data is coming in on. */
