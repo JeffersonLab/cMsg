@@ -128,7 +128,7 @@ class cMsgServerBridge {
         /** Send message's sysMsgId on this server. */
         int sysMsgId;
         /** Allow this callback to skip extra incoming messages since only one is needed.  */
-        AtomicBoolean skip = new AtomicBoolean(false);
+        AtomicBoolean skip = new AtomicBoolean();
 
         /**
          * Constructor.
