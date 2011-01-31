@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentHashMap;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This class acts to bridge two cMsg domain servers by existing in one server
@@ -45,7 +46,7 @@ class cMsgServerBridge {
     String serverName;
 
     /** The cloud status of the cMsg server this server is connected to. */
-    private volatile int cloudStatus = cMsgNameServer.UNKNOWNCLOUD;
+    private AtomicInteger cloudStatus = new AtomicInteger(cMsgNameServer.UNKNOWNCLOUD);
 
     /** The TCP port this name server is listening on. */
     private int thisNsTcpPort;
@@ -280,7 +281,7 @@ class cMsgServerBridge {
     * @return cloud status
     */
     int getCloudStatus() {
-        return cloudStatus;
+        return cloudStatus.get();
     }
 
 
@@ -292,7 +293,7 @@ class cMsgServerBridge {
      * @param cloudStatus cloud status of the server this is a bridge to
      */
     void setCloudStatus(int cloudStatus) {
-        this.cloudStatus = cloudStatus;
+        this.cloudStatus.set(cloudStatus);
     }
 
 
