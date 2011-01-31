@@ -22,8 +22,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.io.InputStream;
-import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -54,8 +54,6 @@ public class Executor {
     private String name;
     /** Connection to cMsg server. */
     private cMsg cmsgConnection;
-    /** Are we connected to a cMsg server? */
-    private volatile boolean connected;
 
     /** Map of running processes indexed by unique id. */
     private Hashtable<Integer, CommandInfo> processMap = new Hashtable<Integer, CommandInfo>(100);
@@ -79,8 +77,8 @@ public class Executor {
         boolean monitor;
         boolean wait;
         boolean isProcess;
-        volatile boolean killed;
-        volatile boolean stopped;
+        AtomicBoolean killed;
+        AtomicBoolean stopped;
         cMsgMessage argsMessage;
     }
 
@@ -440,10 +438,10 @@ public class Executor {
         synchronized(processMap) {
             for (CommandInfo info : processMap.values()) {
                 if (kill) {
-                    info.killed = true;
+                    info.killed.set(true);
                 }
                 else {
-                    info.stopped = true;
+                    info.stopped.set(true);
                 }
                 info.process.destroy();
             }
@@ -453,10 +451,10 @@ public class Executor {
         synchronized(threadMap) {
             for (CommandInfo info : threadMap.values()) {
                 if (kill) {
-                    info.killed = true;
+                    info.killed.set(true);
                 }
                 else {
-                    info.stopped = true;
+                    info.stopped.set(true);
                 }
                 info.execThread.shutItDown();
             }
@@ -483,13 +481,12 @@ public class Executor {
         }
 
         // stop process
+        info.stopped.set(true);
         if (info.isProcess) {
-            info.stopped = true;
             info.process.destroy();
         }
-        // stop thread (doesn't matter if alive or not)
         else {
-            info.stopped = true;
+            // stop thread (doesn't matter if alive or not)
             info.execThread.shutItDown();
         }
 
@@ -693,14 +690,14 @@ System.out.println("startProcess: io error gathering (error) output");
             //---------------------------------------------------------
             // if process was stopped/killed, include that in return message
             //---------------------------------------------------------
-            if (info.killed) {
+            if (info.killed.get()) {
                 try {
                     cMsgPayloadItem item = new cMsgPayloadItem("killed", 1);
                     responseMsg.addPayloadItem(item);
                 }
                 catch (cMsgException e) {/* never happen */}
             }
-            else if (info.stopped) {
+            else if (info.stopped.get()) {
                 try {
                     cMsgPayloadItem item = new cMsgPayloadItem("stopped", 1);
                     responseMsg.addPayloadItem(item);
@@ -752,14 +749,14 @@ System.out.println("startProcess: io error gathering (error) output");
                     imDoneMsg.addPayloadItem(item);
                 }
 
-                if (info.killed) {
+                if (info.killed.get()) {
                     try {
                         cMsgPayloadItem item = new cMsgPayloadItem("killed", 1);
                         imDoneMsg.addPayloadItem(item);
                     }
                     catch (cMsgException e) {/* never happen */}
                 }
-                else if (info.stopped) {
+                else if (info.stopped.get()) {
                     try {
                         cMsgPayloadItem item = new cMsgPayloadItem("stopped", 1);
                         imDoneMsg.addPayloadItem(item);
@@ -1087,14 +1084,14 @@ System.out.println("startProcess: io error gathering (error) output");
             //---------------------------------------------------------
             // if thread was stopped/killed, include that in return message
             //---------------------------------------------------------
-            if (info.killed) {
+            if (info.killed.get()) {
                 try {
                     cMsgPayloadItem item = new cMsgPayloadItem("killed", 1);
                     responseMsg.addPayloadItem(item);
                 }
                 catch (cMsgException e) {/* never happen */}
             }
-            else if (info.stopped) {
+            else if (info.stopped.get()) {
                 try {
                     cMsgPayloadItem item = new cMsgPayloadItem("stopped", 1);
                     responseMsg.addPayloadItem(item);
@@ -1133,14 +1130,14 @@ System.out.println("startProcess: io error gathering (error) output");
                 imDoneMsg.addPayloadItem(item1);
                 cMsgPayloadItem item2 = new cMsgPayloadItem("id", info.commandId);
                 imDoneMsg.addPayloadItem(item2);
-                if (info.killed) {
+                if (info.killed.get()) {
                     try {
                         cMsgPayloadItem item = new cMsgPayloadItem("killed", 1);
                         imDoneMsg.addPayloadItem(item);
                     }
                     catch (cMsgException e) {/* never happen */}
                 }
-                else if (info.stopped) {
+                else if (info.stopped.get()) {
                     try {
                         cMsgPayloadItem item = new cMsgPayloadItem("stopped", 1);
                         imDoneMsg.addPayloadItem(item);
