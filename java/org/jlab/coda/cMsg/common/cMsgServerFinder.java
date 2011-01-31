@@ -258,7 +258,7 @@ public class cMsgServerFinder {
      * server search parameters (eg. expid, ports) have been changed or added to.
      * @return true if "find" needs to be called again, else false
      */
-    public boolean needsUpdate() {
+    synchronized public boolean needsUpdate() {
         return (needToUpdateCmsg || needToUpdateRc);
     }
 
