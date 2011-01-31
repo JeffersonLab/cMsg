@@ -393,14 +393,14 @@ public class cMsg extends cMsgDomainAdapter {
                 failoverUdls.add(p);
             }
             failoverIndex = -1;
-        }
 
-        // If we have more than one valid UDL, we can implement waiting
-        // for a successful failover before aborting commands to the server
-        // that were interrupted due to server failure.
-        useFailovers = failoverUdls.size() > 1 ||
-                       failoverUdls.get(0).failover == cMsgConstants.failoverCloud ||
-                       failoverUdls.get(0).failover == cMsgConstants.failoverCloudOnly;
+            // If we have more than one valid UDL, we can implement waiting
+            // for a successful failover before aborting commands to the server
+            // that were interrupted due to server failure.
+            useFailovers = failoverUdls.size() > 1 ||
+                    failoverUdls.get(0).failover == cMsgConstants.failoverCloud ||
+                    failoverUdls.get(0).failover == cMsgConstants.failoverCloudOnly;
+        }
     }
 
 
