@@ -23,6 +23,7 @@ import java.io.*;
 import java.net.*;
 import java.nio.channels.UnresolvedAddressException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -73,7 +74,7 @@ public class cMsg extends cMsgDomainAdapter {
      * Have all the existing subscriptions been successfully resubscribed on the
      * failover server? This member is used as a flag between different threads.
      */
-    volatile private boolean resubscriptionsComplete;
+    private AtomicBoolean resubscriptionsComplete;
 
     /** Does this client have a local server in a cloud to failover to? */
     private boolean haveLocalCloudServer;
@@ -337,7 +338,7 @@ public class cMsg extends cMsgDomainAdapter {
             notConnectLock.lock();
 
             if (waitForResubscribes) {
-                if (connected && resubscriptionsComplete) {
+                if (connected && resubscriptionsComplete.get()) {
 //System.out.println("failoverSuccessful: got new connection 1");
                     return true;
                 }
@@ -3178,7 +3179,7 @@ System.out.println("disconnect: IO error");
                 resubscribe(sub.getSubject(),sub.getType());
             }
         }
-        resubscriptionsComplete = true;
+        resubscriptionsComplete.set(true);
         // The problem with restoring subscribeAndGets is that a thread already exists and
         // is waiting for a msg to arrive. To call subscribeAndGet again will only block
         // the thread running this method. So for now, only subscribes get re-established
@@ -3463,7 +3464,7 @@ System.out.println("disconnect: IO error");
                     if (cloudServers.size() < 1) {
                         noMoreCloudServers = true;
                     }
-                    resubscriptionsComplete = false;
+                    resubscriptionsComplete.set(false);
 //                    if (currentParsedUDL == null) {
 //                        System.out.println("keepAliveThread: currentParsedUDL = null !!!");
 //                    }
