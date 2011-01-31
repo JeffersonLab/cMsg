@@ -77,8 +77,8 @@ public class Executor {
         boolean monitor;
         boolean wait;
         boolean isProcess;
-        AtomicBoolean killed;
-        AtomicBoolean stopped;
+        AtomicBoolean killed = new AtomicBoolean();
+        AtomicBoolean stopped = new AtomicBoolean();
         cMsgMessage argsMessage;
     }
 

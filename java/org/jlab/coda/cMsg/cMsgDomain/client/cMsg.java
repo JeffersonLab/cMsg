@@ -74,7 +74,7 @@ public class cMsg extends cMsgDomainAdapter {
      * Have all the existing subscriptions been successfully resubscribed on the
      * failover server? This member is used as a flag between different threads.
      */
-    private AtomicBoolean resubscriptionsComplete;
+    private AtomicBoolean resubscriptionsComplete = new AtomicBoolean();
 
     /** Does this client have a local server in a cloud to failover to? */
     private boolean haveLocalCloudServer;
