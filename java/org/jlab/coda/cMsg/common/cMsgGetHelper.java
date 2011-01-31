@@ -16,8 +16,9 @@
 
 package org.jlab.coda.cMsg.common;
 
-import org.jlab.coda.cMsg.common.cMsgMessageFull;
 import org.jlab.coda.cMsg.cMsgConstants;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 /**
@@ -34,7 +35,7 @@ public class cMsgGetHelper {
     cMsgMessageFull message;
 
     /** Has the "subscribeAndGet" or "sendAndGet" call timed out? */
-    volatile boolean timedOut;
+    AtomicBoolean timedOut = new AtomicBoolean(true);
 
     /**
      * When a "subscribeAndGet" or "sendAndGet" is woken up by an error condition,
@@ -47,7 +48,7 @@ public class cMsgGetHelper {
 
 
     public cMsgGetHelper() {
-        timedOut  = true;
+        //timedOut.set(true);
         errorCode = cMsgConstants.ok;
     }
 
@@ -75,7 +76,7 @@ public class cMsgGetHelper {
      *              the client still needs to wait for it
      */
     public boolean needToWait() {
-        return timedOut;
+        return timedOut.get();
     }
 
     /**
@@ -83,7 +84,7 @@ public class cMsgGetHelper {
      * @return true if the "subscribeAndGet" or "sendAndGet" call timed out.
      */
     public boolean isTimedOut() {
-        return timedOut;
+        return timedOut.get();
     }
 
     /**
@@ -91,7 +92,7 @@ public class cMsgGetHelper {
      * @param timedOut boolean telling whether he "subscribeAndGet" or "sendAndGet" call timed out or not.
      */
     public void setTimedOut(boolean timedOut) {
-        this.timedOut = timedOut;
+        this.timedOut.set(timedOut);
     }
 
     /**
