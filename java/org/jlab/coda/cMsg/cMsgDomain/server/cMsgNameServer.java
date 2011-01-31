@@ -166,7 +166,7 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
     String nsMonitorXML;
 
     /** If true, this server does NOT send an XML string containing its state to all clients. */
-    volatile boolean monitoringOff;
+    boolean monitoringOff;
 
     /**
      * Password that clients need to match before being allowed to connect.
@@ -189,7 +189,7 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
      * Does this server stand alone and NOT allow bridges
      * to/from other cMsg subdomain servers?
      */
-    volatile boolean standAlone;
+    boolean standAlone;
 
     /**
      * cMsg server whose cloud this server is to be joined to.
