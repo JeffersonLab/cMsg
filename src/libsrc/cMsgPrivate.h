@@ -36,6 +36,8 @@
 extern "C" {
 #endif
 
+#include <stdlib.h>
+
 #ifdef VXWORKS
 #define uintptr_t unsigned int
 #define intptr_t  int

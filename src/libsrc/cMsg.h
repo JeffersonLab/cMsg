@@ -100,6 +100,7 @@
 
 
 /* required includes */
+#include <stdlib.h>
 #include <time.h>
 #ifndef _cMsgConstants_h
 #include "cMsgConstants.h"
