@@ -319,10 +319,10 @@ class rcListeningThread extends Thread {
 
                         // (rc) server finishing connect loop
                         case cMsgConstants.msgRcConnect:
-System.out.println("Got rc connect message!!!");
+//System.out.println("Got rc connect message!!!");
                             // read the message
                             msg = readIncomingMessage();
-System.out.println("Finished reading message");
+//System.out.println("Finished reading message");
 
                             // We need 3 pieces of info from the server: 1) server's host,
                             // 2) server's UDP port, 3) server's TCP port. These are in the
@@ -333,7 +333,7 @@ System.out.println("Finished reading message");
                             client.rcTcpServerPort = Integer.parseInt(ports[1]);
 
                             if (client.isConnected()) {
-System.out.println("Reestablish broken socket, do udp connect ...");
+//System.out.println("Reestablish broken socket, do udp connect ...");
                                 // Reestablish the broken socket.
                                 // Create a UDP "connection". This means security check is done only once
                                 // and communication with any other host/port is not allowed.
@@ -342,22 +342,22 @@ System.out.println("Reestablish broken socket, do udp connect ...");
                                                                           client.rcServerAddress, client.rcUdpServerPort);
 
                                 // create a TCP connection to the RC Server
-System.out.println("Do tcp connect ...");
+//System.out.println("Do tcp connect ...");
                                 client.tcpSocket = new Socket(client.rcServerAddress, client.rcTcpServerPort);
                                 client.tcpSocket.setTcpNoDelay(true);
                                 client.tcpSocket.setSendBufferSize(65535);
                                 client.domainOut = new DataOutputStream(
                                         new BufferedOutputStream(client.tcpSocket.getOutputStream(), 65536));
-System.out.println("Done connecting");
+//System.out.println("Done connecting");
                             }
                             else {
-System.out.println("client not connect yet");
+//System.out.println("client not connect yet");
                                 // complete the client's connect() call
                                 client.connectCompletion.countDown();
                             }
 
                             // Send back a response - the name of this client
-System.out.println("write back response to rc server");
+//System.out.println("write back response to rc server");
                             out.writeInt(client.getName().length());
                             try {
                                 out.write(client.getName().getBytes("US-ASCII"));
