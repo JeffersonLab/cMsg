@@ -222,6 +222,7 @@ System.out.print("RC server: try starting tcp & udp listening threads ... ");
                         }
                     }
                 }
+System.out.print("done with TCP ... ");
                 // Get the port selected for listening on
                 localTcpPort = tcpListener.getPort();
 
@@ -239,7 +240,7 @@ System.out.print("RC server: try starting tcp & udp listening threads ... ");
                         }
                     }
                 }
-System.out.println("done!");
+System.out.println("done with UDP");
                 // Get the port selected for communicating on
                 localUdpPort = udpListener.getPort();
 
