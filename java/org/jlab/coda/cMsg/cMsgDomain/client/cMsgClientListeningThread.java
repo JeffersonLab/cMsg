@@ -669,7 +669,7 @@ class cMsgClientListeningThread extends Thread {
      */
     private void wakeCloudLock(int response) {
 
-        serverClient.gotCloudLock = (response == 1);
+        serverClient.gotCloudLock.set(response == 1);
         cMsgGetHelper helper = serverClient.cloudLockHelper;
         if (helper == null) {
             return;
@@ -689,7 +689,7 @@ class cMsgClientListeningThread extends Thread {
      */
     private void wakeRegistrationLock(int response) {
 
-        serverClient.gotRegistrationLock = (response == 1);
+        serverClient.gotRegistrationLock.set(response == 1);
         cMsgGetHelper helper = serverClient.registrationLockHelper;
         if (helper == null) {
             return;
