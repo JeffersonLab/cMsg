@@ -184,19 +184,23 @@ public class RCServer extends cMsgDomainAdapter {
         }
 
         // cannot run this simultaneously with any other public method
+System.out.print("Try to grab connectLock ... ");
         connectLock.lock();
+System.out.println("got it!");
 
         try {
             if (connected) {
-//System.out.println("RC server: using already established connection with RC client");
+System.out.println("RC server: using already established connection with RC client, so return");
                 return;
             }
 
             try {
                 // Create an object to deliver messages to the RC client.
+System.out.println("RC server: create connection with RC client ... ");
                 createTCPClientConnection(rcClientHost, rcClientPort);
 
                 // Start listening for tcp connections
+System.out.print("RC server: try starting tcp & udp listening threads ... ");
                 tcpListener = new rcTcpListeningThread(this);
                 tcpListener.start();
 
@@ -235,6 +239,7 @@ public class RCServer extends cMsgDomainAdapter {
                         }
                     }
                 }
+System.out.println("done!");
                 // Get the port selected for communicating on
                 localUdpPort = udpListener.getPort();
 
@@ -242,6 +247,7 @@ public class RCServer extends cMsgDomainAdapter {
                 cMsgMessageFull msg = new cMsgMessageFull();
                 msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
                 msg.setText(localUdpPort+":"+localTcpPort);
+System.out.println("deliver connect msg to client waiting for 3 way connect");
                 deliverMessage(msg, cMsgConstants.msgRcConnect);
 
                 connected = true;
@@ -256,6 +262,7 @@ public class RCServer extends cMsgDomainAdapter {
         finally {
             connectLock.unlock();
         }
+System.out.println("RC Server: done");
 
         return;
     }
@@ -294,6 +301,7 @@ public class RCServer extends cMsgDomainAdapter {
      */
     private void createTCPClientConnection(String clientHost, int clientPort) throws IOException {
         try {
+System.out.println("RC Server: make tcp socket to " + clientHost + " on port " + clientPort);
             socket = new Socket(clientHost, clientPort);
             // Set tcpNoDelay so no packets are delayed
             socket.setTcpNoDelay(true);
@@ -305,10 +313,12 @@ public class RCServer extends cMsgDomainAdapter {
             out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
 
             // send some ints identifying us as a valid rc Domain server ("cMsg is cool" in ascii)
+System.out.print("RC Server: will send 3 magic ints ... ");
             out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
             out.flush();
+System.out.println("sent!");
         }
         catch (IOException e) {
             if (in != null) try {in.close();} catch (IOException e1) {}
@@ -487,6 +497,7 @@ public class RCServer extends cMsgDomainAdapter {
         // size of everything sent (except "size" itself which is first integer)
         int size = len[0] + len[1] + len[2] + len[3] + len[4] + len[5] + binLength + 4 * 18;
 
+System.out.println("start writing");
         out.writeInt(size);
         out.writeInt(msgType);
         out.writeInt(msg.getVersion());
@@ -530,8 +541,10 @@ public class RCServer extends cMsgDomainAdapter {
             e.printStackTrace();
         }
         out.flush();
+        System.out.println("done writing");
 
         if (msgType == cMsgConstants.msgRcConnect) {
+System.out.println("wait for response");
             int lengthClientName = in.readInt();
 
             // read all string bytes
@@ -541,6 +554,7 @@ public class RCServer extends cMsgDomainAdapter {
             // read subject
             rcClientName = new String(bytes, 0, lengthClientName, "US-ASCII");
         }
+System.out.println("response finished");
 
         return;
     }
