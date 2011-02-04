@@ -21,6 +21,7 @@ import org.jlab.coda.cMsg.common.cMsgCallbackThread;
 import org.jlab.coda.cMsg.common.*;
 
 import java.io.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -321,10 +322,12 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             // create a thread which will receive any responses to our multicast
+System.out.println("Connect: RC client " + name + ": will start multicast receiver thread");
             MulticastReceiver receiver = new MulticastReceiver();
             receiver.start();
 
             // create a thread which will send our multicast
+System.out.println("Connect: RC client " + name + ": will start multicast sender thread");
             Multicaster sender = new Multicaster(udpPacket);
             sender.start();
 
@@ -351,7 +354,7 @@ public class RunControl extends cMsgDomainAdapter {
                 throw new cMsgException("No response to UDP multicast received");
             }
             else {
-//System.out.println("Got a response!");
+System.out.println("Connect: got a response to multicast!");
             }
 
             // Now that we got a response from the RC Multicast server,
@@ -363,6 +366,7 @@ public class RunControl extends cMsgDomainAdapter {
             boolean completed = false;
             if (connectTimeout > 0) {
                 try {
+System.out.println("Connect: waiting for a response to final connection (with timeout)");
                     if (connectCompletion.await(connectTimeout, TimeUnit.MILLISECONDS)) {
                         completed = true;
                     }
@@ -371,8 +375,11 @@ public class RunControl extends cMsgDomainAdapter {
             }
             // wait forever
             else {
+System.out.println("Connect: waiting for a response to final connection (no timeout)");
                 try { connectCompletion.await(); completed = true;}
-                catch (InterruptedException e) {}
+                catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
 
             // RC Multicast server told me to abandon the connection attempt
@@ -381,11 +388,11 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             if (!completed) {
-//System.out.println("connect: Did NOT complete the connection");
+System.out.println("connect: Did NOT complete the connection");
                 throw new cMsgException("No connect from the RC server received");
             }
             else {
-//System.out.println("connect: Completed the connection!");
+System.out.println("connect: Completed the connection from RC server");
             }
 
             // Create a UDP "connection". This means security check is done only once
@@ -400,11 +407,13 @@ public class RunControl extends cMsgDomainAdapter {
                 if (udpSocket != null) udpSocket.close();
                 e.printStackTrace();
             }
+System.out.println("connect: Make udp connection to RC server");
             udpSocket.connect(rcServerAddress, rcUdpServerPort);
             sendUdpPacket = new DatagramPacket(new byte[0], 0, rcServerAddress, rcUdpServerPort);
 
             // create a TCP connection to the RC Server
             try {
+System.out.println("connect: Make tcp connection to RC server");
                 tcpSocket = new Socket(rcServerAddress,rcTcpServerPort);
                 //tcpSocket.connect(sockAddr);
                 tcpSocket.setTcpNoDelay(true);
@@ -427,6 +436,7 @@ public class RunControl extends cMsgDomainAdapter {
         finally {
             connectLock.unlock();
         }
+System.out.println("connect: DONE");
 
         return;
     }
@@ -557,7 +567,7 @@ public class RunControl extends cMsgDomainAdapter {
 
         cMsgMessageFull msg;
         DatagramSocket socket;
-        boolean threadStarted;
+        AtomicBoolean threadStarted = new AtomicBoolean(false);
 
         rcMulticastReceiver(DatagramSocket socket) {
             this.socket = socket;
@@ -568,7 +578,7 @@ public class RunControl extends cMsgDomainAdapter {
         }
 
         public boolean threadStarted() {
-            return threadStarted;
+            return threadStarted.get();
         }
 
 
@@ -583,7 +593,7 @@ public class RunControl extends cMsgDomainAdapter {
                 // reset for each round
                 packet.setLength(1024);
 
-                threadStarted = true;
+                threadStarted.set(true);
 
                 try {
                     socket.receive(packet);
@@ -1289,6 +1299,7 @@ public class RunControl extends cMsgDomainAdapter {
 
         public void run() {
 
+System.out.println("RC client " + name + ": STARTED multicast receiving thread");
             /* A slight delay here will help the main thread (calling connect)
              * to be already waiting for a response from the server when we
              * multicast to the server here (prompting that response). This
@@ -1401,6 +1412,7 @@ public class RunControl extends cMsgDomainAdapter {
 
         public void run() {
 
+System.out.println("RC client " + name + ": STARTED multicast sending thread");
             try {
                 /* A slight delay here will help the main thread (calling connect)
                 * to be already waiting for a response from the server when we
