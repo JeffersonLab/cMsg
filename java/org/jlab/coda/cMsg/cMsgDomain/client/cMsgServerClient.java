@@ -30,6 +30,7 @@ import java.io.*;
 import java.net.Socket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * This class implements a cMsg client which is created in a cMsg server for the
@@ -69,12 +70,22 @@ public class cMsgServerClient extends cMsg {
     /** Helper object used in {@link #cloudLock}. */
     cMsgGetHelper cloudLockHelper;
 
-    boolean gotCloudLock;
+    /**
+     * Did we successfully grab the cloud-joining lock of the
+     * server in the cloud we are trying to join?
+     */
+    AtomicBoolean gotCloudLock = new AtomicBoolean(false);
 
     /** Helper object used in {@link #registrationLock}. */
     cMsgGetHelper registrationLockHelper;
 
-    boolean gotRegistrationLock;
+    /**
+     * Did we successfully grab the client-joining lock of the
+     * server in the cloud we are trying to join? This lock is
+     * necessary to ensure that each client joining a server that
+     * is part of a cloud has a unique name.
+     */
+    AtomicBoolean gotRegistrationLock;
 
 
     /** This method prints sizes of maps for debugging purposes. */
@@ -1094,7 +1105,7 @@ public class cMsgServerClient extends cMsg {
             notConnectLock.unlock();
         }
 
-        return gotCloudLock;
+        return gotCloudLock.get();
     }
 
 
@@ -1183,7 +1194,7 @@ public class cMsgServerClient extends cMsg {
             notConnectLock.unlock();
         }
 
-        return gotRegistrationLock;
+        return gotRegistrationLock.get();
     }
 
 
