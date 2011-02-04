@@ -417,7 +417,7 @@ printf("EXPID is not set!\n");
         return(err); /* CMSG_SOCKET_ERROR if cannot find available port */
     }
     
-/*printf("connect: create listening socket on port %d\n", domain->listenPort );*/
+/*printf("rc connect: create listening socket on port %d\n", domain->listenPort );*/
 
     /* launch pend thread and start listening on receive socket */
     threadArg = (cMsgThreadInfo *) malloc(sizeof(cMsgThreadInfo));
@@ -437,7 +437,7 @@ printf("EXPID is not set!\n");
     /* Block SIGPIPE for this and all spawned threads. */
     cMsgBlockSignals(domain);
 
-/*printf("connect: start pend thread\n");*/
+/*printf("rc connect: start pend thread\n");*/
     status = pthread_create(&domain->pendThread, NULL,
                             rcClientListeningThread, (void *) threadArg);
     if (status != 0) {
@@ -542,7 +542,7 @@ printf("EXPID is not set!\n");
      * as does the UDP port we're sending from.
      */
 
-/*printf("Sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
+/*printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
         ((int) domain->listenPort), expid, serverPort, serverHost);*/
     
     nameLen  = strlen(myName);
@@ -579,6 +579,7 @@ printf("EXPID is not set!\n");
     rArg.sockfd          = domain->sendSocket;
     rArg.addr.sin_family = AF_INET;
     
+printf("rc connect: will create receiver thread\n");
     status = pthread_create(&rThread, NULL, receiverThd, (void *)(&rArg));
     if (status != 0) {
         cmsg_err_abort(status, "Creating multicast response receiving thread");
@@ -591,6 +592,7 @@ printf("EXPID is not set!\n");
     bArg.buffer    = buffer;
     bArg.bufferLen = len;
     
+printf("rc connect: will create sender thread\n");
     status = pthread_create(&bThread, NULL, multicastThd, (void *)(&bArg));
     if (status != 0) {
         cmsg_err_abort(status, "Creating multicast sending thread");
@@ -611,7 +613,7 @@ printf("EXPID is not set!\n");
             cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
-/*printf("Wait %d seconds for multicast to be answered\n", multicastTO);*/
+printf("rc connect: wait %d seconds for multicast server to answer\n", multicastTO);
         status = pthread_cond_timedwait(&cond, &mutex, &time);
         if (status == ETIMEDOUT) {
           /* stop receiving thread */
@@ -635,7 +637,7 @@ printf("EXPID is not set!\n");
             cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
-/* printf("Wait forever for multicast to be answered\n"); */
+printf("rc connect: wait forever for multicast server to answer\n");
         status = pthread_cond_wait(&cond, &mutex);
         if (status != 0) {
             cmsg_err_abort(status, "pthread_cond_timedwait");
@@ -653,7 +655,7 @@ printf("EXPID is not set!\n");
     free(expid);
     
     if (!gotResponse) {
-/* printf("Got no response\n"); */ 
+        printf("rc connect: got no response\n");
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
@@ -662,7 +664,7 @@ printf("EXPID is not set!\n");
         return(CMSG_TIMEOUT);
     }
     
-/* printf("Got a response, now wait for connect to finish\n"); */ 
+printf("rc connect: got a response from mcast server, now wait for connect to finish\n");
 
     /* Wait for a special message to come in to the TCP listening thread.
      * The message will contain the host and UDP port of the destination
@@ -679,18 +681,19 @@ printf("EXPID is not set!\n");
     cMsgMutexLock(&domain->rcConnectMutex);
     
     if (connectTO > 0) {
-/*printf("Wait for connect to finish in %d seconds\n", connectTO);*/
+printf("rc connect: wait on latch for connect to finish in %d seconds\n", connectTO);
         status = cMsgLatchAwait(&domain->syncLatch, &wait);
     }
     else {
-/*printf("Wait FOREVER for connect to finish\n");*/
+printf("rc connect: wait on latch FOREVER for connect to finish\n");
         status = cMsgLatchAwait(&domain->syncLatch, NULL);
     }
+printf("rc connect: got a response from rc server, 3-way connect finished, now make 2 connections to rc server\n");
 
     /* Told by multicast server to stop waiting for the
      * rc Server to finish the connection. */
     if (domain->rcConnectAbort) {
-/*printf("Told to abort connect by RC Multicast server\n");*/
+printf("rc connect: told to abort connect by RC Multicast server\n");
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
@@ -700,7 +703,7 @@ printf("EXPID is not set!\n");
     }
     
     if (status < 1 || !domain->rcConnectComplete) {
-/*printf("Wait timeout or rcConnectComplete is not 1\n");*/
+printf("rc connect: wait timeout or rcConnectComplete is not 1\n");
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
@@ -714,6 +717,7 @@ printf("EXPID is not set!\n");
     cMsgMutexUnlock(&domain->rcConnectMutex);
 
     /* create TCP sending socket and store */
+printf("rc connect: will make tcp connection to RC server\n");
     if ( (err = cMsgTcpConnect(domain->sendHost,
                                (unsigned short) domain->sendPort,
                                CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket, NULL)) != CMSG_OK) {
@@ -774,7 +778,7 @@ printf("EXPID is not set!\n");
         return(err);
     }
 
-/*printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));*/
+printf("rc connect: try UDP connection rc server on port = %hu\n", ntohs(addr.sin_port));
     err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
     if (err < 0) {
         cMsgRestoreSignals(domain);
@@ -793,6 +797,7 @@ printf("EXPID is not set!\n");
     cmsg_rc_setShutdownHandler((void *)domain, defaultShutdownHandler, NULL);
 
     domain->gotConnection = 1;
+printf("rc connect: DONE\n");
     
     return(CMSG_OK);
 }
