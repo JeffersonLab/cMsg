@@ -212,16 +212,16 @@ System.out.print("RC server: try starting tcp & udp listening threads ... ");
                 // continuing on. These thread must be running before we talk to
                 // the client since the client tries to communicate with these
                 // listening threads.
-                synchronized (tcpListener) {
-                    if (!tcpListener.isAlive()) {
-                        try {
-                            tcpListener.wait();
-                        }
-                        catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
+//                synchronized (tcpListener) {
+//                    if (!tcpListener.isAlive()) {
+//                        try {
+//                            tcpListener.wait();
+//                        }
+//                        catch (InterruptedException e) {
+//                            e.printStackTrace();
+//                        }
+//                    }
+//                }
 System.out.print("done with TCP ... ");
                 // Get the port selected for listening on
                 localTcpPort = tcpListener.getPort();
@@ -230,16 +230,16 @@ System.out.print("done with TCP ... ");
                 // continuing on. These thread must be running before we talk to
                 // the client since the client tries to communicate with these
                 // listening threads.
-                synchronized (udpListener) {
-                    if (!udpListener.isAlive()) {
-                        try {
-                            udpListener.wait();
-                        }
-                        catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
+//                synchronized (udpListener) {
+//                    if (!udpListener.isAlive()) {
+//                        try {
+//                            udpListener.wait();
+//                        }
+//                        catch (InterruptedException e) {
+//                            e.printStackTrace();
+//                        }
+//                    }
+//                }
 System.out.println("done with UDP");
                 // Get the port selected for communicating on
                 localUdpPort = udpListener.getPort();
