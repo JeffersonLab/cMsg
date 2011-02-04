@@ -132,9 +132,9 @@ class rcUdpListeningThread extends Thread {
 
         // RC server object is waiting for this thread to start in connect method,
         // so tell it we've started.
-        synchronized (this) {
-            notifyAll();
-        }
+//        synchronized (this) {
+//            notifyAll();
+//        }
 
         try {
             cMsgMessageFull msg;
