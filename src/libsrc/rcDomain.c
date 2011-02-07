@@ -579,7 +579,7 @@ printf("EXPID is not set!\n");
     rArg.sockfd          = domain->sendSocket;
     rArg.addr.sin_family = AF_INET;
     
-printf("rc connect: will create receiver thread\n");
+/*printf("rc connect: will create receiver thread\n");*/
     status = pthread_create(&rThread, NULL, receiverThd, (void *)(&rArg));
     if (status != 0) {
         cmsg_err_abort(status, "Creating multicast response receiving thread");
@@ -592,7 +592,7 @@ printf("rc connect: will create receiver thread\n");
     bArg.buffer    = buffer;
     bArg.bufferLen = len;
     
-printf("rc connect: will create sender thread\n");
+/*printf("rc connect: will create sender thread\n");*/
     status = pthread_create(&bThread, NULL, multicastThd, (void *)(&bArg));
     if (status != 0) {
         cmsg_err_abort(status, "Creating multicast sending thread");
@@ -613,7 +613,7 @@ printf("rc connect: will create sender thread\n");
             cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
-printf("rc connect: wait %d seconds for multicast server to answer\n", multicastTO);
+/*printf("rc connect: wait %d seconds for multicast server to answer\n", multicastTO);*/
         status = pthread_cond_timedwait(&cond, &mutex, &time);
         if (status == ETIMEDOUT) {
           /* stop receiving thread */
@@ -637,7 +637,7 @@ printf("rc connect: wait %d seconds for multicast server to answer\n", multicast
             cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
-printf("rc connect: wait forever for multicast server to answer\n");
+/*printf("rc connect: wait forever for multicast server to answer\n");*/
         status = pthread_cond_wait(&cond, &mutex);
         if (status != 0) {
             cmsg_err_abort(status, "pthread_cond_timedwait");
@@ -655,7 +655,7 @@ printf("rc connect: wait forever for multicast server to answer\n");
     free(expid);
     
     if (!gotResponse) {
-        printf("rc connect: got no response\n");
+        /*printf("rc connect: got no response\n");*/
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
@@ -664,7 +664,7 @@ printf("rc connect: wait forever for multicast server to answer\n");
         return(CMSG_TIMEOUT);
     }
     
-printf("rc connect: got a response from mcast server, now wait for connect to finish\n");
+/*printf("rc connect: got a response from mcast server, now wait for connect to finish\n");*/
 
     /* Wait for a special message to come in to the TCP listening thread.
      * The message will contain the host and UDP port of the destination
@@ -681,19 +681,19 @@ printf("rc connect: got a response from mcast server, now wait for connect to fi
     cMsgMutexLock(&domain->rcConnectMutex);
     
     if (connectTO > 0) {
-printf("rc connect: wait on latch for connect to finish in %d seconds\n", connectTO);
+/*printf("rc connect: wait on latch for connect to finish in %d seconds\n", connectTO);*/
         status = cMsgLatchAwait(&domain->syncLatch, &wait);
     }
     else {
-printf("rc connect: wait on latch FOREVER for connect to finish\n");
+/*printf("rc connect: wait on latch FOREVER for connect to finish\n");*/
         status = cMsgLatchAwait(&domain->syncLatch, NULL);
     }
-printf("rc connect: got a response from rc server, 3-way connect finished, now make 2 connections to rc server\n");
+/*printf("rc connect: got a response from rc server, 3-way connect finished, now make 2 connections to rc server\n");*/
 
     /* Told by multicast server to stop waiting for the
      * rc Server to finish the connection. */
     if (domain->rcConnectAbort) {
-printf("rc connect: told to abort connect by RC Multicast server\n");
+/*printf("rc connect: told to abort connect by RC Multicast server\n");*/
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
@@ -703,7 +703,7 @@ printf("rc connect: told to abort connect by RC Multicast server\n");
     }
     
     if (status < 1 || !domain->rcConnectComplete) {
-printf("rc connect: wait timeout or rcConnectComplete is not 1\n");
+/*printf("rc connect: wait timeout or rcConnectComplete is not 1\n");*/
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
@@ -717,7 +717,7 @@ printf("rc connect: wait timeout or rcConnectComplete is not 1\n");
     cMsgMutexUnlock(&domain->rcConnectMutex);
 
     /* create TCP sending socket and store */
-printf("rc connect: will make tcp connection to RC server\n");
+/*printf("rc connect: will make tcp connection to RC server\n");*/
     if ( (err = cMsgTcpConnect(domain->sendHost,
                                (unsigned short) domain->sendPort,
                                CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket, NULL)) != CMSG_OK) {
@@ -778,7 +778,7 @@ printf("rc connect: will make tcp connection to RC server\n");
         return(err);
     }
 
-printf("rc connect: try UDP connection rc server on port = %hu\n", ntohs(addr.sin_port));
+/*printf("rc connect: try UDP connection rc server on port = %hu\n", ntohs(addr.sin_port));*/
     err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
     if (err < 0) {
         cMsgRestoreSignals(domain);
@@ -797,7 +797,7 @@ printf("rc connect: try UDP connection rc server on port = %hu\n", ntohs(addr.si
     cmsg_rc_setShutdownHandler((void *)domain, defaultShutdownHandler, NULL);
 
     domain->gotConnection = 1;
-printf("rc connect: DONE\n");
+/*printf("rc connect: DONE\n");*/
     
     return(CMSG_OK);
 }
