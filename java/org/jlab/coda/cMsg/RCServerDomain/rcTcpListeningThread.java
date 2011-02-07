@@ -182,7 +182,6 @@ System.out.println("TCP on " + port);
 
             while (true) {
                 // 2 second timeout
-System.out.println("calling select");
                 int n = selector.select(2000);
 
                 // if no channels (sockets) are ready, listen some more
