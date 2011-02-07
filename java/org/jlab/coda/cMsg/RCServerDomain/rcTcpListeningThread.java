@@ -156,6 +156,7 @@ System.out.println("rcServer/tcp list thd: bind TCP socket to " + port);
             }
         }
 System.out.println("TCP on " + port);
+        startingPort = port;
     }
 
 
