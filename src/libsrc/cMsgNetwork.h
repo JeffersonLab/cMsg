@@ -144,7 +144,7 @@ extern "C" {
 
 /** TCP port at which a run control client starts looking for a port to listen on and the port
  * that a run control server assumes a client is waiting for connections on. */
-#define RC_CLIENT_LISTENING_PORT 45400
+#define RC_CLIENT_LISTENING_PORT 45800
 
 /** Default UDP port at which a run control broadcast server listens for broadcasts
  *  and at which a rc domain client looks for the broadcast server. */
