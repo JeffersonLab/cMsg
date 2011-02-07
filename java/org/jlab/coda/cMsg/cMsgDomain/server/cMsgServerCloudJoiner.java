@@ -213,6 +213,7 @@ if(methodDebug) System.out.println("    << JR: Skip -> server " + s);
                             }
 
                             // make sure we aren't going to try connecting to ourself
+                            // TODO: why is checking the host enough?! check port too??
                             if (cMsgUtilities.isHostLocal(hostName)) {
 if(methodDebug) System.out.println("    << JR: Skip myself -> server " + s);
                                 continue;
@@ -474,6 +475,7 @@ if(methodDebug) System.out.println("    << JR: Already grabbed (so skip grabbing
                     try {
                         // If sucessfull in locking remote server ...
 if(methodDebug) System.out.println("    << JR: Try to cloud lock bridge to " + bridge.serverName);
+                        // If we can lock remote server, add to list, else try next one
                         if (bridge.cloudLock(200)) {
 if(methodDebug) System.out.println("    << JR: LOCKED IT!!");
                             lockedBridges.add(bridge);
@@ -481,19 +483,12 @@ if(methodDebug) System.out.println("    << JR: LOCKED IT!!");
                                 numberOfLockedCloudMembers++;
                             }
                         }
-                        // else if cannot lock remote server, try next one
-                        else {
-                            continue;
-                        }
                     }
                     // We're here if lock or unlock fails in its communication with server.
                     // If we cannot talk to the server, it's probably dead.
                     catch (IOException e) {
-                        continue;
                     }
                 }
-
-if(methodDebug) System.out.println("    << JR: FAILED TO LOCKED IT!!");
 
                 // If we have all the in-cloud locks we're done and can move on.
                 if (numberOfLockedCloudMembers >= totalCloudMembers) {
@@ -545,7 +540,8 @@ if(methodDebug) System.out.println("    << JR: Tell server we are in the cloud")
             }
 
             // release the locks
-            for (cMsgServerBridge bridge : nameServer.bridges.values()) {
+            //for (cMsgServerBridge bridge : nameServer.bridges.values()) {
+            for (cMsgServerBridge bridge : lockedBridges) {
                 try {
 if(methodDebug) System.out.println("    << JR: Try unlocking cloud lock for " + bridge.serverName);
                     bridge.cloudUnlock();
@@ -553,7 +549,6 @@ if(methodDebug) System.out.println("    << JR: UNLOCKED cloud lock for " + bridg
                 }
                 catch (IOException e) {
                     e.printStackTrace();
-                    continue;
                 }
             }
 if(methodDebug) System.out.println("    << JR: Try unlocking cloud lock for this server");
