@@ -86,7 +86,9 @@ class rcTcpListeningThread extends Thread {
     public rcTcpListeningThread(RCServer server) throws cMsgException {
 
         this.server = server;
-        debug = server.getDebug();
+        //debug = server.getDebug();
+        debug = cMsgConstants.debugInfo;
+
         createTCPServerChannel();
         // die if no more non-daemon thds running
         setDaemon(true);
@@ -109,7 +111,7 @@ class rcTcpListeningThread extends Thread {
      * @throws cMsgException if socket cannot be created or cannot bind to a port
      */
     private void createTCPServerChannel() throws cMsgException {
-
+System.out.println("rcServer/tcp list thd: creating TCP server channel");
         ServerSocket listeningSocket;
         try {
             serverChannel = ServerSocketChannel.open();
@@ -129,7 +131,7 @@ class rcTcpListeningThread extends Thread {
         // an exception.
         while (true) {
             try {
-//System.out.println("Bind TCP socket to " + port);
+System.out.println("rcServer/tcp list thd: bind TCP socket to " + port);
                 listeningSocket.bind(new InetSocketAddress(port));
                 break;
             }
@@ -149,7 +151,7 @@ class rcTcpListeningThread extends Thread {
                 }
             }
         }
-//System.out.println("TCP on " + port);
+System.out.println("TCP on " + port);
     }
 
 
@@ -157,7 +159,7 @@ class rcTcpListeningThread extends Thread {
     public void run() {
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("Running Client Listening Thread");
+            System.out.println("Running Client Listening Thread:");
         }
 
         Selector selector = null;
@@ -180,6 +182,7 @@ class rcTcpListeningThread extends Thread {
 
             while (true) {
                 // 2 second timeout
+System.out.println("calling select");
                 int n = selector.select(2000);
 
                 // if no channels (sockets) are ready, listen some more
