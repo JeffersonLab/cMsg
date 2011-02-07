@@ -353,8 +353,8 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
 
 
     /**
-     * Get the domain server's multicast listening port.
-     * @return domain server's multicast listening port
+     * Get name server's multicast listening port.
+     * @return name server's multicast listening port
      */
     public int getMulticastPort() {
         return multicastPort;
