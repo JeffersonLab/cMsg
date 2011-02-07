@@ -196,45 +196,51 @@ public class RCServer extends cMsgDomainAdapter {
 //System.out.println("RC server: create connection with RC client ... ");
                 createTCPClientConnection(rcClientHost, rcClientPort);
 
-                // Start listening for tcp connections
-                tcpListener = new rcTcpListeningThread(this);
-                tcpListener.start();
+                // Start listening for tcp connections if not already
+                if (tcpListener == null) {
+                    tcpListener = new rcTcpListeningThread(this);
+                    tcpListener.start();
 
-                // Start listening for udp packets
-                udpListener = new rcUdpListeningThread(this);
-                udpListener.start();
-
-                // Wait for indication listener threads are actually running before
-                // continuing on. These thread must be running before we talk to
-                // the client since the client tries to communicate with these
-                // listening threads.
-                synchronized (tcpListener) {
-                    if (!tcpListener.isAlive()) {
-                        try {
-                            tcpListener.wait();
-                        }
-                        catch (InterruptedException e) {
-                            e.printStackTrace();
+                    // Wait for indication listener threads are actually running before
+                    // continuing on. These thread must be running before we talk to
+                    // the client since the client tries to communicate with these
+                    // listening threads.
+                    synchronized (tcpListener) {
+                        if (!tcpListener.isAlive()) {
+                            try {
+                                tcpListener.wait();
+                            }
+                            catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
                 }
+
+                // Start listening for udp packets if not already
+                if (udpListener == null) {
+                    udpListener = new rcUdpListeningThread(this);
+                    udpListener.start();
+
+                    // Wait for indication listener threads are actually running before
+                    // continuing on. These thread must be running before we talk to
+                    // the client since the client tries to communicate with these
+                    // listening threads.
+                    synchronized (udpListener) {
+                        if (!udpListener.isAlive()) {
+                            try {
+                                udpListener.wait();
+                            }
+                            catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                }
+
                 // Get the port selected for listening on
                 localTcpPort = tcpListener.getPort();
 
-                // Wait for indication listener threads are actually running before
-                // continuing on. These thread must be running before we talk to
-                // the client since the client tries to communicate with these
-                // listening threads.
-                synchronized (udpListener) {
-                    if (!udpListener.isAlive()) {
-                        try {
-                            udpListener.wait();
-                        }
-                        catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
                 // Get the port selected for communicating on
                 localUdpPort = udpListener.getPort();
 
@@ -262,8 +268,19 @@ public class RCServer extends cMsgDomainAdapter {
 
 
     /**
-     * Method to close the connection to the rc client. This method results in this object
+     * This method results in this object
      * becoming functionally useless.
+     */
+    public void close() {
+        disconnect();
+        if (udpListener != null) udpListener.killThread();
+        if (tcpListener != null) tcpListener.killThread();
+    }
+
+
+    /**
+     * Method to close the connection to the rc client. Keep the listening
+     * threads running in case another call to connect() is made.
      */
     public void disconnect() {
         // cannot run this simultaneously with connect or send
@@ -273,8 +290,9 @@ public class RCServer extends cMsgDomainAdapter {
             if (!connected) return;
             connected = false;
 
-            udpListener.killThread();
-            tcpListener.killThread();
+            //udpListener.killThread();
+            //tcpListener.killThread();
+
             if (in != null)     try {in.close();}     catch (IOException e) {}
             if (out != null)    try {out.close();}    catch (IOException e) {}
             if (socket != null) try {socket.close();} catch (IOException e) {}
@@ -488,7 +506,6 @@ public class RCServer extends cMsgDomainAdapter {
         // size of everything sent (except "size" itself which is first integer)
         int size = len[0] + len[1] + len[2] + len[3] + len[4] + len[5] + binLength + 4 * 18;
 
-System.out.println("start writing");
         out.writeInt(size);
         out.writeInt(msgType);
         out.writeInt(msg.getVersion());
@@ -532,10 +549,8 @@ System.out.println("start writing");
             e.printStackTrace();
         }
         out.flush();
-        System.out.println("done writing");
 
         if (msgType == cMsgConstants.msgRcConnect) {
-System.out.println("wait for response");
             int lengthClientName = in.readInt();
 
             // read all string bytes
@@ -545,7 +560,6 @@ System.out.println("wait for response");
             // read subject
             rcClientName = new String(bytes, 0, lengthClientName, "US-ASCII");
         }
-System.out.println("response finished");
 
         return;
     }

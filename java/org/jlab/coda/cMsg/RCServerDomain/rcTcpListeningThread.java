@@ -137,7 +137,7 @@ class rcTcpListeningThread extends Thread {
         // an exception.
         while (true) {
             try {
-System.out.println("rcServer/tcp list thd: bind TCP socket to " + port);
+//System.out.println("rcServer/tcp list thd: bind TCP socket to " + port);
                 listeningSocket.bind(new InetSocketAddress(port));
                 break;
             }
@@ -145,6 +145,7 @@ System.out.println("rcServer/tcp list thd: bind TCP socket to " + port);
                 // try another port by adding one
                 if (port < 65535) {
                     port++;
+System.out.println("rcServer/tcp list thd: try another port, " + port);
                     try { Thread.sleep(100);  }
                     catch (InterruptedException e) {}
                 }
@@ -157,7 +158,7 @@ System.out.println("rcServer/tcp list thd: bind TCP socket to " + port);
                 }
             }
         }
-System.out.println("TCP on " + port);
+//System.out.println("TCP on " + port);
     }
 
 
