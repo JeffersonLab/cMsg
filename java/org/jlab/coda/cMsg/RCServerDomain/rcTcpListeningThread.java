@@ -40,6 +40,9 @@ import java.net.InetSocketAddress;
  */
 class rcTcpListeningThread extends Thread {
 
+    /** Start here looking for an unused port. */
+    static private int startingPort = cMsgNetworkConstants.rcServerPort;
+
     /** Type of domain this is. */
     private String domainType = "rcs";
 
@@ -86,9 +89,7 @@ class rcTcpListeningThread extends Thread {
     public rcTcpListeningThread(RCServer server) throws cMsgException {
 
         this.server = server;
-        //debug = server.getDebug();
-        debug = cMsgConstants.debugInfo;
-
+        debug = server.getDebug();
         createTCPServerChannel();
         // die if no more non-daemon thds running
         setDaemon(true);
@@ -111,7 +112,7 @@ class rcTcpListeningThread extends Thread {
      * @throws cMsgException if socket cannot be created or cannot bind to a port
      */
     private void createTCPServerChannel() throws cMsgException {
-System.out.println("rcServer/tcp list thd: creating TCP server channel");
+
         ServerSocket listeningSocket;
         try {
             serverChannel = ServerSocketChannel.open();
@@ -125,7 +126,10 @@ System.out.println("rcServer/tcp list thd: creating TCP server channel");
         }
 
         // start here looking for a port
-        port = cMsgNetworkConstants.rcServerPort;
+        if (++startingPort < cMsgNetworkConstants.rcServerPort) {
+            startingPort = cMsgNetworkConstants.rcServerPort;
+        }
+        port = startingPort;
 
         // At this point, find a port to bind to. If that isn't possible, throw
         // an exception.
@@ -176,9 +180,9 @@ System.out.println("TCP on " + port);
 
             // RC server object is waiting for this thread to start in connect method,
             // so tell it we've started.
-//            synchronized(this) {
-//                notifyAll();
-//            }
+            synchronized(this) {
+                notifyAll();
+            }
 
             while (true) {
                 // 2 second timeout
