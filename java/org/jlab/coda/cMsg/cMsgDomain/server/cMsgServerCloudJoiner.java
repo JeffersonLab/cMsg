@@ -18,6 +18,7 @@ package org.jlab.coda.cMsg.cMsgDomain.server;
 
 import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgConstants;
+import org.jlab.coda.cMsg.cMsgNetworkConstants;
 import org.jlab.coda.cMsg.cMsgUtilities;
 
 import java.util.*;
@@ -178,6 +179,14 @@ if(methodDebug) System.out.println("    << JR: Cannot connect to given server: "
                             int indexColon = s.lastIndexOf(":");
                             // find port
                             String sPort = s.substring(indexColon+1);
+                            int sport = 0;
+                            try {
+                                sport = Integer.parseInt(sPort);
+                            }
+                            catch (NumberFormatException e) {
+                                // should never happen, but try default value
+                                sport = cMsgNetworkConstants.nameServerTcpPort;
+                            }
                             // find host name
                             String hostName = s.substring(0, indexColon);
 
@@ -214,7 +223,7 @@ if(methodDebug) System.out.println("    << JR: Skip -> server " + s);
 
                             // make sure we aren't going to try connecting to ourself
                             // TODO: why is checking the host enough?! check port too??
-                            if (cMsgUtilities.isHostLocal(hostName)) {
+                            if (cMsgUtilities.isHostLocal(hostName) && sport == nameServer.getPort()) {
 if(methodDebug) System.out.println("    << JR: Skip myself -> server " + s);
                                 continue;
                             }
