@@ -273,8 +273,14 @@ public class RCServer extends cMsgDomainAdapter {
      */
     public void close() {
         disconnect();
-        if (udpListener != null) udpListener.killThread();
-        if (tcpListener != null) tcpListener.killThread();
+        if (udpListener != null) {
+            udpListener.killThread();
+            udpListener = null;
+        }
+        if (tcpListener != null) {
+            tcpListener.killThread();
+            tcpListener = null;
+        }
     }
 
 
