@@ -55,7 +55,7 @@ public class cMsgNetworkConstants {
     public static final int    rcServerPort = 45300;
     /** TCP port at which a run control client starts looking for a port to listen on and the port
       * that a run control server assumes a client is waiting for connections on = {@value} */
-    public static final int    rcClientPort = 45400;
+    public static final int    rcClientPort = 45800;
 
     /** TCP port at which a TCPServer server listens for connections = {@value} */
     public static final int    tcpServerPort = 45600;
