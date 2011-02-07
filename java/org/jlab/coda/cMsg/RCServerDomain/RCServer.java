@@ -184,23 +184,19 @@ public class RCServer extends cMsgDomainAdapter {
         }
 
         // cannot run this simultaneously with any other public method
-System.out.print("Try to grab connectLock ... ");
         connectLock.lock();
-System.out.println("got it!");
 
         try {
             if (connected) {
-System.out.println("RC server: using already established connection with RC client, so return");
                 return;
             }
 
             try {
                 // Create an object to deliver messages to the RC client.
-System.out.println("RC server: create connection with RC client ... ");
+//System.out.println("RC server: create connection with RC client ... ");
                 createTCPClientConnection(rcClientHost, rcClientPort);
 
                 // Start listening for tcp connections
-System.out.print("RC server: try starting tcp & udp listening threads ... ");
                 tcpListener = new rcTcpListeningThread(this);
                 tcpListener.start();
 
@@ -212,17 +208,16 @@ System.out.print("RC server: try starting tcp & udp listening threads ... ");
                 // continuing on. These thread must be running before we talk to
                 // the client since the client tries to communicate with these
                 // listening threads.
-//                synchronized (tcpListener) {
-//                    if (!tcpListener.isAlive()) {
-//                        try {
-//                            tcpListener.wait();
-//                        }
-//                        catch (InterruptedException e) {
-//                            e.printStackTrace();
-//                        }
-//                    }
-//                }
-System.out.print("done with TCP ... ");
+                synchronized (tcpListener) {
+                    if (!tcpListener.isAlive()) {
+                        try {
+                            tcpListener.wait();
+                        }
+                        catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
                 // Get the port selected for listening on
                 localTcpPort = tcpListener.getPort();
 
@@ -230,17 +225,16 @@ System.out.print("done with TCP ... ");
                 // continuing on. These thread must be running before we talk to
                 // the client since the client tries to communicate with these
                 // listening threads.
-//                synchronized (udpListener) {
-//                    if (!udpListener.isAlive()) {
-//                        try {
-//                            udpListener.wait();
-//                        }
-//                        catch (InterruptedException e) {
-//                            e.printStackTrace();
-//                        }
-//                    }
-//                }
-System.out.println("done with UDP");
+                synchronized (udpListener) {
+                    if (!udpListener.isAlive()) {
+                        try {
+                            udpListener.wait();
+                        }
+                        catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
                 // Get the port selected for communicating on
                 localUdpPort = udpListener.getPort();
 
@@ -248,7 +242,6 @@ System.out.println("done with UDP");
                 cMsgMessageFull msg = new cMsgMessageFull();
                 msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
                 msg.setText(localUdpPort+":"+localTcpPort);
-System.out.println("deliver connect msg to client waiting for 3 way connect");
                 deliverMessage(msg, cMsgConstants.msgRcConnect);
 
                 connected = true;
@@ -263,7 +256,6 @@ System.out.println("deliver connect msg to client waiting for 3 way connect");
         finally {
             connectLock.unlock();
         }
-System.out.println("RC Server: done");
 
         return;
     }
@@ -302,7 +294,7 @@ System.out.println("RC Server: done");
      */
     private void createTCPClientConnection(String clientHost, int clientPort) throws IOException {
         try {
-System.out.println("RC Server: make tcp socket to " + clientHost + " on port " + clientPort);
+//System.out.println("RC Server: make tcp socket to " + clientHost + " on port " + clientPort);
             socket = new Socket(clientHost, clientPort);
             // Set tcpNoDelay so no packets are delayed
             socket.setTcpNoDelay(true);
@@ -314,12 +306,10 @@ System.out.println("RC Server: make tcp socket to " + clientHost + " on port " +
             out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream(), 65536));
 
             // send some ints identifying us as a valid rc Domain server ("cMsg is cool" in ascii)
-System.out.print("RC Server: will send 3 magic ints ... ");
             out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
             out.flush();
-System.out.println("sent!");
         }
         catch (IOException e) {
             if (in != null) try {in.close();} catch (IOException e1) {}
