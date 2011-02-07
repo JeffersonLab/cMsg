@@ -303,26 +303,26 @@ if(methodDebug) System.out.println("    << JR: Do NOT add server " + s + " since
                             }
 
                             // look in name server's list of connected servers
-                             for (String serv : nameServer.nameServers.keySet()) {
-                                 // Disect key: find colon
-                                 indexColon = serv.lastIndexOf(":");
-                                 // find port
-                                 String servPort = serv.substring(indexColon+1);
-                                 // find host name
-                                 String servHostName = serv.substring(0, indexColon);
+                            for (String serv : nameServer.nameServers.keySet()) {
+                                // Disect key: find colon
+                                indexColon = serv.lastIndexOf(":");
+                                // find port
+                                String servPort = serv.substring(indexColon+1);
+                                // find host name
+                                String servHostName = serv.substring(0, indexColon);
 
-                                 // ports are different, so look at next item
-                                 if (!servPort.equals(sPort)) {
-                                     continue;
-                                 }
+                                // ports are different, so look at next item
+                                if (!servPort.equals(sPort)) {
+                                    continue;
+                                }
 
-                                 // if host & port are the same, don't add, go to next serverName
-                                 if (cMsgUtilities.isHostSame(hostName, servHostName)) {
+                                // if host & port are the same, don't add, go to next serverName
+                                if (cMsgUtilities.isHostSame(hostName, servHostName)) {
 if(methodDebug) System.out.println("    << JR: Do NOT add server " + s + " since " +
                                    hostName + " = " + servHostName + " (found in this server's list of server clients)");
-                                     continue top;
-                                 }
-                             }
+                                    continue top;
+                                }
+                            }
 
 if(methodDebug) System.out.println("    << JR: Added unknown server " + s + " to list (size = " + unknownServers.size() + ")");
                             unknownServers.add(s);
