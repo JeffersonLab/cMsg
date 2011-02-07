@@ -130,9 +130,10 @@ class rcTcpListeningThread extends Thread {
         // start here looking for a port
         if (startingPort.incrementAndGet() < cMsgNetworkConstants.rcServerPort) {
             startingPort.set(cMsgNetworkConstants.rcServerPort);
+System.out.println("RECYCLING port #s to " + startingPort.get());
         }
         port = startingPort.get();
-
+System.out.println("start at port " + port);
         // At this point, find a port to bind to. If that isn't possible, throw
         // an exception.
         while (true) {
