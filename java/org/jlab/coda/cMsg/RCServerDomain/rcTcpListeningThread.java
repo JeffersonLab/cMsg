@@ -162,7 +162,7 @@ class rcTcpListeningThread extends Thread {
                     // try another port by adding one
                     if (port < 65535) {
                         port++;
-System.out.println("rcServer/tcp list thd: try another port, " + port);
+//System.out.println("rcServer/tcp list thd: try another port, " + port);
                         try { Thread.sleep(20);  }
                         catch (InterruptedException e) {}
                     }
