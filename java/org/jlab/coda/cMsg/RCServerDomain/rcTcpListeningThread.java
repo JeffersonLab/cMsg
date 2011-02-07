@@ -127,39 +127,58 @@ class rcTcpListeningThread extends Thread {
             throw new cMsgException("connect: cannot create server socket", e);
         }
 
-        // start here looking for a port
-        if (startingPort.incrementAndGet() < cMsgNetworkConstants.rcServerPort) {
-            startingPort.set(cMsgNetworkConstants.rcServerPort);
-System.out.println("RECYCLING port #s to " + startingPort.get());
-        }
-        port = startingPort.get();
-System.out.println("start at port " + port);
-        // At this point, find a port to bind to. If that isn't possible, throw
-        // an exception.
-        while (true) {
-            try {
+        //----------------------------------------
+        // start looking for a TCP listening port
+        //----------------------------------------
+
+        synchronized (startingPort) {
+
+            // If starting port # incremented too much so it cycled around, reset to orig value.
+            if (startingPort.incrementAndGet() < cMsgNetworkConstants.rcServerPort) {
+                startingPort.set(cMsgNetworkConstants.rcServerPort);
+            }
+
+            // If starting rc server port # is running into starting rc client port #'s,
+            // it means that there are more clients than the difference between to 2
+            // starting port #s. So try hopping 3x the difference to a group of (hopefully)
+            // unused ports.
+            int diff = cMsgNetworkConstants.rcClientPort - cMsgNetworkConstants.rcServerPort;
+            if ((diff > 0) && (startingPort.get() == cMsgNetworkConstants.rcClientPort)) {
+                if (diff < 500) diff = 500;
+                startingPort.set(cMsgNetworkConstants.rcClientPort + 3*diff);
+            }
+
+            port = startingPort.get();
+//System.out.println("start at port " + port);
+            // At this point, find a port to bind to. If that isn't possible, throw
+            // an exception.
+            while (true) {
+                try {
 //System.out.println("rcServer/tcp list thd: bind TCP socket to " + port);
-                listeningSocket.bind(new InetSocketAddress(port));
-                break;
-            }
-            catch (IOException ex) {
-                // try another port by adding one
-                if (port < 65535) {
-                    port++;
+                    listeningSocket.bind(new InetSocketAddress(port));
+                    break;
+                }
+                catch (IOException ex) {
+                    // try another port by adding one
+                    if (port < 65535) {
+                        port++;
 System.out.println("rcServer/tcp list thd: try another port, " + port);
-                    try { Thread.sleep(100);  }
-                    catch (InterruptedException e) {}
-                }
-                else {
-                    // close channel
-                    try { serverChannel.close(); } catch (IOException e) { }
-                    port = 0;
-                    ex.printStackTrace();
-                    throw new cMsgException("connect: cannot find port to listen on", ex);
+                        try { Thread.sleep(20);  }
+                        catch (InterruptedException e) {}
+                    }
+                    else {
+                        // close channel
+                        try { serverChannel.close(); } catch (IOException e) { }
+                        port = 0;
+                        ex.printStackTrace();
+                        throw new cMsgException("connect: cannot find port to listen on", ex);
+                    }
                 }
             }
-        }
+
+            startingPort.set(port + 1);
 //System.out.println("TCP on " + port);
+        }
     }
 
 
