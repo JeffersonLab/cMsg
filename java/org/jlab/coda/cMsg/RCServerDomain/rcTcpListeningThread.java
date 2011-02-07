@@ -33,6 +33,7 @@ import java.io.*;
 import java.net.Socket;
 import java.net.ServerSocket;
 import java.net.InetSocketAddress;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This class implements a thread to listen to runcontrol clients in the
@@ -41,7 +42,8 @@ import java.net.InetSocketAddress;
 class rcTcpListeningThread extends Thread {
 
     /** Start here looking for an unused port. */
-    static private int startingPort = cMsgNetworkConstants.rcServerPort;
+    static private AtomicInteger startingPort =
+            new AtomicInteger(cMsgNetworkConstants.rcServerPort);
 
     /** Type of domain this is. */
     private String domainType = "rcs";
@@ -126,10 +128,10 @@ class rcTcpListeningThread extends Thread {
         }
 
         // start here looking for a port
-        if (++startingPort < cMsgNetworkConstants.rcServerPort) {
-            startingPort = cMsgNetworkConstants.rcServerPort;
+        if (startingPort.incrementAndGet() < cMsgNetworkConstants.rcServerPort) {
+            startingPort.set(cMsgNetworkConstants.rcServerPort);
         }
-        port = startingPort;
+        port = startingPort.get();
 
         // At this point, find a port to bind to. If that isn't possible, throw
         // an exception.
@@ -156,7 +158,6 @@ System.out.println("rcServer/tcp list thd: bind TCP socket to " + port);
             }
         }
 System.out.println("TCP on " + port);
-        startingPort = port;
     }
 
 
