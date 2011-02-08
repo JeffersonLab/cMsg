@@ -43,12 +43,8 @@ import java.util.regex.Pattern;
  */
 public class cMsg extends cMsgDomainAdapter {
 
-    /** Port number to listen on. */
-    int port;
-
     /** The parsed form of the single UDL the client is currently connected to. */
     ParsedUDL currentParsedUDL;
-
 
     //-- FAILOVER STUFF ---------------------------------------------------------------
 
@@ -59,7 +55,7 @@ public class cMsg extends cMsgDomainAdapter {
      * Index into the {@link #failoverUdls} list corressponding to the UDL
      * currently being used.
      */
-    volatile private byte failoverIndex;
+    private volatile byte failoverIndex;
 
     /**
      * If more than one viable failover UDL is given or failover to a cloud is
@@ -82,25 +78,21 @@ public class cMsg extends cMsgDomainAdapter {
     /**
      * Synchronized map of all cMsg name servers in the same cloud as this client's server.
      */
-    Map<String, ParsedUDL> cloudServers;
+    private Map<String, ParsedUDL> cloudServers;
 
     //------------------------------------------------------------------------------
 
-
-    /** Port number from which to start looking for a suitable listening port. */
-    int startingPort;
-
     /** Socket over which to send UDP multicast and receive response packets from server. */
-    MulticastSocket udpSocket;
+    private MulticastSocket udpSocket;
 
     /** Socket over which to send messges with UDP. */
-    DatagramSocket sendUdpSocket;
+    private DatagramSocket sendUdpSocket;
 
     /** Packet in which to send messages with UDP. */
-    DatagramPacket sendUdpPacket;
+    private DatagramPacket sendUdpPacket;
 
     /** Signal to coordinate the multicasting and waiting for responses. */
-    CountDownLatch multicastResponse;
+    private CountDownLatch multicastResponse;
 
     /** Domain server's host. */
     String domainServerHost;
@@ -109,12 +101,11 @@ public class cMsg extends cMsgDomainAdapter {
     int domainServerPort;
 
     /** Domain server's UDP port for udp client sends. */
-    int domainServerUdpPort;
+    private int domainServerUdpPort;
 
     /** Channel for talking to domain server. */
     Socket domainOutSocket;
-    /** Socket input stream associated with domainInChannel - gets info from server. */
-    DataInputStream  domainIn;
+
     /** Socket output stream associated with domainOutChannel - sends info to server. */
     DataOutputStream domainOut;
 
@@ -125,7 +116,7 @@ public class cMsg extends cMsgDomainAdapter {
     public String monitorXML = "";
 
     /** Time in milliseconds between sending monitor data / keep alives. */
-    final int sleepTime = 2000;
+    private final int sleepTime = 2000;
 
     /** Thread listening for messages and responding to domain server commands. */
     cMsgClientListeningThread listeningThread;
@@ -188,7 +179,7 @@ public class cMsg extends cMsgDomainAdapter {
      * is called explicitly or the client disconnects when detecting a dead server.
      * This member keeps track of the state.
      */
-    volatile private boolean mayConnect;
+    private volatile boolean mayConnect;
 
     /**
      * True if the UDLs given in the constructor have been parsed by the
@@ -199,7 +190,7 @@ public class cMsg extends cMsgDomainAdapter {
     /**
      * True if the method {@link #disconnect} was called.
      */
-    volatile private boolean disconnectCalled;
+    private volatile boolean disconnectCalled;
 
     /**
      * This lock is for controlling access to the methods of this class.
