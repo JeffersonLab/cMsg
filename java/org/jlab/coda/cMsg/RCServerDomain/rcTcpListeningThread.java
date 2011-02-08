@@ -344,7 +344,7 @@ class rcTcpListeningThread extends Thread {
 
                         default:
                             if (debug >= cMsgConstants.debugWarn) {
-                                System.out.println("handleClient: can't understand server message = " + msgId);
+                                System.out.println("handleClient: can't understand rc client message = " + msgId);
                             }
                             break;
                     }
@@ -354,8 +354,8 @@ class rcTcpListeningThread extends Thread {
 //            }
             catch (IOException e) {
                 if (debug >= cMsgConstants.debugError) {
-                    System.out.println("rcUdpListenThread: I/O ERROR in rc server");
-                    System.out.println("rcUdpListenThread: close TCP server socket, port = " +
+                    System.out.println("rcTcpListenThread: I/O ERROR in rc server");
+                    System.out.println("rcTcpListenThread: close TCP server socket, port = " +
                             channel.socket().getLocalPort());
                 }
             }
