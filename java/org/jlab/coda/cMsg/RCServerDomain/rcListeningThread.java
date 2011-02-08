@@ -308,16 +308,16 @@ class rcListeningThread extends Thread {
             }
         }
         catch (IOException ex) {
-            if (debug >= cMsgConstants.debugError) {
+          //  if (debug >= cMsgConstants.debugError) {
                 System.out.println("rcTcpListenThread: I/O ERROR in rc server");
                 System.out.println("rcTcpListenThread: close TCP server socket, port = " +
                         myChannel.socket().getLocalPort());
                 ex.printStackTrace();
-            }
+          //  }
         }
         finally {
-            try {in.close();}            catch (IOException ex) {}
-            try {myChannel.close();}     catch (IOException ex) {}
+            try {if (in != null) in.close();}               catch (IOException ex) {}
+            try {if (myChannel != null) myChannel.close();} catch (IOException ex) {}
             try {serverChannel.close();} catch (IOException ex) {}
             try {selector.close();}      catch (IOException ex) {}
         }
