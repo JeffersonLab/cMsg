@@ -135,8 +135,7 @@ class cMsgServerSubscribeInfo {
      * @return true if client has a subscription, false if client only did subAndGets
      */
     public boolean isSubscribed() {
-        if (subscribed > 0) return true;
-        return false;
+        return subscribed > 0;
     }
 
     //-------------------------------------------------------------------------------
