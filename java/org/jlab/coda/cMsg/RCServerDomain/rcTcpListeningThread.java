@@ -245,7 +245,7 @@ class rcTcpListeningThread extends Thread {
                         handler = new ClientHandler(channel);
 
                         if (debug >= cMsgConstants.debugInfo) {
-                            System.out.println("cMsgClientListeningThread: new connection");
+                            System.out.println("rcTcpListeningThread: new connection");
                         }
                     }
                     // remove key from selected set since it's been handled
