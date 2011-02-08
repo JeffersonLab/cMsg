@@ -57,7 +57,7 @@ class cMsgServerCloudJoiner extends Thread {
 
 
     /** Level of debug output. */
-     private int debug;
+    private int debug;
 
     /**
      * Constructor.
@@ -125,10 +125,7 @@ if(methodDebug) System.out.println("    << JR: Creating bridge to: " + server);
                         // Once we find out, we must change the server's name so
                         // that it is unique (host:port) since "multicast:<port>"
                         // is not. First see if we're multicasting.
-                        multicasting = false;
-                        if (server.startsWith("multicast:")) {
-                            multicasting = true;
-                        }
+                        multicasting = server.startsWith("multicast:");
 
                         // This throws cMsgException if cannot find localhost's name
                         cMsgServerBridge bridge = new cMsgServerBridge(nameServer, server,
@@ -179,14 +176,9 @@ if(methodDebug) System.out.println("    << JR: Cannot connect to given server: "
                             int indexColon = s.lastIndexOf(":");
                             // find port
                             String sPort = s.substring(indexColon+1);
-                            int sport = 0;
-                            try {
-                                sport = Integer.parseInt(sPort);
-                            }
-                            catch (NumberFormatException e) {
-                                // should never happen, but try default value
-                                sport = cMsgNetworkConstants.nameServerTcpPort;
-                            }
+                            int  sport = cMsgNetworkConstants.nameServerTcpPort;
+                            try {sport = Integer.parseInt(sPort);}
+                            catch (NumberFormatException e) {/* should never happen */}
                             // find host name
                             String hostName = s.substring(0, indexColon);
 
@@ -355,7 +347,7 @@ if(methodDebug) System.out.println("    << JR: Could not connect to any given se
             return;
         }
 
-        int     grabLockTries = 0;
+        int     grabLockTries;
         boolean gotSelfLock   = false;
         boolean gotCloudLock  = false;
         boolean amInCloud     = false;
