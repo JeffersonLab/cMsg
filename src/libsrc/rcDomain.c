@@ -317,6 +317,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     struct sockaddr_in servaddr, addr;
     int    gotResponse=0;
     const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
+    
         
        
     /* clear array */
@@ -382,7 +383,7 @@ printf("EXPID is not set!\n");
      * 
      * But before that, define a port number from which to start looking.
      * If CMSG_PORT is defined, it's the starting port number.
-     * If CMSG_PORT is NOT defind, start at RC_CLIENT_LISTENING_PORT (6543).
+     * If CMSG_PORT is NOT defind, start at RC_CLIENT_LISTENING_PORT (45800).
      *-------------------------------------------------------------------------*/
     
     /* pick starting port number */
