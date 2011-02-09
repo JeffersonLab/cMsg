@@ -16,10 +16,7 @@
 
 package org.jlab.coda.cMsg.RCServerDomain;
 
-import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsgNetworkConstants;
+import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.cMsgCallbackThread;
 import org.jlab.coda.cMsg.common.cMsgGetHelper;
 import org.jlab.coda.cMsg.common.cMsgMessageFull;
@@ -29,10 +26,14 @@ import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.*;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Set;
@@ -184,15 +185,19 @@ class rcListeningThread extends Thread {
             System.out.println("Running Client Listening Thread:");
         }
 
+        // Direct buffer for reading TCP nonblocking IO
+        ByteBuffer buffer = ByteBuffer.allocateDirect(16384);
+
         // rc client channel
         SocketChannel myChannel = null;
+
         // Socket input stream associated with channel
         DataInputStream in = null;
-        // Allocate byte array once (used for reading in data) for efficiency's sake
-        byte[] bytes = new byte[65536];
 
-        int size, msgId;
         cMsgMessageFull msg;
+        boolean readingSize = true;
+        int bytes, bytesRead=0, size=0, msgId=0;
+
         Selector selector = null;
 
         try {
@@ -216,9 +221,11 @@ class rcListeningThread extends Thread {
                 int n = selector.select(2000);
 
                 // if no channels (sockets) are ready, listen some more
-                if (n == 0) {
+                if (n < 1) {
                     // but first check to see if we've been commanded to die
                     if (killThread) return;
+
+                    selector.selectedKeys().clear();
                     continue;
                 }
 
@@ -239,6 +246,7 @@ class rcListeningThread extends Thread {
                             ServerSocketChannel server = (ServerSocketChannel) key.channel();
                             // accept the connection from the client
                             SocketChannel channel = server.accept();
+                            channel.configureBlocking(false);
 
                             // set socket options
                             Socket socket = channel.socket();
@@ -261,44 +269,119 @@ class rcListeningThread extends Thread {
                             // buffered communication streams for efficiency
                             in = new DataInputStream(new BufferedInputStream(
                                      myChannel.socket().getInputStream(), 65536));
+
+                            buffer.clear();
+                            buffer.limit(8);
+                            readingSize = true;
                         }
 
                         // read input from rc client
                         else if (key.isReadable()) {
-                            // read first int -- total size in bytes
-                            in.skipBytes(4);
-                            //size = in.readInt();
-                            //System.out.println(" size = " + size);
 
-                            // read client's request
-                            msgId = in.readInt();
-                            //System.out.println(" msgId = " + msgId);
+//System.out.println("  try reading size & msgId");
+                            // FIRST, read size & msgId
+                            if (readingSize) {
+                                try {
+                                    bytes = myChannel.read(buffer);
+                                }
+                                catch (IOException e) {
+                                    // client has died
+                                    key.cancel();
+                                    it.remove();
+                                    continue;
+                                }
 
-                            switch (msgId) {
-
-                                case cMsgConstants.msgSubscribeResponse: // receiving a message
-                                    // read the message here
-                                    msg = readIncomingMessage(in, bytes);
-
-                                    // run callbacks for this message
-                                    runCallbacks(msg);
-                                    break;
-
-                                case cMsgConstants.msgGetResponse: // receiving a message for sendAndGet
-                                    // read the message
-                                    msg = readIncomingMessage(in, bytes);
-                                    msg.setGetResponse(true);
-                                    // wakeup caller with this message
-                                    wakeGets(msg);
-                                    break;
-
-                                default:
-                                    if (debug >= cMsgConstants.debugWarn) {
-                                        System.out.println("rcTcpListeningThread: can't understand rc client message = " + msgId);
+                                // for End-of-stream ...
+                                if (bytes == -1) {
+                                    // error handling
+//System.out.println("  TCP ERROR: reading size & msgId for channel");
+//System.out.println("           : pos = " + buffer.position());
+                                    if (buffer.position() > 3) {
+//System.out.println("           : size = " + buffer.getInt());
                                     }
-                                    break;
+                                    key.cancel();
+                                    it.remove();
+                                    continue;
+                                }
+
+                                // if we've read 8 bytes (2 ints) ...
+                                if (buffer.position() > 7) {
+                                    buffer.flip();
+                                    size  = buffer.getInt();
+                                    msgId = buffer.getInt();
+//System.out.println("  read size = " + size + ", msgId = " + msgId);
+                                    if (size-4 > buffer.capacity()) {
+//System.out.println("  create new, large direct bytebuffer from " + clientData.buffer.capacity() + " to " + clientData.size);
+                                        buffer = ByteBuffer.allocateDirect(size-4);
+                                    }
+
+                                    buffer.clear();
+                                    buffer.limit(size-4);
+                                    readingSize = false;
+                                    bytesRead = 0;
+                                }
                             }
 
+                            // SECOND, read message after size & msgId read
+                            if (!readingSize) {
+                                // fully read buffer before parsing into cMsg message
+                                try {
+//System.out.println("  try reading rest of buffer");
+//System.out.println("  buffer capacity = " + buffer.capacity() + ", limit = " +
+//                   buffer.limit() + ", position = " + buffer.position() );
+                                    bytes = myChannel.read(buffer);
+                                }
+                                catch (IOException ex) {
+                                    // client has died
+                                    key.cancel();
+                                    it.remove();
+                                    continue;
+                                }
+
+                                // for End-of-stream ...
+                                if (bytes == -1) {
+                                    key.cancel();
+                                    it.remove();
+                                    continue;
+                                }
+
+                                bytesRead += bytes;
+//System.out.println("  bytes read = " + bytesRead);
+                                if (bytesRead >= size-4) {
+                                    buffer.flip();
+
+                                    switch (msgId) {
+
+                                        case cMsgConstants.msgSubscribeResponse: // receiving a message
+                                            // read the message here
+                                            msg = readIncomingMessageNB(buffer);
+
+                                            // run callbacks for this message
+                                            runCallbacks(msg);
+                                            break;
+
+                                        case cMsgConstants.msgGetResponse: // receiving a message for sendAndGet
+                                            // read the message
+                                            msg = readIncomingMessageNB(buffer);
+                                            msg.setGetResponse(true);
+
+                                            // wakeup caller with this message
+                                            wakeGets(msg);
+                                            break;
+
+                                        default:
+                                            if (debug >= cMsgConstants.debugWarn) {
+                                                System.out.println("rcTcpListeningThread: can't understand rc client message = " + msgId);
+                                            }
+                                            break;
+                                    }
+
+                                    bytesRead = 0;
+                                    readingSize = true;
+                                    buffer.clear();
+                                    buffer.limit(8);
+                                }
+                            }
                         }
                     }
 
@@ -308,12 +391,12 @@ class rcListeningThread extends Thread {
             }
         }
         catch (IOException ex) {
-          //  if (debug >= cMsgConstants.debugError) {
+            if (debug >= cMsgConstants.debugError) {
                 System.out.println("rcTcpListenThread: I/O ERROR in rc server");
                 System.out.println("rcTcpListenThread: close TCP server socket, port = " +
                         myChannel.socket().getLocalPort());
                 ex.printStackTrace();
-          //  }
+            }
         }
         finally {
             try {if (in != null) in.close();}               catch (IOException ex) {}
@@ -327,6 +410,103 @@ class rcListeningThread extends Thread {
         }
 
         return;
+    }
+
+
+
+    /**
+     * This method reads an incoming message from the RC client.
+     *
+     * @return message read from channel
+     * @throws java.io.IOException if socket read or write error
+     */
+    private cMsgMessageFull readIncomingMessageNB(ByteBuffer buffer) {
+
+        int len;
+
+        // create a message
+        cMsgMessageFull msg = new cMsgMessageFull();
+
+        msg.setVersion(buffer.getInt());
+        msg.setUserInt(buffer.getInt());
+        // mark the message as having been sent over the wire & having expanded payload
+        msg.setInfo(buffer.getInt() | cMsgMessage.wasSent | cMsgMessage.expandedPayload);
+        msg.setSenderToken(buffer.getInt());
+
+        // time message was sent = 2 ints (hightest byte first)
+        // in milliseconds since midnight GMT, Jan 1, 1970
+        long time = (buffer.getLong());
+        msg.setSenderTime(new Date(time));
+
+        // user time
+        time = (buffer.getLong());
+        msg.setUserTime(new Date(time));
+
+        // String lengths
+        int lengthSender      = buffer.getInt();
+        int lengthSubject     = buffer.getInt();
+        int lengthType        = buffer.getInt();
+        int lengthPayloadTxt  = buffer.getInt();
+        int lengthText        = buffer.getInt();
+        int lengthBinary      = buffer.getInt();
+
+        // decode buffer as ASCII into CharBuffer
+        Charset cs = Charset.forName("ASCII");
+        CharBuffer chBuf = cs.decode(buffer);
+
+        // read sender
+        msg.setSender(chBuf.subSequence(0, lengthSender).toString());
+//System.out.println("sender = " + msg.getSender());
+        len = lengthSender;
+
+        // read subject
+        msg.setSubject(chBuf.subSequence(len, len+lengthSubject).toString());
+//System.out.println("subject = " + msg.getSubject());
+        len += lengthSubject;
+
+        // read type
+        msg.setType(chBuf.subSequence(len,len+lengthType).toString());
+//System.out.println("type = " + msg.getType());
+        len += lengthType;
+
+        // read payload text
+        if (lengthPayloadTxt > 0) {
+            String s = chBuf.subSequence(len,len+lengthPayloadTxt).toString();
+            // setting the payload text is done by setFieldsFromText
+//System.out.println("payload text = " + s);
+            len += lengthPayloadTxt;
+            try {
+                msg.setFieldsFromText(s, cMsgMessage.allFields);
+            }
+            catch (cMsgException e) {
+                System.out.println("msg payload is in the wrong format: " + e.getMessage());
+            }
+        }
+
+        // read text
+        if (lengthText > 0) {
+            msg.setText(chBuf.subSequence(len,len+lengthText).toString());
+            len += lengthText;
+//System.out.println("text = " + msg.getText());
+        }
+
+        // read binary array
+        if (lengthBinary > 0) {
+            byte[] array = new byte[lengthBinary];
+            buffer.position(buffer.position()+len);
+            buffer.get(array, 0, lengthBinary);
+            msg.setByteArrayNoCopy(array);
+        }
+
+        // fill in message object's members
+        msg.setDomain(domainType);
+        msg.setReceiver(server.getName());
+        msg.setReceiverHost(server.getHost());
+        msg.setReceiverTime(new Date()); // current time
+
+//System.out.println("MESSAGE RECEIVED\n\n");
+
+        return msg;
     }
 
 
