@@ -33,7 +33,6 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
-import java.nio.charset.CharsetDecoder;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Set;
@@ -505,111 +504,6 @@ class rcListeningThread extends Thread {
         msg.setReceiverTime(new Date()); // current time
 
 //System.out.println("MESSAGE RECEIVED\n\n");
-
-        return msg;
-    }
-
-
-
-    /**
-     * This method reads an incoming message from the RC client.
-     *
-     * @return message read from channel
-     * @throws java.io.IOException if socket read or write error
-     */
-    private cMsgMessageFull readIncomingMessage(DataInputStream in, byte[] bytes) throws IOException {
-        // create a message
-        cMsgMessageFull msg = new cMsgMessageFull();
-
-        msg.setVersion(in.readInt());
-        msg.setUserInt(in.readInt());
-        // mark the message as having been sent over the wire & having expanded payload
-        msg.setInfo(in.readInt() | cMsgMessage.wasSent | cMsgMessage.expandedPayload);
-        msg.setSenderToken(in.readInt());
-
-        // time message was sent = 2 ints (hightest byte first)
-        // in milliseconds since midnight GMT, Jan 1, 1970
-        long time = ((long) in.readInt() << 32) | ((long) in.readInt() & 0x00000000FFFFFFFFL);
-        msg.setSenderTime(new Date(time));
-        // user time
-        time = ((long) in.readInt() << 32) | ((long) in.readInt() & 0x00000000FFFFFFFFL);
-        msg.setUserTime(new Date(time));
-
-        // String lengths
-        int lengthSender     = in.readInt();
-        int lengthSubject    = in.readInt();
-        int lengthType       = in.readInt();
-        int lengthPayloadTxt = in.readInt();
-        int lengthText       = in.readInt();
-        int lengthBinary     = in.readInt();
-
-        // bytes expected
-        int stringBytesToRead = lengthSender + lengthSubject + lengthType +
-                lengthPayloadTxt + lengthText;
-        int offset = 0;
-
-        // read all string bytes
-        if (stringBytesToRead > bytes.length) {
-            bytes = new byte[stringBytesToRead];
-        }
-        in.readFully(bytes, 0, stringBytesToRead);
-
-        // read sender
-        msg.setSender(new String(bytes, offset, lengthSender, "US-ASCII"));
-        //System.out.println("sender = " + msg.getSender());
-        offset += lengthSender;
-
-        // read subject
-        msg.setSubject(new String(bytes, offset, lengthSubject, "US-ASCII"));
-        //System.out.println("subject = " + msg.getSubject());
-        offset += lengthSubject;
-
-        // read type
-        msg.setType(new String(bytes, offset, lengthType, "US-ASCII"));
-        //System.out.println("type = " + msg.getType());
-        offset += lengthType;
-
-        // read payload text
-        if (lengthPayloadTxt > 0) {
-            String s = new String(bytes, offset, lengthPayloadTxt, "US-ASCII");
-            // setting the payload text is done by setFieldsFromText
-            //System.out.println("payload text = " + s);
-            offset += lengthPayloadTxt;
-            try {
-                msg.setFieldsFromText(s, cMsgMessage.allFields);
-            }
-            catch (cMsgException e) {
-                System.out.println("msg payload is in the wrong format: " + e.getMessage());
-            }
-        }
-
-        // read text
-        if (lengthText > 0) {
-            msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));
-            //System.out.println("text = " + msg.getText());
-            offset += lengthText;
-        }
-
-        // read binary array
-        if (lengthBinary > 0) {
-            byte[] b = new byte[lengthBinary];
-
-            // read all binary bytes
-            in.readFully(b, 0, lengthBinary);
-
-            try {
-                msg.setByteArrayNoCopy(b, 0, lengthBinary);
-            }
-            catch (cMsgException e) {
-            }
-        }
-
-        // fill in message object's members
-        msg.setDomain(domainType);
-        msg.setReceiver(server.getName());
-        msg.setReceiverHost(server.getHost());
-        msg.setReceiverTime(new Date()); // current time
-//System.out.println("MESSAGE RECEIVED");
 
         return msg;
     }
