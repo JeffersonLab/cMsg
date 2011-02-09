@@ -95,6 +95,7 @@ class rcListeningThread extends Thread {
 
         this.server = server;
         debug = server.getDebug();
+        debug = cMsgConstants.debugInfo;
 
         createTCPServerChannel();
 
@@ -242,7 +243,6 @@ class rcListeningThread extends Thread {
 
                         // accept connection from rc client
                         if (key.isAcceptable()) {
-System.out.println("rcServer: (re)Establishing connection from client");
                             ServerSocketChannel server = (ServerSocketChannel) key.channel();
                             // accept the connection from the client
                             SocketChannel channel = server.accept();
@@ -396,8 +396,8 @@ System.out.println("rcServer: client died 2");
         }
         catch (IOException ex) {
             if (debug >= cMsgConstants.debugError) {
-                System.out.println("rcTcpListenThread: I/O ERROR in rc server");
-                System.out.println("rcTcpListenThread: close TCP server socket, port = " +
+                System.out.println("rcListenThread: I/O ERROR in rc server");
+                System.out.println("rcListenThread: close TCP server socket, port = " +
                         myChannel.socket().getLocalPort());
                 ex.printStackTrace();
             }
