@@ -337,9 +337,9 @@ class rcListeningThread extends Thread {
                                 // Reestablish the broken socket.
                                 // Create a UDP "connection". This means security check is done only once
                                 // and communication with any other host/port is not allowed.
-                                client.udpSocket.connect(client.rcServerAddress, client.rcUdpServerPort);
-                                client.sendUdpPacket = new DatagramPacket(new byte[0], 0,
-                                                                          client.rcServerAddress, client.rcUdpServerPort);
+//                                client.udpSocket.connect(client.rcServerAddress, client.rcUdpServerPort);
+//                                client.sendUdpPacket = new DatagramPacket(new byte[0], 0,
+//                                                                          client.rcServerAddress, client.rcUdpServerPort);
 
                                 // create a TCP connection to the RC Server
 //System.out.println("Do tcp connect ...");

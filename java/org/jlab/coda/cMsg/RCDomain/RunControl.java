@@ -93,7 +93,7 @@ public class RunControl extends cMsgDomainAdapter {
     MulticastSocket multicastUdpSocket;
 
     /** Socket over which to end messages to the RC server over UDP. */
-    DatagramSocket udpSocket;
+//    DatagramSocket udpSocket;
 
     /** Socket over which to send messages to the RC server over TCP. */
     Socket tcpSocket;
@@ -400,18 +400,18 @@ public class RunControl extends cMsgDomainAdapter {
             // Create a UDP "connection". This means security check is done only once
             // and communication with any other host/port is not allowed.
             // create socket to receive at anonymous port & all interfaces
-            try {
-                udpSocket = new DatagramSocket();
-                udpSocket.setReceiveBufferSize(cMsgNetworkConstants.bigBufferSize);
-            }
-            catch (SocketException e) {
-                listeningThread.killThread();
-                if (udpSocket != null) udpSocket.close();
-                e.printStackTrace();
-            }
-//System.out.println("connect: Make udp connection to RC server");
-            udpSocket.connect(rcServerAddress, rcUdpServerPort);
-            sendUdpPacket = new DatagramPacket(new byte[0], 0, rcServerAddress, rcUdpServerPort);
+//            try {
+//                udpSocket = new DatagramSocket();
+//                udpSocket.setReceiveBufferSize(cMsgNetworkConstants.bigBufferSize);
+//            }
+//            catch (SocketException e) {
+//                listeningThread.killThread();
+//                if (udpSocket != null) udpSocket.close();
+//                e.printStackTrace();
+//            }
+////System.out.println("connect: Make udp connection to RC server");
+//            udpSocket.connect(rcServerAddress, rcUdpServerPort);
+//            sendUdpPacket = new DatagramPacket(new byte[0], 0, rcServerAddress, rcUdpServerPort);
 
             // create a TCP connection to the RC Server
             try {
@@ -425,7 +425,7 @@ public class RunControl extends cMsgDomainAdapter {
             }
             catch (IOException e) {
                 listeningThread.killThread();
-                udpSocket.close();
+//                udpSocket.close();
                 if (domainOut != null) try {domainOut.close();}  catch (IOException e1) {}
                 if (tcpSocket != null) try {tcpSocket.close();}  catch (IOException e1) {}
 
@@ -854,7 +854,7 @@ public class RunControl extends cMsgDomainAdapter {
 
             connected = false;
             multicastUdpSocket.close();
-            udpSocket.close();
+//            udpSocket.close();
             try {tcpSocket.close();} catch (IOException e) {}
             try {domainOut.close();} catch (IOException e) {}
 
