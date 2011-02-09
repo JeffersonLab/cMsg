@@ -795,6 +795,7 @@ class cMsgDomainServerSelect extends Thread {
                                 catch (IOException e) {
                                     // client has died
                                     deleteClient(clientData);
+                                    key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -805,6 +806,7 @@ class cMsgDomainServerSelect extends Thread {
                                     // error handling
 //System.out.println("  TCP ERROR reading size for channel = " + sockChannel);
                                     deleteClient(clientData);
+                                    key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -835,6 +837,7 @@ class cMsgDomainServerSelect extends Thread {
                                 catch (IOException e) {
                                     // client has died
                                     deleteClient(clientData);
+                                    key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -844,6 +847,7 @@ class cMsgDomainServerSelect extends Thread {
                                     // error handling
 //System.out.println("TCP ERROR reading data for channel = " + sockChannel);
                                     deleteClient(clientData);
+                                    key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -888,12 +892,14 @@ class cMsgDomainServerSelect extends Thread {
                                     udpSender = (InetSocketAddress)udpChannel.receive(udpBuffer);
                                 }
                                 catch (IOException e) {
+                                    key.cancel();
                                     it.remove();
                                     continue;
                                 }
                                 udpBuffer.flip();
                                 if (udpBuffer.limit() < 20) {
 //System.out.println("  CAUGHT SMALL BUFFER, limit = " + udpBuffer.limit());
+                                    key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -903,6 +909,7 @@ class cMsgDomainServerSelect extends Thread {
                                     if (debug >= cMsgConstants.debugWarn) {
                                         System.out.println(" received bogus udp packet");
                                     }
+                                    key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -917,6 +924,7 @@ class cMsgDomainServerSelect extends Thread {
                                 if (clientData == null) {
                                     // there is no match with current clients so ignore it
 //System.out.println("  UDP host/port does NOT match current clients, ignore it");
+                                    key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -925,6 +933,7 @@ class cMsgDomainServerSelect extends Thread {
 //System.out.println("  read size in UDP = " + clientData.size);
                                 // if packet is too big, ignore it
                                 if (4 + clientData.size > udpBuffer.capacity()) {
+                                    key.cancel();
                                     it.remove();
 //System.out.println("  packet is too big, ignore it");
                                     continue;
