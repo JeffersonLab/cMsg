@@ -338,7 +338,7 @@ class cMsgMonitorClient extends Thread {
                             // cMsgClientData object of TCP channel being read
                             clientData = (cMsgClientData) key.attachment();
                             if (clientData == null) {
-                                key.cancel();
+//                                key.cancel();
                                 it.remove();
                                 continue;
                             }
