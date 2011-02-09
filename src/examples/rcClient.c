@@ -80,7 +80,7 @@ int main(int argc,char **argv) {
   char *myDescription = "rc trial";
   
  /* RC domain UDL is of the form:
-  *        cMsg:rc://<host>:<port>/?expid=<expid>&broadcastTO=<timeout>&connectTO=<timeout>
+  *        cMsg:rc://<host>:<port>/<expid>?multicastTO=<timeout>&connectTO=<timeout>
   *
   *
   * Remember that for this domain:
@@ -95,7 +95,7 @@ int main(int argc,char **argv) {
   *       concluding connect message<p>
   *</ul><p>
   */
-  char *UDL = "cMsg:rc://?expid=carlExp&multicastTO=5&connectTO=5";
+  char *UDL = "cMsg:rc://multicast/testExpid&multicastTO=5&connectTO=5";
 
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
