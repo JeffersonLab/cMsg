@@ -171,11 +171,11 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
 
 /*-------------------------------------------------------------------*/
 /* Start with startingPort & keeping trying different port #s until  */
-/* one is found that is free for listening on. Try 500 port numbers. */
+/* one is found that is free for listening on. Try 1500 port numbers. */
 
 
 int cMsgGetListeningSocket(int blocking, unsigned short startingPort, int *finalPort, int *fd) {
-  unsigned short  i, port=startingPort, trylimit=500;
+  unsigned short  i, port=startingPort, trylimit=1500;
   int listenFd;
   
   /* for a limited number of times */
@@ -183,9 +183,10 @@ int cMsgGetListeningSocket(int blocking, unsigned short startingPort, int *final
     /* try to listen on a port */
     if (cMsgTcpListen(blocking, port, &listenFd) != CMSG_OK) {
       if (cMsgDebug >= CMSG_DEBUG_WARN) {
-	fprintf(stderr, "cMsgGetListeningPort: tried but could not listen on port %hu\n", port);
+         fprintf(stderr, "cMsgGetListeningPort: tried but could not listen on port %hu\n", port);
       }
       port++;
+      if (port < 1025) port = 1025;
       continue;
     }
     break;
