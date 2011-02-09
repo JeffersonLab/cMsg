@@ -242,6 +242,7 @@ class rcListeningThread extends Thread {
 
                         // accept connection from rc client
                         if (key.isAcceptable()) {
+System.out.println("rcServer: (re)Establishing connection from client");
                             ServerSocketChannel server = (ServerSocketChannel) key.channel();
                             // accept the connection from the client
                             SocketChannel channel = server.accept();
@@ -256,7 +257,7 @@ class rcListeningThread extends Thread {
                             socket.setSendBufferSize(65535);
 
                             if (debug >= cMsgConstants.debugInfo) {
-                                System.out.println("rcTcpListeningThread: new connection");
+                                System.out.println("rcListeningThread: new connection");
                             }
 
                             // register this channel (socket) for reading
@@ -285,6 +286,7 @@ class rcListeningThread extends Thread {
                                 }
                                 catch (IOException e) {
                                     // client has died
+System.out.println("rcServer: client died 1");
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -298,6 +300,7 @@ class rcListeningThread extends Thread {
                                     if (buffer.position() > 3) {
 //System.out.println("           : size = " + buffer.getInt());
                                     }
+System.out.println("rcServer: client died 2");
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -332,6 +335,7 @@ class rcListeningThread extends Thread {
                                 }
                                 catch (IOException ex) {
                                     // client has died
+                                    System.out.println("rcServer: client died 3");
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -339,6 +343,7 @@ class rcListeningThread extends Thread {
 
                                 // for End-of-stream ...
                                 if (bytes == -1) {
+                                    System.out.println("rcServer: client died 4");
                                     key.cancel();
                                     it.remove();
                                     continue;
