@@ -106,7 +106,6 @@ class rcListeningThread extends Thread {
 
         this.server = server;
         debug = server.getDebug();
-        //debug = cMsgConstants.debugInfo;
         udpPort = server.localUdpPort;
 
         createTCPServerChannel();
@@ -279,7 +278,6 @@ class rcListeningThread extends Thread {
                 udpChannel.configureBlocking(false);
 
                 // register the channel with the selector for reading
-System.out.println("Regist updChannel");
                 udpChannel.register(selector, SelectionKey.OP_READ, "UDP");
             }
             catch (IOException e) { /* should never happen */ }
@@ -405,15 +403,13 @@ System.out.println("Regist updChannel");
                                     }
                                     catch (IOException ex) {
                                         // client has died
-                                        System.out.println("rcServer: client died 3");
                                         key.cancel();
                                         it.remove();
                                         continue;
                                     }
 
-                                    // for End-of-stream ...
+                                    // if End-of-stream (client died) ...
                                     if (bytes == -1) {
-                                        System.out.println("rcServer: client died 4");
                                         key.cancel();
                                         it.remove();
                                         continue;
@@ -432,7 +428,7 @@ System.out.println("Regist updChannel");
 
                             // else if channel is UDP ...
                             else {
-System.out.println("  client is UDP readable");
+//System.out.println("  client is UDP readable");
                                 udpBuffer.clear();
 
                                 // receive packet
@@ -440,7 +436,7 @@ System.out.println("  client is UDP readable");
                                     udpChannel.receive(udpBuffer);
                                 }
                                 catch (IOException e) {
-System.out.println("  IO error reading packet");
+//System.out.println("  IO error reading packet");
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -448,7 +444,7 @@ System.out.println("  IO error reading packet");
 
                                 udpBuffer.flip();
                                 if (udpBuffer.limit() < 20) {
-System.out.println("  packet is too small, limit = " + udpBuffer.limit());
+//System.out.println("  packet is too small, limit = " + udpBuffer.limit());
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -468,11 +464,11 @@ System.out.println("  packet is too small, limit = " + udpBuffer.limit());
                                 // Find size & msgId of data to come.
                                 size  = udpBuffer.getInt();
                                 msgId = udpBuffer.getInt();
-System.out.println("  UDP read size = " + size + ", msgId = " + msgId);
+//System.out.println("  UDP read size = " + size + ", msgId = " + msgId);
                                 if (4 + size > udpBuffer.capacity()) {
                                     key.cancel();
                                     it.remove();
-System.out.println("  packet is too big, ignore it");
+//System.out.println("  packet is too big, ignore it");
                                     continue;
                                 }
 
