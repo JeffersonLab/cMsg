@@ -244,6 +244,13 @@ class rcListeningThread extends Thread {
         // Reference to either tcpBuffer or udpBuffer
         ByteBuffer dataBuffer = null;
 
+        // We want separate buffers for TCP & UDP. The TCP sender sends
+        // all data from 1 message together. The UDP sender sends a packet
+        // which this thread receives at once. A problem could arise with
+        // only 1 buffer on this end if, a partial TCP read is done and that
+        // is followed by a UDP read which would clear the buffer and wipe
+        // out what was partially read for TCP.
+
         // Direct buffer for reading TCP nonblocking IO
         ByteBuffer tcpBuffer = ByteBuffer.allocateDirect(16384);
 
