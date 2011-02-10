@@ -134,27 +134,29 @@ class rcListeningThread extends Thread {
             if (udpPort > 0) {
                 try {
                     udpSocket.bind(new InetSocketAddress(udpPort));
+//System.out.println("rcListeningThread: listening on url specified UDP port " + udpPort);
                 }
                 catch (SocketException e) {
                     // bind to ephemeral port since error
                     udpSocket.bind(new InetSocketAddress(0));
+//System.out.println("rcListeningThread: error binding, listening on ephemeral port " + udpSocket.getLocalPort());
                 }
             }
             else {
                 // bind to ephemeral port
                 udpSocket.bind(new InetSocketAddress(0));
+//System.out.println("rcListeningThread: listening on ephemeral port " + udpSocket.getLocalPort());
             }
 
             udpPort = udpSocket.getLocalPort();
-//System.out.println("rcListeningThread: listening on UDP port " + udpPort);
             udpSocket.setReuseAddress(true);
             udpSocket.setReceiveBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
         }
         catch (IOException ex) {
             if (udpChannel != null) try { udpChannel.close(); } catch (IOException e1) { }
-            cMsgException e = new cMsgException("Exiting Server: cannot create socket to listen on");
+            cMsgException e = new cMsgException("rcListeningThread: cannot create UDP server socket", ex);
             e.setReturnCode(cMsgConstants.errorSocket);
-            throw new cMsgException("rcListeningThread: cannot create UDP server socket", e);
+            throw e;
         }
     }
 
@@ -277,6 +279,7 @@ class rcListeningThread extends Thread {
                 udpChannel.configureBlocking(false);
 
                 // register the channel with the selector for reading
+System.out.println("Regist updChannel");
                 udpChannel.register(selector, SelectionKey.OP_READ, "UDP");
             }
             catch (IOException e) { /* should never happen */ }
@@ -429,7 +432,7 @@ class rcListeningThread extends Thread {
 
                             // else if channel is UDP ...
                             else {
-//System.out.println("  client is UDP readable");
+System.out.println("  client is UDP readable");
                                 udpBuffer.clear();
 
                                 // receive packet
@@ -437,6 +440,7 @@ class rcListeningThread extends Thread {
                                     udpChannel.receive(udpBuffer);
                                 }
                                 catch (IOException e) {
+System.out.println("  IO error reading packet");
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -444,7 +448,7 @@ class rcListeningThread extends Thread {
 
                                 udpBuffer.flip();
                                 if (udpBuffer.limit() < 20) {
-//System.out.println("  packet is too small, limit = " + udpBuffer.limit());
+System.out.println("  packet is too small, limit = " + udpBuffer.limit());
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -464,11 +468,11 @@ class rcListeningThread extends Thread {
                                 // Find size & msgId of data to come.
                                 size  = udpBuffer.getInt();
                                 msgId = udpBuffer.getInt();
-
+System.out.println("  UDP read size = " + size + ", msgId = " + msgId);
                                 if (4 + size > udpBuffer.capacity()) {
                                     key.cancel();
                                     it.remove();
-//System.out.println("  packet is too big, ignore it");
+System.out.println("  packet is too big, ignore it");
                                     continue;
                                 }
 
