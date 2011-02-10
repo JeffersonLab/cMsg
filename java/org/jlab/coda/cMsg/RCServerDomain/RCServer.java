@@ -57,7 +57,7 @@ public class RCServer extends cMsgDomainAdapter {
 
     /** Thread that listens for TCP packets sent to this server. */
     //rcTcpListeningThread tcpListener;
-    rcListeningThread tcpListener;
+    rcListeningThread listenerThread;
 
     /** Thread that listens for UDP packets sent to this server. */
 //    rcUdpListeningThread udpListener;
@@ -198,18 +198,18 @@ public class RCServer extends cMsgDomainAdapter {
                 createTCPClientConnection(rcClientHost, rcClientPort);
 
                 // Start listening for tcp connections if not already
-                if (tcpListener == null) {
-                    tcpListener = new rcListeningThread(this);
-                    tcpListener.start();
+                if (listenerThread == null) {
+                    listenerThread = new rcListeningThread(this);
+                    listenerThread.start();
 
                     // Wait for indication listener threads are actually running before
                     // continuing on. These thread must be running before we talk to
                     // the client since the client tries to communicate with these
                     // listening threads.
-                    synchronized (tcpListener) {
-                        if (!tcpListener.isAlive()) {
+                    synchronized (listenerThread) {
+                        if (!listenerThread.isAlive()) {
                             try {
-                                tcpListener.wait();
+                                listenerThread.wait();
                             }
                             catch (InterruptedException e) {
                                 e.printStackTrace();
@@ -219,10 +219,10 @@ public class RCServer extends cMsgDomainAdapter {
                 }
 
                 // Get the port selected for listening on
-                localTcpPort = tcpListener.getTcpPort();
+                localTcpPort = listenerThread.getTcpPort();
 
                 // Get the port selected for communicating on (NEVER used now)
-                localUdpPort = 47000;
+                localUdpPort = listenerThread.getUdpPort();
 
                 // Send a special message giving our host & udp port.
                 cMsgMessageFull msg = new cMsgMessageFull();
@@ -233,7 +233,7 @@ public class RCServer extends cMsgDomainAdapter {
                 connected = true;
             }
             catch (IOException e) {
-                if (tcpListener != null) tcpListener.killThread();
+                if (listenerThread != null) listenerThread.killThread();
                 //if (udpListener != null) udpListener.killThread();
                 throw new cMsgException("cannot connect, IO error", e);
             }
@@ -360,9 +360,9 @@ public class RCServer extends cMsgDomainAdapter {
 //            udpListener.killThread();
 //            udpListener = null;
 //        }
-        if (tcpListener != null) {
-            tcpListener.killThread();
-            tcpListener = null;
+        if (listenerThread != null) {
+            listenerThread.killThread();
+            listenerThread = null;
         }
     }
 
