@@ -317,7 +317,6 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     struct sockaddr_in servaddr, addr;
     int    gotResponse=0;
     const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
-    
         
        
     /* clear array */
@@ -739,18 +738,16 @@ printf("EXPID is not set!\n");
      * that the udp socket does not have to connect and disconnect for each
      * message sent.
      */
-    /*
     memset((void *)&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port   = htons(domain->sendUdpPort);
-    */
     
     /* create new UDP socket for sends */
-    /*if (domain->sendUdpSocket > -1) {*/
-        /*close(domain->sendUdpSocket);*/ /* close old UDP socket */
-    /*}
-    domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);*/
-    /*
+    if (domain->sendUdpSocket > -1) {
+        close(domain->sendUdpSocket); /* close old UDP socket */
+    }
+    domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+
     if (domain->sendUdpSocket < 0) {
         cMsgRestoreSignals(domain);
         close(domain->sendSocket);
@@ -759,9 +756,8 @@ printf("EXPID is not set!\n");
         free(domain);
         return(CMSG_SOCKET_ERROR);
     }
-    */
+
     /* set send buffer size */
-    /*
     err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
     if (err < 0) {
         cMsgRestoreSignals(domain);
@@ -781,10 +777,8 @@ printf("EXPID is not set!\n");
         free(domain);
         return(err);
     }
-    */
 
 /*printf("rc connect: try UDP connection rc server on port = %hu\n", ntohs(addr.sin_port));*/
-    /*
     err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
     if (err < 0) {
         cMsgRestoreSignals(domain);
@@ -795,7 +789,6 @@ printf("EXPID is not set!\n");
         free(domain);
         return(CMSG_SOCKET_ERROR);
     }
-    */
    
     /* return id */
     *domainId = (void *) domain;
@@ -1035,11 +1028,9 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
   }
 
   /* use UDP to send to rc Server */
-  /*
   if (msg->udpSend) {
     return udpSend(domain, msg);
   }
-  */
 
   fd = domain->sendSocket;
 
@@ -2141,7 +2132,7 @@ int cmsg_rc_disconnect(void **domainId) {
     close(domain->sendSocket);
 
     /* close UDP sending socket */
-    /*close(domain->sendUdpSocket);*/
+    close(domain->sendUdpSocket);
 
     /* close listening socket */
     close(domain->listenSocket);

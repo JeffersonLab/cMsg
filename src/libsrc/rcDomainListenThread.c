@@ -677,12 +677,10 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
              * message sent.
              */
             const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
-            /*
             struct sockaddr_in addr;
             memset((void *)&addr, 0, sizeof(addr));
             addr.sin_family = AF_INET;
             addr.sin_port   = htons(domain->sendUdpPort);
-            */
 /*printf("rc clientThread %d: try to reconnect\n", localCount);*/
             
             /*
@@ -692,11 +690,10 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             cMsgSocketMutexLock(domain);
             
             /* create new UDP socket for sends */
-            /*close(domain->sendUdpSocket);*/ /* close old UDP socket */
-            /*domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);*/
+            close(domain->sendUdpSocket); /* close old UDP socket */
+            domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 /*printf("rc clientThread %d: udp socket = %d, port = %d\n", localCount,
        domain->sendUdpSocket, domain->sendUdpPort);*/
-            /*
             if (domain->sendUdpSocket < 0) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -704,10 +701,8 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
                 }
                 goto end;
             }
-            */
             
             /* set send buffer size */
-            /*
             err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
             if (err < 0) {
                 cMsgSocketMutexUnlock(domain);
@@ -724,9 +719,8 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
                 }
                 goto end;
             }
-            */
+
 /*printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));*/
-            /*
             err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
             if (err < 0) {
                 cMsgSocketMutexUnlock(domain);
@@ -735,7 +729,6 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
                 }
                 goto end;
             }
-            */
 
             /* create TCP sending socket and store */
 /*printf("rc clientThread %d: tcp socket = %d, port = %d\n", localCount,
