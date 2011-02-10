@@ -93,7 +93,7 @@ public class RunControl extends cMsgDomainAdapter {
     MulticastSocket multicastUdpSocket;
 
     /** Socket over which to end messages to the RC server over UDP. */
-//    DatagramSocket udpSocket;
+    DatagramSocket udpSocket;
 
     /** Socket over which to send messages to the RC server over TCP. */
     Socket tcpSocket;
@@ -400,18 +400,18 @@ public class RunControl extends cMsgDomainAdapter {
             // Create a UDP "connection". This means security check is done only once
             // and communication with any other host/port is not allowed.
             // create socket to receive at anonymous port & all interfaces
-//            try {
-//                udpSocket = new DatagramSocket();
-//                udpSocket.setReceiveBufferSize(cMsgNetworkConstants.bigBufferSize);
-//            }
-//            catch (SocketException e) {
-//                listeningThread.killThread();
-//                if (udpSocket != null) udpSocket.close();
-//                e.printStackTrace();
-//            }
-////System.out.println("connect: Make udp connection to RC server");
-//            udpSocket.connect(rcServerAddress, rcUdpServerPort);
-//            sendUdpPacket = new DatagramPacket(new byte[0], 0, rcServerAddress, rcUdpServerPort);
+            try {
+                udpSocket = new DatagramSocket();
+                udpSocket.setReceiveBufferSize(cMsgNetworkConstants.bigBufferSize);
+            }
+            catch (SocketException e) {
+                listeningThread.killThread();
+                if (udpSocket != null) udpSocket.close();
+                e.printStackTrace();
+            }
+//System.out.println("connect: Make udp connection to RC server");
+            udpSocket.connect(rcServerAddress, rcUdpServerPort);
+            sendUdpPacket = new DatagramPacket(new byte[0], 0, rcServerAddress, rcUdpServerPort);
 
             // create a TCP connection to the RC Server
             try {
@@ -425,7 +425,7 @@ public class RunControl extends cMsgDomainAdapter {
             }
             catch (IOException e) {
                 listeningThread.killThread();
-//                udpSocket.close();
+                udpSocket.close();
                 if (domainOut != null) try {domainOut.close();}  catch (IOException e1) {}
                 if (tcpSocket != null) try {tcpSocket.close();}  catch (IOException e1) {}
 
@@ -854,7 +854,7 @@ public class RunControl extends cMsgDomainAdapter {
 
             connected = false;
             multicastUdpSocket.close();
-//            udpSocket.close();
+            udpSocket.close();
             try {tcpSocket.close();} catch (IOException e) {}
             try {domainOut.close();} catch (IOException e) {}
 
@@ -896,10 +896,10 @@ public class RunControl extends cMsgDomainAdapter {
      */
     public void send(final cMsgMessage message) throws cMsgException {
 
-//        if (!message.getReliableSend()) {
-//            udpSend(message);
-//            return;
-//        }
+        if (!message.getReliableSend()) {
+            udpSend(message);
+            return;
+        }
 
         String subject = message.getSubject();
         String type    = message.getType();
@@ -1003,133 +1003,133 @@ public class RunControl extends cMsgDomainAdapter {
 //-----------------------------------------------------------------------------
 
 
-//    /**
-//     * Method to send a message to the domain server over UDP for further distribution.
-//     *
-//     * @param message message to send
-//     * @throws cMsgException if there are communication problems with the server;
-//     *                       subject and/or type is null; message is too big for
-//     *                       UDP packet size if doing UDP send
-//     */
-//    private void udpSend(cMsgMessage message) throws cMsgException {
-//
-//        String subject = message.getSubject();
-//        String type    = message.getType();
-//
-//        // check message fields first
-//        if (subject == null || type == null) {
-//            throw new cMsgException("message subject and/or type is null");
-//        }
-//
-//        // check for null text
-//        String text = message.getText();
-//        int textLen = 0;
-//        if (text != null) {
-//            textLen = text.length();
-//        }
-//
-//        // Payload stuff. Do NOT keep track of sender history.
-//        String payloadTxt = message.getPayloadText();
-//        int payloadLen = 0;
-//        if (payloadTxt != null) {
-//            payloadLen = payloadTxt.length();
-//        }
-//
-//        int msgType = cMsgConstants.msgSubscribeResponse;
-//        if (message.isGetResponse()) {
-////System.out.println("sending get-response with UDP");
-//            msgType = cMsgConstants.msgGetResponse;
-//        }
-//
-//        int binaryLength = message.getByteArrayLength();
-//
-//        // total length of msg (not including first int which is this size)
-//        int totalLength = (4 * 15) + name.length() + subject.length() +
-//                type.length() + payloadLen + textLen + binaryLength;
-//
-//        if (totalLength > 8192) {
-//            throw new cMsgException("Too big a message for UDP to send");
-//        }
-//
-//        // create byte array for multicast
-//        ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
-//        DataOutputStream out = new DataOutputStream(baos);
-//
-//        // cannot run this simultaneously with connect, reconnect, or disconnect
-//        notConnectLock.lock();
-//
-//        try {
-//            if (!connected) {
-//                throw new IOException("not connected to server");
-//            }
-//
-//            out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
-//            out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
-//            out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-//
-//            out.writeInt(totalLength); // total length of msg (not including this int)
-//            out.writeInt(msgType);
-//            out.writeInt(cMsgConstants.version);
-//            out.writeInt(message.getUserInt());
-//            out.writeInt(message.getInfo());
-//            out.writeInt(message.getSenderToken());
-//
-//            long now = new Date().getTime();
-//            // send the time in milliseconds as 2, 32 bit integers
-//            out.writeInt((int) (now >>> 32)); // higher 32 bits
-//            out.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
-//            out.writeInt((int) (message.getUserTime().getTime() >>> 32));
-//            out.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
-//
-//            out.writeInt(name.length());
-//            out.writeInt(subject.length());
-//            out.writeInt(type.length());
-//            out.writeInt(payloadLen);
-//            out.writeInt(textLen);
-//            out.writeInt(binaryLength);
-//
-//            // write strings & byte array
-//            try {
-//                out.write(name.getBytes("US-ASCII"));
-//                out.write(subject.getBytes("US-ASCII"));
-//                out.write(type.getBytes("US-ASCII"));
-//                if (payloadLen > 0) {
-//                    out.write(payloadTxt.getBytes("US-ASCII"));
-//                }
-//                if (textLen > 0) {
-//                    out.write(text.getBytes("US-ASCII"));
-//                }
-//                if (binaryLength > 0) {
-//                    out.write(message.getByteArray(),
-//                              message.getByteArrayOffset(),
-//                              binaryLength);
-//                }
-//            }
-//            catch (UnsupportedEncodingException e) {
-//            }
-//            out.flush();
-//            out.close();
-//
-//            // send message packet from the byte array
-//            byte[] buf = baos.toByteArray();
-//
-//            synchronized (sendUdpPacket) {
-//                // setData is synchronized on the packet.
-//                sendUdpPacket.setData(buf, 0, buf.length);
-//                // send in synchronized internally on the packet object.
-//                // Because we only use one packet object for this client,
-//                // all udp sends are synchronized.
-//                udpSocket.send(sendUdpPacket);
-//            }
-//        }
-//        catch (IOException e) {
-//            throw new cMsgException("Cannot create or send message packet", e);
-//        }
-//        finally {
-//            notConnectLock.unlock();
-//        }
-//
-//    }
+    /**
+     * Method to send a message to the domain server over UDP for further distribution.
+     *
+     * @param message message to send
+     * @throws cMsgException if there are communication problems with the server;
+     *                       subject and/or type is null; message is too big for
+     *                       UDP packet size if doing UDP send
+     */
+    private void udpSend(cMsgMessage message) throws cMsgException {
+
+        String subject = message.getSubject();
+        String type    = message.getType();
+
+        // check message fields first
+        if (subject == null || type == null) {
+            throw new cMsgException("message subject and/or type is null");
+        }
+
+        // check for null text
+        String text = message.getText();
+        int textLen = 0;
+        if (text != null) {
+            textLen = text.length();
+        }
+
+        // Payload stuff. Do NOT keep track of sender history.
+        String payloadTxt = message.getPayloadText();
+        int payloadLen = 0;
+        if (payloadTxt != null) {
+            payloadLen = payloadTxt.length();
+        }
+
+        int msgType = cMsgConstants.msgSubscribeResponse;
+        if (message.isGetResponse()) {
+//System.out.println("sending get-response with UDP");
+            msgType = cMsgConstants.msgGetResponse;
+        }
+
+        int binaryLength = message.getByteArrayLength();
+
+        // total length of msg (not including first int which is this size)
+        int totalLength = (4 * 15) + name.length() + subject.length() +
+                type.length() + payloadLen + textLen + binaryLength;
+
+        if (totalLength > 8192) {
+            throw new cMsgException("Too big a message for UDP to send");
+        }
+
+        // create byte array for multicast
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(8192);
+        DataOutputStream out = new DataOutputStream(baos);
+
+        // cannot run this simultaneously with connect, reconnect, or disconnect
+        notConnectLock.lock();
+
+        try {
+            if (!connected) {
+                throw new IOException("not connected to server");
+            }
+
+            out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+            out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+            out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+
+            out.writeInt(totalLength); // total length of msg (not including this int)
+            out.writeInt(msgType);
+            out.writeInt(cMsgConstants.version);
+            out.writeInt(message.getUserInt());
+            out.writeInt(message.getInfo());
+            out.writeInt(message.getSenderToken());
+
+            long now = new Date().getTime();
+            // send the time in milliseconds as 2, 32 bit integers
+            out.writeInt((int) (now >>> 32)); // higher 32 bits
+            out.writeInt((int) (now & 0x00000000FFFFFFFFL)); // lower 32 bits
+            out.writeInt((int) (message.getUserTime().getTime() >>> 32));
+            out.writeInt((int) (message.getUserTime().getTime() & 0x00000000FFFFFFFFL));
+
+            out.writeInt(name.length());
+            out.writeInt(subject.length());
+            out.writeInt(type.length());
+            out.writeInt(payloadLen);
+            out.writeInt(textLen);
+            out.writeInt(binaryLength);
+
+            // write strings & byte array
+            try {
+                out.write(name.getBytes("US-ASCII"));
+                out.write(subject.getBytes("US-ASCII"));
+                out.write(type.getBytes("US-ASCII"));
+                if (payloadLen > 0) {
+                    out.write(payloadTxt.getBytes("US-ASCII"));
+                }
+                if (textLen > 0) {
+                    out.write(text.getBytes("US-ASCII"));
+                }
+                if (binaryLength > 0) {
+                    out.write(message.getByteArray(),
+                              message.getByteArrayOffset(),
+                              binaryLength);
+                }
+            }
+            catch (UnsupportedEncodingException e) {
+            }
+            out.flush();
+            out.close();
+
+            // send message packet from the byte array
+            byte[] buf = baos.toByteArray();
+
+            synchronized (sendUdpPacket) {
+                // setData is synchronized on the packet.
+                sendUdpPacket.setData(buf, 0, buf.length);
+                // send in synchronized internally on the packet object.
+                // Because we only use one packet object for this client,
+                // all udp sends are synchronized.
+                udpSocket.send(sendUdpPacket);
+            }
+        }
+        catch (IOException e) {
+            throw new cMsgException("Cannot create or send message packet", e);
+        }
+        finally {
+            notConnectLock.unlock();
+        }
+
+    }
 
 
 //-----------------------------------------------------------------------------
