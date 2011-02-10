@@ -28,10 +28,7 @@ import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.Iterator;
@@ -54,18 +51,23 @@ class rcListeningThread extends Thread {
     /** cMsg server that created this object. */
     private RCServer server;
 
-    /** Tcp server listening port. */
+    /** Tcp listening port. */
     int tcpPort;
 
-    /** Server channel (contains socket). */
+    /** Udp listening port. */
+    int udpPort;
+
+    /** Tcp server channel (contains socket). */
     private ServerSocketChannel serverChannel;
+
+    /** Channel to receive UDP sends from the clients. */
+    private DatagramChannel udpChannel;
 
     /** Level of debug output for this class. */
     private int debug;
 
     /** Setting this to true will kill this thread. */
     private boolean killThread;
-
 
 
 
@@ -87,6 +89,15 @@ class rcListeningThread extends Thread {
 
 
     /**
+     * Get the UDP listening port of this server.
+     * @return UDP listening port of this server
+     */
+    public int getUdpPort() {
+        return udpPort;
+    }
+
+
+    /**
      * Constructor for regular clients.
      *
      * @param server RC server that created this object
@@ -95,9 +106,11 @@ class rcListeningThread extends Thread {
 
         this.server = server;
         debug = server.getDebug();
-        debug = cMsgConstants.debugInfo;
+        //debug = cMsgConstants.debugInfo;
+        udpPort = server.localUdpPort;
 
         createTCPServerChannel();
+        createUDPServerChannel();
 
         // die if no more non-daemon thds running
         setDaemon(true);
@@ -105,9 +118,51 @@ class rcListeningThread extends Thread {
 
 
     /**
+     * Creates a UDP receiving socket for a runcontrol client to send to.
+     *
+     * @throws IOException if socket cannot be created
+     */
+    private void createUDPServerChannel() throws cMsgException {
+        // For the client who wants to do sends with udp,
+        // create a socket on an available udp port.
+        try {
+            // Create socket to receive at all interfaces
+            udpChannel = DatagramChannel.open();
+            DatagramSocket udpSocket = udpChannel.socket();
+
+            // First try the port given in the UDL (if any).
+            if (udpPort > 0) {
+                try {
+                    udpSocket.bind(new InetSocketAddress(udpPort));
+                }
+                catch (SocketException e) {
+                    // bind to ephemeral port since error
+                    udpSocket.bind(new InetSocketAddress(0));
+                }
+            }
+            else {
+                // bind to ephemeral port
+                udpSocket.bind(new InetSocketAddress(0));
+            }
+
+            udpPort = udpSocket.getLocalPort();
+//System.out.println("rcListeningThread: listening on UDP port " + udpPort);
+            udpSocket.setReuseAddress(true);
+            udpSocket.setReceiveBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
+        }
+        catch (IOException ex) {
+            if (udpChannel != null) try { udpChannel.close(); } catch (IOException e1) { }
+            cMsgException e = new cMsgException("Exiting Server: cannot create socket to listen on");
+            e.setReturnCode(cMsgConstants.errorSocket);
+            throw new cMsgException("rcListeningThread: cannot create UDP server socket", e);
+        }
+    }
+
+
+    /**
      * Creates a TCP listening socket for a runcontrol client to connect to.
      *
-     * @throws org.jlab.coda.cMsg.cMsgException if socket cannot be created or cannot bind to a port
+     * @throws cMsgException if socket cannot be created or cannot bind to a port
      */
     private void createTCPServerChannel() throws cMsgException {
 
@@ -120,7 +175,7 @@ class rcListeningThread extends Thread {
         catch (IOException e) {
             // close channel
             if (serverChannel != null) try { serverChannel.close(); } catch (IOException e1) { }
-            throw new cMsgException("connect: cannot create server socket", e);
+            throw new cMsgException("rcListeningThread: cannot create TCP server socket", e);
         }
 
         //----------------------------------------
@@ -185,8 +240,14 @@ class rcListeningThread extends Thread {
             System.out.println("Running Client Listening Thread:");
         }
 
+        // Reference to either tcpBuffer or udpBuffer
+        ByteBuffer dataBuffer = null;
+
         // Direct buffer for reading TCP nonblocking IO
-        ByteBuffer buffer = ByteBuffer.allocateDirect(16384);
+        ByteBuffer tcpBuffer = ByteBuffer.allocateDirect(16384);
+
+        // Direct byte Buffer for UDP IO use
+        ByteBuffer udpBuffer = ByteBuffer.allocateDirect(cMsgNetworkConstants.biggestUdpBufferSize);
 
         // rc client channel
         SocketChannel myChannel = null;
@@ -194,8 +255,9 @@ class rcListeningThread extends Thread {
         // Socket input stream associated with channel
         DataInputStream in = null;
 
+        String channelType;
         cMsgMessageFull msg;
-        boolean readingSize = true;
+        boolean readingSize = true, okToParseMsg = false;
         int bytes, bytesRead=0, size=0, msgId=0;
 
         Selector selector = null;
@@ -209,6 +271,15 @@ class rcListeningThread extends Thread {
 
             // register the channel with the selector for accepts
             serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+
+            try {
+                // set nonblocking mode for the udp socket
+                udpChannel.configureBlocking(false);
+
+                // register the channel with the selector for reading
+                udpChannel.register(selector, SelectionKey.OP_READ, "UDP");
+            }
+            catch (IOException e) { /* should never happen */ }
 
             // RC server object is waiting for this thread to start in connect method,
             // so tell it we've started.
@@ -261,7 +332,7 @@ class rcListeningThread extends Thread {
                             }
 
                             // register this channel (socket) for reading
-                            channel.register(selector, SelectionKey.OP_READ);
+                            channel.register(selector, SelectionKey.OP_READ, "TCP");
 
                             // save channel for later use
                             myChannel = channel;
@@ -270,121 +341,174 @@ class rcListeningThread extends Thread {
                             in = new DataInputStream(new BufferedInputStream(
                                      myChannel.socket().getInputStream(), 65536));
 
-                            buffer.clear();
-                            buffer.limit(8);
+                            tcpBuffer.clear();
+                            tcpBuffer.limit(8);
                             readingSize = true;
                         }
 
-                        // read input from rc client
+                        // read input from rc client, tcp or udp
                         else if (key.isReadable()) {
 
-//System.out.println("  try reading size & msgId");
-                            // FIRST, read size & msgId
-                            if (readingSize) {
-                                try {
-                                    bytes = myChannel.read(buffer);
-                                }
-                                catch (IOException e) {
-                                    // client has died
-System.out.println("rcServer: client died 1");
-                                    key.cancel();
-                                    it.remove();
-                                    continue;
-                                }
+                            channelType = (String) key.attachment();
 
-                                // for End-of-stream ...
-                                if (bytes == -1) {
-                                    // error handling
-//System.out.println("  TCP ERROR: reading size & msgId for channel");
-//System.out.println("           : pos = " + buffer.position());
-                                    if (buffer.position() > 3) {
-//System.out.println("           : size = " + buffer.getInt());
+                            // if channel is TCP ...
+                            if (channelType.equals("TCP")) {
+
+                                // FIRST, read size & msgId
+                                if (readingSize) {
+                                    try {
+                                        bytes = myChannel.read(tcpBuffer);
                                     }
-System.out.println("rcServer: client died 2");
-                                    key.cancel();
-                                    it.remove();
-                                    continue;
-                                }
+                                    catch (IOException e) {
+                                        // client has died
+                                        key.cancel();
+                                        it.remove();
+                                        continue;
+                                    }
 
-                                // if we've read 8 bytes (2 ints) ...
-                                if (buffer.position() > 7) {
-                                    buffer.flip();
-                                    size  = buffer.getInt();
-                                    msgId = buffer.getInt();
+                                    // if End-of-stream (client died) ...
+                                    if (bytes == -1) {
+                                        key.cancel();
+                                        it.remove();
+                                        continue;
+                                    }
+
+                                    // if we've read 8 bytes (2 ints) ...
+                                    if (tcpBuffer.position() > 7) {
+                                        tcpBuffer.flip();
+                                        size  = tcpBuffer.getInt();
+                                        msgId = tcpBuffer.getInt();
 //System.out.println("  read size = " + size + ", msgId = " + msgId);
-                                    if (size-4 > buffer.capacity()) {
+                                        if (size-4 > tcpBuffer.capacity()) {
 //System.out.println("  create new, large direct bytebuffer from " + clientData.buffer.capacity() + " to " + clientData.size);
-                                        buffer = ByteBuffer.allocateDirect(size-4);
+                                            tcpBuffer = ByteBuffer.allocateDirect(size-4);
+                                        }
+
+                                        tcpBuffer.clear();
+                                        tcpBuffer.limit(size-4);
+                                        readingSize = false;
+                                        bytesRead = 0;
                                     }
-
-                                    buffer.clear();
-                                    buffer.limit(size-4);
-                                    readingSize = false;
-                                    bytesRead = 0;
                                 }
-                            }
 
-                            // SECOND, read message after size & msgId read
-                            if (!readingSize) {
-                                // fully read buffer before parsing into cMsg message
-                                try {
+                                // SECOND, read message after size & msgId read
+                                if (!readingSize) {
+                                    // fully read buffer before parsing into cMsg message
+                                    try {
 //System.out.println("  try reading rest of buffer");
 //System.out.println("  buffer capacity = " + buffer.capacity() + ", limit = " +
 //                   buffer.limit() + ", position = " + buffer.position() );
-                                    bytes = myChannel.read(buffer);
-                                }
-                                catch (IOException ex) {
-                                    // client has died
-                                    System.out.println("rcServer: client died 3");
-                                    key.cancel();
-                                    it.remove();
-                                    continue;
-                                }
-
-                                // for End-of-stream ...
-                                if (bytes == -1) {
-                                    System.out.println("rcServer: client died 4");
-                                    key.cancel();
-                                    it.remove();
-                                    continue;
-                                }
-
-                                bytesRead += bytes;
-//System.out.println("  bytes read = " + bytesRead);
-                                if (bytesRead >= size-4) {
-                                    buffer.flip();
-
-                                    switch (msgId) {
-
-                                        case cMsgConstants.msgSubscribeResponse: // receiving a message
-                                            // read the message here
-                                            msg = readIncomingMessageNB(buffer);
-
-                                            // run callbacks for this message
-                                            runCallbacks(msg);
-                                            break;
-
-                                        case cMsgConstants.msgGetResponse: // receiving a message for sendAndGet
-                                            // read the message
-                                            msg = readIncomingMessageNB(buffer);
-                                            msg.setGetResponse(true);
-
-                                            // wakeup caller with this message
-                                            wakeGets(msg);
-                                            break;
-
-                                        default:
-                                            if (debug >= cMsgConstants.debugWarn) {
-                                                System.out.println("rcTcpListeningThread: can't understand rc client message = " + msgId);
-                                            }
-                                            break;
+                                        bytes = myChannel.read(tcpBuffer);
+                                    }
+                                    catch (IOException ex) {
+                                        // client has died
+                                        System.out.println("rcServer: client died 3");
+                                        key.cancel();
+                                        it.remove();
+                                        continue;
                                     }
 
-                                    bytesRead = 0;
-                                    readingSize = true;
-                                    buffer.clear();
-                                    buffer.limit(8);
+                                    // for End-of-stream ...
+                                    if (bytes == -1) {
+                                        System.out.println("rcServer: client died 4");
+                                        key.cancel();
+                                        it.remove();
+                                        continue;
+                                    }
+
+                                    bytesRead += bytes;
+//System.out.println("  bytes read = " + bytesRead);
+                                    // if we've read everything ...
+                                    if (bytesRead >= size-4) {
+                                        tcpBuffer.flip();
+                                        dataBuffer = tcpBuffer;
+                                        okToParseMsg = true;
+                                    }
                                 }
+                            }
+
+                            // else if channel is UDP ...
+                            else {
+//System.out.println("  client is UDP readable");
+                                udpBuffer.clear();
+
+                                // receive packet
+                                try {
+                                    udpChannel.receive(udpBuffer);
+                                }
+                                catch (IOException e) {
+                                    key.cancel();
+                                    it.remove();
+                                    continue;
+                                }
+
+                                udpBuffer.flip();
+                                if (udpBuffer.limit() < 20) {
+//System.out.println("  packet is too small, limit = " + udpBuffer.limit());
+                                    key.cancel();
+                                    it.remove();
+                                    continue;
+                                }
+
+                                if (udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[0] ||
+                                    udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[1] ||
+                                    udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[2]) {
+                                    if (debug >= cMsgConstants.debugWarn) {
+                                        System.out.println(" received bogus udp packet");
+                                    }
+                                    key.cancel();
+                                    it.remove();
+                                    continue;
+                                }
+
+                                // Find size & msgId of data to come.
+                                size  = udpBuffer.getInt();
+                                msgId = udpBuffer.getInt();
+
+                                if (4 + size > udpBuffer.capacity()) {
+                                    key.cancel();
+                                    it.remove();
+//System.out.println("  packet is too big, ignore it");
+                                    continue;
+                                }
+
+                                dataBuffer = udpBuffer;
+                                okToParseMsg = true;
+                            }
+
+                            if (okToParseMsg) {
+
+                                switch (msgId) {
+
+                                    case cMsgConstants.msgSubscribeResponse: // receiving a message
+                                        // read the message here
+                                        msg = readIncomingMessageNB(dataBuffer);
+
+                                        // run callbacks for this message
+                                        runCallbacks(msg);
+                                        break;
+
+                                    case cMsgConstants.msgGetResponse: // receiving a message for sendAndGet
+                                        // read the message
+                                        msg = readIncomingMessageNB(dataBuffer);
+                                        msg.setGetResponse(true);
+
+                                        // wakeup caller with this message
+                                        wakeGets(msg);
+                                        break;
+
+                                    default:
+                                        if (debug >= cMsgConstants.debugWarn) {
+                                            System.out.println("rcTcpListeningThread: can't understand rc client message = " + msgId);
+                                        }
+                                        break;
+                                }
+
+                                bytesRead = 0;
+                                readingSize = true;
+                                okToParseMsg = false;
+                                tcpBuffer.clear();
+                                tcpBuffer.limit(8);
                             }
                         }
                     }
