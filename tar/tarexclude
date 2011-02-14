@@ -1,4 +1,5 @@
 .svn
+.sconsign*
 doxyerrors.log
 doc/javadoc/*
 doc/doxygen/C/*
