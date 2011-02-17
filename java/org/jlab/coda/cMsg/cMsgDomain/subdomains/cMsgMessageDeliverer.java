@@ -426,7 +426,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             buffer.flip();
         }
         else {
-            // write 20 ints
+            // write 19 ints
 //System.out.println("deliverer (NIO) : Normal message actually being sent");
             int len1 = msg.getSender().length();
             int len2 = msg.getSenderHost().length();
@@ -446,7 +446,7 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             }
             // size of everything sent (except "size" itself which is first integer)
             int size = len1 + len2 + len3 + len4 + len5 + len6 +
-                       binLength + 4*18;
+                       binLength + 4*19;
 
             if (buffer.capacity() < size) {
                 buffer = ByteBuffer.allocateDirect(size + 1024);
@@ -461,10 +461,12 @@ public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {
             buffer.putInt(msg.getInfo());
 
             // send the time in milliseconds as 2, 32 bit integers
-            buffer.putInt((int) (msg.getSenderTime().getTime() >>> 32)); // higher 32 bits
-            buffer.putInt((int) (msg.getSenderTime().getTime() & 0x00000000FFFFFFFFL)); // lower 32 bits
-            buffer.putInt((int) (msg.getUserTime().getTime() >>> 32));
-            buffer.putInt((int) (msg.getUserTime().getTime() & 0x00000000FFFFFFFFL));
+            buffer.putLong(msg.getSenderTime().getTime());
+            buffer.putLong(msg.getUserTime().getTime());
+//            buffer.putInt((int) (msg.getSenderTime().getTime() >>> 32)); // higher 32 bits
+//            buffer.putInt((int) (msg.getSenderTime().getTime() & 0x00000000FFFFFFFFL)); // lower 32 bits
+//            buffer.putInt((int) (msg.getUserTime().getTime() >>> 32));
+//            buffer.putInt((int) (msg.getUserTime().getTime() & 0x00000000FFFFFFFFL));
 
             buffer.putInt(msg.getSysMsgId());
             buffer.putInt(msg.getSenderToken());
