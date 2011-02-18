@@ -18,6 +18,7 @@ package org.jlab.coda.cMsg;
 
 import org.jlab.coda.cMsg.common.Base64;
 
+import java.io.Serializable;
 import java.math.BigInteger;
 import java.lang.Number;
 import java.util.Collection;
@@ -71,7 +72,7 @@ import java.util.Arrays;
  *    message_N_in_compound_payload_text_format[nl]</pre>
  *
  */
-public final class cMsgPayloadItem implements Cloneable {
+public final class cMsgPayloadItem implements Cloneable, Serializable {
 
     /** Name of this item. */
     String name;
