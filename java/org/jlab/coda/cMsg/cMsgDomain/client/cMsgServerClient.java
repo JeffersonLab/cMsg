@@ -85,7 +85,7 @@ public class cMsgServerClient extends cMsg {
      * necessary to ensure that each client joining a server that
      * is part of a cloud has a unique name.
      */
-    AtomicBoolean gotRegistrationLock;
+    AtomicBoolean gotRegistrationLock = new AtomicBoolean(false);
 
 
     /** This method prints sizes of maps for debugging purposes. */
