@@ -656,7 +656,7 @@ printf("DO ANOTHER ROUND!\n");
  */
 static void callback(void *msg, void *arg) {
 
-    int err, status, payloadCount, *pQuit, debug=0;
+    int err, status, payloadCount, *pQuit, debug=1;
     int32_t intVal;
     char *passwd = NULL;
     const char *val, *commandType;
