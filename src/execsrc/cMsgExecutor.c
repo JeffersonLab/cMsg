@@ -639,11 +639,15 @@ printf("decryptString: DO ANOTHER ROUND!\n");
         
     } while(anotherRound);
 
-printf("decryptString: free bytes\n");
     free(bytes);
     
     if (result != NULL) {
-        *result = origString;
+        /*
+         * I don't know what goop this C lib puts at the end of
+         * the decrypted string, so just copy the right # of chars.
+         */
+        *result = strndup(origString, len);
+        free(origString);
     }
     
     return CMSG_OK;
