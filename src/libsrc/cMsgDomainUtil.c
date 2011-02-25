@@ -802,7 +802,7 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   domain->msgBuffer           = NULL;
   domain->msgBufferSize       = 0;
   
-  domain->monitorXML          = NULL;
+  domain->monitorXML          = (char *)calloc(1,1);
   domain->monitorXMLSize      = 0;
   
   domain->maskStored          = 0;
