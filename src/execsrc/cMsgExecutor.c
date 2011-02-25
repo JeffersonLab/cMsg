@@ -599,7 +599,7 @@ static int decryptString(const char *string, int len, char **result) {
      * of the "bytes" array.
      */
     printf("bytesLen  = %u\n", bytesLen);
-    bytesLen = ((bytesLen - 1)/16) + 16;
+    bytesLen = ((bytesLen - 1)/16)*16 + 16;
     printf("new bytesLen  = %u\n", bytesLen);
     if (bytesLen%16 != 0) {
         printf("Error decrypting string, new bytesLen (%u) should be multiple of 16!\n", bytesLen);
