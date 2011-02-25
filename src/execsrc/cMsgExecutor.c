@@ -134,6 +134,7 @@ static int   getPtyId();
 static int   sendStatusTo(void *domainId, void *msg, const char *subject);
 static void *createStatusMessage(const char *name, const char *host);
 static int   decryptPassword(const char *string, int len, char **passwd);
+static int   decryptString(const char *string, int len, char **result);
 static void  callback(void *msg, void *arg);
 static void *processThread(void *arg);
 static void  stop(int id, hashTable *pTable);
@@ -524,6 +525,10 @@ static void *createStatusMessage(const char *name, const char *host) {
  * Decrypt the given string into a recognizable password.
  * This routine allocates memory for the returned string
  * which must be freed by the caller.
+ * This routine works because the password is restricted
+ * to 16 characters in the API, thus there is no conflict
+ * when calling aes_crypt_ecb which only decrypt 16 bytes
+ * at one time.
  * 
  * @param string input string
  * @param len length (number of characters) in non-encrypted password
@@ -548,6 +553,9 @@ static int decryptPassword(const char *string, int len, char **passwd) {
     
     /* string is in B64 form, decode to byte array */
     numBytes = cMsg_b64_decode(string, strlen(string), bytes);
+    if (numBytes > 16) {
+printf("Error decrypting password, it should NOT be longer than 16 characters!\n");
+    }
 
     /* Initialize context structure. */
     aes_setkey_dec(&ctx, AESkey, 128);
@@ -559,6 +567,80 @@ static int decryptPassword(const char *string, int len, char **passwd) {
     
     if (passwd != NULL) {
        *passwd = strndup(pswrd, len);
+    }
+    
+    return CMSG_OK;
+}
+
+
+/**
+ * Decrypt the given encrypted string into a recognizable string.
+ * This routine allocates memory for the returned string
+ * which must be freed by the caller.
+ *
+ * @param string input string
+ * @param len length (number of characters) in non-encrypted string
+ * @param result pointer to string which will point to the decrypted string
+ * @return CMSG_OK or CMSG_OUT_OF_MEMORY
+ */
+static int decryptString(const char *string, int len, char **result) {
+    char *pString, *origString, *bytes;
+    aes_context ctx;
+    unsigned int bytesLen;
+    int numBytes, anotherRound;
+    
+    /* number of bytes in decoded B64 string */
+    bytesLen = cMsg_b64_decode_len(string, strlen(string));
+
+    /*
+     * Round # of bytes UP to nearest multiple of 16
+     * since aes_crypt_ecb decodes 16 bytes at a time.
+     * This prevents us from decoding bytes past the end
+     * of the "bytes" array.
+     */
+    bytesLen = ((bytesLen - 1)/16) + 16;
+    if (bytesLen%16 != 0) {
+printf("Error decrypting string, bytesLen should be multiple of 16!\n");
+    }
+
+    bytes = (char *) calloc(1, bytesLen);
+    if (bytes == NULL) {
+        return CMSG_OUT_OF_MEMORY;
+    }
+    
+    /* string is in B64 form, decode to byte array */
+    numBytes = cMsg_b64_decode(string, strlen(string), bytes);
+
+    /* Initialize context structure. */
+    aes_setkey_dec(&ctx, AESkey, 128);
+
+    /* create space for the decrypted string */
+    pString = origString = (char *) calloc(1, len+1);
+    if (origString == NULL) {
+        free(bytes);
+        return CMSG_OUT_OF_MEMORY;
+    }
+
+    do {
+        anotherRound = 0;
+        
+        /* Decrypt bytes into original string 16 bytes at a time. */
+        aes_crypt_ecb(&ctx, AES_DECRYPT, bytes, origString);
+
+        /* if we have NOT decrypted the whole thing yet ... */
+        if (strlen(pString) < len) {
+            bytes += 16;
+            origString += 16;
+            anotherRound = 1;
+printf("DO ANOTHER ROUND!\n");
+        }
+        
+    } while(anotherRound);
+
+    free(bytes);
+    
+    if (result != NULL) {
+        *result = origString;
     }
     
     return CMSG_OK;
@@ -648,10 +730,12 @@ static void callback(void *msg, void *arg) {
 
     if (strcmp(commandType, "start_process") == 0) {
         /* Store incoming data here */
+        int32_t cmdLen;
         int monitor, wait, isGetRequest;
         passedArg *arg;
         void *responseMsg;
         commandInfo *info;
+        char *origCmd = NULL;
 
         /* Is the msg from a sendAndGet? */
         isGetRequest = 0;
@@ -677,7 +761,26 @@ static void callback(void *msg, void *arg) {
             cMsgFreeMessage(&msg);
             return;
         }
-        info->command = strdup(val);
+        
+        err = cMsgGetInt32(msg, "commandLen", &cmdLen);
+        if (err != CMSG_OK) {
+            if (debug) printf("Reject message, no command length");
+            free(info);
+            cMsgFreeMessage(&msg);
+            return;
+        }
+
+        /* decrypt command here (val cannot be NULL) */
+        err = decryptString(val, cmdLen, &origCmd);
+        if (err != CMSG_OK) {
+            if (debug) printf("Cannot allocate memory");
+            free(info);
+            cMsgFreeMessage(&msg);
+            return;
+        }
+if (debug) printf("Decrypted cmd -> -----%s-----\n", origCmd);
+
+        info->command = origCmd;
 
         monitor = 0;
         err = cMsgGetInt32(msg, "monitor", &intVal);
