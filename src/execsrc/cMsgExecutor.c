@@ -627,18 +627,19 @@ static int decryptString(const char *string, int len, char **result) {
         anotherRound = 0;
         
         /* Decrypt bytes into original string 16 bytes at a time. */
-        aes_crypt_ecb(&ctx, AES_DECRYPT, bytes, origString);
+        aes_crypt_ecb(&ctx, AES_DECRYPT, bytes, pString);
 
         /* if we have NOT decrypted the whole thing yet ... */
-        if (strlen(pString) < len) {
+        if (strlen(origstring) < len) {
             bytes += 16;
-            origString += 16;
+            pString += 16;
             anotherRound = 1;
-printf("DO ANOTHER ROUND!\n");
+printf("decryptString: DO ANOTHER ROUND!\n");
         }
         
     } while(anotherRound);
 
+printf("decryptString: free bytes\n");
     free(bytes);
     
     if (result != NULL) {
