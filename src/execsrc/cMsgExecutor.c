@@ -417,7 +417,6 @@ printf("Running Executor %s\n", name);
             args.arg5 = &quit;
 
             /* add subscriptions */
-printf("executorMain: subscribe to sub = %s, type = %s\n", remoteExecSubjectType, name);
             err = cMsgSubscribe(domainId, remoteExecSubjectType, name, callback,
                                 (void *)&args, config, &unsubHandle1);
             if (err != CMSG_OK) {
@@ -425,7 +424,6 @@ printf("executorMain: subscribe to sub = %s, type = %s\n", remoteExecSubjectType
                 continue;
             }
 
-printf("executorMain: subscribe to sub = %s, type = %s\n", remoteExecSubjectType, allSubjectType);
             err = cMsgSubscribe(domainId, remoteExecSubjectType, allSubjectType,
                                 callback, (void *)&args, config, &unsubHandle2);
             if (err != CMSG_OK) {
@@ -600,9 +598,11 @@ static int decryptString(const char *string, int len, char **result) {
      * This prevents us from decoding bytes past the end
      * of the "bytes" array.
      */
+    printf("bytesLen  = %u\n", bytesLen);
     bytesLen = ((bytesLen - 1)/16) + 16;
+    printf("new bytesLen  = %u\n", bytesLen);
     if (bytesLen%16 != 0) {
-printf("Error decrypting string, bytesLen should be multiple of 16!\n");
+        printf("Error decrypting string, new bytesLen (%u) should be multiple of 16!\n", bytesLen);
     }
 
     bytes = (char *) calloc(1, bytesLen);
@@ -680,8 +680,6 @@ static void callback(void *msg, void *arg) {
     statusMsg = args->arg3;
     pTable    = (hashTable *)args->arg4;
     pQuit     = (int *)args->arg5;
-
-printf("In callback with debug = %d\n", debug);
 
     /* There must be a payload. */
     cMsgHasPayload(msg, &payloadCount);
