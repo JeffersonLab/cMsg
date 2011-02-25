@@ -683,6 +683,9 @@ class cMsgMonitorClient extends Thread {
         outBuffer2.clear();
         outBuffer2.putInt(0);
         outBuffer2.putInt(0);
+
+        outBuffer.flip();
+        outBuffer2.flip();
     }
 
 
