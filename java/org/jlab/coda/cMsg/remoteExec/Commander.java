@@ -1369,7 +1369,7 @@ System.out.println("startProcess: Executor set to stopped");
 
         try {
             String[] arggs = decodeCommandLine(args);
-            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            System.out.println("Starting Commander with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
             
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
 
@@ -1396,7 +1396,7 @@ System.out.println("startProcess: Executor set to stopped");
 
         try {
             String[] arggs = decodeCommandLine(args);
-            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            System.out.println("Starting Commander with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
 
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
 
@@ -1437,7 +1437,7 @@ System.out.println("startProcess: Executor set to stopped");
     public static void main2(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
-            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            System.out.println("Starting Commander with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
 
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
 
@@ -1494,7 +1494,7 @@ System.out.println("startProcess: Executor set to stopped");
     public static void main3(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
-            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            System.out.println("Starting Commander with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
 
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
 
@@ -1557,7 +1557,7 @@ System.out.println("startProcess: Executor set to stopped");
 
         try {
             String[] arggs = decodeCommandLine(args);
-            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            System.out.println("Starting Commander with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
 
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
 
@@ -1595,7 +1595,7 @@ System.out.println("startProcess: Executor set to stopped");
     public static void main(String[] args) {
         try {
             String[] arggs = decodeCommandLine(args);
-            System.out.println("Starting Executor with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
+            System.out.println("Starting Commander with:\n  name = " + arggs[1] + "\n  udl = " + arggs[0]);
 
             Commander cmdr = new Commander(arggs[0], arggs[1], "commander", arggs[2]);
 
