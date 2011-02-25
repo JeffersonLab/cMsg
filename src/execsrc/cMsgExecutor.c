@@ -679,6 +679,8 @@ static void callback(void *msg, void *arg) {
     pTable    = (hashTable *)args->arg4;
     pQuit     = (int *)args->arg5;
 
+printf("In callback with debug = %d\n", debug);
+
     /* There must be a payload. */
     cMsgHasPayload(msg, &payloadCount);
     
