@@ -417,6 +417,7 @@ printf("Running Executor %s\n", name);
             args.arg5 = &quit;
 
             /* add subscriptions */
+printf("executorMain: subscribe to sub = %s, type = %s\n", remoteExecSubjectType, name);
             err = cMsgSubscribe(domainId, remoteExecSubjectType, name, callback,
                                 (void *)&args, config, &unsubHandle1);
             if (err != CMSG_OK) {
@@ -424,6 +425,7 @@ printf("Running Executor %s\n", name);
                 continue;
             }
 
+printf("executorMain: subscribe to sub = %s, type = %s\n", remoteExecSubjectType, allSubjectType);
             err = cMsgSubscribe(domainId, remoteExecSubjectType, allSubjectType,
                                 callback, (void *)&args, config, &unsubHandle2);
             if (err != CMSG_OK) {
