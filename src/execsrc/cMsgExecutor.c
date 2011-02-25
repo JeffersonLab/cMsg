@@ -630,7 +630,7 @@ static int decryptString(const char *string, int len, char **result) {
         aes_crypt_ecb(&ctx, AES_DECRYPT, bytes, pString);
 
         /* if we have NOT decrypted the whole thing yet ... */
-        if (strlen(origstring) < len) {
+        if (strlen(origString) < len) {
             bytes += 16;
             pString += 16;
             anotherRound = 1;
