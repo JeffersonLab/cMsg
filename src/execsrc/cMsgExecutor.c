@@ -584,7 +584,7 @@ printf("Error decrypting password, it should NOT be longer than 16 characters!\n
  * @return CMSG_OK or CMSG_OUT_OF_MEMORY
  */
 static int decryptString(const char *string, int len, char **result) {
-    char *pString, *origString, *bytes;
+    char *pString, *origString, *pBytes, *bytes;
     aes_context ctx;
     unsigned int bytesLen;
     int numBytes, anotherRound;
@@ -605,7 +605,7 @@ static int decryptString(const char *string, int len, char **result) {
         printf("Error decrypting string, new bytesLen (%u) should be multiple of 16!\n", bytesLen);
     }
 
-    bytes = (char *) calloc(1, bytesLen);
+    pBytes = bytes = (char *) calloc(1, bytesLen);
     if (bytes == NULL) {
         return CMSG_OUT_OF_MEMORY;
     }
@@ -627,11 +627,11 @@ static int decryptString(const char *string, int len, char **result) {
         anotherRound = 0;
         
         /* Decrypt bytes into original string 16 bytes at a time. */
-        aes_crypt_ecb(&ctx, AES_DECRYPT, bytes, pString);
+        aes_crypt_ecb(&ctx, AES_DECRYPT, pBytes, pString);
 
         /* if we have NOT decrypted the whole thing yet ... */
         if (strlen(origString) < len) {
-            bytes += 16;
+            pBytes  += 16;
             pString += 16;
             anotherRound = 1;
 printf("decryptString: DO ANOTHER ROUND!\n");
