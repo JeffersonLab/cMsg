@@ -776,16 +776,23 @@ System.out.println("set to stopped in stop");
             }
             cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.START_PROCESS.getValue());
             msg.addPayloadItem(item2);
-            cMsgPayloadItem item3 = new cMsgPayloadItem("command", cmd);
+            // Send the command in encrypted form so that anyone who intercepts a message,
+            // by subscribing to the well known subjects and types, may be able to copy the
+            // password and passwordLength payload items in order to send his own command,
+            // but will not know how to encrypt "rm *". Of course, all bets are off if that
+            // someone has access to this source code.
+            cMsgPayloadItem item3 = new cMsgPayloadItem("command", ExecutorSecurity.encrypt(cmd));
             msg.addPayloadItem(item3);
-            cMsgPayloadItem item4 = new cMsgPayloadItem("monitor", monitor ? 1 : 0);
+            cMsgPayloadItem item4 = new cMsgPayloadItem("commandLen", cmd.length());
             msg.addPayloadItem(item4);
-            cMsgPayloadItem item5 = new cMsgPayloadItem("wait", wait ? 1 : 0);
+            cMsgPayloadItem item5 = new cMsgPayloadItem("monitor", monitor ? 1 : 0);
             msg.addPayloadItem(item5);
-            cMsgPayloadItem item6 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
+            cMsgPayloadItem item6 = new cMsgPayloadItem("wait", wait ? 1 : 0);
             msg.addPayloadItem(item6);
-            cMsgPayloadItem item7 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            cMsgPayloadItem item7 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
             msg.addPayloadItem(item7);
+            cMsgPayloadItem item8 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            msg.addPayloadItem(item8);
         }
         catch (cMsgException e) { /* no invalid names or null objects */ }
 
@@ -989,18 +996,25 @@ System.out.println("startProcess: Executor set to stopped");
             }
             cMsgPayloadItem item2 = new cMsgPayloadItem("commandType", CommandType.START_THREAD.getValue());
             msg.addPayloadItem(item2);
-            cMsgPayloadItem item3 = new cMsgPayloadItem("className", className);
+            // Send the class name in encrypted form so that anyone who intercepts a message,
+            // by subscribing to the well known subjects and types, may be able to copy the
+            // password and passwordLength payload items in order to run his own thread,
+            // but will not know how to encrypt its name. Of course, all bets are off if that
+            // someone has access to this source code.
+            cMsgPayloadItem item3 = new cMsgPayloadItem("className",  ExecutorSecurity.encrypt(className));
             msg.addPayloadItem(item3);
-            cMsgPayloadItem item4 = new cMsgPayloadItem("wait", wait ? 1 : 0);
+            cMsgPayloadItem item4 = new cMsgPayloadItem("classNameLen", className.length());
             msg.addPayloadItem(item4);
-            cMsgPayloadItem item5 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
+            cMsgPayloadItem item5 = new cMsgPayloadItem("wait", wait ? 1 : 0);
             msg.addPayloadItem(item5);
-            cMsgPayloadItem item6 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            cMsgPayloadItem item6 = new cMsgPayloadItem("commander", myName); // cmsg "address" subject
             msg.addPayloadItem(item6);
+            cMsgPayloadItem item7 = new cMsgPayloadItem("id", myId);  // send this back when process done
+            msg.addPayloadItem(item7);
             if (constructorArgs != null) {
                 // msg contains constructor args
-                cMsgPayloadItem item7 = new cMsgPayloadItem("args", constructorArgs.createMessageFromArgs());
-                msg.addPayloadItem(item7);
+                cMsgPayloadItem item8 = new cMsgPayloadItem("args", constructorArgs.createMessageFromArgs());
+                msg.addPayloadItem(item8);
             }
         }
         catch (cMsgException e) { /* no invalid names or null objects */ }

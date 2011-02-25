@@ -281,7 +281,8 @@ public class Executor {
                                 System.out.println("Reject message, no command");
                                 return;
                             }
-                            commandInfo.command = item.getString();
+                            // decrypt command here
+                            commandInfo.command = ExecutorSecurity.decrypt(item.getString());
 
                             item = msg.getPayloadItem("monitor");
                             boolean monitor = false;
@@ -334,7 +335,8 @@ public class Executor {
                                 System.out.println("Reject message, no class name");
                                 return;
                             }
-                            commandInfo.className = item.getString();
+                            // decrypt class name here
+                            commandInfo.className = ExecutorSecurity.decrypt(item.getString());
 
                             item = msg.getPayloadItem("wait");
                             wait = false;
