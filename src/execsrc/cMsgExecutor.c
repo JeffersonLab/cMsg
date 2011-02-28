@@ -541,6 +541,11 @@ static int decryptString(const char *string, int len, char **result) {
      * so bytesLen should be in multiples of 16.*/
     bytesLen = cMsg_b64_decode_len(string, strlen(string));
 
+    /* be extra careful here (though I think we don't really need to do this) */
+    if (bytesLen % 16 != 0) {
+        bytesLen = ((bytesLen - 1)/16)*16 + 16;
+    }
+
     pBytes = bytes = (char *) calloc(1, bytesLen);
     if (bytes == NULL) {
         return CMSG_OUT_OF_MEMORY;
@@ -593,7 +598,7 @@ static int decryptString(const char *string, int len, char **result) {
  */
 static void callback(void *msg, void *arg) {
 
-    int err, status, payloadCount, *pQuit, debug=1;
+    int err, status, payloadCount, *pQuit, debug=0;
     int32_t intVal;
     char *passwd = NULL;
     const char *val, *commandType;
