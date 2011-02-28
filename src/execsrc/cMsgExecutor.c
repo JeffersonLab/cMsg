@@ -204,12 +204,12 @@ static void processMapRemove(hashTable *pTable, int id) {
     }
 
     if (hashRemove(pTable, key, NULL)) {
-printf("Removed key = %s from hash\n", key);
+/*printf("Removed key = %s from hash\n", key);*/
     }
     else {
-printf("Failed removing key = %s from hash\n", key);
+/*printf("Failed removing key = %s from hash\n", key);*/
     }
-printf("New hash table size = %d\n", hashSize(pTable));
+/*printf("New hash table size = %d\n", hashSize(pTable));*/
 
     status = pthread_mutex_unlock(&hashMutex);
     if (status != 0) {
