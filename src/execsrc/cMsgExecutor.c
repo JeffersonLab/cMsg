@@ -133,7 +133,6 @@ static int   getUniqueId();
 static int   getPtyId();
 static int   sendStatusTo(void *domainId, void *msg, const char *subject);
 static void *createStatusMessage(const char *name, const char *host);
-static int   decryptPassword(const char *string, int len, char **passwd);
 static int   decryptString(const char *string, int len, char **result);
 static void  callback(void *msg, void *arg);
 static void *processThread(void *arg);
@@ -522,58 +521,6 @@ static void *createStatusMessage(const char *name, const char *host) {
 
 
 /**
- * Decrypt the given string into a recognizable password.
- * This routine allocates memory for the returned string
- * which must be freed by the caller.
- * This routine works because the password is restricted
- * to 16 characters in the API, thus there is no conflict
- * when calling aes_crypt_ecb which only decrypt 16 bytes
- * at one time.
- * 
- * @param string input string
- * @param len length (number of characters) in non-encrypted password
- * @param passwd pointer to string which gets filled with the password
- * @return CMSG_OK or CMSG_OUT_OF_MEMORY
- */
-static int decryptPassword(const char *string, int len, char **passwd) {
-    char pswrd[16];
-    char *bytes;
-    aes_context ctx;
-    unsigned int bytesLen;
-    int numBytes;
-    
-    memset(pswrd,0,16);
-
-    /* number of bytes in decoded B64 string */
-    bytesLen = cMsg_b64_decode_len(string, strlen(string));
-    bytes = (char *) calloc(1, bytesLen);
-    if (bytes == NULL) {
-        return CMSG_OUT_OF_MEMORY;
-    }
-    
-    /* string is in B64 form, decode to byte array */
-    numBytes = cMsg_b64_decode(string, strlen(string), bytes);
-    if (numBytes > 16) {
-printf("Error decrypting password, it should NOT be longer than 16 characters!\n");
-    }
-
-    /* Initialize context structure. */
-    aes_setkey_dec(&ctx, AESkey, 128);
-
-    /* Decrypt bytes into actual password. */
-    aes_crypt_ecb(&ctx, AES_DECRYPT, bytes, pswrd);
-
-    free(bytes);
-    
-    if (passwd != NULL) {
-       *passwd = strndup(pswrd, len);
-    }
-    
-    return CMSG_OK;
-}
-
-
-/**
  * Decrypt the given encrypted string into a recognizable string.
  * This routine allocates memory for the returned string
  * which must be freed by the caller.
@@ -587,23 +534,12 @@ static int decryptString(const char *string, int len, char **result) {
     char *pString, *origString, *pBytes, *bytes;
     aes_context ctx;
     unsigned int bytesLen;
-    int numBytes, anotherRound;
+    int numBytes, lenSoFar=0;
     
-    /* number of bytes in decoded B64 string */
+    /* Number of bytes in decoded B64 string.
+     * Java's ecb encoded string comes in chunks of 16 bytes
+     * so bytesLen should be in multiples of 16.*/
     bytesLen = cMsg_b64_decode_len(string, strlen(string));
-
-    /*
-     * Round # of bytes UP to nearest multiple of 16
-     * since aes_crypt_ecb decodes 16 bytes at a time.
-     * This prevents us from decoding bytes past the end
-     * of the "bytes" array.
-     */
-    printf("bytesLen  = %u\n", bytesLen);
-    bytesLen = ((bytesLen - 1)/16)*16 + 16;
-    printf("new bytesLen  = %u\n", bytesLen);
-    if (bytesLen%16 != 0) {
-        printf("Error decrypting string, new bytesLen (%u) should be multiple of 16!\n", bytesLen);
-    }
 
     pBytes = bytes = (char *) calloc(1, bytesLen);
     if (bytes == NULL) {
@@ -623,31 +559,25 @@ static int decryptString(const char *string, int len, char **result) {
         return CMSG_OUT_OF_MEMORY;
     }
 
-    do {
-        anotherRound = 0;
-        
+    while (lenSoFar < len) {
         /* Decrypt bytes into original string 16 bytes at a time. */
         aes_crypt_ecb(&ctx, AES_DECRYPT, pBytes, pString);
 
-        /* if we have NOT decrypted the whole thing yet ... */
-        if (strlen(origString) < len) {
-            pBytes  += 16;
-            pString += 16;
-            anotherRound = 1;
-printf("decryptString: DO ANOTHER ROUND!\n");
-        }
-        
-    } while(anotherRound);
+        /* move on to next 16 bytes */
+        pBytes   += 16;
+        pString  += 16;
+        lenSoFar += 16;
+    }
 
     free(bytes);
     
     if (result != NULL) {
         /*
          * I don't know what goop this C lib puts at the end of
-         * the decrypted string, so just copy the right # of chars.
+         * the decrypted string, so make sure there's a null at the end.
          */
-        *result = strndup(origString, len);
-        free(origString);
+        origString[len] = '\0';
+        *result = origString;
     }
     
     return CMSG_OK;
@@ -706,7 +636,7 @@ static void callback(void *msg, void *arg) {
         }
 
         /* decrypt password here (val cannot be NULL) */
-        err = decryptPassword(val, pswdLen, &passwd);
+        err = decryptString(val, pswdLen, &passwd);
         if (err != CMSG_OK) {
             if (debug) printf("Cannot allocate memory");
             cMsgFreeMessage(&msg);
