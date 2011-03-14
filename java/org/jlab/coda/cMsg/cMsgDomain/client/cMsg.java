@@ -3821,10 +3821,10 @@ System.out.println("\n  333333 Try to allocate " + plen + " bytes for getMonitor
                     if (!init) {
                         long deltaT = now - lastTime;
                         // if over 3 seconds since last sent update, print error message
-                        if (deltaT > 3000) {
-                            System.out.println("WARNING: " + (deltaT/1000) + " seconds since update last sent to server, now time is" +
-                            (new Date()));
-                        }
+//                        if (deltaT > 3000) {
+//                            System.out.println("WARNING: " + (deltaT/1000) + " seconds since update last sent to server, now time is" +
+//                            (new Date()));
+//                        }
                     }
                     else {
                         init = false;
