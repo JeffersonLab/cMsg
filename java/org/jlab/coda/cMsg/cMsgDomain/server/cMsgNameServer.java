@@ -2278,18 +2278,23 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
                 return;
             }
 
-            int     grabLockTries;
             boolean gotCloudLock  = false;
             boolean gotRegistrationLock = false;
             boolean registrationSuccessful = false;
-            int maxNumberOfTrys=3, numberOfTrys=0;
             LinkedList<cMsgServerBridge> lockedServers = new LinkedList<cMsgServerBridge>();
+
+            // variables having to do with grabbing locks
+            int grabLockTries, maxNumberOfTrys=6, numberOfTrys=0;
+            Random random = new Random(System.currentTimeMillis());
+            int delay, startingDelay = 150;  // milliseconds
 
             startOver:
 
                 while (numberOfTrys++ < maxNumberOfTrys) {
 //System.out.println(">> NS: startOver");
                     lockedServers.clear();
+
+                    startingDelay = numberOfTrys*startingDelay;
 
 // BUG BUG send timeout length ??
                     // We need to calculate the number of locks which constitute a
@@ -2330,11 +2335,25 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
                             // if we've reached our limit of tries ...
                             if (++grabLockTries > 3) {
                                 if (debug >= cMsgConstants.debugWarn) {
-                                    System.out.println("    << JR: Failed to grab inital cloud lock");
+                                    System.out.println("    << JR: Failed to grab inital cloud or registration lock");
                                 }
-                                // delay 1/2 sec
-                                try {Thread.sleep(500);}
+
+                                // release locks
+                                if (gotCloudLock) {
+                                    cloudUnlock();
+                                    gotCloudLock = false;
+                                }
+                                if (gotRegistrationLock) {
+                                    subdomainHandler.registrationUnlock();
+                                    gotRegistrationLock = false;
+                                }
+
+                                // delay = startingDelay + (0 - 150 millisecond)
+                                // where startingDelay = 150,300,450,600,750,900 in each successive round.
+                                delay = startingDelay + (int)(150*random.nextDouble());
+                                try {Thread.sleep(delay);}
                                 catch (InterruptedException e) {}
+
                                 // take it from the top
 //System.out.println(">> NS: continue to startOver");
                                 continue startOver;
@@ -2429,11 +2448,14 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
                             gotCloudLock = false;
                             gotRegistrationLock = false;
 
+                            // delay = startingDelay + (0 - 150 millisecond)
+                            // where startingDelay = 150,300,450,600,750,900 in each successive round.
+                            delay = startingDelay + (int)(150*random.nextDouble());
+
                             // Wait for a random time initially between 10 & 300
                             // milliseconds which doubles each loop.
-                            Random rand = new Random();
-                            int milliSec = (int) ((10 + rand.nextInt(291))*(Math.pow(2., numberOfTrys-1.)));
-                            try {Thread.sleep(milliSec);}
+                            //int milliSec = (int) ((10 + random.nextInt(291))*(Math.pow(2., numberOfTrys-1.)));
+                            try {Thread.sleep(delay);}
                             catch (InterruptedException e) {}
 
                             // start over
