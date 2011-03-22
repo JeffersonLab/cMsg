@@ -2330,10 +2330,10 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
                             }
                         }
 
-                        // Can't grab a/both locks, wait and try again (at most 3 times)
+                        // Can't grab a/both locks, wait and try again (at most 5 times)
                         if (!gotCloudLock || !gotRegistrationLock) {
                             // if we've reached our limit of tries ...
-                            if (++grabLockTries > 3) {
+                            if (++grabLockTries > 5) {
                                 if (debug >= cMsgConstants.debugWarn) {
                                     System.out.println("    << JR: Failed to grab inital cloud or registration lock");
                                 }
