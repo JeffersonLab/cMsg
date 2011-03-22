@@ -2312,7 +2312,7 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
                         // members' clients. Can also calculate a majority of cloud members.
 // boolean locked = cloudLock.isLocked();
 //System.out.println("local cloud locked = " + locked);
-                        if (!gotCloudLock && cloudLock(500)) {
+                        if (!gotCloudLock && cloudLock(10)) {
 //System.out.println(">> NS: grabbed local cloud lock");
                             gotCloudLock = true;
                         }
@@ -2321,7 +2321,7 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
 
                         if (!gotRegistrationLock) {
 //System.out.print(">> NS: " + info.getName() + " trying to grab registration lock ...");
-                            if (subdomainHandler.registrationLock(500)) {
+                            if (subdomainHandler.registrationLock(10)) {
                                 gotRegistrationLock = true;
 //System.out.println(" ... DONE!");
                             }
@@ -2397,7 +2397,7 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
                             try {
                                 // If sucessfull in locking remote server ...
 //System.out.print(">> NS: Try to lock bridge to " + bridge.serverName);
-                                if (bridge.registrationLock(200)) {
+                                if (bridge.registrationLock(10)) {
 //System.out.println("  ... LOCKED IT!!");
                                     lockedServers.add(bridge);
                                     numberOfLockedCloudMembers++;
