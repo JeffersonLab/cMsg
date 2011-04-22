@@ -196,7 +196,7 @@ class rcListeningThread extends Thread {
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
-System.out.println("RC multicast server : I was told to kill myself by another multicast server");
+System.out.println("RC multicast server : I was told to kill myself by another multicast server - killing listening thread");
                         server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
                         return;
@@ -247,14 +247,14 @@ System.out.println("RC multicast server : I was told to kill myself by another m
                 // from ourself when first connecting. Just ignore our own probing
                 // multicast.
 
-//                System.out.println("accepting Clients = " + server.acceptingClients);
-//                System.out.println("our host = " + InetAddress.getLocalHost().getCanonicalHostName());
-//                System.out.println("multicaster's host = " + multicasterHost);
-//                System.out.println("our port = " + server.localTempPort);
-//                System.out.println("multicaster's port = " + multicasterUdpPort);
+                System.out.println("RC multicast server: accepting Clients = " + server.acceptingClients);
+                System.out.println("                   : local host = " + InetAddress.getLocalHost().getCanonicalHostName());
+                System.out.println("                   : multicaster's packet's host = " + multicasterHost);
+                System.out.println("                   : our port = " + server.localTempPort);
+                System.out.println("                   : multicaster's packet's port = " + multicasterUdpPort);
 
                 if (/*!server.acceptingClients &&*/ // doesn't matter if we're accepting clients or not ...
-                        InetAddress.getLocalHost().getCanonicalHostName().equals(multicasterHost) &&
+                    /*    InetAddress.getLocalHost().getCanonicalHostName().equals(multicasterHost) && */
                         multicasterUdpPort == server.localTempPort) {
 System.out.println("RC multicast server : ignore my own udp messages");
                     continue;
