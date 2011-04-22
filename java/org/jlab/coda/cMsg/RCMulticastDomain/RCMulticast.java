@@ -69,7 +69,7 @@ public class RCMulticast extends cMsgDomainAdapter {
     private MulticastSocket multicastSocket;
 
     /** Timeout in milliseconds to wait for server to respond to multicasts. Default is 3 sec. */
-    private int multicastTimeout = 3000;
+    private int multicastTimeout = 2000;
 
     /** Thread that listens for UDP multiunicasts to this server and responds. */
     private rcListeningThread listener;
@@ -628,7 +628,6 @@ public class RCMulticast extends cMsgDomainAdapter {
 
 
         public void run() {
-
             try {
                 /* A slight delay here will help the main thread (calling connect)
                 * to be already waiting for a response from the server when we
@@ -640,8 +639,13 @@ public class RCMulticast extends cMsgDomainAdapter {
                 while (true) {
 
                     try {
-//System.out.println("  Send multicast packet to RC Multicast server");
-                        multicastSocket.send(packet);
+//System.out.println("  Send multicast packet to RC Multicast server over each interface");
+                        Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+                        while (enumer.hasMoreElements()) {
+                            NetworkInterface ni = enumer.nextElement();
+                            multicastSocket.setNetworkInterface(ni);
+                            multicastSocket.send(packet);
+                        }
                     }
                     catch (IOException e) {
                         // probably multicastSocket closed in connect()
