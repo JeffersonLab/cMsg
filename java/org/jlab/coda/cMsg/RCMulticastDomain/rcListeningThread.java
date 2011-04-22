@@ -46,16 +46,16 @@ class rcListeningThread extends Thread {
     private RCMulticast server;
 
     /** UDP port on which to listen for rc client multi/unicasts. */
-    int multicastPort;
+    private int multicastPort;
 
     /** UDP socket on which to read packets sent from rc clients. */
-    MulticastSocket multicastSocket;
+    private MulticastSocket multicastSocket;
 
     /** Level of debug output for this class. */
     private int debug;
 
     /** Setting this to true will kill this thread. */
-    private boolean killThread;
+    private volatile boolean killThread;
 
     /** Kills this thread. */
     void killThread() {
@@ -196,7 +196,7 @@ class rcListeningThread extends Thread {
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
-//System.out.println("I was told to kill myself");
+System.out.println("I was told to kill myself by another multicast server");
                         server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
                         return;

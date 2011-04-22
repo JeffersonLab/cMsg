@@ -68,8 +68,8 @@ public class RCMulticast extends cMsgDomainAdapter {
     /** Socket over which to UDP multicast to and check for other rc multicast servers. */
     private MulticastSocket multicastSocket;
 
-    /** Timeout in milliseconds to wait for server to respond to multicasts. Default is 2 sec. */
-    private int multicastTimeout = 2000;
+    /** Timeout in milliseconds to wait for server to respond to multicasts. Default is 3 sec. */
+    private int multicastTimeout = 3000;
 
     /** Thread that listens for UDP multiunicasts to this server and responds. */
     private rcListeningThread listener;
@@ -87,7 +87,9 @@ public class RCMulticast extends cMsgDomainAdapter {
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
     private Lock notConnectLock = methodLock.readLock();
 
-    /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
+    /** Lock to ensure {@link #subscribe(String, String, org.jlab.coda.cMsg.cMsgCallbackInterface, Object)}
+     *  and {@link #unsubscribe(org.jlab.coda.cMsg.cMsgSubscriptionHandle)}
+     *  calls are sequential. */
     private Lock subscribeLock = new ReentrantLock();
 
     /**
@@ -255,8 +257,8 @@ public class RCMulticast extends cMsgDomainAdapter {
                 // stop listening thread
                 listener.killThread();
                 multicastSocket.close();
-                try {Thread.sleep(500);}
-                catch (InterruptedException e) {}
+//                try {Thread.sleep(500);}
+//                catch (InterruptedException e) {}
 
                 throw new cMsgException("Another RC Multicast server is running at port " + udpPort +
                                         " host " + respondingHost + " with EXPID = " + expid);
@@ -264,13 +266,14 @@ public class RCMulticast extends cMsgDomainAdapter {
 //System.out.println("No other RC Multicast server is running, so start this one up!");
             acceptingClients = true;
 
-            // Releasing the socket after above line diminishes the chance that
+            // Releasing the socket AFTER THE ABOVE LINE diminishes the chance that
             // a client on the same host will grab that port and be filtered
             // out as being this same server's multicast.
             multicastSocket.close();
 
             // reclaim memory
-            multicastResponse = null;
+            //multicastResponse = null;  // TODO: Race condition results in this object being used
+                                         // TODO: in the rcListeningThread after being set to null.
 
             connected = true;
         }
@@ -644,7 +647,7 @@ public class RCMulticast extends cMsgDomainAdapter {
                         e.printStackTrace();
                     }
 
-                    Thread.sleep(500);
+                    Thread.sleep(100);
                 }
             }
             catch (InterruptedException e) {
