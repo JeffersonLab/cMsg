@@ -196,7 +196,7 @@ class rcListeningThread extends Thread {
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
-System.out.println("I was told to kill myself by another multicast server");
+System.out.println("RC multicast server : I was told to kill myself by another multicast server");
                         server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
                         return;
@@ -256,7 +256,7 @@ System.out.println("I was told to kill myself by another multicast server");
                 if (/*!server.acceptingClients &&*/ // doesn't matter if we're accepting clients or not ...
                         InetAddress.getLocalHost().getCanonicalHostName().equals(multicasterHost) &&
                         multicasterUdpPort == server.localTempPort) {
-System.out.println("Ignore my own udp messages");
+System.out.println("RC multicast server : ignore my own udp messages");
                     continue;
                 }
 
