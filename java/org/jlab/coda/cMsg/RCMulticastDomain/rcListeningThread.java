@@ -253,10 +253,10 @@ System.out.println("I was told to kill myself by another multicast server");
 //                System.out.println("our port = " + server.localTempPort);
 //                System.out.println("multicaster's port = " + multicasterUdpPort);
 
-                if (!server.acceptingClients &&
-//                        InetAddress.getLocalHost().equals(multicasterHost) &&
+                if (/*!server.acceptingClients &&*/ // doesn't matter if we're accepting clients or not ...
+                        InetAddress.getLocalHost().getCanonicalHostName().equals(multicasterHost) &&
                         multicasterUdpPort == server.localTempPort) {
-//System.out.println("Ignore our own probing multicast");
+System.out.println("Ignore my own udp messages");
                     continue;
                 }
 

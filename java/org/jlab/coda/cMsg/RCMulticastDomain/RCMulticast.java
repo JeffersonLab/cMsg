@@ -644,7 +644,8 @@ public class RCMulticast extends cMsgDomainAdapter {
                         multicastSocket.send(packet);
                     }
                     catch (IOException e) {
-                        e.printStackTrace();
+                        // probably multicastSocket closed in connect()
+                        return;
                     }
 
                     Thread.sleep(100);
