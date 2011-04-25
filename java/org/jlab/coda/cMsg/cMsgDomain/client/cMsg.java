@@ -155,7 +155,8 @@ public class cMsg extends cMsgDomainAdapter {
     private Map<Object, cMsgSubscription> unsubscriptions;
 
     /**
-     * Collection of all of this client's {@link #subscribeAndGet} calls currently in execution.
+     * Collection of all of this client's {@link #subscribeAndGet(String, String, int)}
+     * calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions.
      * Key is receiverSubscribeId object, value is {@link cMsgSubscription} object.
@@ -163,13 +164,15 @@ public class cMsg extends cMsgDomainAdapter {
     ConcurrentHashMap<Integer,cMsgSubscription> subscribeAndGets;
 
     /**
-     * Collection of all of this client's {@link #sendAndGet} calls currently in execution.
+     * Collection of all of this client's {@link #sendAndGet(org.jlab.coda.cMsg.cMsgMessage, int)}
+     * calls currently in execution.
      * Key is senderToken object, value is {@link cMsgGetHelper} object.
      */
     ConcurrentHashMap<Integer,cMsgGetHelper> sendAndGets;
 
     /**
-     * Collection of all of this client's {@link #syncSend} calls currently in execution.
+     * Collection of all of this client's {@link #syncSend(org.jlab.coda.cMsg.cMsgMessage, int)}
+     * calls currently in execution.
      * Key is senderToken object, value is {@link cMsgGetHelper} object.
      */
     ConcurrentHashMap<Integer,cMsgGetHelper> syncSends;
@@ -196,13 +199,17 @@ public class cMsg extends cMsgDomainAdapter {
      * This lock is for controlling access to the methods of this class.
      * It is inherently more flexible than synchronizing code. The {@link #connect}
      * and {@link #disconnect} methods of this object cannot be called simultaneously
-     * with each other or any other method. However, the {@link #send} method is
+     * with each other or any other method. However, the
+     * {@link #send(org.jlab.coda.cMsg.cMsgMessage)} method is
      * thread-safe and may be called simultaneously from multiple threads. The
-     * {@link #syncSend} method is thread-safe with other methods but not itself
+     * {@link #syncSend(org.jlab.coda.cMsg.cMsgMessage, int)}
+     * method is thread-safe with other methods but not itself
      * (since it requires a response from the server) and requires an additional lock.
-     * The {@link #subscribeAndGet}, {@link #sendAndGet}, {@link #subscribe}, and
-     * {@link #unsubscribe} methods are also thread-safe but require some locking
-     * for bookkeeping purposes by means of other locks.
+     * The {@link #subscribeAndGet(String, String, int)},
+     * {@link #sendAndGet(org.jlab.coda.cMsg.cMsgMessage, int)},
+     * {@link #subscribe(String, String, org.jlab.coda.cMsg.cMsgCallbackInterface, Object)},
+     * and {@link #unsubscribe(org.jlab.coda.cMsg.cMsgSubscriptionHandle)} methods are also
+     * thread-safe but require some locking for bookkeeping purposes by means of other locks.
      */
     private final ReentrantReadWriteLock methodLock = new ReentrantReadWriteLock();
 
@@ -212,7 +219,12 @@ public class cMsg extends cMsgDomainAdapter {
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
     Lock notConnectLock = methodLock.readLock();
 
-    /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
+    /**
+     * Lock to ensure
+     * {@link #subscribe(String, String, org.jlab.coda.cMsg.cMsgCallbackInterface, Object)}
+     * and {@link #unsubscribe(org.jlab.coda.cMsg.cMsgSubscriptionHandle)}
+     * calls are sequential.
+     */
     Lock subscribeLock = new ReentrantLock();
 
     /** Lock to ensure that methods using the socket, write in sequence. */
@@ -224,25 +236,32 @@ public class cMsg extends cMsgDomainAdapter {
     /** Unique id sent by server to use in our responses. */
     int uniqueClientKey;
 
-    /** The subdomain server object or client handler implements {@link #send}. */
+    /** The subdomain server object or client handler implements
+     * {@link #send(org.jlab.coda.cMsg.cMsgMessage)}. */
     boolean hasSend;
 
-    /** The subdomain server object or client handler implements {@link #syncSend}. */
+    /** The subdomain server object or client handler implements
+     * {@link #syncSend(org.jlab.coda.cMsg.cMsgMessage, int)}. */
     boolean hasSyncSend;
 
-    /** The subdomain server object or client handler implements {@link #subscribeAndGet}. */
+    /** The subdomain server object or client handler implements
+     * {@link #subscribeAndGet(String, String, int)}. */
     boolean hasSubscribeAndGet;
 
-    /** The subdomain server object or client handler implements {@link #sendAndGet}. */
+    /** The subdomain server object or client handler implements
+     * {@link #sendAndGet(org.jlab.coda.cMsg.cMsgMessage, int)}. */
     boolean hasSendAndGet;
 
-    /** The subdomain server object or client handler implements {@link #subscribe}. */
+    /** The subdomain server object or client handler implements
+     * {@link #subscribe(String, String, org.jlab.coda.cMsg.cMsgCallbackInterface, Object)}. */
     boolean hasSubscribe;
 
-    /** The subdomain server object or client handler implements {@link #unsubscribe}. */
+    /** The subdomain server object or client handler implements
+     * {@link #unsubscribe(org.jlab.coda.cMsg.cMsgSubscriptionHandle)}. */
     boolean hasUnsubscribe;
 
-    /** The subdomain server object or client handler implements {@link #shutdownClients}. */
+    /** The subdomain server object or client handler implements
+     * {@link #shutdownClients(String, boolean)}. */
     boolean hasShutdown;
 
     // For statistics/monitoring
@@ -725,7 +744,13 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
 
                     try {
 //System.out.println("Send multicast packet to cMsg server");
-                        udpSocket.send(packet);
+                        // send a packet over each network interface
+                        Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+                        while (enumer.hasMoreElements()) {
+                            NetworkInterface ni = enumer.nextElement();
+                            udpSocket.setNetworkInterface(ni);
+                            udpSocket.send(packet);
+                        }
                     }
                     catch (IOException e) {
                         e.printStackTrace();
