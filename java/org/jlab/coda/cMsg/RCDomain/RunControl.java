@@ -86,7 +86,10 @@ public class RunControl extends cMsgDomainAdapter {
     /** RunControl multicast server's multicast listening port obtained from UDL. */
     int rcMulticastServerPort;
 
-    /** Packet to send over UDP to RC server to implement {@link #send}. */
+    /**
+     * Packet to send over UDP to RC server to implement
+     * {@link #send(org.jlab.coda.cMsg.cMsgMessage)}.
+     */
     DatagramPacket sendUdpPacket;
 
     /** Socket over which to UDP multicast to and receive UDP packets from the RCMulticast server. */
@@ -120,8 +123,8 @@ public class RunControl extends cMsgDomainAdapter {
      * This lock is for controlling access to the methods of this class.
      * It is inherently more flexible than synchronizing code. The {@link #connect}
      * and {@link #disconnect} methods of this object cannot be called simultaneously
-     * with each other or any other method. However, the {@link #send} method is
-     * thread-safe and may be called simultaneously from multiple threads.
+     * with each other or any other method. However, the {@link #send(org.jlab.coda.cMsg.cMsgMessage)}
+     * method is thread-safe and may be called simultaneously from multiple threads.
      */
     private final ReentrantReadWriteLock methodLock = new ReentrantReadWriteLock();
 
@@ -131,7 +134,12 @@ public class RunControl extends cMsgDomainAdapter {
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
     Lock notConnectLock = methodLock.readLock();
 
-    /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
+    /**
+     * Lock to ensure
+     * {@link #subscribe(String, String, org.jlab.coda.cMsg.cMsgCallbackInterface, Object)}
+     * and {@link #unsubscribe(org.jlab.coda.cMsg.cMsgSubscriptionHandle)}
+     * calls are sequential.
+     */
     Lock subscribeLock = new ReentrantLock();
 
     /** Lock to ensure that methods using the socket, write in sequence. */
@@ -271,7 +279,7 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             //--------------------------------------------------------------
-            // multicast on local subnet to find RunControl Multicast server
+            // multicast on local subnets to find RunControl Multicast server
             //--------------------------------------------------------------
             DatagramPacket udpPacket;
 
@@ -1426,7 +1434,13 @@ public class RunControl extends cMsgDomainAdapter {
                 while (true) {
 
                     try {
-                        multicastUdpSocket.send(packet);
+                        // send a packet over each network interface
+                        Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+                        while (enumer.hasMoreElements()) {
+                            NetworkInterface ni = enumer.nextElement();
+                            multicastUdpSocket.setNetworkInterface(ni);
+                            multicastUdpSocket.send(packet);
+                        }
                     }
                     catch (IOException e) {
                         e.printStackTrace();
