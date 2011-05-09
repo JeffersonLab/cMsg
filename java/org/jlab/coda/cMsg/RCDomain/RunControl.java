@@ -1438,8 +1438,10 @@ public class RunControl extends cMsgDomainAdapter {
                         Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
                         while (enumer.hasMoreElements()) {
                             NetworkInterface ni = enumer.nextElement();
-                            multicastUdpSocket.setNetworkInterface(ni);
-                            multicastUdpSocket.send(packet);
+                            if (ni.isUp() && ni.supportsMulticast()) {
+                                multicastUdpSocket.setNetworkInterface(ni);
+                                multicastUdpSocket.send(packet);
+                            }
                         }
                     }
                     catch (IOException e) {
