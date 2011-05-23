@@ -3686,14 +3686,14 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
   else {
     int ndian;
     if (endian == CMSG_ENDIAN_LOCAL) {
-        if (cMsgLocalByteOrder(&ndian) != CMSG_OK) {
+        if (cMsgNetLocalByteOrder(&ndian) != CMSG_OK) {
           return CMSG_ERROR;
         }
         endian = ndian;
     }
     /* set to opposite of local endian value */
     else if (endian == CMSG_ENDIAN_NOTLOCAL) {
-        if (cMsgLocalByteOrder(&ndian) != CMSG_OK) {
+        if (cMsgNetLocalByteOrder(&ndian) != CMSG_OK) {
             return CMSG_ERROR;
         }
         if (ndian == CMSG_ENDIAN_BIG) {
@@ -3887,7 +3887,7 @@ static int addBinaryArray(void *vmsg, const char *name, const char *src[],
         else {
             int ndian;
             if (endians[i] == CMSG_ENDIAN_LOCAL) {
-                if (cMsgLocalByteOrder(&ndian) != CMSG_OK) {
+                if (cMsgNetLocalByteOrder(&ndian) != CMSG_OK) {
                     free(endians);free(sizes);
                     return CMSG_ERROR;
                 }
@@ -3895,7 +3895,7 @@ static int addBinaryArray(void *vmsg, const char *name, const char *src[],
             }
             /* set to opposite of local endian value */
             else if (endians[i] == CMSG_ENDIAN_NOTLOCAL) {
-                if (cMsgLocalByteOrder(&ndian) != CMSG_OK) {
+                if (cMsgNetLocalByteOrder(&ndian) != CMSG_OK) {
                     free(endians);free(sizes);
                     return CMSG_ERROR;
                 }
