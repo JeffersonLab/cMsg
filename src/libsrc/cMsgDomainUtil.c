@@ -810,6 +810,7 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   
   memset((void *) &domain->monData, 0, sizeof(monitorData));
   
+  hashInit(&domain->rcIpAddrTable,    32);
   hashInit(&domain->syncSendTable,   128);
   hashInit(&domain->sendAndGetTable, 128);
   hashInit(&domain->subAndGetTable,  128);
@@ -893,10 +894,13 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
     }
     free(domain->failovers);
   }
+
+  /* no values (all NULL) so only keys must be freed */
+  hashDestroy(&domain->rcIpAddrTable, NULL, NULL);
   
   hashDestroy(&domain->syncSendTable, &entries, &size);
   /* If there are entries in the hashTable, free them.
-  * Key is a string, value is getInfo pointer. */
+   * Key is a string, value is getInfo pointer. */
   if (entries != NULL) {
     for (i=0; i<size; i++) {
       free(entries[i].key);

@@ -155,7 +155,7 @@ typedef struct getInfo_t {
 
 /**
  * This structure contains the components of a given UDL broken down
- * into its consituent parts.
+ * into its constituent parts.
  */
 typedef struct parsedUDL_t {
   int   nameServerPort;    /**< TCP port of name server. */
@@ -188,7 +188,7 @@ typedef struct parsedUDL_t {
 typedef struct cMsgDomainInfo_t {  
   
   int receiveState;     /**< Boolean telling if messages are being delivered to
-                             callbacks (1) or if they are being igmored (0). */
+                             callbacks (1) or if they are being ignored (0). */
   int gotConnection;    /**< Boolean telling if connection to cMsg server is good. */
   int disconnectCalled; /**< Boolean telling if user called disconnect function. */
   int functionsRunning; /**< How many functions using this struct are currently running? */
@@ -256,9 +256,11 @@ typedef struct cMsgDomainInfo_t {
   /*  rc domain stuff  */
   int rcConnectAbort;    /**< Flag used to abort rc client connection to RC Broadcast server. */
   int rcConnectComplete; /**< Has a special TCP message been sent from RC server to
-                              indicate that connection is conplete? (1-y, 0-n) */
+                              indicate that connection is complete? (1-y, 0-n) */
   pthread_mutex_t rcConnectMutex;    /**< Mutex used for rc domain connect. */
   pthread_cond_t  rcConnectCond;     /**< Condition variable used for rc domain connect. */
+  /** Hashtable of rcServer ip addresses used by rc client to make TCP connection. */
+  hashTable rcIpAddrTable;
   /* ***************** */
   
   /** Size in bytes of cMsg system data in XML form. */
