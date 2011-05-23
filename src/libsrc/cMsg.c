@@ -90,11 +90,6 @@
 #include "cMsg.h"
 #include "regex.h"
 
-/**
- * Because MAXHOSTNAMELEN is defined to be 256 on Solaris and 64 on Linux,
- * use CMSG_MAXHOSTNAMELEN as a substitute that is uniform across all platforms.
- */
-#define CMSG_MAXHOSTNAMELEN 256
 
 /** Number of local array elements in connectionPointers array. */
 #define LOCAL_ARRAY_SIZE 200
@@ -3173,7 +3168,7 @@ static void initMessage(cMsgMessage_t *msg) {
     msg->payloadCount     = 0;
     
     /* default is local endian */
-    if (cMsgLocalByteOrder(&endian) == CMSG_OK) {
+    if (cMsgNetLocalByteOrder(&endian) == CMSG_OK) {
         if (endian == CMSG_ENDIAN_BIG) {
             msg->info |= CMSG_IS_BIG_ENDIAN;
         }
@@ -4303,7 +4298,7 @@ int cMsgSetByteArrayEndian(void *vmsg, int endian) {
   
   /* set to local endian value */
   if (endian == CMSG_ENDIAN_LOCAL) {
-      if (cMsgLocalByteOrder(&ndian) != CMSG_OK) {
+      if (cMsgNetLocalByteOrder(&ndian) != CMSG_OK) {
           return CMSG_ERROR;
       }
       if (ndian == CMSG_ENDIAN_BIG) {
@@ -4315,7 +4310,7 @@ int cMsgSetByteArrayEndian(void *vmsg, int endian) {
   }
   /* set to opposite of local endian value */
   else if (endian == CMSG_ENDIAN_NOTLOCAL) {
-      if (cMsgLocalByteOrder(&ndian) != CMSG_OK) {
+      if (cMsgNetLocalByteOrder(&ndian) != CMSG_OK) {
           return CMSG_ERROR;
       }
       if (ndian == CMSG_ENDIAN_BIG) {
@@ -4398,7 +4393,7 @@ int cMsgNeedToSwap(const void *vmsg, int *swap) {
   if (msg == NULL || swap == NULL) return(CMSG_BAD_ARGUMENT);
   
   /* find local host's byte order */ 
-  if (cMsgLocalByteOrder(&localEndian) != CMSG_OK) return CMSG_ERROR;
+  if (cMsgNetLocalByteOrder(&localEndian) != CMSG_OK) return CMSG_ERROR;
   
   /* find messge byte array's byte order */
   if ((msg->info & CMSG_IS_BIG_ENDIAN) > 1) {
