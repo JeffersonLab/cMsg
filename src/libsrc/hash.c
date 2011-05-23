@@ -317,9 +317,11 @@ int hashRemove(hashTable *tptr, const char *key, void **data) {
  * 
  * @param tptr A pointer to the hash table
  * @param entries pointer to array of hashNode structures -
- *                gets filled with entries if not NULL
+ *                gets filled with entries if not NULL and size not NULL.
+ *                Gets set to NULL if no enties in table.
  * @param size pointer to int -
  *             gets filled with the number of entries if not NULL and entries not NULL
+ *             Gets set to 0 if no enties in table.
  *
  * @return 1 if meaningful results returned, else 0. Means an arg is NULL
  *         or cannot allocate memory
@@ -335,7 +337,11 @@ int hashGetAll(hashTable *tptr, hashNode **entries, int *size) {
     /* return data so user can free it */
     if (tptr->entries > 0) {
         array = (hashNode *) malloc(tptr->entries*sizeof(hashNode));
-        if (array == NULL) return 0;
+        if (array == NULL) {
+            *entries = NULL;
+            *size = 0;
+            return 0;
+        }
         *entries = array;
         *size = tptr->entries;
     }
