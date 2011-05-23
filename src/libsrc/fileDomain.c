@@ -235,7 +235,7 @@ int cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescr
   fdi->udl      = strdup("myUDL");
   fdi->domain   = strdup("file");
   fdi->host     = (char*)malloc(256);
-  cMsgLocalHost(fdi->host,256);
+  cMsgNetLocalHost(fdi->host,256);
   fdi->name     = strdup(myName);
   fdi->descr    = strdup(myDescription);
   fdi->file     = f;
