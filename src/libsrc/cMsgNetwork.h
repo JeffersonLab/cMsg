@@ -20,37 +20,79 @@
 #ifndef __cMsgNetwork_h
 #define __cMsgNetwork_h
 
-
 #ifdef VXWORKS
 #include <ioLib.h>       /* writev */
 #include <inetLib.h>     /* htonl stuff */
-#include <sockLib.h>
 #else
-#include <inttypes.h>
-#include <sys/uio.h>     /* writev */
-#include <arpa/inet.h>	 /* htonl stuff */
+#include <arpa/inet.h>   /* htonl stuff */
 #endif
 
-
-#include <sys/types.h>	 /* basic system data types */
-#include <sys/socket.h>	 /* basic socket definitions */
-#include <netinet/in.h>	 /* sockaddr_in{} and other Internet defns */
-/*#include <netinet/ip.h>*/	 /* IPTOS_LOWDELAY defn */
 #include <netinet/tcp.h> /* TCP_NODELAY def */
-#include <net/if.h>	 /* find broacast addr */
-#include <netdb.h>	 /* herrno */
-#include <fcntl.h>
 
 
+/*
+ * MAXHOSTNAMELEN is defined to be 256 on Solaris and is the max length
+ * of the host name so we add one for the terminator. On Linux the
+ * situation is less clear but 257 appears to be the max (whether that
+ * includes termination is not clear).
+ * We need it to be uniform across all platforms since we transfer
+ * this info across the network. Define it to be 256 for everyone.
+ */
+#define CMSG_MAXHOSTNAMELEN 256
+
+/* convenient network definitions (from Richard Stevens ) */
+#define SA                  struct sockaddr
+#define LISTENQ             10
+
+/* The following is alot of stuff to define 64 bit byte swapping */
+
+/*
+ * Make solaris compatible with Linux. On Solaris,
+ * _BIG_ENDIAN  or  _LITTLE_ENDIAN is defined
+ * depending on the architecture.
+ */
 #ifdef sun
-#include <sys/sockio.h>  /* find broacast addr */
+
+#define __LITTLE_ENDIAN 1234
+#define __BIG_ENDIAN    4321
+
+#if defined(_BIG_ENDIAN)
+#define __BYTE_ORDER __BIG_ENDIAN
 #else
-#include <sys/ioctl.h>   /* find broacast addr */
+#define __BYTE_ORDER __LITTLE_ENDIAN
 #endif
 
-#ifdef	__cplusplus
-extern "C" {
+/*
+ * On vxworks, _BIG_ENDIAN = 1234 and _LITTLE_ENDIAN = 4321,
+ * which is a bit backwards. _BYTE_ORDER is also defined.
+ * In types/vxArch.h, these definitions are carefully set
+ * to these reversed values. In other header files such as
+ * netinet/ip.h & tcp.h, the values are normal (ie
+ * _BIG_ENDIAN = 4321). What's this all about?
+ */
+#elif VXWORKS
+
+#define __LITTLE_ENDIAN 1234
+#define __BIG_ENDIAN    4321
+
+#if _BYTE_ORDER == _BIG_ENDIAN
+#define __BYTE_ORDER __BIG_ENDIAN
+#else
+#define __BYTE_ORDER __LITTLE_ENDIAN
 #endif
+
+#endif
+
+/* Byte swapping for 64 bits. */
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define ntoh64(x) (x)
+#define hton64(x) ntoh64(x)
+#else
+    extern uint64_t NTOH64(uint64_t n);
+#define ntoh64(x) NTOH64(x)
+#define hton64(x) NTOH64(x)
+#endif
+
 
 #if defined sun || defined VXWORKS || defined __APPLE__
 #  define socklen_t int
@@ -62,9 +104,6 @@ extern "C" {
 #endif
 #endif
 
-/* cMsg definitions */
-#define	SA                  struct sockaddr
-#define LISTENQ             10
 
 /* set send and receive TCP buffer sizes */
 #ifdef VXWORKS
@@ -79,61 +118,6 @@ extern "C" {
 #endif
 
 #define CMSG_IOV_MAX        16     /* minimum for POSIX systems */
-/*
- * MAXHOSTNAMELEN is defined to be 256 on Solaris and 64 on Linux.
- * Make it to be uniform across all platforms.
- */
-#define CMSG_MAXHOSTNAMELEN 256
-
-/* The following is alot of stuff to define 64 bit byte swapping */
-
-/*
- * Make solaris compatible with Linux. On Solaris,
- * _BIG_ENDIAN  or  _LITTLE_ENDIAN is defined
- * depending on the architecture.
- */
-#ifdef sun
-
-  #define __LITTLE_ENDIAN 1234
-  #define __BIG_ENDIAN    4321
-
-  #if defined(_BIG_ENDIAN)
-    #define __BYTE_ORDER __BIG_ENDIAN
-  #else
-    #define __BYTE_ORDER __LITTLE_ENDIAN
-  #endif
-
-/*
- * On vxworks, _BIG_ENDIAN = 1234 and _LITTLE_ENDIAN = 4321,
- * which is a bit backwards. _BYTE_ORDER is also defined.
- * In types/vxArch.h, these definitions are carefully set
- * to these reversed values. In other header files such as
- * netinet/ip.h & tcp.h, the values are normal (ie
- * _BIG_ENDIAN = 4321). What's this all about?
- */
-#elif VXWORKS
-
-  #define __LITTLE_ENDIAN 1234
-  #define __BIG_ENDIAN    4321
-
-  #if _BYTE_ORDER == _BIG_ENDIAN
-    #define __BYTE_ORDER __BIG_ENDIAN
-  #else
-    #define __BYTE_ORDER __LITTLE_ENDIAN
-  #endif
-
-#endif
-
-/* Byte swapping for 64 bits. */
-#if __BYTE_ORDER == __BIG_ENDIAN
-    #define ntoh64(x) (x)
-    #define hton64(x) ntoh64(x)
-#else
-    extern uint64_t NTOH64(uint64_t n);
-    #define ntoh64(x) NTOH64(x)
-    #define hton64(x) NTOH64(x)
-#endif
-
 
 
 /** Default TCP port at which a cMsg domain name server listens for client connections. */
@@ -178,24 +162,6 @@ extern "C" {
 /** The size (in bytes) of biggest buffers used to send UDP data from client to server. */
 #define CMSG_BIGGEST_UDP_BUFFER_SIZE 65536
 
-/* cMsg prototypes */
-extern int   cMsgTcpListen(int blocking, unsigned short port, int *listenFd);
-extern int   cMsgGetListeningSocket(int blocking, unsigned short startingPort,
-                                    int *finalPort, int *fd);
-extern int   cMsgTcpConnect(const char *ip_address, unsigned short port,
-                            int rcvBufSize, int sendBufSize, int *fd, int *localPort);
-extern int   cMsgAccept(int fd, struct sockaddr *sa, socklen_t *salenptr);
-
-extern int   cMsgTcpRead(int fd, void *vptr, int n);
-extern int   cMsgTcpWrite(int fd, const void *vptr, int n);
-extern int   cMsgTcpWritev(int fd, struct iovec iov[], int nbufs, int iov_max);
-extern int   cMsgLocalHost(char *host, int length);
-
-extern int   cMsgStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr);
-extern int   cMsgLocalByteOrder(int *endian);
-extern int   cMsgNodeSame(const char *node1, const char *node2, int *same);
-extern int   cMsgNodeIsLocal(const char *host, int *isLocal);
-extern const char *cMsgHstrerror(int err);
 
 #ifdef	__cplusplus
 }
