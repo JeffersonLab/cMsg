@@ -241,7 +241,7 @@ void *rcClientListeningThread(void *arg)
     /* pointer to domain info */
     pinfo->domain = domain;
     /* wait for connection to client */
-    pinfo->connfd = err = cMsgAccept(listenFd, (SA *) &cliaddr, &len);
+    pinfo->connfd = err = cMsgNetAccept(listenFd, (SA *) &cliaddr, &len);
     pinfo->arg = threadArg;
     /* ignore errors due to client shutting down the connection before
      * it can be established on this end. (EWOULDBLOCK, ECONNABORTED,
@@ -289,7 +289,7 @@ void *rcClientListeningThread(void *arg)
     }
 
     /* read in magic numbers from rcServer ("cMsg is cool" in ascii) */
-    if (cMsgTcpRead(pinfo->connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
+    if (cMsgNetTcpRead(pinfo->connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "rcClientListeningThread: error reading magic #s\n");
       }
@@ -435,7 +435,7 @@ static void *clientThread(void *arg)
      
     retry:
     
-    if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
+    if (cMsgNetTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
       /*
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "clientThread %d: error reading command\n", localCount);
@@ -590,6 +590,7 @@ static void *clientThread(void *arg)
           cMsgMessage_t *message;
           int len, netLenName, lenName;
           char *pchar;
+          char **ipAddrStrings;
           
 /*printf("rc clientThread %d: Got CMSG_RC_CONNECT message!!!\n", localCount);*/
           /* disable pthread cancellation until message memory is released or
@@ -621,9 +622,10 @@ static void *clientThread(void *arg)
             goto end;
           }
           
-          /* We need 3 pieces of info from the server: 1) server's host,
-           * 2) server's UDP port, 3) server's TCP port. These are in the
-           * message and must be recorded in the domain structure for future use.
+          /* We need 4 pieces of info from the server: 1) server's host,
+           * 2) server's UDP port, 3) server's TCP port, and 4) list of dot-decimal
+           * IP addresses of server's host. These are in the message
+           * and must be recorded in the domain structure for future use.
            */
           pchar = strtok(message->text, ":");
           if (pchar != NULL) {
@@ -639,10 +641,21 @@ static void *clientThread(void *arg)
               if (domain->sendHost != NULL) free(domain->sendHost);
               domain->sendHost = (char *) strdup(message->senderHost);
           }
-          
+
+          /* clear table containing all ip addresses of rc server */
+          hashClear(&domain->rcIpAddrTable, NULL, NULL);
+
+          /* add in new ones sent as a payload array of strings */
+          err = cMsgGetStringArray(msg, "IpAddresses", &ipAddrStrings, &len);
+          if (err == CMSG_OK) {
+              int i;
+              for (i=0; i < len; i++) {
+                  hashInsert(&domain->rcIpAddrTable, ipAddrStrings[i], NULL, NULL);
+              }
+          }
+
           /* now free message */
           cMsgFreeMessage(&msg);
-          
 
 /*printf("rc clientThread %d: connecting, tcp port = %d, udp port = %d, senderHost = %s\n",
 localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
@@ -712,7 +725,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
                 goto end;
             }
 
-            if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
+            if ( (err = cMsgNetStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                   fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
@@ -733,7 +746,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             /* create TCP sending socket and store */
 /*printf("rc clientThread %d: tcp socket = %d, port = %d\n", localCount,
                    domain->sendSocket, domain->sendPort);*/
-            if ( (err = cMsgTcpConnect(domain->sendHost,
+            if ( (err = cMsgNetTcpConnect(domain->sendHost,
                                        (unsigned short) domain->sendPort,
                                        CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket, NULL)) != CMSG_OK) {
                 cMsgSocketMutexUnlock(domain);
@@ -769,7 +782,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
         len += lenName;
 
 /*printf("rc clientThread %d: send return value to rc server\n");*/
-        if (cMsgTcpWrite(connfd, returnBuf, len) != len) {
+        if (cMsgNetTcpWrite(connfd, returnBuf, len) != len) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
             fprintf(stderr, "clientThread %d: write failure\n", localCount);
           }

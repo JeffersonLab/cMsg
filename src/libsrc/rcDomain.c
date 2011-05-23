@@ -52,6 +52,7 @@
 #include <errno.h>
 #include <time.h>
 #include <ctype.h>
+#include <sys/time.h>    /* struct timeval */
 
 #include "cMsgPrivate.h"
 #include "cMsg.h"
@@ -318,7 +319,12 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     int    gotResponse=0;
     const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
         
-       
+    /* for connecting to rc Server w/ TCP */
+    hashNode *hashEntries = NULL;
+    int hashEntryCount=0, haveHashEntries=0, gotValidRcServerHost=0;
+    char *rcServerHost = NULL;
+    struct timeval tv = {0, 300000}; /* 0.3 sec wait for rc Server to respond */
+    
     /* clear array */
     memset((void *)buffer, 0, 1024);
     
@@ -406,10 +412,9 @@ printf("EXPID is not set!\n");
     }
      
     /* get listening port and socket for this application */
-    if ( (err = cMsgGetListeningSocket(CMSG_BLOCKING,
-                                       startingPort,
-                                       &domain->listenPort,
-                                       &domain->listenSocket)) != CMSG_OK) {
+    if ( (err = cMsgNetGetListeningSocket(0, startingPort, 0, 0,
+                                          &domain->listenPort,
+                                          &domain->listenSocket)) != CMSG_OK) {
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
@@ -417,7 +422,7 @@ printf("EXPID is not set!\n");
         return(err); /* CMSG_SOCKET_ERROR if cannot find available port */
     }
     
-/*printf("rc connect: create listening socket on port %d\n", domain->listenPort );*/
+printf("rc connect: create listening socket on port %d\n", domain->listenPort );
 
     /* launch pend thread and start listening on receive socket */
     threadArg = (cMsgThreadInfo *) malloc(sizeof(cMsgThreadInfo));
@@ -437,7 +442,7 @@ printf("EXPID is not set!\n");
     /* Block SIGPIPE for this and all spawned threads. */
     cMsgBlockSignals(domain);
 
-/*printf("rc connect: start pend thread\n");*/
+printf("rc connect: start pend thread\n");
     status = pthread_create(&domain->pendThread, NULL,
                             rcClientListeningThread, (void *) threadArg);
     if (status != 0) {
@@ -476,7 +481,7 @@ printf("EXPID is not set!\n");
 
     /* Mem allocated for the argument passed to listening thread is 
      * now freed in the pthread cancellation cleanup handler.in
-     * cMsgDomainListenThread.c
+     * rcDomainListenThread.c
      */
     /*free(threadArg);*/
 
@@ -517,7 +522,7 @@ printf("EXPID is not set!\n");
         return(CMSG_SOCKET_ERROR);
     }
 
-    if ( (err = cMsgStringToNumericIPaddr(serverHost, &servaddr)) != CMSG_OK ) {
+    if ( (err = cMsgNetStringToNumericIPaddr(serverHost, &servaddr)) != CMSG_OK ) {
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
@@ -542,8 +547,8 @@ printf("EXPID is not set!\n");
      * as does the UDP port we're sending from.
      */
 
-/*printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
-        ((int) domain->listenPort), expid, serverPort, serverHost);*/
+printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
+        ((int) domain->listenPort), expid, serverPort, serverHost);
     
     nameLen  = strlen(myName);
     expidLen = strlen(expid);
@@ -655,7 +660,7 @@ printf("EXPID is not set!\n");
     free(expid);
     
     if (!gotResponse) {
-        /*printf("rc connect: got no response\n");*/
+/*printf("rc connect: got no response\n");*/
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
@@ -718,19 +723,58 @@ printf("EXPID is not set!\n");
 
     /* create TCP sending socket and store */
 /*printf("rc connect: will make tcp connection to RC server\n");*/
-    if ( (err = cMsgTcpConnect(domain->sendHost,
-                               (unsigned short) domain->sendPort,
-                               CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket, NULL)) != CMSG_OK) {
-        cMsgRestoreSignals(domain);
-        pthread_cancel(domain->pendThread);
-        cMsgDomainFree(domain);
-        free(domain);
-        /* besides out-of-mem or bad arg we can have:
-            CMSG_SOCKET_ERROR if socket could not be created or socket options could not be set.
-            CMSG_NETWORK_ERROR if sendHost name could not be resolved or could not connect
-        */
-        return(err);
-     }
+
+    /* The rc Server may have multiple network interfaces.
+     * The ip address of each is stored in a hash table.
+     * Try one at a time to see which we can use to connect. */
+    haveHashEntries = hashGetAll(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
+
+    /* if there are no hash table entries, try old way */
+    if (!haveHashEntries || hashEntryCount < 1) {
+/*printf("rc connect: try old way to make tcp connection to RC server = %s\n", domain->sendHost);*/
+        rcServerHost = domain->sendHost;
+        if ( (err = cMsgNetTcpConnect(rcServerHost, (unsigned short) domain->sendPort,
+                                      CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket, NULL)) != CMSG_OK) {
+            if (hashEntries != NULL) free(hashEntries);
+            cMsgRestoreSignals(domain);
+            pthread_cancel(domain->pendThread);
+            cMsgDomainFree(domain);
+            free(domain);
+            /*
+             * Besides out-of-mem or bad arg we can have:
+             * CMSG_SOCKET_ERROR if socket could not be created or socket options could not be set.
+             * CMSG_NETWORK_ERROR if sendHost name could not be resolved or could not connect.
+             */
+            return(err);
+        }
+    }
+    else {
+        for(i=0; i < hashEntryCount; i++) {
+            rcServerHost = hashEntries[i].key;
+/*printf("rc connect: try making tcp connection to RC server = %s w/ TO = %u sec, %u msec\n", rcServerHost,
+  (uint_32) ((&tv)->tv_sec),(uint_32) ((&tv)->tv_usec));*/
+            if ((err = cMsgNetTcpConnectTimeout(rcServerHost, (unsigned short) domain->sendPort,
+                 CMSG_BIGSOCKBUFSIZE, 0, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
+                gotValidRcServerHost = 1;
+                printf("rc connect: SUCCESS connecting to %s\n", rcServerHost);
+                break;
+            }
+            printf("rc connect: failed trying to connect to %s w/ TO = %u msec\n", rcServerHost, tv.tv_usec);
+        }
+
+        if (!gotValidRcServerHost) {
+            if (hashEntries != NULL) free(hashEntries);
+            cMsgRestoreSignals(domain);
+            pthread_cancel(domain->pendThread);
+            cMsgDomainFree(domain);
+            free(domain);
+            return(err);
+        }
+    }
+
+    /* Even though we free hash entries array, rcServerHost
+     * is still pointing to valid string inside hashtable. */
+    if (hashEntries != NULL) free(hashEntries);
 
     /*
      * Create a new UDP "connection". This means all subsequent sends are to
@@ -768,7 +812,8 @@ printf("EXPID is not set!\n");
         return(CMSG_SOCKET_ERROR);
     }
 
-    if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
+    /* convert string host into binary numeric host */
+    if ( (err = cMsgNetStringToNumericIPaddr(rcServerHost, &addr)) != CMSG_OK ) {
         cMsgRestoreSignals(domain);
         close(domain->sendUdpSocket);
         close(domain->sendSocket);
@@ -778,7 +823,7 @@ printf("EXPID is not set!\n");
         return(err);
     }
 
-/*printf("rc connect: try UDP connection rc server on port = %hu\n", ntohs(addr.sin_port));*/
+/*rintf("rc connect: try UDP connection rc server on port = %hu\n", ntohs(addr.sin_port));*/
     err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
     if (err < 0) {
         cMsgRestoreSignals(domain);
@@ -942,6 +987,8 @@ printf("Multicast response from: %s, on port %hu, listening port = %d, host = %s
  */
 static void *multicastThd(void *arg) {
 
+    char **ifNames;
+    int i, err, useDefaultIf=0, count;
     thdArg *threadArg = (thdArg *) arg;
     struct timespec wait = {0, 100000000}; /* 0.1 sec */
     
@@ -955,16 +1002,47 @@ static void *multicastThd(void *arg) {
      */
     nanosleep(&wait, NULL);
     
+    err = cMsgNetGetIfNames(&ifNames, &count);
+    if (err != CMSG_OK || count < 1 || ifNames == NULL) {
+        if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+            fprintf(stderr, "multicastThd: cannot find network interface info, use defaults\n");
+        }
+        useDefaultIf = 1;
+    }
+
     while (1) {
 
+        if (useDefaultIf) {
+            sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
+                   (SA *) threadArg->paddr, threadArg->len);
+        }
+        else {
+            for (i=0; i < count; i++) {
+//                if (cMsgDebug >= CMSG_DEBUG_INFO) {
+                    printf("multicastThd: send mcast on interface %s\n", ifNames[i]);
+//                }
+
+                /* set socket to send over this interface */
+                err = cMsgNetMcastSetIf(threadArg->sockfd, ifNames[i], 0);
+                if (err != CMSG_OK) continue;
+    
 /*printf("Send multicast to RC Multicast server\n");*/
-      sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
-             (SA *) threadArg->paddr, threadArg->len);
+                sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
+                       (SA *) threadArg->paddr, threadArg->len);
+            }
+        }
       
-      
-      sleep(1);
+        sleep(1);
     }
     
+    /* free memory */
+    if (ifNames != NULL) {
+        for (i=0; i < count; i++) {
+            free(ifNames[i]);
+        }
+        free(ifNames);
+    }
+
     pthread_exit(NULL);
     return NULL;
 }
@@ -1164,7 +1242,7 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
 
 /*printf("cmsg_rc_send: TCP, fd = %d\n", fd);*/
   /* send data over TCP socket */
-  sendLen = cMsgTcpWrite(fd, (void *) domain->msgBuffer, len);
+  sendLen = cMsgNetTcpWrite(fd, (void *) domain->msgBuffer, len);
   if (sendLen != len) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cmsg_rc_send: write failure\n");
@@ -2465,7 +2543,7 @@ static int parseUDL(const char *UDLR,
         /* if the host is "localhost", find the actual host name */
         if (strcasecmp(buffer, "localhost") == 0) {
             /* get canonical local host name */
-            if (cMsgLocalHost(buffer, bufLength) != CMSG_OK) {
+            if (cMsgNetLocalHost(buffer, bufLength) != CMSG_OK) {
                 /* error finding local host so just multicast */
                 buffer[0] = 0;
                 strcat(buffer, RC_MULTICAST_ADDR);
