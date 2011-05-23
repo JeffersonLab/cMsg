@@ -198,7 +198,7 @@ void *cMsgClientListeningThread(void *arg)
     connfd = domain->sendSocket;
 
     /* pthread cancellation point */
-    if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
+    if (cMsgNetTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
       /* We're in the middle of failing over, wait
        * so that we don't chew up the CPU. */
       nanosleep(&wait, NULL);
@@ -378,7 +378,7 @@ void *cMsgClientListeningThread(void *arg)
           int response, ssid;
               
           /* this is a pthread cancellation point */
-          if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
+          if (cMsgNetTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "clientThread: error reading sync send response\n");
             }
@@ -447,7 +447,7 @@ int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
   int  i, err, hasPayload, stringLen, lengths[7], inComing[17];
   char *pchar, *tmp;
 
-  if (cMsgTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
+  if (cMsgNetTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cMsgReadMessage: error reading message 1\n");
     }
@@ -492,7 +492,7 @@ int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
   stringLen = lengths[0] + lengths[1] + lengths[2] +
               lengths[3] + lengths[4] + lengths[5];
 
-  if (cMsgTcpRead(connfd, buffer, stringLen) != stringLen) {
+  if (cMsgNetTcpRead(connfd, buffer, stringLen) != stringLen) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cMsgReadMessage: error reading message 2\n");
     }
@@ -672,7 +672,7 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
       return(CMSG_OUT_OF_MEMORY);
     }
 
-    if (cMsgTcpRead(connfd, tmp, lengths[6]) != lengths[6]) {
+    if (cMsgNetTcpRead(connfd, tmp, lengths[6]) != lengths[6]) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "cMsgReadMessage: error reading message 3\n");
       }
