@@ -909,7 +909,7 @@ int cmsg_cmsg_reconnect(void *domainId) {
         cMsgSocketMutexLock(domain);
   
         /* send int */
-        if (cMsgTcpWrite(domain->sendSocket, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+        if (cMsgNetTcpWrite(domain->sendSocket, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
             /* if there is an error we are most likely in the process of disconnecting */
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                 fprintf(stderr, "  cmsg_cmsg_reconnect: write failure, but continue\n");
@@ -1044,7 +1044,7 @@ static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) 
 /*printf("Multicast thd uses port %hu\n", ((uint16_t)domain->currentUDL.nameServerUdpPort));*/
     servaddr.sin_port   = htons((uint16_t) (domain->currentUDL.nameServerUdpPort));
     /* send packet to multicast address */
-    if ( (err = cMsgStringToNumericIPaddr(CMSG_MULTICAST_ADDR, &servaddr)) != CMSG_OK ) {
+    if ( (err = cMsgNetStringToNumericIPaddr(CMSG_MULTICAST_ADDR, &servaddr)) != CMSG_OK ) {
       /* an error should never be returned here */
       close(sockfd);
       return(err);
@@ -1191,7 +1191,7 @@ static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) 
     }
 
     /* Record whether this server is local or not. */    
-    cMsgNodeIsLocal(rArg.buffer, &isLocal);
+    cMsgNetNodeIsLocal(rArg.buffer, &isLocal);
     domain->currentUDL.isLocal = isLocal;
 
     return(CMSG_OK);
@@ -1352,7 +1352,7 @@ static int connectDirectOld(cMsgDomainInfo *domain, void *domainId) {
   /*---------------------------------------------------------------*/
     
   /* first connect to server host & port (default send & rcv buf sizes) */  
-  if ( (err = cMsgTcpConnect(domain->currentUDL.nameServerHost,
+  if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost,
                             (unsigned short) domain->currentUDL.nameServerPort,
                              0, 0, &serverfd, NULL)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
@@ -1397,7 +1397,7 @@ static int connectDirectOld(cMsgDomainInfo *domain, void *domainId) {
   /*-----------------------------------------------------*/
   
   /* create sending & receiving socket and store (128K rcv buf, 128K send buf) */
-  if ( (err = cMsgTcpConnect(domain->sendHost,
+  if ( (err = cMsgNetTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
                               CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE,
                               &domain->sendSocket, &domain->localPort)) != CMSG_OK) {
@@ -1416,7 +1416,7 @@ static int connectDirectOld(cMsgDomainInfo *domain, void *domainId) {
   outGoing[3] = htonl(uniqueClientKey);
 
   /* send data over TCP socket */
-  sendLen = cMsgTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
+  sendLen = cMsgNetTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
   if (sendLen != sizeof(outGoing)) {
     cMsgRestoreSignals(domain);
     close(domain->sendSocket);
@@ -1428,7 +1428,7 @@ static int connectDirectOld(cMsgDomainInfo *domain, void *domainId) {
   }  
 
   /* create keep alive socket and store (default send & rcv buf sizes) */
-  if ( (err = cMsgTcpConnect(domain->sendHost,
+  if ( (err = cMsgNetTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
                               0, 0, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
@@ -1447,7 +1447,7 @@ static int connectDirectOld(cMsgDomainInfo *domain, void *domainId) {
   }
   
   /* send magic #s over TCP socket */
-  sendLen = cMsgTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
+  sendLen = cMsgNetTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
   if (sendLen != sizeof(outGoing)) {
     cMsgRestoreSignals(domain);
     close(domain->sendSocket);
@@ -1542,7 +1542,7 @@ static int connectDirectOld(cMsgDomainInfo *domain, void *domainId) {
   servaddr.sin_family = AF_INET;
   servaddr.sin_port   = htons(domain->sendUdpPort);
 
-  if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
+  if ( (err = cMsgNetStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
     cMsgRestoreSignals(domain);
     close(domain->keepAliveSocket);
     close(domain->sendSocket);
@@ -1625,7 +1625,7 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
     /*---------------------------------------------------------------*/
     
     /* first connect to server host & port (default send & rcv buf sizes) */
-    if ( (err = cMsgTcpConnect(domain->currentUDL.nameServerHost,
+    if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost,
           (unsigned short) domain->currentUDL.nameServerPort,
           0, 0, &serverfd, NULL)) != CMSG_OK) {
               cMsgRestoreSignals(domain);
@@ -1748,7 +1748,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
         }
         else {
             /* is the node returned by the server and the UDL node the same? */
-            err = cMsgNodeSame(domain->sendHost, hosts[i], &same);
+            err = cMsgNetNodeSame(domain->sendHost, hosts[i], &same);
             /* can't resolve host name(s) so probably tunneling */
             if (err != CMSG_OK) {
                 isSshTunneling[i] = 1;
@@ -1783,7 +1783,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
         /* create the 2 sockets through which all future communication occurs */
         for (i=index; i < 3; i++) {
             /* create sending & receiving socket and store (128K rcv buf, 128K send buf) */
-            if ( (err = cMsgTcpConnect(hosts[i], ports[i],
+            if ( (err = cMsgNetTcpConnect(hosts[i], ports[i],
                   CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE,
                   &domain->sendSocket, &domain->localPort)) != CMSG_OK) {
 
@@ -1793,7 +1793,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
             }
             
             /* create keep alive socket and store (default send & rcv buf sizes) */
-            if ( (err = cMsgTcpConnect(hosts[i], ports[i],
+            if ( (err = cMsgNetTcpConnect(hosts[i], ports[i],
                   0, 0, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
 
                 close(domain->sendSocket);
@@ -1826,7 +1826,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
 
         /* send data over message TCP socket */
         outGoing[4] = htonl(1); /* 1 means message socket */
-        sendLen = cMsgTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
+        sendLen = cMsgNetTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
         if (sendLen != sizeof(outGoing)) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr,
                     "connectToDomainServer: error sending data over message socket, %s\n", strerror(errno));
@@ -1841,7 +1841,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
 
         /* Expecting one byte in return to confirm connection and make ssh port
          * forwarding fails in a timely way if no server on the other end.*/
-        if (cMsgTcpRead(domain->sendSocket, (void *)&c, 1) != 1) {
+        if (cMsgNetTcpRead(domain->sendSocket, (void *)&c, 1) != 1) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                 fprintf(stderr, "connectToDomainServer: error reading message socket response byte\n");
             }
@@ -1856,7 +1856,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
 
         /* send magic #s over keep alive TCP socket */
         outGoing[4] = htonl(2); /* 2 means keepalive socket */
-        sendLen = cMsgTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
+        sendLen = cMsgNetTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
         if (sendLen != sizeof(outGoing)) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr,
                     "connectToDomainServer: error sending data over keep alive socket, %s\n", strerror(errno));
@@ -1871,7 +1871,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
 
         /* Expecting one byte in return to confirm connection and make ssh port
          * forwarding fails in a timely way if no server on the other end.*/
-        if (cMsgTcpRead(domain->keepAliveSocket, (void *)&c, 1) != 1) {
+        if (cMsgNetTcpRead(domain->keepAliveSocket, (void *)&c, 1) != 1) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                 fprintf(stderr, "connectToDomainServer: error reading keepAlive socket response byte\n");
             }
@@ -1924,7 +1924,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
             servaddr.sin_family = AF_INET;
             servaddr.sin_port   = htons(domain->sendUdpPort);
         
-            if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
+            if ( (err = cMsgNetStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr,
                         "connectToDomainServer: host name error\n");
                 if (index >= lastOption) {
@@ -2037,7 +2037,7 @@ static int reconnect(void *domainId) {
     /*-----------------------------------------------------*/
     /*             talk to cMsg name server                */
     /*-----------------------------------------------------*/
-    if ( (err = cMsgTcpConnect(domain->currentUDL.nameServerHost,
+    if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost,
           (unsigned short) domain->currentUDL.nameServerPort,
           0, 0, &serverfd, NULL)) != CMSG_OK) {
               return(err);
@@ -2105,7 +2105,7 @@ static int reconnectOld(void *domainId) {
   /*-----------------------------------------------------*/
   /*             talk to cMsg name server                */
   /*-----------------------------------------------------*/
-  if ( (err = cMsgTcpConnect(domain->currentUDL.nameServerHost,
+  if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost,
         (unsigned short) domain->currentUDL.nameServerPort,
         0, 0, &serverfd, NULL)) != CMSG_OK) {
             return(err);
@@ -2137,7 +2137,7 @@ static int reconnectOld(void *domainId) {
   }
     
   /* create sending & receiving socket and store (128K rcv buf, 128K send buf) */
-  if ( (err = cMsgTcpConnect(domain->sendHost,
+  if ( (err = cMsgNetTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
                               CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE,
                               &domain->sendSocket, &domain->localPort)) != CMSG_OK) {
@@ -2150,7 +2150,7 @@ static int reconnectOld(void *domainId) {
   outGoing[2] = htonl(CMSG_MAGIC_INT3);
   outGoing[3] = htonl(uniqueClientKey);
   /* send data over TCP socket */
-  sendLen = cMsgTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
+  sendLen = cMsgNetTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
   if (sendLen != sizeof(outGoing)) {
     close(domain->sendSocket);
     return(CMSG_NETWORK_ERROR);
@@ -2163,7 +2163,7 @@ static int reconnectOld(void *domainId) {
   /* pend thread should already be running */
 
   /* create keep alive socket and store (default send & rcv buf sizes) */
-  if ( (err = cMsgTcpConnect(domain->sendHost,
+  if ( (err = cMsgNetTcpConnect(domain->sendHost,
                              (unsigned short) domain->sendPort,
                               0, 0, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
     close(domain->sendSocket);
@@ -2171,7 +2171,7 @@ static int reconnectOld(void *domainId) {
   }
 
   /* send magic #s over TCP socket */
-  sendLen = cMsgTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
+  sendLen = cMsgNetTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
   if (sendLen != sizeof(outGoing)) {
     close(domain->sendSocket);
     close(domain->keepAliveSocket);
@@ -2206,7 +2206,7 @@ static int reconnectOld(void *domainId) {
   servaddr.sin_family = AF_INET;
   servaddr.sin_port   = htons(domain->sendUdpPort);
 
-  if ( (err = cMsgStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
+  if ( (err = cMsgNetStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
     close(domain->keepAliveSocket);
     close(domain->sendSocket);
     close(domain->sendUdpSocket);
@@ -2429,7 +2429,7 @@ int cmsg_cmsg_send(void *domainId, void *vmsg) {
     if (payloadText != NULL) free(payloadText);
     
     /* send data over TCP socket */
-    sendLen = cMsgTcpWrite(fd, (void *) domain->msgBuffer, len);
+    sendLen = cMsgNetTcpWrite(fd, (void *) domain->msgBuffer, len);
     if (sendLen == len) {
       domain->monData.numTcpSends++;
     }
@@ -2948,7 +2948,7 @@ int cmsg_cmsg_syncSend(void *domainId, void *vmsg,
     if (payloadText != NULL) free(payloadText);
     
     /* send data over socket */
-    if (cMsgTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
+    if (cMsgNetTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
         cMsgSocketMutexUnlock(domain);
         cMsgConnectReadUnlock(domain);
         cMsgSyncSendMutexLock(domain);
@@ -3198,7 +3198,7 @@ int cmsg_cmsg_subscribeAndGet(void *domainId, const char *subject, const char *t
   /* make send socket communications thread-safe */
   cMsgSocketMutexLock(domain);
   
-  if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
+  if (cMsgNetTcpWritev(fd, iov, 3, 16) == -1) {
     cMsgSocketMutexUnlock(domain);
     cMsgConnectReadUnlock(domain);
     cMsgSubAndGetMutexLock(domain);
@@ -3361,7 +3361,7 @@ static int unSubscribeAndGet(cMsgDomainInfo *domain, const char *subject,
   /* make send socket communications thread-safe */
   cMsgSocketMutexLock(domain);
 
-  if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
+  if (cMsgNetTcpWritev(fd, iov, 3, 16) == -1) {
     cMsgSocketMutexUnlock(domain);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "unSubscribeAndGet: write failure\n");
@@ -3628,7 +3628,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg,
   if (payloadText != NULL) free(payloadText);
   
   /* send data over socket */
-  if (cMsgTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
+  if (cMsgNetTcpWrite(fd, (void *) domain->msgBuffer, len) != len) {
     cMsgSocketMutexUnlock(domain);
     cMsgConnectReadUnlock(domain);
     cMsgSendAndGetMutexLock(domain);
@@ -3768,7 +3768,7 @@ static int unSendAndGet(cMsgDomainInfo *domain, int id) {
   cMsgSocketMutexLock(domain);
   
   /* send ints over together */
-  if (cMsgTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+  if (cMsgNetTcpWrite(fd, (void *) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
     cMsgSocketMutexUnlock(domain);
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "unSendAndGet: write failure\n");
@@ -4141,7 +4141,7 @@ int cmsg_cmsg_subscribe(void *domainId, const char *subject, const char *type,
     /* make send socket communications thread-safe */
     cMsgSocketMutexLock(domain);
 
-    if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
+    if (cMsgNetTcpWritev(fd, iov, 3, 16) == -1) {
         cMsgSocketMutexUnlock(domain);
         cMsgSubscribeWriteUnlock(domain);
         cMsgConnectReadUnlock(domain);
@@ -4286,7 +4286,7 @@ static int resubscribe(cMsgDomainInfo *domain, subInfo *sub) {
   iov[2].iov_len  = lenType;
 
 
-  if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
+  if (cMsgNetTcpWritev(fd, iov, 3, 16) == -1) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cmsg_cmsg_subscribe: write failure\n");
     }
@@ -4426,7 +4426,7 @@ int cmsg_cmsg_unsubscribe(void *domainId, void *handle) {
       /* make send socket communications thread-safe */
       cMsgSocketMutexLock(domain);
 
-      if (cMsgTcpWritev(fd, iov, 3, 16) == -1) {
+      if (cMsgNetTcpWritev(fd, iov, 3, 16) == -1) {
         cMsgSocketMutexUnlock(domain);
         cMsgSubscribeWriteUnlock(domain);
         cMsgConnectReadUnlock(domain);
@@ -5042,7 +5042,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
     cMsgSocketMutexLock(domain);
   
     /* send int */
-    if (cMsgTcpWrite(domain->sendSocket, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
+    if (cMsgNetTcpWrite(domain->sendSocket, (char*) outGoing, sizeof(outGoing)) != sizeof(outGoing)) {
         /* if there is an error we are most likely in the process of disconnecting */
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
             fprintf(stderr, "  cmsg_cmsg_disconnect: write failure, but continue\n");
@@ -5555,7 +5555,7 @@ int cmsg_cmsg_shutdownClients(void *domainId, const char *client, int flag) {
     /* make send socket communications thread-safe */
     cMsgSocketMutexLock(domain);
   
-    if (cMsgTcpWritev(fd, iov, 2, 16) == -1) {
+    if (cMsgNetTcpWritev(fd, iov, 2, 16) == -1) {
         cMsgSocketMutexUnlock(domain);
         cMsgConnectWriteUnlock(domain);
         cMsgCleanupAfterUsingMem(index);
@@ -5637,7 +5637,7 @@ int cmsg_cmsg_shutdownServers(void *domainId, const char *server, int flag) {
     /* make send socket communications thread-safe */
     cMsgSocketMutexLock(domain);
   
-    if (cMsgTcpWritev(fd, iov, 2, 16) == -1) {
+    if (cMsgNetTcpWritev(fd, iov, 2, 16) == -1) {
         cMsgSocketMutexUnlock(domain);
         cMsgConnectWriteUnlock(domain);
         cMsgCleanupAfterUsingMem(index);
@@ -5757,7 +5757,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueCli
   iov[8].iov_base = (char*) domain->description;
   iov[8].iov_len  = lengthDescription;
   
-  if (cMsgTcpWritev(serverfd, iov, 9, 16) == -1) {
+  if (cMsgNetTcpWritev(serverfd, iov, 9, 16) == -1) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "talkToNameServer: write failure\n");
     }
@@ -5765,7 +5765,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueCli
   }
     
   /* now read server reply */
-  if (cMsgTcpRead(serverfd, (void *) &err, sizeof(err)) != sizeof(err)) {
+  if (cMsgNetTcpRead(serverfd, (void *) &err, sizeof(err)) != sizeof(err)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "talkToNameServer: read failure\n");
     }
@@ -5779,7 +5779,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueCli
     char *string;
 
     /* read length of error string */
-    if (cMsgTcpRead(serverfd, (char*) &len, sizeof(len)) != sizeof(len)) {
+    if (cMsgNetTcpRead(serverfd, (char*) &len, sizeof(len)) != sizeof(len)) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "talkToNameServer: read failure\n");
       }
@@ -5796,7 +5796,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueCli
       return(CMSG_OUT_OF_MEMORY);
     }
       
-    if (cMsgTcpRead(serverfd, (char*) string, len) != len) {
+    if (cMsgNetTcpRead(serverfd, (char*) string, len) != len) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "talkToNameServer: cannot read error string\n");
       }
@@ -5825,7 +5825,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueCli
   }
   
   /* read whether subdomain has various functions implemented */
-  if (cMsgTcpRead(serverfd, (char*) atts, sizeof(atts)) != sizeof(atts)) {
+  if (cMsgNetTcpRead(serverfd, (char*) atts, sizeof(atts)) != sizeof(atts)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "talkToNameServer: read failure\n");
     }
@@ -5854,7 +5854,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueCli
   }
   
   /* read port & length of host name to send to*/
-  if (cMsgTcpRead(serverfd, (char*) inComing, sizeof(inComing)) != sizeof(inComing)) {
+  if (cMsgNetTcpRead(serverfd, (char*) inComing, sizeof(inComing)) != sizeof(inComing)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "talkToNameServer: read failure\n");
     }
@@ -5875,7 +5875,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueCli
   }
   
   /* read host name to send to */
-  if (cMsgTcpRead(serverfd, (char*) temp, lengthHost) != lengthHost) {
+  if (cMsgNetTcpRead(serverfd, (char*) temp, lengthHost) != lengthHost) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "talkToNameServer: read failure\n");
     }
@@ -5907,7 +5907,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
 /*printf("getMonitorInfo: domain = %p, ka socket = %d\n", domain, domain->keepAliveSocket);*/
   
   /* read len of monitoring data to come */
-  if ((err = cMsgTcpRead(domain->keepAliveSocket, &len, sizeof(len))) != sizeof(len)) {
+  if ((err = cMsgNetTcpRead(domain->keepAliveSocket, &len, sizeof(len))) != sizeof(len)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getMonitorInfo: read failure 1, domain = %p\n", domain);
     }
@@ -5926,7 +5926,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
   }
 
   /* read monitoring data */
-  if ((err = cMsgTcpRead(domain->keepAliveSocket, domain->monitorXML, len)) !=  len) {
+  if ((err = cMsgNetTcpRead(domain->keepAliveSocket, domain->monitorXML, len)) !=  len) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getMonitorInfo: read failure 2\n");
     }
@@ -5937,7 +5937,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
   domain->monitorXML[len] = '\0';
     
   /* read number of items to come */
-  if ((err = cMsgTcpRead(domain->keepAliveSocket, &items, sizeof(items))) != sizeof(items)) {
+  if ((err = cMsgNetTcpRead(domain->keepAliveSocket, &items, sizeof(items))) != sizeof(items)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "getMonitorInfo: read failure 3\n");
     }
@@ -5966,7 +5966,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
     domain->haveLocalCloudServer = 0;
     
     /* read number of servers to come */
-    if ((err = cMsgTcpRead(domain->keepAliveSocket, &numServers, sizeof(numServers))) !=
+    if ((err = cMsgNetTcpRead(domain->keepAliveSocket, &numServers, sizeof(numServers))) !=
                sizeof(numServers)) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "getMonitorInfo: read failure 4\n");
@@ -5981,7 +5981,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
         parsedUDL *p;
         isLocal = 0;
 
-        if ((err = cMsgTcpRead(domain->keepAliveSocket, inComing, sizeof(inComing))) !=
+        if ((err = cMsgNetTcpRead(domain->keepAliveSocket, inComing, sizeof(inComing))) !=
                    sizeof(inComing)) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
             fprintf(stderr, "getMonitorInfo: read failure 5\n");
@@ -6011,7 +6011,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
           }
 
           /* read host name */
-          if (cMsgTcpRead(domain->keepAliveSocket, p->nameServerHost, hlen) != hlen) {
+          if (cMsgNetTcpRead(domain->keepAliveSocket, p->nameServerHost, hlen) != hlen) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "getMonitorInfo: read failure 6\n");
             }
@@ -6026,7 +6026,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
             fprintf(stderr, "getMonitorInfo: host = %s\n", p->nameServerHost);
           }
 
-          cMsgNodeIsLocal(p->nameServerHost, &isLocal);
+          cMsgNetNodeIsLocal(p->nameServerHost, &isLocal);
           domain->haveLocalCloudServer |= isLocal;
         }
 
@@ -6041,7 +6041,7 @@ static int getMonitorInfo(cMsgDomainInfo *domain) {
           }
 
           /* read host name */
-          if (cMsgTcpRead(domain->keepAliveSocket, p->password, plen) != plen) {
+          if (cMsgNetTcpRead(domain->keepAliveSocket, p->password, plen) != plen) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
               fprintf(stderr, "getMonitorInfo: read failure 7\n");
             }
@@ -6774,7 +6774,7 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
   
   /* Respond with monitor data. Normally this is a pthread cancellation point;
    * however, cancellation has been blocked at this point. */
-  if (cMsgTcpWrite(connfd, (void *) buffer, len) != len) {
+  if (cMsgNetTcpWrite(connfd, (void *) buffer, len) != len) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "sendMonitorInfo: write failure\n");
     }
@@ -6930,7 +6930,7 @@ if(dbg) printf("set mustMulticast to true (locally in parse method)");
         else if (strcasecmp(buffer, "localhost") == 0) {
 if(dbg) printf("parseUDL: host = localhost\n");
             /* get canonical local host name */
-            if (cMsgLocalHost(buffer, bufLength) != CMSG_OK) {
+            if (cMsgNetLocalHost(buffer, bufLength) != CMSG_OK) {
                 /* error */
                 free(udl);
                 free(buffer);
@@ -6940,7 +6940,7 @@ if(dbg) printf("parseUDL: host = localhost\n");
         }
         else {
 if(dbg) printf("parseUDL: host = %s, test to see if it is local\n", buffer);
-            if (cMsgNodeIsLocal(buffer, &pUdl->isLocal) != CMSG_OK) {
+            if (cMsgNetNodeIsLocal(buffer, &pUdl->isLocal) != CMSG_OK) {
                 /* Could not find the given host. One possible reason
                  * is that the fully qualified name was used but this host is now
                  * on a different (home?) network. Try using the unqualified name
@@ -6951,7 +6951,7 @@ if(dbg) printf("parseUDL: host = %s, test to see if it is local\n", buffer);
                     /* shorten up the string */
                     *pend = '\0';
 if(dbg) printf("parseUDL: host = %s, test to see if unqualified host is local\n", buffer);
-                    if (cMsgNodeIsLocal(buffer, &pUdl->isLocal) != CMSG_OK) {
+                    if (cMsgNetNodeIsLocal(buffer, &pUdl->isLocal) != CMSG_OK) {
                         /* error */
                         free(udl);
                         free(buffer);
