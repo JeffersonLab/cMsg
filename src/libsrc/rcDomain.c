@@ -43,6 +43,7 @@
 #include <hostLib.h>
 #else
 #include <strings.h>
+#include <sys/time.h>    /* struct timeval */
 #endif
 
 #include <stdio.h>
@@ -52,7 +53,6 @@
 #include <errno.h>
 #include <time.h>
 #include <ctype.h>
-#include <sys/time.h>    /* struct timeval */
 
 #include "cMsgPrivate.h"
 #include "cMsg.h"
