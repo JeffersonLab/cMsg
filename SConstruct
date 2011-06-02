@@ -189,14 +189,23 @@ print "debug =", debug
 Help('\nlocal scons OPTIONS:\n')
 Help('--dbg               compile with debug flag\n')
 
-# vxworks option
-AddOption('--vx',
-           dest='doVX',
+# vxworks 5.5 option
+AddOption('--vx5.5',
+           dest='doVX55',
            default=False,
            action='store_true')
-useVxworks = GetOption('doVX')
-print "useVxworks =", useVxworks
-Help('--vx                cross compile for vxworks\n')
+useVxworks55= GetOption('doVX55')
+print "useVxworks 5.5 =", useVxworks55
+Help('--vx5.5             cross compile for vxworks 5.5\n')
+
+# vxworks 6.0 option
+AddOption('--vx6.0',
+           dest='doVX60',
+           default=False,
+           action='store_true')
+useVxworks60= GetOption('doVX60')
+print "useVxworks 6.0 =", useVxworks60
+Help('--vx6.0             cross compile for vxworks 6.0\n')
 
 # 32 bit option
 AddOption('--32bits',
@@ -223,6 +232,18 @@ Help('-c  install         uninstall libs, headers, examples, and remove all gene
 # Compile flags
 #########################
 
+# 2 possible versions of vxWorks
+if useVxworks55:
+    useVxworks = True
+    vxVersion  = 5.5
+    
+elif useVxworks60:
+    useVxworks = True
+    vxVersion  = 6.0
+
+else:
+    useVxworks = False
+    
 # debug/optimization flags
 debugSuffix = ''
 if debug:
@@ -242,39 +263,39 @@ else:
 
 vxInc = ''
 execLibs = ['']
-vxVersion = 6
 
 # If using vxworks
 if useVxworks:
-    print "\nDoing vxworks"
     osname = 'vxworks-ppc'
 
-    # Figure out which version of vxworks is being used.
-    # Do this by finding out which ccppc is first in our PATH.
-    vxCompilerPath = Popen('which ccppc', shell=True, stdout=PIPE, stderr=PIPE).communicate()[0]
+    ## Figure out which version of vxworks is being used.
+    ## Do this by finding out which ccppc is first in our PATH.
+    #vxCompilerPath = Popen('which ccppc', shell=True, stdout=PIPE, stderr=PIPE).communicate()[0]
     
-    # Then ty to grab the major version number from the PATH
-    matchResult = re.match('/site/vxworks/(\\d).+', vxCompilerPath)
-    if matchResult != None:
-        # Test if version number was obtained
-        try:
-            vxVersion = int(matchResult.group(1))
-        except IndexError:
-            print 'ERROR finding vxworks version, set to 6 by default\n'
+    ## Then ty to grab the major version number from the PATH
+    #matchResult = re.match('/site/vxworks/(\\d).+', vxCompilerPath)
+    #if matchResult != None:
+        ## Test if version number was obtained
+        #try:
+            #vxVersion = int(matchResult.group(1))
+        #except IndexError:
+            #print 'ERROR finding vxworks version, set to 6 by default\n'
 
-    print 'Assume we have vxworks version ' + str(vxVersion)
-    
-    if vxVersion == 5:
-        vxbase = os.getenv('WIND_BASE', '/site/vxworks/5.5/ppc')
+    print '\nUsing vxWorks version ' + str(vxVersion) + '\n'
+
+    if vxVersion == 5.5:
+        vxbase = '/site/vxworks/5.5/ppc'
         vxInc  = [vxbase + '/target/h']
-    elif vxVersion == 6:
-        vxbase = os.getenv('WIND_BASE', '/site/vxworks/6.0/ppc/gnu/3.3.2-vxworks60')
-        vxInc  = ['/site/vxworks/6.0/ppc/vxworks-6.0/target/h', '/site/vxworks/6.0/ppc/vxworks-6.0/target/h/wrn/coreip']
+        env.Append(CPPDEFINES = ['VXWORKS_5'])
+    elif vxVersion == 6.0:
+        vxbase = '/site/vxworks/6.0/ppc/gnu/3.3.2-vxworks60'
+        vxInc  = ['/site/vxworks/6.0/ppc/vxworks-6.0/target/h',
+                  '/site/vxworks/6.0/ppc/vxworks-6.0/target/h/wrn/coreip']
+        env.Append(CPPDEFINES = ['VXWORKS_6'])
     else:
-        print 'Vxworks version ' + str(vxVersion) + ' not supported\n'
+        print 'Unknown version of vxWorks, exiting\n'
         raise SystemExit
 
-    print
 
     if platform == 'Linux':
         if vxVersion == 5:
@@ -318,7 +339,7 @@ else:
     if platform == 'SunOS':
         env.Append(CCFLAGS = '-mt')
         env.Append(CPPDEFINES = ['_GNU_SOURCE', '_REENTRANT', '_POSIX_PTHREAD_SEMANTICS', 'SunOS'])
-        execLibs = ['posix4', 'pthread', 'socket', 'dl']
+        execLibs = ['posix4', 'pthread', 'socket', 'resolv', 'dl']
         if is64bits and not use32bits:
             if machine == 'sun4u':
                 env.Append(CCFLAGS = '-xarch=native64 -xcode=pic32',
