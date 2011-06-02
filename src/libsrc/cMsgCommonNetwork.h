@@ -25,8 +25,20 @@
 #include <netinet/in.h>	 /* sockaddr_in{} and other Internet defns */
 #include <netinet/tcp.h> /* TCP_NODELAY def */
 #include <net/if.h>	     /* find broacast addr */
-#include <sys/time.h>    /* struct timeval */
 
+#ifndef VXWORKS
+#include <sys/time.h>    /* struct timeval */
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#ifdef VXWORKS
+#include <vxWorks.h>
+#include <time.h>
+#include <semLib.h>
+#endif
 
 /* cmsg or et definitions here */
 #include "cMsgPrivate.h"
@@ -74,6 +86,8 @@ char *codanetStr = "codanet";
 #define   codanetTcpWrite               cMsgNetTcpWrite
 #define   codanetTcpWritev              cMsgNetTcpWritev
 
+#define   codanetIsDottedDecimal        cMsgNetIsDottedDecimal
+#define   codanetOnSameSubnet           cMsgNetOnSameSubnet
 #define   codanetLocalHost              cMsgNetLocalHost
 #define   codanetLocalAddress           cMsgNetLocalAddress
 #define   codanetLocalByteOrder         cMsgNetLocalByteOrder
@@ -82,6 +96,7 @@ char *codanetStr = "codanet";
 #define   codanetNodeIsLocal            cMsgNetNodeIsLocal
 #define   codanetGetUname               cMsgNetGetUname
 #define   codanetIsLinux                cMsgNetIsLinux
+#define   codanetSetInterface           cMsgNetSetInterface
 
 #define   codanetHstrerror              cMsgNetHstrerror
 #define   codanetStringToNumericIPaddr  cMsgNetStringToNumericIPaddr
@@ -101,9 +116,11 @@ char *codanetStr = "codanet";
 
 #ifdef VXWORKS
 #define INET_ATON_ERR   ERROR
+#define socklen_t int
 #else
 #define INET_ATON_ERR   0
 #endif
+
 
 /*****************************************************************************
  * The following is taken from R. Stevens book, UNIX Network Programming,
@@ -209,7 +226,7 @@ typedef struct codaNetInfo_t {
 /* routine prototypes */
 extern int   codanetTcpListen(int nonblocking, unsigned short port, int sendBufSize, int rcvBufSize, int *listenFd);
 extern int   codanetTcpConnect(const char *ip_address, unsigned short port,
-                               int sendBufSize, int rcvBufSize, int *fd, int *localPort);
+                               int rcvBufSize, int sendBufSize, int *fd, int *localPort);
 extern int   codanetTcpConnect2(uint32_t inetaddr, unsigned short port,
                                 int sendBufSize, int rcvBufSize, int *fd, int *localPort);
 extern int   codanetTcpConnectTimeout(const char *ip_address, unsigned short port,
@@ -229,10 +246,14 @@ extern int   codanetLocalHost(char *host, int length);
 extern int   codanetLocalAddress(char *address);
 extern int   codanetLocalByteOrder(int *endian);
 
+extern int   codanetIsDottedDecimal(const char *ipAddress, int *decimals);
+extern int   codanetOnSameSubnet(const char *ipAddress1, const char *ipAddress2,
+                                 const char *subnetMask, int *sameSubnet);
 extern int   codanetNodeSame(const char *node1, const char *node2, int *same);
 extern int   codanetNodeIsLocal(const char *host, int *isLocal);
 extern int   codanetGetUname(char *host, int length);
 extern int   codanetIsLinux(int *isLinux);
+extern int   codanetSetInterface(int fd, const char *ip_address);
 
 extern int   codanetStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr);
 extern const char *codanetHstrerror(int err);
