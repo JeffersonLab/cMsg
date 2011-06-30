@@ -11,6 +11,10 @@ using namespace std;
 #include <iostream>
 #include <unistd.h>
 #include <sstream>
+#include <vector>
+
+#include <boost/numeric/conversion/cast.hpp> 
+#include <boost/lexical_cast.hpp>
 
 
 // for cMsg
@@ -20,6 +24,7 @@ using namespace std;
 #endif
 
 using namespace cmsg;
+using namespace boost;
 
 
 // connection parameters
@@ -30,7 +35,7 @@ static string description;
 
 // message parameters
 static string subject;
-static string type;
+static string theType;
 static string text;
 static int userInt;
 
@@ -39,6 +44,10 @@ static int userInt;
 static int sleepTime  = 100;     // units are msec
 static int sendAndGet = false;
 static int timeout    = 3;       // units are seconds
+
+
+// for storing payload items
+static vector< pair<string,string> > payloadVector;
 
 
 // prototypes
@@ -57,7 +66,7 @@ int main(int argc, char **argv) {
   name          = "";
   description   = "cMsgCommand utility";
   subject       = "mySubject";
-  type          = "myType";
+  theType          = "myType";
   userInt       = 0;
   text          = "hello world";
 
@@ -87,9 +96,87 @@ int main(int argc, char **argv) {
   // create and fill message
     cMsgMessage m;
     m.setSubject(subject);
-    m.setType(type);
+    m.setType(theType);
     m.setUserInt(userInt);
     m.setText(text);
+    
+    
+    // add payload items to message
+    vector< pair<string,string> >::iterator iter;
+    for(iter=payloadVector.begin();iter!=payloadVector.end();iter++) {
+	string type = (*iter).first;
+	string txt  = (*iter).second;
+
+	if(type=="int8") {
+	   string name = txt.substr(0,txt.find("="));
+	   string sval = txt.substr(txt.find("=")+1);
+	   int8_t val = numeric_cast<int8_t>(lexical_cast<int>(sval));
+  	   m.add(name,val);
+	   
+	} else if (type=="int16") {
+	   string name = txt.substr(0,txt.find("="));
+	   string sval = txt.substr(txt.find("=")+1);
+	   int16_t val = numeric_cast<int16_t>(lexical_cast<int>(sval));
+  	   m.add(name,val);
+	   
+	} else if (type=="int32") {
+	   string name = txt.substr(0,txt.find("="));
+	   string sval = txt.substr(txt.find("=")+1);
+	   int32_t val = numeric_cast<int32_t>(lexical_cast<int>(sval));
+  	   m.add(name,val);
+	   
+	} else if (type=="int64") {
+	   string name = txt.substr(0,txt.find("="));
+	   string sval = txt.substr(txt.find("=")+1);
+	   int64_t val = numeric_cast<int64_t>(lexical_cast<long long>(sval));
+  	   m.add(name,val);
+	   
+	} else if(type=="uint8") {
+	   string name = txt.substr(0,txt.find("="));
+	   string sval = txt.substr(txt.find("=")+1);
+	   uint8_t val = numeric_cast<uint8_t>(lexical_cast<unsigned int>(sval));
+  	   m.add(name,val);
+	   
+	} else if (type=="uint16") {
+	   string name = txt.substr(0,txt.find("="));
+	   string sval = txt.substr(txt.find("=")+1);
+	   uint16_t val = numeric_cast<uint16_t>(lexical_cast<unsigned int>(sval));
+  	   m.add(name,val);
+	   
+	} else if (type=="uint32") {
+	   string name = txt.substr(0,txt.find("="));
+	   string sval = txt.substr(txt.find("=")+1);
+	   uint32_t val = numeric_cast<uint32_t>(lexical_cast<unsigned int>(sval));
+  	   m.add(name,val);
+	   
+	} else if (type=="uint64") {
+	   string name = txt.substr(0,txt.find("="));
+	   string sval = txt.substr(txt.find("=")+1);
+	   uint64_t val = numeric_cast<uint64_t>(lexical_cast<unsigned long long>(sval));
+  	   m.add(name,val);
+	   
+	} else if (type=="double") {
+	   string name = txt.substr(0,txt.find("="));
+	   string sval = txt.substr(txt.find("=")+1);
+	   double val = lexical_cast<double>(sval);
+  	   m.add(name,val);
+	
+	
+	} else if (type=="float") {
+	   string name = txt.substr(0,txt.find("="));
+	   string sval = txt.substr(txt.find("=")+1);
+	   float val = lexical_cast<float>(sval);
+  	   m.add(name,val);	
+	
+	} else if (type=="string") {
+	   string name = txt.substr(0,txt.find("="));
+	   string sval = txt.substr(txt.find("=")+1);
+  	   m.add(name,sval);
+	
+	}
+
+    }
+    
     
     
     // send message
@@ -117,6 +204,7 @@ int main(int argc, char **argv) {
     }
 
   } catch (cMsgException e) {
+
     cerr << endl << "?unable to connect, udl = " << udl << ",  name = " << name << endl << endl 
          << e.toString() << endl << endl;
     exit(EXIT_FAILURE);
@@ -137,7 +225,10 @@ void decodeCommandLine(int argc, char **argv) {
 
   const char *help = 
     "\nusage:\n\n   cMsgCommand [-u udl] [-n name] [-d description] [-sleep sleepTime]\n"
-    "              [-s subject] [-type type] [-i userInt] [-text text] [-sendAndGet] [-timeout timeout]\n\n";
+    "               [-s subject] [-type type] [-i userInt] [-text text] [-sendAndGet] [-timeout timeout]\n"
+    "               [-int8 payloaditem] [-int16 payloaditem] [-int32 payloaditem] [-int64 payloaditem]\n"
+    "               [-uint8 payloaditem] [-uint16 payloaditem] [-uint32 payloaditem] [-uint64 payloaditem]\n"
+    "               [-double payloaditem] [-float payloaditem] [-string payloaditem]\n\n";
   
   
 
@@ -149,13 +240,57 @@ void decodeCommandLine(int argc, char **argv) {
       exit(EXIT_SUCCESS);
 
     } else if (strncasecmp(argv[i],"-type",5)==0) {
-      type=argv[i+1];
+      theType=argv[i+1];
       i=i+2;
 
     } else if (strncasecmp(argv[i],"-text",5)==0) {
       text=argv[i+1];
       i=i+2;
 
+    } else if (strncasecmp(argv[i],"-int8",5)==0) {
+      payloadVector.push_back(pair<string,string>("int8",string(argv[i+1])));
+      i=i+2;
+      
+    } else if (strncasecmp(argv[i],"-int16",6)==0) {
+      payloadVector.push_back(pair<string,string>("int16",string(argv[i+1])));
+      i=i+2;
+      
+    } else if (strncasecmp(argv[i],"-int32",6)==0) {
+      payloadVector.push_back(pair<string,string>("int32",string(argv[i+1])));
+      i=i+2;
+      
+    } else if (strncasecmp(argv[i],"-int64",6)==0) {
+      payloadVector.push_back(pair<string,string>("int64",string(argv[i+1])));
+      i=i+2;
+      
+    } else if (strncasecmp(argv[i],"-uint8",6)==0) {
+      payloadVector.push_back(pair<string,string>("uint8",string(argv[i+1])));
+      i=i+2;
+      
+    } else if (strncasecmp(argv[i],"-uint16",7)==0) {
+      payloadVector.push_back(pair<string,string>("uint16",string(argv[i+1])));
+      i=i+2;
+      
+    } else if (strncasecmp(argv[i],"-uint32",7)==0) {
+      payloadVector.push_back(pair<string,string>("uint32",string(argv[i+1])));
+      i=i+2;
+      
+    } else if (strncasecmp(argv[i],"-uint64",7)==0) {
+      payloadVector.push_back(pair<string,string>("uint64",string(argv[i+1])));
+      i=i+2;
+      
+    } else if (strncasecmp(argv[i],"-double",7)==0) {
+      payloadVector.push_back(pair<string,string>("double",string(argv[i+1])));
+      i=i+2;
+      
+    } else if (strncasecmp(argv[i],"-float",6)==0) {
+      payloadVector.push_back(pair<string,string>("float",string(argv[i+1])));
+      i=i+2;
+      
+    } else if (strncasecmp(argv[i],"-string",7)==0) {
+      payloadVector.push_back(pair<string,string>("string",string(argv[i+1])));
+      i=i+2;
+      
     } else if (strncasecmp(argv[i],"-sleep",6)==0) {
       sleepTime=atoi(argv[i+1]);
       i=i+2;
