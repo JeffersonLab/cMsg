@@ -325,9 +325,21 @@ class rcListeningThread extends Thread {
 //System.out.println("Finished reading message");
 
                             // We need 3 pieces of info from the server: 1) server's host,
-                            // 2) server's UDP port, 3) server's TCP port. These are in the
+                            // 2) server's UDP port, 3) server's TCP port, and 4) list of
+                            // dot-decimal IP addresses of server's host. These are in the
                             // message and must be recorded in the client for future use.
                             client.rcServerAddress = InetAddress.getByName(msg.getSenderHost());
+                            client.rcServerAddresses.clear();
+                            cMsgPayloadItem pItem = msg.getPayloadItem("IpAddresses");
+                            if (pItem != null) {
+                                try {
+                                    String[] ips = pItem.getStringArray();
+                                    for (String ip : ips) {
+                                        client.rcServerAddresses.add(InetAddress.getByName(ip));
+                                    }
+                                }
+                                catch (cMsgException e) {/* never happen*/}
+                            }
                             String[] ports = msg.getText().split(":");
                             client.rcUdpServerPort = Integer.parseInt(ports[0]);
                             client.rcTcpServerPort = Integer.parseInt(ports[1]);
