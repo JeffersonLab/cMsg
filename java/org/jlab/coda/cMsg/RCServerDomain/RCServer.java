@@ -87,7 +87,10 @@ public class RCServer extends cMsgDomainAdapter {
     /** Lock to ensure that methods using the socket, write in sequence. */
     Lock socketLock = new ReentrantLock();
 
-    /** Lock to ensure {@link #subscribe} and {@link #unsubscribe} calls are sequential. */
+    /** Lock to ensure
+     * {@link #subscribe(String, String, org.jlab.coda.cMsg.cMsgCallbackInterface, Object)}
+     * and {@link #unsubscribe(org.jlab.coda.cMsg.cMsgSubscriptionHandle)}
+     * calls are sequential. */
     Lock subscribeLock = new ReentrantLock();
 
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
@@ -109,7 +112,8 @@ public class RCServer extends cMsgDomainAdapter {
     private Map<Object, cMsgSubscription> unsubscriptions;
 
     /**
-     * Collection of all of this client's {@link #subscribeAndGet} calls currently in execution.
+     * Collection of all of this client's {@link #subscribeAndGet(String, String, int)}
+     * calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions.
      * Key is receiverSubscribeId object, value is {@link org.jlab.coda.cMsg.common.cMsgSubscription}
@@ -118,7 +122,8 @@ public class RCServer extends cMsgDomainAdapter {
     ConcurrentHashMap<Integer,cMsgSubscription> subscribeAndGets;
 
     /**
-     * Collection of all of this client's {@link #sendAndGet} calls currently in execution.
+     * Collection of all of this client's {@link #sendAndGet(org.jlab.coda.cMsg.cMsgMessage, int)}
+     * calls currently in execution.
      * Key is senderToken object, value is {@link cMsgGetHelper} object.
      */
     ConcurrentHashMap<Integer,cMsgGetHelper> sendAndGets;
@@ -194,7 +199,8 @@ public class RCServer extends cMsgDomainAdapter {
 
             try {
                 // Create an object to deliver messages to the RC client.
-//System.out.println("RC server: create connection with RC client ... ");
+//System.out.println("RC server: create connection with RC client (host = " + rcClientHost +
+//", port = " + rcClientPort);
                 createTCPClientConnection(rcClientHost, rcClientPort);
 
                 // Start listening for tcp connections if not already
@@ -223,10 +229,43 @@ public class RCServer extends cMsgDomainAdapter {
 
                 // Get the port selected for communicating on (NEVER used now)
                 localUdpPort = listenerThread.getUdpPort();
+//System.out.println("RC server: listening on TCP port = " + localTcpPort + " and UDP port = " +
+//localUdpPort);
 
                 // Send a special message giving our host & udp port.
                 cMsgMessageFull msg = new cMsgMessageFull();
                 msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
+
+                // send list of our IP addresses
+                LinkedList<String> ipList = new LinkedList<String>();
+                try {
+                    Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+                    while (enumer.hasMoreElements()) {
+                        NetworkInterface ni = enumer.nextElement();
+                        if (ni.isUp() && !ni.isLoopback()) {
+                            List<InterfaceAddress> inAddrs  = ni.getInterfaceAddresses();
+                            for (InterfaceAddress ifAddr : inAddrs) {
+                                InetAddress addr = ifAddr.getAddress();
+                                byte b[] = addr.getAddress();
+                                // skip IPv6 addresses
+                                if (b.length != 4) continue;
+
+                                ipList.add(addr.getHostAddress());
+//System.out.println("RC Server:     ip address to client = " + addr.getHostAddress());
+                            }
+                        }
+                    }
+
+                }
+                catch (SocketException e) {
+                    e.printStackTrace();
+                }
+                String[] ips = new String[ipList.size()];
+                ipList.toArray(ips);
+                cMsgPayloadItem pItem = new cMsgPayloadItem("IpAddresses", ips);
+                msg.addPayloadItem(pItem);
+
+//System.out.println("RC Server:     canonical host name = " + InetAddress.getLocalHost().getCanonicalHostName());
                 msg.setText(localUdpPort+":"+localTcpPort);
                 deliverMessage(msg, cMsgConstants.msgRcConnect);
 
@@ -876,7 +915,8 @@ public class RCServer extends cMsgDomainAdapter {
 
 
     /**
-     * The message is sent as it would be in the {@link #send} method except that the
+     * The message is sent as it would be in the
+     * {@link #send(org.jlab.coda.cMsg.cMsgMessage)} method except that the
      * senderToken and creator are set. A marked response can be received from a client
      * regardless of its subject or type.
      *
