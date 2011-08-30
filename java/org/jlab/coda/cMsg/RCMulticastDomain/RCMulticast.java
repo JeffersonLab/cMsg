@@ -71,7 +71,7 @@ public class RCMulticast extends cMsgDomainAdapter {
     /** Timeout in milliseconds to wait for server to respond to multicasts. Default is 3 sec. */
     private int multicastTimeout = 2000;
 
-    /** Thread that listens for UDP multiunicasts to this server and responds. */
+    /** Thread that listens for UDP multicasts to this server and then responds. */
     private rcListeningThread listener;
 
     /**
@@ -158,10 +158,9 @@ public class RCMulticast extends cMsgDomainAdapter {
         try {
             if (connected) return;
 
-            // Start listening for udp packets
+            // Start listening for udp packets.
             listener = new rcListeningThread(this, udpPort);
             listener.start();
-
             // Wait for indication listener thread is actually running before
             // continuing on. This thread must be running before we look to
             // see what other servers are out there.
@@ -643,7 +642,7 @@ public class RCMulticast extends cMsgDomainAdapter {
                         Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
                         while (enumer.hasMoreElements()) {
                             NetworkInterface ni = enumer.nextElement();
-                            if (ni.isUp() && ni.supportsMulticast()) {
+                            if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
                                 multicastSocket.setNetworkInterface(ni);
                                 multicastSocket.send(packet);
                             }
