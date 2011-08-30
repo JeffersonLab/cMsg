@@ -27,6 +27,7 @@ import java.io.UnsupportedEncodingException;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 import java.util.Enumeration;
 
@@ -51,6 +52,9 @@ class rcListeningThread extends Thread {
     /** UDP socket on which to read packets sent from rc clients. */
     private MulticastSocket multicastSocket;
 
+    /** Network interface on which this thread is listening. */
+    private NetworkInterface networkInterface;
+
     /** Level of debug output for this class. */
     private int debug;
 
@@ -63,6 +67,32 @@ class rcListeningThread extends Thread {
         this.interrupt();
     }
 
+    private void printNI(NetworkInterface ni) {
+        System.out.println("\n\nInterface name = " + ni.getName());
+        System.out.println("Interface display name = " + ni.getDisplayName());
+
+        int counter = 1;
+
+        List<InterfaceAddress> inAddrs  = ni.getInterfaceAddresses();
+        for (InterfaceAddress ifAddr : inAddrs) {
+            System.out.println("interface address #" + counter++ + ":");
+            InetAddress addr = ifAddr.getAddress();
+            System.out.println("    host address = " + addr.getHostAddress());
+            System.out.println("    canonical host name = " + addr.getCanonicalHostName());
+            System.out.println("    host name = " + addr.getHostName());
+            System.out.println("    toString() = " + addr.toString());
+            byte b[] = addr.getAddress();
+            for (int i=0; i<b.length; i++) {
+                int bb = b[i] & 0xff;
+                System.out.println("addr byte = " + bb + ", 0x" + Integer.toHexString(bb));
+            }
+
+            InetAddress baddr = ifAddr.getBroadcast();
+            if (baddr != null)
+                System.out.println("broadcast addr = " + baddr.getHostAddress());
+
+        }
+    }
 
 
     /**
@@ -76,13 +106,16 @@ class rcListeningThread extends Thread {
             // Create a UDP socket for accepting multi/unicasts from the RC client.
             multicastPort = port;
             multicastSocket = new MulticastSocket(multicastPort);
-            // Be sure to join the multicast addr group on each interface
+            SocketAddress sa =
+                new InetSocketAddress(InetAddress.getByName(cMsgNetworkConstants.rcMulticast), multicastPort);
+            // Be sure to join the multicast addr group all interfaces
             // (something not mentioned in any javadocs or books!).
-            SocketAddress sa;
             Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
             while (enumer.hasMoreElements()) {
-                sa = new InetSocketAddress(InetAddress.getByName(cMsgNetworkConstants.rcMulticast), multicastPort);
-                multicastSocket.joinGroup(sa, enumer.nextElement());
+                NetworkInterface ni = enumer.nextElement();
+                if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
+                    multicastSocket.joinGroup(sa, ni);
+                }
             }
             multicastSocket.setReceiveBufferSize(65535);
             multicastSocket.setReuseAddress(true);
@@ -161,7 +194,7 @@ class rcListeningThread extends Thread {
 
                 // pick apart byte array received
                 InetAddress multicasterAddress = packet.getAddress();
-                String multicasterHost = multicasterAddress.getCanonicalHostName();
+                String multicasterHost = multicasterAddress.getHostName();
                 int multicasterUdpPort = packet.getPort();   // port to send response packet to
 
                 if (packet.getLength() < 4*4) {
@@ -250,8 +283,9 @@ System.out.println("RC multicast server : I was told to kill myself by another m
 //                System.out.println("RC multicast server: accepting Clients = " + server.acceptingClients);
 //                System.out.println("                   : local host = " + InetAddress.getLocalHost().getCanonicalHostName());
 //                System.out.println("                   : multicaster's packet's host = " + multicasterHost);
+//                System.out.println("                   : multicaster's packet's UDP port = " + multicasterUdpPort);
+//                System.out.println("                   : multicaster's packet's TCP port = " + multicasterTcpPort);
 //                System.out.println("                   : our port = " + server.localTempPort);
-//                System.out.println("                   : multicaster's packet's port = " + multicasterUdpPort);
 
                 // Previously the following if() contained the following:
                 //    !server.acceptingClients &&
