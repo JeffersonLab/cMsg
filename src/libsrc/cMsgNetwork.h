@@ -29,6 +29,8 @@
 
 #include <netinet/tcp.h> /* TCP_NODELAY def */
 
+#include <cMsgCommonNetwork.h> 
+
 
 /*
  * MAXHOSTNAMELEN is defined to be 256 on Solaris and is the max length
