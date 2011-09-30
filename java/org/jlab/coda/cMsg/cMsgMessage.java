@@ -214,11 +214,17 @@ public class cMsgMessage implements Cloneable, Serializable {
      * Is message a response to a sendAndGet? -- stored in 2nd bit.
      * Is the response message null instead of a message? -- stored in 3rd bit.
      * Is the byte array data in big endian form? -- stored in 4th bit.
+     * Was it sent over the wire? -- stored in 5th bit.
+     * Does it have a compound payload? -- stored in 6th bit.
+     * Is the payload expanded? -- stored in 7th bit.
      *
      * @see #isGetRequest
      * @see #isGetResponse
      * @see #isNullGetResponse
      * @see #isBigEndian
+     * @see #wasSent
+     * @see #hasPayload()
+     * @see #isExpandedPayload()
      */
     protected int info;
     /** Version number of cMsg. */
@@ -317,7 +323,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         version = cMsgConstants.version;
         //items   = new ConcurrentHashMap<String, cMsgPayloadItem>();
         //buffer  = new StringBuilder(512);
-        info   |= expandedPayload;
+        info   |= expandedPayload | isBigEndian;
         historyLengthMax = historyLengthInit;
     }
 
