@@ -610,7 +610,7 @@ public class cMsg {
      * The response may be null.
      *
      * @param message message sent to domain
-     * @param timeout time in milliseconds to wait for a reponse message
+     * @param timeout time in milliseconds to wait for a response message
      * @return response message
      * @throws cMsgException
      * @throws TimeoutException if timeout occurs
