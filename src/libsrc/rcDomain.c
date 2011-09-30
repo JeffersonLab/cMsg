@@ -412,7 +412,7 @@ printf("EXPID is not set!\n");
     }
      
     /* get listening port and socket for this application */
-    if ( (err = cMsgNetGetListeningSocket(0, startingPort, 0, 0,
+    if ( (err = cMsgNetGetListeningSocket(0, startingPort, 0, 0, 1,
                                           &domain->listenPort,
                                           &domain->listenSocket)) != CMSG_OK) {
         cMsgDomainFree(domain);
@@ -733,8 +733,8 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
     if (!haveHashEntries || hashEntryCount < 1) {
 /*printf("rc connect: try old way to make tcp connection to RC server = %s\n", domain->sendHost);*/
         rcServerHost = domain->sendHost;
-        if ( (err = cMsgNetTcpConnect(rcServerHost, (unsigned short) domain->sendPort,
-                                      CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket, NULL)) != CMSG_OK) {
+        if ( (err = cMsgNetTcpConnect(rcServerHost, NULL, (unsigned short) domain->sendPort,
+                                      CMSG_BIGSOCKBUFSIZE, 0, 1, &domain->sendSocket, NULL)) != CMSG_OK) {
             if (hashEntries != NULL) free(hashEntries);
             cMsgRestoreSignals(domain);
             pthread_cancel(domain->pendThread);
@@ -754,7 +754,7 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
 /*printf("rc connect: try making tcp connection to RC server = %s w/ TO = %u sec, %u msec\n", rcServerHost,
   (uint_32) ((&tv)->tv_sec),(uint_32) ((&tv)->tv_usec));*/
             if ((err = cMsgNetTcpConnectTimeout(rcServerHost, (unsigned short) domain->sendPort,
-                 CMSG_BIGSOCKBUFSIZE, 0, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
+                 CMSG_BIGSOCKBUFSIZE, 0, 1, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
                 gotValidRcServerHost = 1;
                 printf("rc connect: SUCCESS connecting to %s\n", rcServerHost);
                 break;

@@ -1352,9 +1352,9 @@ static int connectDirectOld(cMsgDomainInfo *domain, void *domainId) {
   /*---------------------------------------------------------------*/
     
   /* first connect to server host & port (default send & rcv buf sizes) */  
-  if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost,
+  if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost, NULL,
                             (unsigned short) domain->currentUDL.nameServerPort,
-                             0, 0, &serverfd, NULL)) != CMSG_OK) {
+                             0, 0, 1, &serverfd, NULL)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
     /* err = CMSG_SOCKET_ERROR if socket could not be created or socket options could not be set.
              CMSG_NETWORK_ERROR if host name could not be resolved or could not connect */
@@ -1397,9 +1397,9 @@ static int connectDirectOld(cMsgDomainInfo *domain, void *domainId) {
   /*-----------------------------------------------------*/
   
   /* create sending & receiving socket and store (128K rcv buf, 128K send buf) */
-  if ( (err = cMsgNetTcpConnect(domain->sendHost,
+  if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
                              (unsigned short) domain->sendPort,
-                              CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE,
+                              CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE, 1,
                               &domain->sendSocket, &domain->localPort)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
     return(err);
@@ -1428,9 +1428,9 @@ static int connectDirectOld(cMsgDomainInfo *domain, void *domainId) {
   }  
 
   /* create keep alive socket and store (default send & rcv buf sizes) */
-  if ( (err = cMsgNetTcpConnect(domain->sendHost,
+  if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
                              (unsigned short) domain->sendPort,
-                              0, 0, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
+                              0, 0, 1, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
     cMsgRestoreSignals(domain);
     close(domain->sendSocket);
     /*pthread_cancel(domain->pendThread);*/
@@ -1625,9 +1625,9 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
     /*---------------------------------------------------------------*/
     
     /* first connect to server host & port (default send & rcv buf sizes) */
-    if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost,
+    if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost, NULL,
           (unsigned short) domain->currentUDL.nameServerPort,
-          0, 0, &serverfd, NULL)) != CMSG_OK) {
+          0, 0, 1, &serverfd, NULL)) != CMSG_OK) {
               cMsgRestoreSignals(domain);
               return(err);
     }
@@ -1783,8 +1783,8 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
         /* create the 2 sockets through which all future communication occurs */
         for (i=index; i < 3; i++) {
             /* create sending & receiving socket and store (128K rcv buf, 128K send buf) */
-            if ( (err = cMsgNetTcpConnect(hosts[i], ports[i],
-                  CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE,
+            if ( (err = cMsgNetTcpConnect(hosts[i], NULL, ports[i],
+                  CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE, 1,
                   &domain->sendSocket, &domain->localPort)) != CMSG_OK) {
 
                 domain->localPort  = 0;
@@ -1793,8 +1793,8 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
             }
             
             /* create keep alive socket and store (default send & rcv buf sizes) */
-            if ( (err = cMsgNetTcpConnect(hosts[i], ports[i],
-                  0, 0, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
+            if ( (err = cMsgNetTcpConnect(hosts[i], NULL, ports[i],
+                  0, 0, 1, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
 
                 close(domain->sendSocket);
                 domain->localPort = 0;
@@ -2037,9 +2037,9 @@ static int reconnect(void *domainId) {
     /*-----------------------------------------------------*/
     /*             talk to cMsg name server                */
     /*-----------------------------------------------------*/
-    if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost,
+    if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost, NULL,
           (unsigned short) domain->currentUDL.nameServerPort,
-          0, 0, &serverfd, NULL)) != CMSG_OK) {
+          0, 0, 1, &serverfd, NULL)) != CMSG_OK) {
               return(err);
     }
   
@@ -2105,9 +2105,9 @@ static int reconnectOld(void *domainId) {
   /*-----------------------------------------------------*/
   /*             talk to cMsg name server                */
   /*-----------------------------------------------------*/
-  if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost,
+  if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost, NULL,
         (unsigned short) domain->currentUDL.nameServerPort,
-        0, 0, &serverfd, NULL)) != CMSG_OK) {
+        0, 0, 1, &serverfd, NULL)) != CMSG_OK) {
             return(err);
   }
   
@@ -2137,9 +2137,9 @@ static int reconnectOld(void *domainId) {
   }
     
   /* create sending & receiving socket and store (128K rcv buf, 128K send buf) */
-  if ( (err = cMsgNetTcpConnect(domain->sendHost,
+  if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
                              (unsigned short) domain->sendPort,
-                              CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE,
+                              CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE, 1,
                               &domain->sendSocket, &domain->localPort)) != CMSG_OK) {
     return(err);
   }
@@ -2163,9 +2163,9 @@ static int reconnectOld(void *domainId) {
   /* pend thread should already be running */
 
   /* create keep alive socket and store (default send & rcv buf sizes) */
-  if ( (err = cMsgNetTcpConnect(domain->sendHost,
+  if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
                              (unsigned short) domain->sendPort,
-                              0, 0, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
+                              0, 0, 1, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
     close(domain->sendSocket);
     return(err);
   }

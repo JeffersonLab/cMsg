@@ -746,9 +746,9 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             /* create TCP sending socket and store */
 /*printf("rc clientThread %d: tcp socket = %d, port = %d\n", localCount,
                    domain->sendSocket, domain->sendPort);*/
-            if ( (err = cMsgNetTcpConnect(domain->sendHost,
+            if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
                                        (unsigned short) domain->sendPort,
-                                       CMSG_BIGSOCKBUFSIZE, 0, &domain->sendSocket, NULL)) != CMSG_OK) {
+                                       CMSG_BIGSOCKBUFSIZE, 0, 1, &domain->sendSocket, NULL)) != CMSG_OK) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                   fprintf(stderr, "clientThread %d: error recreating rc client's TCP send socket\n", localCount);
