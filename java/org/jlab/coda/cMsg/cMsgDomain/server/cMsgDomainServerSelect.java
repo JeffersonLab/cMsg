@@ -275,9 +275,9 @@ class cMsgDomainServerSelect extends Thread {
                 udpChannel = DatagramChannel.open();
                 udpSocket  = udpChannel.socket();
                 // bind to ephemeral port since arg = 0
+                udpSocket.setReceiveBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
                 udpSocket.bind(new InetSocketAddress(0));
                 udpPort    = udpSocket.getLocalPort();
-                udpSocket.setReceiveBufferSize(cMsgNetworkConstants.biggestUdpBufferSize);
             }
             catch (IOException ex) {
                 if (udpChannel != null) udpChannel.close();
