@@ -46,7 +46,8 @@ public class cMsgTestRcServer {
 
              System.out.println("Running RC Multicast domain callback, host = " + rcClientHost +
                                 ", port = " + rcClientTcpPort +
-                                ", name = " + msg.getSender());
+                                ", name = " + msg.getSender() +
+                                ", over IP address = " + msg.getText());
 
              // finish connection
              latch.countDown();

@@ -155,6 +155,7 @@ public class cMsgTestRcClient {
         // System.out.println("Got msg with senderHost = " + rcmMsg.getSenderHost());
 
         cmsg.connect();
+System.out.println("CONNECTED");
 
         // enable message reception
         cmsg.start();
