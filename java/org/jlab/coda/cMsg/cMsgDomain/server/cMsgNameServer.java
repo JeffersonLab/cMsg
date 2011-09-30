@@ -524,10 +524,11 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
             // do NOT bind to the multicast address, only bind to the port.
             // Practically that means other multicasts, broadcasts or unicasts to
             // that port will get through. We'll have to implement our own filter.
-            multicastSocket = new MulticastSocket(udpPort);
+            multicastSocket = new MulticastSocket();
             multicastSocket.setReceiveBufferSize(65535);
             multicastSocket.setReuseAddress(true);
             multicastSocket.setTimeToLive(32);
+            multicastSocket.bind(new InetSocketAddress(udpPort));
             // If using standalone laptop, joinGroup throws an exception:
             // java.net.SocketException: No such device. This catch allows
             // usage with messed up / nonexistant network.
@@ -1331,7 +1332,7 @@ System.out.println("Main server IO error");
                 // buffered communication streams for efficiency
                 in  = new DataInputStream(new BufferedInputStream(channel.socket().getInputStream(), 4096));
                 out = new DataOutputStream(new BufferedOutputStream(channel.socket().getOutputStream(), 2048));
-                
+
                 // message id
                 int msgId = in.readInt();
                 // major version
