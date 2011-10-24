@@ -24,16 +24,17 @@
  *----------------------------------------------------------------------------*/
 
 
+
+#ifdef VXWORKS
+#include <vxWorks.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "cMsgPrivate.h"
 #include "cMsg.h"
 #include "cMsgNetwork.h"
-
-
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
+#include <pthread.h>
 
 
 

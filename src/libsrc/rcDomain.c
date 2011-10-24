@@ -53,6 +53,7 @@
 #include <errno.h>
 #include <time.h>
 #include <ctype.h>
+#include <pthread.h>
 
 #include "cMsgPrivate.h"
 #include "cMsg.h"

@@ -41,6 +41,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <signal.h>
+#include <pthread.h>
 
 #include "cMsgPrivate.h"
 #include "cMsg.h"
