@@ -64,6 +64,7 @@
 #ifdef sun
 #include <sys/filio.h>
 #include <sys/sockio.h>  /* find broacast addr */
+#include <stropts.h>
 #else
 #include <sys/ioctl.h>   /* find broacast addr */
 #endif
@@ -209,17 +210,13 @@ int codanetTcpListen(int nonblocking, unsigned short port,
     /* make this socket non-blocking if desired */
     if (nonblocking) {
 #ifdef VXWORKS
-    val = ioctl(listenfd, FIONBIO, 1);
-    if (val < 0) {
-        if (codanetDebug >= CODA_DEBUG_ERROR) fprintf(stderr, "%sTcpListen: setsockopt error\n", codanetStr);
-        return(CODA_SOCKET_ERROR);
-    }
+        if ( (val = ioctl(listenfd, FIONBIO, (int)&on)) < 0) {
 #else
-    val = fcntl(listenfd, F_GETFL, 0);
-    if (val > -1) {
-        fcntl(listenfd, F_SETFL, val | O_NONBLOCK);
-    }
+        if ( (val = ioctl(listenfd, FIONBIO, &on)) < 0) {
 #endif
+            if (codanetDebug >= CODA_DEBUG_ERROR) fprintf(stderr, "%sTcpListen: setsockopt error\n", codanetStr);
+            return(CODA_SOCKET_ERROR);
+        }
     }
   
     /* don't let anyone else have this port */
@@ -328,7 +325,7 @@ static void connect_w_to(void) {
     socklen_t lon;
 #endif
 
-    // Create socket
+    /* Create socket */
     soc = socket(AF_INET, SOCK_STREAM, 0);
     if (soc < 0) {
         fprintf(stderr, "Error creating socket (%d %s)\n", errno, strerror(errno));
@@ -339,16 +336,7 @@ static void connect_w_to(void) {
     addr.sin_port = htons(2000);
     addr.sin_addr.s_addr = inet_addr("192.168.0.1");
 
-    // Set non-blocking 
-    if( (arg = fcntl(soc, F_GETFL, NULL)) < 0) {
-        fprintf(stderr, "Error fcntl(..., F_GETFL) (%s)\n", strerror(errno));
-        exit(0);
-    }
-    arg |= O_NONBLOCK;
-    if( fcntl(soc, F_SETFL, arg) < 0) {
-        fprintf(stderr, "Error fcntl(..., F_SETFL) (%s)\n", strerror(errno));
-        exit(0);
-    }
+    /* Set non-blocking  */    
 #ifdef VXWORKS
     if (ioctl(soc, FIONBIO, (int)&on) < 0) {
 #else
@@ -358,7 +346,7 @@ static void connect_w_to(void) {
         exit(0);
     }
     
-    // Trying to connect with timeout 
+    /*  Trying to connect with timeout */
     res = connect(soc, (struct sockaddr *)&addr, sizeof(addr));
     if (res < 0) {
         if (errno == EINPROGRESS) {
@@ -374,14 +362,14 @@ static void connect_w_to(void) {
                     exit(0);
                 }
                 else if (res > 0) {
-                    // Socket selected for write 
+                    /* Socket selected for write */
                     lon = sizeof(int);
                     if (getsockopt(soc, SOL_SOCKET, SO_ERROR, (void*)(&valopt), &lon) < 0) {
                         fprintf(stderr, "Error in getsockopt() %d - %s\n", errno, strerror(errno));
                         exit(0);
                     }
                     
-                    // Check the value returned... 
+                    /* Check the value returned...  */
                     if (valopt) {
                         fprintf(stderr, "Error in delayed connection() %d - %s\n", valopt, strerror(valopt)
                                );
@@ -401,17 +389,7 @@ static void connect_w_to(void) {
         }
     }
     
-    // Set to blocking mode again... 
-    if( (arg = fcntl(soc, F_GETFL, NULL)) < 0) {
-        fprintf(stderr, "Error fcntl(..., F_GETFL) (%s)\n", strerror(errno));
-        exit(0);
-    }
-    arg &= (~O_NONBLOCK);
-    if( fcntl(soc, F_SETFL, arg) < 0) {
-        fprintf(stderr, "Error fcntl(..., F_SETFL) (%s)\n", strerror(errno));
-        exit(0);
-    }
-    
+    /* Set to blocking mode again...  */    
 #ifdef VXWORKS
     if (ioctl(soc, FIONBIO, (int)&off) < 0) {
 #else
@@ -470,7 +448,7 @@ static int connectWithTimeout(int sockfd, struct sockaddr *pAddr, socklen_t addr
                 return -1;
             }
             else if (result > 0) {
-                // Socket selected for write
+                /* Socket selected for write */
                 lon = sizeof(int);
                 if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, (void*)(&valopt), &lon) < 0) {
                     if (codanetDebug >= CODA_DEBUG_ERROR) {
@@ -479,7 +457,7 @@ static int connectWithTimeout(int sockfd, struct sockaddr *pAddr, socklen_t addr
                     return -1;
                 }
                     
-                // Check the value returned...
+                /* Check the value returned... */
                 if (valopt) {
                     if (codanetDebug >= CODA_DEBUG_ERROR) {
                         fprintf(stderr, "connectWithTimeout: error in delayed connection() %d - %s\n", valopt, strerror(valopt));
@@ -3036,11 +3014,11 @@ int codanetGetNetworkInfoOrig(codaIpAddr **ipaddrs, codaNetInfo *info)
                 hptr = gethostbyaddr((const char *)&ipaddr->saddr.sin_addr,
                                       sizeof(struct in_addr), AF_INET);
                 /* Occasionally, hptr is NULL since there is no OS data about an address,
-                * even though nothing is wrong and the error returned is HOST_NOT_FOUND.
-                * Just ignore it and go on to the next item. */
+                 * even though nothing is wrong and the error returned is HOST_NOT_FOUND.
+                 * Just ignore it and go on to the next item. */
                 if (hptr == NULL) {
-                    //codanetFreeIpAddrs(first);
-                    //codanetFreeInterfaceInfo(ifihead);
+                    /*codanetFreeIpAddrs(first); */
+                    /*codanetFreeInterfaceInfo(ifihead); */
                     if (codanetDebug >= CODA_DEBUG_WARN) {
                         fprintf(stderr, "%sGetNetworkInfo: error in gethostbyaddr, %s\n", codanetStr, hstrerror(h_errno));
                     }
@@ -3395,7 +3373,7 @@ int codanetGetIfNames(char ***ifNames, int *count) {
  */
 int codanetGetIpAddrs(char ***ipAddrs, int *count, char *host) {
 
-    static char str[128];
+    static char str[128], *pStr;
     char   **array, *pChar;
     int    err, status, index=0, numIps=0, debug=0, hostIsLocal=0, h_errnop=0;
     struct sockaddr *sa;
@@ -3461,12 +3439,21 @@ int codanetGetIpAddrs(char ***ipAddrs, int *count, char *host) {
 
             pptr = (struct in_addr **) hp->h_addr_list;
             for ( ; *pptr != NULL; pptr++) {
+#ifndef VXWORKS
                 if (inet_ntop(hp->h_addrtype, *pptr, str, sizeof(str)) != NULL) {
                     array[index++] = strdup(str);
                     if (codanetDebug >= CODA_DEBUG_INFO) {
                         printf("%sGetIpaddrs address : %s\n", codanetStr, str);
                     }
                 }
+#else
+                if ((pStr = inet_ntoa(**pptr)) != NULL) {
+                    array[index++] = strdup(pStr);
+                    if (codanetDebug >= CODA_DEBUG_INFO) {
+                        printf("%sGetIpaddrs address : %s\n", codanetStr, pStr);
+                    }
+                }
+#endif
             }
         }
 

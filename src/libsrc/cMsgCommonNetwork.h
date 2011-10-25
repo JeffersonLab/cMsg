@@ -20,25 +20,25 @@
 #ifndef __cMsgCommonNetwork_h
 #define __cMsgCommonNetwork_h
 
+#ifdef VXWORKS
+#include <vxWorks.h>
+#include <time.h>
+#include <semLib.h>
+#else
+#include <sys/time.h>    /* struct timeval */
+#endif
+
 
 /*#include <netinet/ip.h>*/  /* IPTOS_LOWDELAY defn */
 #include <netinet/in.h>	 /* sockaddr_in{} and other Internet defns */
 #include <netinet/tcp.h> /* TCP_NODELAY def */
 #include <net/if.h>	     /* find broacast addr */
 
-#ifndef VXWORKS
-#include <sys/time.h>    /* struct timeval */
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <time.h>
-#include <semLib.h>
-#endif
 
 /* cmsg or et definitions here */
 #include "cMsgPrivate.h"

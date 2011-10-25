@@ -132,20 +132,17 @@ int cMsgTcpListen(int blocking, unsigned short port, int *listenFd)
   }
   
   /* make this socket non-blocking if desired */
-  if (blocking == CMSG_NONBLOCKING) {
+  if (blocking == CMSG_NONBLOCKING) {  
 #ifdef VXWORKS
-    val = ioctl(listenfd, FIONBIO, 1);
-    if (val < 0) {
+    if ( (val = ioctl(listenfd, FIONBIO, (int)&on)) < 0) {
+#else
+    if ( (val = ioctl(listenfd, FIONBIO, &on)) < 0) {
+#endif
       if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "cMsgTcpListen: setsockopt error\n");
       return(CMSG_SOCKET_ERROR);
     }
-#else
-    val = fcntl(listenfd, F_GETFL, 0);
-    if (val > -1) {
-      fcntl(listenfd, F_SETFL, val | O_NONBLOCK);
-    }
-#endif
   }
+  
   
   /* don't let anyone else have this port */
   err = bind(listenfd, (SA *) &servaddr, sizeof(servaddr));
