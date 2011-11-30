@@ -26,7 +26,7 @@
  * <pre><code>
  * hostAdd "alula", "129.57.29.90"
  * hostAdd "alula.jlab.org", "129.57.29.90"
- * cd "/group/da/ct/cMsg-3.2/vxworks-ppc"
+ * cd "/group/da/ct/cMsg-3.3/vxworks-ppc"
  * ld &lt; lib/libcmsgRegex.o
  * ld &lt; lib/libcmsg.o
  * ld &lt; bin/cMsgExecutor.o
