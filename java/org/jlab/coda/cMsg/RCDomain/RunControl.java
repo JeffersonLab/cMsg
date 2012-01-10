@@ -619,10 +619,13 @@ public class RunControl extends cMsgDomainAdapter {
                 e.printStackTrace();
             }
 
-            // wait up to multicast timeout seconds
-            // wait for responses
-            try { Thread.sleep(sleepTime); }
-            catch (InterruptedException e) { }
+            // wait up to multicast timeout seconds for a response
+            int waitTime = 0;
+            while (receiver.getMsg() == null && waitTime < sleepTime) {
+                try { Thread.sleep(250); }
+                catch (InterruptedException e) { }
+                waitTime += 250;
+            }
 
             // return the first legitimate response or null if none
             return receiver.getMsg();
