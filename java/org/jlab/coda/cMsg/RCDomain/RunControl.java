@@ -525,6 +525,20 @@ public class RunControl extends cMsgDomainAdapter {
             parseUDL(UDLremainder);
         }
 
+        // Time in milliseconds waiting for a response to the multicasts.
+        // 1 second default.
+        int sleepTime = 1000;
+        if (command != null) {
+            try {
+                int t = Integer.parseInt(command);
+                if (t > -1) {
+                    sleepTime = t;
+                }
+            }
+            catch (NumberFormatException e) {
+            }
+        }
+
         try {
 //System.out.println("Monitoring ...");
 
@@ -533,8 +547,6 @@ public class RunControl extends cMsgDomainAdapter {
             //--------------------------------------------------------------
             byte[] buffer;
             DatagramSocket socket = null;
-            // Time in milliseconds waiting for a response to the multicasts.
-            int sleepTime = 1000;
 
             // create byte array for multicast
             ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
