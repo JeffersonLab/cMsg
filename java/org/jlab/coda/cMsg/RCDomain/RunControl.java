@@ -603,28 +603,25 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             // send our multicast packet                        
-            DatagramPacket packet;
             InetAddress addr = null;
+            DatagramPacket packet = null;
             try {
                 addr = InetAddress.getByName(cMsgNetworkConstants.rcMulticast);
+//System.out.println("Send multicast packet on port " + rcMulticastServerPort);
+                packet = new DatagramPacket(buffer, buffer.length, addr, rcMulticastServerPort);
             }
             catch (UnknownHostException e) { /* never thrown */ }
 
-            try {
-//System.out.println("Send multicast packet on port " + rcMulticastServerPort);
-                packet = new DatagramPacket(buffer, buffer.length, addr, rcMulticastServerPort);
-                socket.send(packet);
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-            }
 
             // wait up to multicast timeout seconds for a response
             int waitTime = 0;
             while (receiver.getMsg() == null && waitTime < sleepTime) {
-                try { Thread.sleep(250); }
+                // send packet
+                try { socket.send(packet); } catch (IOException e) {}
+                // wait 1/2 second
+                try { Thread.sleep(500); }
                 catch (InterruptedException e) { }
-                waitTime += 250;
+                waitTime += 500;
             }
 
             // return the first legitimate response or null if none
@@ -640,7 +637,7 @@ public class RunControl extends cMsgDomainAdapter {
     /** This class gets the response to our UDP multicast to an rc multicast server. */
     class rcMulticastReceiver extends Thread {
 
-        cMsgMessageFull msg;
+        volatile cMsgMessageFull msg;
         DatagramSocket socket;
         AtomicBoolean threadStarted = new AtomicBoolean(false);
 
