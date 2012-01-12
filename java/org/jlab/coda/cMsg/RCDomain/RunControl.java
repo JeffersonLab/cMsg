@@ -590,27 +590,27 @@ public class RunControl extends cMsgDomainAdapter {
             catch (InterruptedException e) {
             }
 
-            // send our multicast packet                        
-            DatagramPacket packet;
-            InetAddress addr = null;
+            // send our multicast packet
+            InetAddress addr;
+            DatagramPacket packet = null;
             try {
                 addr = InetAddress.getByName(cMsgNetworkConstants.rcMulticast);
+//System.out.println("Send multicast packet on port " + rcMulticastServerPort);
+                packet = new DatagramPacket(buffer, buffer.length, addr, rcMulticastServerPort);
             }
             catch (UnknownHostException e) { /* never thrown */ }
 
-            try {
-//System.out.println("Send multicast packet on port " + rcMulticastServerPort);
-                packet = new DatagramPacket(buffer, buffer.length, addr, rcMulticastServerPort);
-                socket.send(packet);
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-            }
 
-            // wait up to multicast timeout seconds
-            // wait for responses
-            try { Thread.sleep(sleepTime); }
-            catch (InterruptedException e) { }
+            // wait up to multicast timeout seconds for a response
+            int waitTime = 0;
+            while (receiver.getMsg() == null && waitTime < sleepTime) {
+                // send packet
+                try { socket.send(packet); } catch (IOException e) {}
+                // wait 1/2 second
+                try { Thread.sleep(500); }
+                catch (InterruptedException e) { }
+                waitTime += 500;
+            }
 
             // return the first legitimate response or null if none
             return receiver.getMsg();
