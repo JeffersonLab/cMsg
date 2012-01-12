@@ -591,10 +591,9 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             // send our multicast packet
-            InetAddress addr;
             DatagramPacket packet = null;
             try {
-                addr = InetAddress.getByName(cMsgNetworkConstants.rcMulticast);
+                InetAddress addr = InetAddress.getByName(cMsgNetworkConstants.rcMulticast);
 //System.out.println("Send multicast packet on port " + rcMulticastServerPort);
                 packet = new DatagramPacket(buffer, buffer.length, addr, rcMulticastServerPort);
             }
