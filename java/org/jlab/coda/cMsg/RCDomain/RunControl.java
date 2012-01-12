@@ -603,7 +603,7 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             // send our multicast packet                        
-            InetAddress addr = null;
+            InetAddress addr;
             DatagramPacket packet = null;
             try {
                 addr = InetAddress.getByName(cMsgNetworkConstants.rcMulticast);
