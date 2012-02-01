@@ -466,7 +466,6 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
             }
             catch (NumberFormatException ex) {
                 System.out.println("Bad port number specified in CMSG_MULTICAST_PORT env variable");
-                ex.printStackTrace();
                 System.exit(-1);
             }
         }
@@ -492,7 +491,6 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
         }
         catch (IOException ex) {
             System.out.println("Exiting Server: cannot open a listening socket");
-            ex.printStackTrace();
             System.exit(-1);
         }
 
@@ -507,7 +505,6 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
         }
         catch (IOException ex) {
             System.out.println("TCP port number " + port + " in use.");
-            ex.printStackTrace();
             System.exit(-1);
         }
 
@@ -553,7 +550,6 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
         }
         catch (IOException e) {
             System.out.println("UDP port number " + udpPort + " in use.");
-            e.printStackTrace();
             System.exit(-1);
         }
         multicastPort = udpPort;
