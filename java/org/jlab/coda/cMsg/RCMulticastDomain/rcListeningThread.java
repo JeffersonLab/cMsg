@@ -229,7 +229,7 @@ class rcListeningThread extends Thread {
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
-System.out.println("RC multicast server : I was told to kill myself by another multicast server - killing listening thread");
+//System.out.println("RC multicast server : I was told to kill myself by another multicast server - killing listening thread");
                         server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
                         return;
