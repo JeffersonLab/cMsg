@@ -673,7 +673,7 @@ System.out.println("startProcess: io error gathering (error) output");
             }
 
             //---------------------------------------------------------
-            // If we're here, we want to wait until process is fnished.
+            // If we're here, we want to wait until process is finished.
             //---------------------------------------------------------
             try {
                 cMsgPayloadItem item = new cMsgPayloadItem("terminated", 1);
