@@ -16,5 +16,8 @@ regexpLib = env.SharedLibrary(target = 'cmsgRegex'+debugSuffix, source = libFile
 
 env.Alias("install", env.Install(target = incDir, source = headerList))
 env.Alias("install", env.Install(target = libDir, source = regexpLib))
+
 # create symbolic links to installed header files
-env.Alias("install", env.CreateSymbolicLinks(target = linkList, source = env.Install(target = incDir, source = headerList)))
+if archIncDir != incDir:
+    env.Alias("install", env.CreateSymbolicLinks(target = linkList,
+        source = env.Install(target = incDir, source = headerList)))

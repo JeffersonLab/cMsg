@@ -37,27 +37,32 @@ osname   = platform + '-' +  machine
 # So for vxworks, make sure the tools are in your PATH
 env = Environment(ENV = {'PATH' : os.environ['PATH']})
 
+if 'LD_LIBRARY_PATH' in os.environ:
+    env.Append(ENV = {
+        'LD_LIBRARY_PATH' : os.environ['LD_LIBRARY_PATH']
+        })
+
 
 def recursiveDirs(root) :
-	return filter( (lambda a : a.rfind( ".svn")==-1 ),  [ a[0] for a in os.walk(root)]  )
+    return filter( (lambda a : a.rfind( ".svn")==-1 ),  [ a[0] for a in os.walk(root)]  )
 
 def unique(list) :
-	return dict.fromkeys(list).keys()
+    return dict.fromkeys(list).keys()
 
 def scanFiles(dir, accept=["*.cpp"], reject=[]) :
-	sources = []
-	paths = recursiveDirs(dir)
-	for path in paths :
-		for pattern in accept :
-			sources+=glob.glob(path+"/"+pattern)
-	for pattern in reject :
-		sources = filter( (lambda a : a.rfind(pattern)==-1 ),  sources )
-	return unique(sources)
+    sources = []
+    paths = recursiveDirs(dir)
+    for path in paths :
+        for pattern in accept :
+            sources+=glob.glob(path+"/"+pattern)
+    for pattern in reject :
+        sources = filter( (lambda a : a.rfind(pattern)==-1 ),  sources )
+    return unique(sources)
 
 def subdirsContaining(root, patterns):
-	dirs = unique(map(os.path.dirname, scanFiles(root, patterns)))
-	dirs.sort()
-	return dirs
+    dirs = unique(map(os.path.dirname, scanFiles(root, patterns)))
+    dirs.sort()
+    return dirs
 
 
 ####################################################################################
@@ -65,7 +70,7 @@ def subdirsContaining(root, patterns):
 # of the existing files, and "target" is a list of node objects of link files.
 # NOTE: link file must have same name as its source file.
 ####################################################################################
-def buildSymbolicLinks(target, source, env):    
+def buildSymbolicLinks(target, source, env):
     # For each file to create a link for ...
     for s in source:
         filename = os.path.basename(str(s))
@@ -83,7 +88,7 @@ def buildSymbolicLinks(target, source, env):
         # go to next source since no corresponding link
         if not makeLink:
             continue
-        
+
         # If link exists don't recreate it
         try:
             # Test if the symlink exists
@@ -118,7 +123,7 @@ env.Append(BUILDERS = {'CreateSymbolicLinks' : symLinkBuilder})
 ################################
 # 64 or 32 bit operating system?
 ################################
-    
+
 # Define configure-type test function to
 # see if operating system is 64 or 32 bits
 def CheckHas64Bits(context, flags):
@@ -216,14 +221,30 @@ use32bits = GetOption('use32bits')
 print "use32bits =", use32bits
 Help('--32bits            compile 32bit libs & executables on 64bit system\n')
 
-# install directory option
+# install directory options
 AddOption('--prefix',
            dest='prefix',
            nargs=1,
-           default='',
+           default=None,
            action='store')
 prefix = GetOption('prefix')
 Help('--prefix=<dir>      use base directory <dir> when doing install\n')
+
+AddOption('--incdir',
+           dest='incdir',
+           nargs=1,
+           default=None,
+           action='store')
+incdir = GetOption('incdir')
+Help('--incdir=<dir>      copy header files to directory <dir> when doing install\n')
+
+AddOption('--libdir',
+           dest='libdir',
+           nargs=1,
+           default=None,
+           action='store')
+libdir = GetOption('libdir')
+Help('--libdir=<dir>      copy library files to directory <dir> when doing install\n')
 
 # uninstall option
 Help('-c  install         uninstall libs, headers, examples, and remove all generated files\n')
@@ -236,30 +257,30 @@ Help('-c  install         uninstall libs, headers, examples, and remove all gene
 if useVxworks55:
     useVxworks = True
     vxVersion  = 5.5
-    
+
 elif useVxworks60:
     useVxworks = True
     vxVersion  = 6.0
 
 else:
     useVxworks = False
-    
+
 # debug/optimization flags
 debugSuffix = ''
 if debug:
     debugSuffix = '-dbg'
     # compile with -g and add debugSuffix to all executable names
-    env.Append(CCFLAGS = '-g', PROGSUFFIX = debugSuffix)
+    env.Append(CCFLAGS = ['-g'], PROGSUFFIX = debugSuffix)
 
 elif useVxworks:
     # no optimization for vxworks
     junk = 'rt'
 
 elif platform == 'SunOS':
-    env.Append(CCFLAGS = '-xO3')
+    env.Append(CCFLAGS = ['-xO3'])
 
 else:
-    env.Append(CCFLAGS = '-O3')
+    env.Append(CCFLAGS = ['-O3'])
 
 vxInc = ''
 execLibs = ['']
@@ -271,7 +292,7 @@ if useVxworks:
     ## Figure out which version of vxworks is being used.
     ## Do this by finding out which ccppc is first in our PATH.
     #vxCompilerPath = Popen('which ccppc', shell=True, stdout=PIPE, stderr=PIPE).communicate()[0]
-    
+
     ## Then ty to grab the major version number from the PATH
     #matchResult = re.match('/site/vxworks/(\\d).+', vxCompilerPath)
     #if matchResult != None:
@@ -313,7 +334,7 @@ if useVxworks:
     else:
         print '\nVxworks compilation not allowed on ' + platform + '\n'
         raise SystemExit
-                    
+
     env.Replace(SHLIBSUFFIX = '.o')
     # get rid of -shared and use -r
     env.Replace(SHLINKFLAGS = '-r')
@@ -337,31 +358,31 @@ else:
     # platform dependent quantities
     execLibs = ['pthread', 'dl', 'rt']  # default to standard Linux libs
     if platform == 'SunOS':
-        env.Append(CCFLAGS = '-mt')
+        env.Append(CCFLAGS = ['-mt'])
         env.Append(CPPDEFINES = ['_GNU_SOURCE', '_REENTRANT', '_POSIX_PTHREAD_SEMANTICS', 'SunOS'])
         execLibs = ['posix4', 'pthread', 'socket', 'resolv', 'dl']
         if is64bits and not use32bits:
             if machine == 'sun4u':
-                env.Append(CCFLAGS = '-xarch=native64 -xcode=pic32',
+                env.Append(CCFLAGS = ['-xarch=native64','-xcode=pic32'],
                            #LIBPATH = '/lib/64', # to do this we need to pass LIBPATH to lower level
-                           LINKFLAGS = '-xarch=native64 -xcode=pic32')
+                           LINKFLAGS = ['-xarch=native64','-xcode=pic32'])
             else:
-                env.Append(CCFLAGS = '-xarch=amd64',
+                env.Append(CCFLAGS = ['-xarch=amd64'],
                            #LIBPATH = ['/lib/64', '/usr/ucblib/amd64'],
-                           LINKFLAGS = '-xarch=amd64')
-    
+                           LINKFLAGS = ['-xarch=amd64'])
+
     elif platform == 'Darwin':
         execLibs = ['pthread', 'dl']
-        env.Append(CPPDEFINES = 'Darwin', SHLINKFLAGS = '-multiply_defined suppress -flat_namespace -undefined suppress')
-        env.Append(CCFLAGS = '-fmessage-length=0')
+        env.Append(CPPDEFINES = ['Darwin'], SHLINKFLAGS = ['-multiply_defined suppress','-flat_namespace','-undefined suppress'])
+        env.Append(CCFLAGS = ['-fmessage-length=0'])
         if is64bits and not use32bits:
-            env.Append(CCFLAGS = '-arch x86_64',
-                       LINKFLAGS = '-arch x86_64 -Wl,-bind_at_load')
-    
+            env.Append(CCFLAGS = ['-arch x86_64'],
+                       LINKFLAGS = ['-arch x86_64','-Wl,-bind_at_load'])
+
     elif platform == 'Linux':
         if is64bits and use32bits:
-            env.Append(CCFLAGS = '-m32', LINKFLAGS = '-m32')
-    
+            env.Append(CCFLAGS = ['-m32'], LINKFLAGS = ['-m32'])
+
     if not is64bits and not use32bits:
         use32bits = True
 
@@ -378,14 +399,18 @@ archDir = '.' + osname + debugSuffix
 #########################
 
 # Any user specifed command line installation path overrides default
-if prefix == '':
+if prefix == None:
     # determine install directories since nothing on command line
     codaDirEnv    = os.getenv('CODA_HOME',"")
-    installDirEnv = os.getenv('INSTALL_DIR', "")    
+    installDirEnv = os.getenv('INSTALL_DIR', "")
     if installDirEnv == "":
         if codaDirEnv == "":
-            print "Need to define either CODA_HOME or INSTALL_DIR"
-            raise SystemExit
+            if (incdir == None) and (libdir == None):
+                print "Need to define either CODA_HOME or INSTALL_DIR"
+                print "Alternatively, you can use the --prefix option"
+                print "or the combination of --incdir and --libdir"
+                print "options."
+                raise SystemExit
         else:
             prefix = codaDirEnv
     else:
@@ -395,10 +420,36 @@ else:
     print 'Cmdline install directory = ', prefix
 
 # set our install directories
-libDir = prefix + "/" + osname + '/lib'
-binDir = prefix + "/" + osname + '/bin'
-archIncDir = prefix + "/" + osname + '/include'
-incDir = prefix + '/include'
+if incdir != None:
+    incDir = incdir
+    archIncDir = incdir
+else:
+    archIncDir = prefix + "/" + osname + '/include'
+    incDir = prefix + '/include'
+
+if libdir != None:
+    libDir = libdir
+else:
+    libDir = prefix + "/" + osname + '/lib'
+
+if prefix != None:
+    binDir = prefix + "/" + osname + '/bin'
+else:
+    binDir = 'bin'
+
+def make_abs_path(d):
+    if not d[0] in [sep,'#','/','.']:
+        if d[1] != ':':
+            d = '#' + d
+    if d[:2] == '.'+sep:
+        d = os.path.join(os.path.abspath('.'), d[2:])
+    return d
+
+incDir = make_abs_path(incDir)
+archIncDir = make_abs_path(archIncDir)
+libDir = make_abs_path(libDir)
+binDir = make_abs_path(binDir)
+
 print 'binDir = ', binDir
 print 'libDir = ', libDir
 print 'incDir = ', incDir
@@ -406,45 +457,40 @@ print 'incDir = ', incDir
 # use "install" on command line to install libs & headers
 Help('install             install libs, headers, some executables\n')
 
-# use "examples" on command line to install executable examples
-Help('examples            install executable examples\n')
-
-# not necessary to create install directories explicitly
-# (done automatically during install)
-
 ###########################
 # Documentation generation
 ###########################
 
-# Functions that do the documentation creation
-def docGeneratorC(target, source, env):
-    cmd = 'doxygen doc/doxygen/DoxyfileC'
-    pipe = Popen(cmd, shell=True, env={"TOPLEVEL": "./"}, stdout=PIPE).stdout
-    return
+if 'doc' in COMMAND_LINE_TARGETS:
+    # Functions that do the documentation creation
+    def docGeneratorC(target, source, env):
+        cmd = 'doxygen doc/doxygen/DoxyfileC'
+        pipe = Popen(cmd, shell=True, env={"TOPLEVEL": "./"}, stdout=PIPE).stdout
+        return
 
-def docGeneratorCC(target, source, env):
-    cmd = 'doxygen doc/doxygen/DoxyfileCC'
-    pipe = Popen(cmd, shell=True, env={"TOPLEVEL": "./"}, stdout=PIPE).stdout
-    return
+    def docGeneratorCC(target, source, env):
+        cmd = 'doxygen doc/doxygen/DoxyfileCC'
+        pipe = Popen(cmd, shell=True, env={"TOPLEVEL": "./"}, stdout=PIPE).stdout
+        return
 
-def docGeneratorJava(target, source, env):
-    cmd = 'ant javadoc'
-    pipe = Popen(cmd, shell=True, stdout=PIPE).stdout
-    return
+    def docGeneratorJava(target, source, env):
+        cmd = 'ant javadoc'
+        pipe = Popen(cmd, shell=True, stdout=PIPE).stdout
+        return
 
-# doc files builders
-docBuildC = Builder(action = docGeneratorC)
-env.Append(BUILDERS = {'DocGenC' : docBuildC})
+    # doc files builders
+    docBuildC = Builder(action = docGeneratorC)
+    env.Append(BUILDERS = {'DocGenC' : docBuildC})
 
-docBuildCC = Builder(action = docGeneratorCC)
-env.Append(BUILDERS = {'DocGenCC' : docBuildCC})
+    docBuildCC = Builder(action = docGeneratorCC)
+    env.Append(BUILDERS = {'DocGenCC' : docBuildCC})
 
-docBuildJava = Builder(action = docGeneratorJava)
-env.Append(BUILDERS = {'DocGenJava' : docBuildJava})
+    docBuildJava = Builder(action = docGeneratorJava)
+    env.Append(BUILDERS = {'DocGenJava' : docBuildJava})
 
-# generate Java documentation
-env.Alias('doc', env.DocGenJava(target = ['#/doc/javadoc/index.html'],
-                                source = scanFiles("java/org/jlab/coda/cMsg", accept=["*.java"]) ))
+    # generate Java documentation
+    env.Alias('doc', env.DocGenJava(target = ['#/doc/javadoc/index.html'],
+            source = scanFiles("java/org/jlab/coda/cMsg", accept=["*.java"]) ))
 
 # use "doc" on command line to create tar file
 Help('doc                 create javadoc and doxygen docs (in ./doc)\n')
@@ -457,22 +503,26 @@ Help('doc                 create javadoc and doxygen docs (in ./doc)\n')
 # (more primitive) than tar on Linux and MacOS. Solaris tar has no -z option
 # and the exclude file does not allow wildcards. Thus, stick to Linux for
 # creating the tar file.
-def tarballer(target, source, env):
-    if platform == 'SunOS':
-        print '\nMake tar file from Linux or MacOS please\n'
-        return
-    dirname = os.path.basename(os.path.abspath('.'))
-    cmd = 'tar -X tar/tarexclude -C .. -c -z -f ' + str(target[0]) + ' ./' + dirname
-    pipe = Popen(cmd, shell=True, stdin=PIPE).stdout
-    return pipe
 
-# name of tarfile (software package dependent)
-tarfile = 'tar/cMsg-' + versionMajor + '.' + versionMinor + '.tgz'
+if 'tar' in COMMAND_LINE_TARGETS:
+    def tarballer(target, source, env):
+        if platform == 'SunOS':
+            print '\nMake tar file from Linux or MacOS please\n'
+            return
+        dirname = os.path.basename(os.path.abspath('.'))
+        cmd = 'tar -X tar/tarexclude -C .. -c -z -f ' + str(target[0]) + ' ./' + dirname
+        pipe = Popen(cmd, shell=True, stdin=PIPE).stdout
+        return pipe
 
-# tarfile builder
-tarBuild = Builder(action = tarballer)
-env.Append(BUILDERS = {'Tarball' : tarBuild})
-env.Alias('tar', env.Tarball(target = tarfile, source = None))
+    # name of tarfile (software package dependent)
+    tarfile = 'tar/cMsg-' + versionMajor + '.' + versionMinor + '.tgz'
+
+    # tarfile builder
+    tarBuild = Builder(action = tarballer)
+    env.Append(BUILDERS = {'Tarball' : tarBuild})
+    env.Alias('tar', env.Tarball(target = tarfile, source = None))
+
+    Export('tarfile')
 
 # use "tar" on command line to create tar file
 Help('tar                 create tar file (in ./tar)\n')
@@ -482,17 +532,22 @@ Help('tar                 create tar file (in ./tar)\n')
 ######################################################
 
 # make available to lower level scons files
-Export('env incDir libDir binDir archIncDir archDir execLibs tarfile debugSuffix')
+Export('env incDir libDir binDir archIncDir archDir execLibs debugSuffix')
 
 # run lower level build files
+
 env.SConscript('src/regexp/SConscript',   variant_dir='src/regexp/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc/SConscript',   variant_dir='src/libsrc/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc++/SConscript', variant_dir='src/libsrc++/'+archDir, duplicate=0)
 
-# for vxworks
-if useVxworks:
-    env.SConscript('src/examples/SConscript.vx', variant_dir='src/examples/'+archDir, duplicate=0)
-    env.SConscript('src/execsrc/SConscript.vx',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
-else:
-    env.SConscript('src/examples/SConscript', variant_dir='src/examples/'+archDir, duplicate=0)
-    env.SConscript('src/execsrc/SConscript',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
+if 'examples' in COMMAND_LINE_TARGETS:
+    # for vxworks
+    if useVxworks:
+        env.SConscript('src/examples/SConscript.vx', variant_dir='src/examples/'+archDir, duplicate=0)
+        env.SConscript('src/execsrc/SConscript.vx',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
+    else:
+        env.SConscript('src/examples/SConscript', variant_dir='src/examples/'+archDir, duplicate=0)
+        env.SConscript('src/execsrc/SConscript',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
+
+# use "examples" on command line to install executable examples
+Help('examples            install executable examples\n')

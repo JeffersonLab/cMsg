@@ -46,9 +46,11 @@ env.Alias("install", env.Install(target = incDir, source = headerList))
 env.Alias("install", env.Install(target = libDir, source = cmsgLib))
 
 # create symbolic links to installed header files
-env.Alias("install", env.CreateSymbolicLinks(target = linkList,
-                                             source = env.Install(target = incDir, source = headerList)))
+if archIncDir != incDir:
+    env.Alias("install", env.CreateSymbolicLinks(target = linkList,
+        source = env.Install(target = incDir, source = headerList)))
 
-# generate documentation
-env.Alias('doc', env.DocGenC(target = ['#/doc/doxygen/C/html/index.html'],
-                             source = docList ))
+if 'doc' in COMMAND_LINE_TARGETS:
+    # generate documentation
+    env.Alias('doc', env.DocGenC(target = ['#/doc/doxygen/C/html/index.html'],
+                                 source = docList ))
