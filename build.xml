@@ -17,7 +17,9 @@
     <property name="build.classes" value="${build.dir}/classes" />
     <property name="build.lib"     value="${build.dir}/lib" />
     <property name="doc.dir"       value="doc/javadoc" />
-    <property name="jarName"       value="${build.lib}/cMsg-${cMsg.version}.jar" />
+    <property name="jarName"       value="cMsg-${cMsg.version}.jar" />
+    <property name="jarPath"       value="${build.lib}/${jarName}" />
+    <property name="jarLinkName"   value="${build.lib}/cMsg.jar" />
     
     <!-- Set Classpath, ignore caller's classpath -->
     <property name="build.sysclasspath" value="ignore" />
@@ -117,11 +119,12 @@
 
     <!-- Create Jar file -->
     <target name="jar" depends="compile" description="Generates jar file.">
-        <jar jarfile="${jarName}" manifest="${src.dir}/org/jlab/coda/cMsg/manifest.mf">
+        <jar jarfile="${jarPath}" manifest="${src.dir}/org/jlab/coda/cMsg/manifest.mf">
           <!-- Dont include Consumer, Producer, and StartET.class files -->
           <fileset dir="${build.classes}" excludes="*.class" />
         </jar>
-    </target>
+        <symlink overwrite="true" link="${jarLinkName}" resource="./${jarName}"/>
+     </target>
 
     <!-- Clean, compile, and create jar -->
     <target name="all" depends="clean,jar" description="Cleans, compile, then builds jar file." />
@@ -141,8 +144,8 @@
         </target>
         
         <target name="-then" if="prefixDefined">
-            <echo>Install ${jarName} into ${prefix}</echo>
-            <copy file="${jarName}" todir="${prefix}/jar"/>
+            <echo>Install ${jarPath} into ${prefix}</echo>
+            <copy file="${jarPath}" todir="${prefix}/jar"/>
         </target>
         
         <target name="-else" unless="prefixDefined">
@@ -155,9 +158,9 @@
         </target>
         
         <target name="-inner.then" if="installDirDefined">
-            <echo>Install ${jarName} into ${env.INSTALL_DIR}/jar and ${env.INSTALL_DIR}/lib</echo>
-            <copy file="${jarName}" todir="${env.INSTALL_DIR}/jar"/>
-            <copy file="${jarName}" todir="${env.INSTALL_DIR}/lib"/>
+            <echo>Install ${jarPath} into ${env.INSTALL_DIR}/jar and ${env.INSTALL_DIR}/lib</echo>
+            <copy file="${jarPath}" todir="${env.INSTALL_DIR}/jar"/>
+            <copy file="${jarPath}" todir="${env.INSTALL_DIR}/lib"/>
         </target>
         
         <target name="-inner.else" unless="installDirDefined">
@@ -170,9 +173,9 @@
         </target>
         
             <target name="-inner.inner.then" if="codaHomeDefined">
-                <echo>Install ${jarName} into ${env.CODA_HOME}/jar and ${env.CODA_HOME}/lib</echo>
-                <copy file="${jarName}" todir="${env.CODA_HOME}/jar"/>
-                <copy file="${jarName}" todir="${env.CODA_HOME}/lib"/>
+                <echo>Install ${jarPath} into ${env.CODA_HOME}/jar and ${env.CODA_HOME}/lib</echo>
+                <copy file="${jarPath}" todir="${env.CODA_HOME}/jar"/>
+                <copy file="${jarPath}" todir="${env.CODA_HOME}/lib"/>
             </target>
             
             <target name="-inner.inner.else" unless="codaHomeDefined">
