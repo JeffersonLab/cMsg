@@ -246,49 +246,56 @@ public class cMsg extends cMsgSubdomainAdapter {
 
 
     /**
-     * Method saying this subdomain implements {@link #handleSendRequest}.
+     * Method saying this subdomain implements
+     * {@link #handleSendRequest(org.jlab.coda.cMsg.common.cMsgMessageFull)}.
      * @return true
      */
     public boolean hasSend() {return true;}
 
 
     /**
-     * Method saying this subdomain implements {@link #handleSyncSendRequest}.
+     * Method saying this subdomain implements
+     * {@link #handleSyncSendRequest(org.jlab.coda.cMsg.common.cMsgMessageFull)}.
      * @return true
      */
     public boolean hasSyncSend() {return true;}
 
 
     /**
-     * Method saying this subdomain implements {@link #handleSubscribeAndGetRequest}.
+     * Method saying this subdomain implements
+     * {@link #handleSubscribeAndGetRequest(String, String, int)}.
      * @return true
      */
     public boolean hasSubscribeAndGet() {return true;}
 
 
     /**
-     * Method saying this subdomain implements {@link #handleSendAndGetRequest}.
+     * Method saying this subdomain implements
+     * {@link #handleSendAndGetRequest(org.jlab.coda.cMsg.common.cMsgMessageFull)}.
      * @return true
      */
     public boolean hasSendAndGet() {return true;}
 
 
     /**
-     * Method saying this subdomain implements {@link #handleSubscribeRequest}.
+     * Method saying this subdomain implements
+     * {@link #handleSubscribeRequest(String, String, int)}.
      * @return true
      */
     public boolean hasSubscribe() {return true;}
 
 
     /**
-     * Method saying this subdomain implements {@link #handleUnsubscribeRequest}.
+     * Method saying this subdomain implements
+     * {@link #handleUnsubscribeRequest(String, String, int)}.
      * @return true
      */
     public boolean hasUnsubscribe() {return true;}
 
 
     /**
-     * Method saying this subdomain implements {@link #handleShutdownClientsRequest}.
+     * Method saying this subdomain implements
+     * {@link #handleShutdownClientsRequest(String, boolean)}.
      * @return true
      */
     public boolean hasShutdown() {return true;}
@@ -304,6 +311,7 @@ public class cMsg extends cMsgSubdomainAdapter {
      * A single beginning forward slash is enforced in a namespace.
      * A question mark will terminate but will not be included in the namespace.
      * All trailing forward slashes will be removed.
+     * Valid namespace characters are a-z, A_Z, 0-9, or _ .
      *
      * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
      * @throws cMsgException if there's an invalid namespace
@@ -1220,7 +1228,8 @@ public class cMsg extends cMsgSubdomainAdapter {
      * the server for a one-time subscription of a subject and type.
      * This method is called as a result of a regular client calling subscribeAndGet.
      * If there are bridges to other cMsg servers (server cloud contains more than
-     * one server), then this server does NOT call {@link #handleSubscribeAndGetRequest}
+     * one server), then this server does NOT call
+     * {@link #handleSubscribeAndGetRequest(String, String, int)}
      * but instead calls this method after doing a subscribeAndGet through all the bridge
      * objects. The purpose of this is to install the notifier object.
      *
