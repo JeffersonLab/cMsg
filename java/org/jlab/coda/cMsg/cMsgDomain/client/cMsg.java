@@ -2896,7 +2896,7 @@ System.out.println("disconnect: IO error");
      * <li>multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;<p>
      * <li>the tag=value part of UDL parsed here is given by regime=low or regime=high means:<p>
      *   <ul>
-     *   <li>low message/data throughtput client if regime=low, meaning many clients are serviced
+     *   <li>low message/data throughput client if regime=low, meaning many clients are serviced
      *       by a single server thread and all msgs retain time order<p>
      *   <li>high message/data throughput client if regime=high, meaning each client is serviced
      *       by multiple threads to maximize throughput. Msgs are NOT guaranteed to be handled in
