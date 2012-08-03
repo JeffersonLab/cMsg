@@ -21,7 +21,6 @@
 
 package org.jlab.coda.cMsg;
 
-import org.jlab.coda.cMsg.cMsgMessage;
 
 /**
  * This interface provides an API for the client callbacks in the cMsg system.
@@ -36,7 +35,7 @@ public interface cMsgCallbackInterface {
      *
      * @param msg message received from domain server
      * @param userObject object passed as an argument which was set when the
-     *                   client orginally subscribed to a subject and type of
+     *                   client originally subscribed to a subject and type of
      *                   message.
      */
     public void callback(cMsgMessage msg, Object userObject);
