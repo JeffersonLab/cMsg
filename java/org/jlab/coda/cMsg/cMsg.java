@@ -603,7 +603,7 @@ public class cMsg {
     }
 
     /**
-     * The message is sent as it would be in the {@link #send} method. The domain notes
+     * The message is sent as it would be in the {@link #send(cMsgMessage)}  method. The domain notes
      * the fact that a response to it is expected, and sends it to all subscribed to its
      * subject and type. When a marked response is received from a client, it sends that
      * first response back to the original sender regardless of its subject or type.
