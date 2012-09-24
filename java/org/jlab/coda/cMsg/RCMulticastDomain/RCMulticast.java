@@ -353,7 +353,7 @@ public class RCMulticast extends cMsgDomainAdapter {
      *
      * Remember that for this domain:<p>
      * <ul>
-     * <li>udp listening port is optional and defaults to MsgNetworkConstants.rcMulticastPort<p>
+     * <li>udp listening port is optional and defaults to {@link  cMsgNetworkConstants#rcMulticastPort} <p>
      * <li>the experiment id is required If none is given, an exception is thrown<p>
      * <li>the multicast timeout is in seconds and sets the time of sending out multicasts
      *     trying to locate other rc multicast servers already running on its port. Default
