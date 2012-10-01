@@ -169,7 +169,7 @@ public class MonitorPanel extends JPanel {
                     // analyze message
                     String xml = msg.getText();
 //System.out.println("msg = \n" + xml);
-                    if (xml != null) {
+                    if (xml != null && xml.length() > 0) {
                         ByteArrayInputStream bais = new ByteArrayInputStream(xml.getBytes("US-ASCII"));
                         document = builder.parse(bais);
                         SwingUtilities.invokeLater(updateDisplay);
