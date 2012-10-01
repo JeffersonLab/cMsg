@@ -75,7 +75,8 @@ public interface cMsgCallbackInterface {
     public int getMaximumThreads();
 
     /**
-     * Method to get the maximum number of unprocessed messages per worker thread.
+     * Method to get the maximum number of unprocessed messages per worker thread
+     * before starting another worker thread (until the maximum # of threads is reached).
      * This number is a target for dynamically adjusting server.
      * This is only used when the "mustSerializeMessages" method returns false.
      * @return maximum number of messages per worker thread
