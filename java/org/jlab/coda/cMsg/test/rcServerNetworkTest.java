@@ -1,14 +1,8 @@
 package org.jlab.coda.cMsg.test;
 
-import org.jlab.coda.cMsg.RCMulticastDomain.RCMulticast;
-import org.jlab.coda.cMsg.cMsgConstants;
-import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgNetworkConstants;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.*;
 import java.util.Enumeration;
 import java.util.List;
