@@ -44,7 +44,7 @@ public class rcServerNetworkTest {
 
             int udpPort = cMsgNetworkConstants.rcMulticastPort;
 
-            System.out.println("Listen on port " + udpPort + " and address " +
+            System.out.println("Rc multicast server listens on port " + udpPort + " and address " +
                                        cMsgNetworkConstants.rcMulticast);
 
             // send dotted-decimal if possible
@@ -59,7 +59,38 @@ public class rcServerNetworkTest {
                 catch (UnknownHostException e1) {
                 }
             }
-            System.out.println("Packet sent to rc client has rc multicast server host = " + host);
+            System.out.println("\nPacket sent from rc multicast server to rc client has server host = " + host);
+            System.out.println("  (but that is NOT used by the rc client).");
+
+
+
+            System.out.println("\nPacket sent from rc server to rc client has server host (canonical) = " +
+                                       InetAddress.getLocalHost().getCanonicalHostName());
+            // send list of our IP addresses (skipping IPv6)
+            System.out.println("  send list of IP addresses:");
+                try {
+                    Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+                    while (enumer.hasMoreElements()) {
+                        NetworkInterface ni = enumer.nextElement();
+                        if (ni.isUp() && !ni.isLoopback()) {
+                            List<InterfaceAddress> inAddrs  = ni.getInterfaceAddresses();
+                            for (InterfaceAddress ifAddr : inAddrs) {
+                                InetAddress addr = ifAddr.getAddress();
+                                byte b[] = addr.getAddress();
+                                // skip IPv6 addresses
+                                if (b.length != 4) continue;
+System.out.println("    " + addr.getHostAddress());
+                            }
+                        }
+                    }
+
+                }
+                catch (SocketException e) {
+                    e.printStackTrace();
+                }
+
+System.out.println("Rc client uses IP addresses, in given order, to connect to rc server");
+
 
 
             // Be sure to join the multicast address group of all network interfaces
