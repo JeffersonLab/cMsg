@@ -790,7 +790,7 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
     /**
      * Method to start up this server and join the cMsg server cloud that
      * serverToJoin is a part of. If the serverToJoin is null, this
-     * server is the nucleas of a new server cloud.
+     * server is the nucleus of a new server cloud.
      */
     public void startServer() {
 
@@ -1045,7 +1045,7 @@ System.out.println(">> **** cMsg server sucessfully started at " + (new Date()) 
             }
         }
 
-        // all options are exhaused, throw error
+        // all options are exhausted, throw error
         if (clientHandlerClass == null) {
             cMsgException ex = new cMsgException("no handler class found");
             ex.setReturnCode(cMsgConstants.errorNoClassFound);
