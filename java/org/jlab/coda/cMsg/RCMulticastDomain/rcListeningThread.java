@@ -41,7 +41,7 @@ import java.util.Enumeration;
 class rcListeningThread extends Thread {
 
     /** This domain's name. */
-    private String domainType = "rcb";
+    private String domainType = "rcm";
 
     /** RC multicast server that created this object. */
     private RCMulticast server;
@@ -108,7 +108,7 @@ class rcListeningThread extends Thread {
             multicastSocket = new MulticastSocket(multicastPort);
             SocketAddress sa =
                 new InetSocketAddress(InetAddress.getByName(cMsgNetworkConstants.rcMulticast), multicastPort);
-            // Be sure to join the multicast addr group all interfaces
+            // Be sure to join the multicast address group of all network interfaces
             // (something not mentioned in any javadocs or books!).
             Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
             while (enumer.hasMoreElements()) {
