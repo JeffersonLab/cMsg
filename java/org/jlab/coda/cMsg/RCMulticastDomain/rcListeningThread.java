@@ -300,7 +300,7 @@ System.out.println("RC multicast server : I was told to kill myself by another m
                     continue;
                 }
 
-                // if multicast from client ...
+                // if multicast probe from client ...
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe) {
                     try {
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
