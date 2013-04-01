@@ -506,7 +506,7 @@ class rcListeningThread extends Thread {
 
                                     default:
                                         if (debug >= cMsgConstants.debugWarn) {
-                                            System.out.println("rcTcpListeningThread: can't understand rc client message = " + msgId);
+                                            System.out.println("rcListeningThread: can't understand rc client message = " + msgId);
                                         }
                                         break;
                                 }
