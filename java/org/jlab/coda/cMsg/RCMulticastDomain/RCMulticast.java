@@ -510,7 +510,7 @@ public class RCMulticast extends cMsgDomainAdapter {
 
             // Add to callback list if subscription to same subject/type exists.
 
-            // Listening thread may be interating thru subscriptions concurrently
+            // Listening thread may be iterating through subscriptions concurrently
             // and we may change set structure so synchronize.
             synchronized (subscriptions) {
 
@@ -534,7 +534,7 @@ public class RCMulticast extends cMsgDomainAdapter {
                 newSub = new cMsgSubscription(subject, type, 0, cbThread);
                 unsubscriptions.put(cbThread, newSub);
 
-                // client listening thread may be interating thru subscriptions concurrently
+                // client listening thread may be iterating through subscriptions concurrently
                 // and we're changing the set structure
                 subscriptions.add(newSub);
 
