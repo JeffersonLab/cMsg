@@ -741,9 +741,12 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
     rcServerHost = domain->sendHost;
     err = cMsgNetTcpConnect(rcServerHost, NULL, (unsigned short) domain->sendPort,
                             CMSG_BIGSOCKBUFSIZE, 0, 1, &domain->sendSocket, NULL);
-
+    if (err == CMSG_OK) {
+printf("rc connect: (1st try) SUCCESS connecting to %s\n", rcServerHost);
+    }
     /* If cannot resolve domain->sendHost, try IP addrs (from rc server) in hash table */
-    if (err != CMSG_OK) {
+    else {
+printf("rc connect: (1st try) failed trying to connect to %s\n", rcServerHost);
         if (haveHashEntries && hashEntryCount > 0) {
             for (i=0; i < hashEntryCount; i++) {
                 rcServerHost = hashEntries[i].key;
