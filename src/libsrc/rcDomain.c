@@ -730,37 +730,33 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
      * Try one at a time to see which we can use to connect. */
     haveHashEntries = hashGetAll(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
 
-    /* if there are no hash table entries, try old way */
-    if (!haveHashEntries || hashEntryCount < 1) {
 /*printf("rc connect: try old way to make tcp connection to RC server = %s\n", domain->sendHost);*/
-        rcServerHost = domain->sendHost;
-        if ( (err = cMsgNetTcpConnect(rcServerHost, NULL, (unsigned short) domain->sendPort,
-                                      CMSG_BIGSOCKBUFSIZE, 0, 1, &domain->sendSocket, NULL)) != CMSG_OK) {
-            if (hashEntries != NULL) free(hashEntries);
-            cMsgRestoreSignals(domain);
-            pthread_cancel(domain->pendThread);
-            cMsgDomainFree(domain);
-            free(domain);
-            /*
-             * Besides out-of-mem or bad arg we can have:
-             * CMSG_SOCKET_ERROR if socket could not be created or socket options could not be set.
-             * CMSG_NETWORK_ERROR if sendHost name could not be resolved or could not connect.
-             */
-            return(err);
-        }
-    }
-    else {
-        for(i=0; i < hashEntryCount; i++) {
-            rcServerHost = hashEntries[i].key;
+    
+    /*
+     * But first, try to connect by resolving domain->sendHost.
+     * For errors, besides out-of-mem or bad arg we, can have:
+     * CMSG_SOCKET_ERROR if socket could not be created or socket options could not be set.
+     * CMSG_NETWORK_ERROR if sendHost name could not be resolved or could not connect.
+     */
+    rcServerHost = domain->sendHost;
+    err = cMsgNetTcpConnect(rcServerHost, NULL, (unsigned short) domain->sendPort,
+                            CMSG_BIGSOCKBUFSIZE, 0, 1, &domain->sendSocket, NULL);
+
+    /* If cannot resolve domain->sendHost, try IP addrs (from rc server) in hash table */
+    if (err != CMSG_OK) {
+        if (haveHashEntries && hashEntryCount > 0) {
+            for (i=0; i < hashEntryCount; i++) {
+                rcServerHost = hashEntries[i].key;
 /*printf("rc connect: try making tcp connection to RC server = %s w/ TO = %u sec, %u msec\n", rcServerHost,
-  (uint_32) ((&tv)->tv_sec),(uint_32) ((&tv)->tv_usec));*/
-            if ((err = cMsgNetTcpConnectTimeout(rcServerHost, (unsigned short) domain->sendPort,
-                 CMSG_BIGSOCKBUFSIZE, 0, 1, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
-                gotValidRcServerHost = 1;
-                printf("rc connect: SUCCESS connecting to %s\n", rcServerHost);
-                break;
+                (uint_32) ((&tv)->tv_sec),(uint_32) ((&tv)->tv_usec));*/
+                if ((err = cMsgNetTcpConnectTimeout(rcServerHost, (unsigned short) domain->sendPort,
+                     CMSG_BIGSOCKBUFSIZE, 0, 1, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
+                         gotValidRcServerHost = 1;
+printf("rc connect: SUCCESS connecting to %s\n", rcServerHost);
+                         break;
+                     }
+printf("rc connect: failed trying to connect to %s w/ TO = %u msec\n", rcServerHost, tv.tv_usec);
             }
-            printf("rc connect: failed trying to connect to %s w/ TO = %u msec\n", rcServerHost, tv.tv_usec);
         }
 
         if (!gotValidRcServerHost) {
