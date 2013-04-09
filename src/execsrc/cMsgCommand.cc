@@ -13,9 +13,6 @@ using namespace std;
 #include <sstream>
 #include <vector>
 
-#include <boost/numeric/conversion/cast.hpp> 
-#include <boost/lexical_cast.hpp>
-
 
 // for cMsg
 #include <cMsg.hxx>
@@ -24,7 +21,6 @@ using namespace std;
 #endif
 
 using namespace cmsg;
-using namespace boost;
 
 
 // connection parameters
@@ -110,62 +106,62 @@ int main(int argc, char **argv) {
 	if(type=="int8") {
 	   string name = txt.substr(0,txt.find("="));
 	   string sval = txt.substr(txt.find("=")+1);
-	   int8_t val = numeric_cast<int8_t>(lexical_cast<int>(sval));
+	   int8_t val = atoi(sval.c_str());
   	   m.add(name,val);
 	   
 	} else if (type=="int16") {
 	   string name = txt.substr(0,txt.find("="));
 	   string sval = txt.substr(txt.find("=")+1);
-	   int16_t val = numeric_cast<int16_t>(lexical_cast<int>(sval));
+	   int16_t val = atoi(sval.c_str());
   	   m.add(name,val);
 	   
 	} else if (type=="int32") {
 	   string name = txt.substr(0,txt.find("="));
 	   string sval = txt.substr(txt.find("=")+1);
-	   int32_t val = numeric_cast<int32_t>(lexical_cast<int>(sval));
+	   int32_t val = atoi(sval.c_str());
   	   m.add(name,val);
 	   
 	} else if (type=="int64") {
 	   string name = txt.substr(0,txt.find("="));
 	   string sval = txt.substr(txt.find("=")+1);
-	   int64_t val = numeric_cast<int64_t>(lexical_cast<long long>(sval));
+	   int64_t val = atoi(sval.c_str());
   	   m.add(name,val);
 	   
 	} else if(type=="uint8") {
 	   string name = txt.substr(0,txt.find("="));
 	   string sval = txt.substr(txt.find("=")+1);
-	   uint8_t val = numeric_cast<uint8_t>(lexical_cast<unsigned int>(sval));
+	   uint8_t val = atoi(sval.c_str());
   	   m.add(name,val);
 	   
 	} else if (type=="uint16") {
 	   string name = txt.substr(0,txt.find("="));
 	   string sval = txt.substr(txt.find("=")+1);
-	   uint16_t val = numeric_cast<uint16_t>(lexical_cast<unsigned int>(sval));
+	   uint16_t val = atoi(sval.c_str());
   	   m.add(name,val);
 	   
 	} else if (type=="uint32") {
 	   string name = txt.substr(0,txt.find("="));
 	   string sval = txt.substr(txt.find("=")+1);
-	   uint32_t val = numeric_cast<uint32_t>(lexical_cast<unsigned int>(sval));
+	   uint32_t val = atoi(sval.c_str());
   	   m.add(name,val);
 	   
 	} else if (type=="uint64") {
 	   string name = txt.substr(0,txt.find("="));
 	   string sval = txt.substr(txt.find("=")+1);
-	   uint64_t val = numeric_cast<uint64_t>(lexical_cast<unsigned long long>(sval));
+	   uint64_t val = atoi(sval.c_str());
   	   m.add(name,val);
 	   
 	} else if (type=="double") {
 	   string name = txt.substr(0,txt.find("="));
 	   string sval = txt.substr(txt.find("=")+1);
-	   double val = lexical_cast<double>(sval);
+	   double val = atof(sval.c_str());
   	   m.add(name,val);
 	
 	
 	} else if (type=="float") {
 	   string name = txt.substr(0,txt.find("="));
 	   string sval = txt.substr(txt.find("=")+1);
-	   float val = lexical_cast<float>(sval);
+	   float val = atof(sval.c_str());
   	   m.add(name,val);	
 	
 	} else if (type=="string") {

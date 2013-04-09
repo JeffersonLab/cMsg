@@ -7,6 +7,11 @@ ccfileList = ['cMsgCommand.cc',
               'cMsgPayloadTest.cc',
               'cMsgReceive.cc']
               
+# If we store all compiled programs in a list and then
+# install the list itself, for some unknown reason the
+# whole variant library is copied into the install directory.
+# So we do things individual file by individual file.
+
 # compile and install
 for fileName in ccfileList:
     compiledFile = env.Program(source  = fileName,
@@ -17,5 +22,4 @@ for fileName in ccfileList:
                                           '#src/libsrc/'+archDir,
                                           '#src/libsrc++/'+archDir],
                                CPPPATH = ['.', '#src/regexp', '#src/libsrc', '#src/libsrc++'])
-    env.Alias('install', env.Install(target = binDir, source = compiledFile))
-
+    env.Alias('examples', env.Install(target = binDir, source = compiledFile))
