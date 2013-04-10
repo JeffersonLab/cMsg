@@ -38,11 +38,20 @@
 
 /* system includes */
 #ifdef VXWORKS
-#include <vxWorks.h>
-#include <taskLib.h>
-#include <hostLib.h>
-#include <timers.h>
-#include <sysLib.h>
+  #include <vxWorks.h>
+  #include <taskLib.h>
+  #include <hostLib.h>
+  #include <timers.h>
+  #include <sysLib.h>
+#else
+  /* for reporting client info to server in keep alive packet */
+  #include <pwd.h>
+  #include <sys/types.h>
+  #ifdef Darwin
+    #include <uuid/uuid.h>
+  #else
+    #include <sys/times.h>
+  #endif
 #endif
 
 #include <stdio.h>
@@ -6745,6 +6754,79 @@ static int sendMonitorInfo(cMsgDomainInfo *domain, int connfd) {
   } /* if there are subscriptions */
 
   cMsgSubscribeReadUnlock(domain);
+
+  /*----------------------------------------------*/
+  /*  Gather some basic data about this process   */
+  /*----------------------------------------------*/
+#ifndef VXWORKS
+{
+    int32_t pid;
+    uid_t uid;
+    struct passwd *pwd;
+    char hostname[30], *login_name;
+    int64_t current_time;
+    float cpuTime;
+    
+    /* get pid */
+    pid = getpid();
+    
+    strcat(xml, indent1);
+    strcat(xml, "<pid>");
+    pchar = xml + strlen(xml);
+    sprintf(pchar, "%d", pid);
+    strcat(xml, "</pid>\n");
+
+    /* get login name*/
+    uid = getuid();
+    pwd = getpwuid(uid);
+    login_name = pwd->pw_name;
+
+    strcat(xml, indent1);
+    strcat(xml, "<userName>");
+    strcat(xml, login_name);
+    strcat(xml, "</userName>\n");
+
+    /* get host name */
+    gethostname(hostname, 30);
+    
+    strcat(xml, indent1);
+    strcat(xml, "<host>");
+    strcat(xml, hostname);
+    strcat(xml, "</host>\n");
+
+    /* current time */
+    current_time = time(NULL);
+    
+    strcat(xml, indent1);
+    strcat(xml, "<time>");
+    pchar = xml + strlen(xml);
+    sprintf(pchar, "%ld", current_time);
+    strcat(xml, "</time>\n");
+
+#ifdef linux
+    {
+        /* append system + user cputime for process and children */
+        long clk_tck;
+        struct tms tbuf;
+        
+        times(&tbuf);
+        clk_tck = sysconf(_SC_CLK_TCK);
+        cpuTime = ((float)(tbuf.tms_utime+tbuf.tms_stime+tbuf.tms_cutime+tbuf.tms_cstime)) /
+                   (float) clk_tck;
+    }
+#else
+    /* system + user cputime for process and children */
+    cpuTime = (float)clock()/(float)CLOCKS_PER_SEC; // in seconds, -1 = error  
+#endif
+
+    strcat(xml, indent1);
+    strcat(xml, "<cpu>");
+    pchar = xml + strlen(xml);
+    sprintf(pchar, "%.4g", cpuTime);
+    strcat(xml, "</cpu>\n");
+}
+#endif
+  /*----------------------------------------------*/
   
   /* total number of bytes to send */
   size = strlen(xml) + sizeof(outInt) - sizeof(int) + sizeof(out64);
