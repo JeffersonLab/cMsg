@@ -803,6 +803,7 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   domain->msgBuffer           = NULL;
   domain->msgBufferSize       = 0;
   
+  domain->userXML             = NULL;
   domain->monitorXML          = (char *)calloc(1,1);
   domain->monitorXMLSize      = 0;
   
@@ -885,8 +886,9 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
   if (domain->description    != NULL) {free(domain->description);    domain->description    = NULL;}
   if (domain->password       != NULL) {free(domain->password);       domain->password       = NULL;}
   if (domain->msgBuffer      != NULL) {free(domain->msgBuffer);      domain->msgBuffer      = NULL;}
+  if (domain->userXML        != NULL) {free(domain->userXML);        domain->userXML        = NULL;}
   if (domain->monitorXML     != NULL) {free(domain->monitorXML);     domain->monitorXML     = NULL;}
-  
+
   cMsgParsedUDLFree(&domain->currentUDL);
 
   if (domain->failovers != NULL) {

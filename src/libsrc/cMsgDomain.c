@@ -3798,11 +3798,17 @@ static int unSendAndGet(cMsgDomainInfo *domain, int id) {
  * This method is a synchronous call to receive a message containing monitoring
  * data which describes the state of the cMsg domain the user is connected to.
  * The time is data was sent can be obtained by calling cMsgGetSenderTime.
- * The monitoring data in xml format can be obtained by calling cMsgGetText.
+ * The monitoring data in xml format can be obtained by calling cMsgGetText.<p>
+ *
+ * This method can also be used to include a user-generated XML fragment in the
+ * monitoring data reported by this client to the server. This fragment is given
+ * in the "command" arg while simultaneously setting the "replyMsg" arg to NULL.
  *
  * @param domainId id of the domain connection
- * @param command string to monitor data collecting routine
- * @param replyMsg message received from the domain containing monitor data
+ * @param command  ignored unless replyMsg arg is NULL in which case it's a
+ *                 string containing user-generated XML fragment in monitoring data
+ * @param replyMsg message received from the domain containing monitoring data;
+ *                 NULL if setting user-generated XML fragment in monitoring data
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is bad
@@ -3812,31 +3818,50 @@ static int unSendAndGet(cMsgDomainInfo *domain, int id) {
  */   
 int cmsg_cmsg_monitor(void *domainId, const char *command, void **replyMsg) {
     
-    int err;
     intptr_t index;
-    cMsgMessage_t *msg;
     cMsgDomainInfo *domain;
       
 
-    msg = (cMsgMessage_t *) cMsgCreateMessage();
-    if (msg == NULL) {
-        return(CMSG_OUT_OF_MEMORY);
-    }
-  
     index = (intptr_t) domainId;
     if (index < 0 || index > CMSG_CONNECT_PTRS_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
     cMsgMemoryMutexLock();
+    
     domain = connectPointers[index];
     if (domain == NULL || domain->disconnectCalled) {
         cMsgMemoryMutexUnlock();
         return(CMSG_BAD_ARGUMENT);
     }
-    /* cMsgSetText only returns error if msg is NULL */
-    cMsgSetText((void *)msg, domain->monitorXML);
-    cMsgMemoryMutexUnlock();
 
-    if (replyMsg != NULL) *replyMsg = (void *)msg;
+    /* If setting user-generated fragment in the client monitoring data */
+    if (replyMsg == NULL) {
+        if (domain->userXML != NULL) free(domain->userXML);
+
+        if (command == NULL) {
+            /* Remove user's XML fragment */
+            domain->userXML = NULL;
+        }
+        else {
+            /* Add user's XML fragment */
+            domain->userXML = strdup(command);
+        }
+    }
+    /* Else receiving msg containing monitoring data */
+    else {
+        cMsgMessage_t *msg = (cMsgMessage_t *) cMsgCreateMessage();
+        if (msg == NULL) {
+            cMsgMemoryMutexUnlock();
+            return(CMSG_OUT_OF_MEMORY);
+        }
+  
+        /* cMsgSetText only returns error if msg is NULL */
+        cMsgSetText((void *)msg, domain->monitorXML);
+
+        /* Return msg */
+        if (replyMsg != NULL) *replyMsg = (void *)msg;
+    }
+    
+    cMsgMemoryMutexUnlock();
 
     return(CMSG_OK);
 }
@@ -6826,7 +6851,16 @@ static int sendMonitorInfo(cMsgDomainInfo *domain, int connfd) {
     strcat(xml, "</cpu>\n");
 }
 #endif
+
+
   /*----------------------------------------------*/
+  /*  Add any user-generated XML data to packet   */
+  /*----------------------------------------------*/
+  if (domain->userXML != NULL) {
+    strcat(xml, domain->userXML);
+  }
+  /*----------------------------------------------*/
+ 
   
   /* total number of bytes to send */
   size = strlen(xml) + sizeof(outInt) - sizeof(int) + sizeof(out64);

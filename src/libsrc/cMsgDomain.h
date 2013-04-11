@@ -267,6 +267,9 @@ typedef struct cMsgDomainInfo_t {
   int  monitorXMLSize;
   /** cMsg system data in XML form from keepalive communications. */
   char *monitorXML;
+  /** User-supplied XML fragment to send to server
+   *  in client data for keepalive communications. */
+  char *userXML;
   
   /** Data from monitoring client connection. */
   monitorData monData;
