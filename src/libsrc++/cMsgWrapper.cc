@@ -2399,4 +2399,25 @@ cMsgMessage *cMsg::monitor(const string &monString) throw(cMsgException) {
 
 
 //-----------------------------------------------------------------------------
+
+
+/**
+ * Sets monitoring string.
+ *
+ * @param monString Monitoring string
+ * @throws cMsgException
+ */
+ void cMsg::setMonitoringString(const string &monString) throw(cMsgException) {
+
+  if(!initialized)throw(cMsgException(cMsgPerror(CMSG_NOT_INITIALIZED),CMSG_NOT_INITIALIZED));
+
+  int stat;
+  if((stat=cMsgMonitor(myDomainId,monString.c_str(),NULL))!=CMSG_OK)
+    throw(cMsgException(cMsgPerror(stat),stat));
+
+  return;
+}
+
+
+//-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------

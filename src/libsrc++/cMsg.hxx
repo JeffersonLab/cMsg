@@ -402,6 +402,7 @@ public:
   virtual void   shutdownClients(const string &client, int flag) throw(cMsgException);
   virtual void   shutdownServers(const string &server, int flag) throw(cMsgException);
   virtual cMsgMessage *monitor(const string &monString)          throw(cMsgException);
+  virtual void setMonitoringString(const string &monString)      throw(cMsgException);
 
 
 private:
