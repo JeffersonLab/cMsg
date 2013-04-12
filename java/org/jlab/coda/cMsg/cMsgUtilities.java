@@ -16,12 +16,14 @@
 
 package org.jlab.coda.cMsg;
 
+import java.net.*;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.ByteChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.util.Enumeration;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * This class stores methods which are neatly self-contained and
@@ -101,6 +103,41 @@ public class cMsgUtilities {
                 ((b[off+5]&0xffL) << 16) |
                 ((b[off+6]&0xffL) <<  8) |
                  (b[off+7]&0xffL));
+    }
+
+
+    /**
+     * Get all local IP addresses in a list in dotted-decimal form.
+     * @return list of all local IP addresses in dotted-decimal form.
+     */
+    public List getAllIpAddresses() {
+        // send list of our IP addresses
+        LinkedList<String> ipList = new LinkedList<String>();
+        try {
+            Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+            while (enumer.hasMoreElements()) {
+                NetworkInterface ni = enumer.nextElement();
+                if (ni.isUp() && !ni.isLoopback()) {
+                    List<InterfaceAddress> inAddrs = ni.getInterfaceAddresses();
+                    for (InterfaceAddress ifAddr : inAddrs) {
+                        InetAddress addr = ifAddr.getAddress();
+
+                        // skip IPv6 addresses (IPv4 addr has 4 bytes)
+                        if (addr.getAddress().length != 4) continue;
+
+                        ipList.add(addr.getHostAddress());
+//System.out.println("RC Server:     ip address to client = " + addr.getHostAddress());
+                    }
+                }
+            }
+        }
+        catch (SocketException e) {
+            e.printStackTrace();
+        }
+        String[] ips = new String[ipList.size()];
+        ipList.toArray(ips);
+
+        return ipList;
     }
 
 
