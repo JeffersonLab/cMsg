@@ -108,11 +108,28 @@ public class cMsgUtilities {
 
     /**
      * Get all local IP addresses in a list in dotted-decimal form.
+     * The first IP address in the list is the one associated with
+     * the canonical host name.
      * @return list of all local IP addresses in dotted-decimal form.
      */
-    public List getAllIpAddresses() {
-        // send list of our IP addresses
+    public static List<String> getAllIpAddresses() {
+        String canonicalIP = null;
+        try {
+            canonicalIP = InetAddress.getByName(InetAddress.getLocalHost().
+                                                getCanonicalHostName()).getHostAddress();
+        }
+        catch (UnknownHostException e) {}
+
+
+        // List of our IP addresses
         LinkedList<String> ipList = new LinkedList<String>();
+
+        // Start with IP addr associated with canonical host name (if any)
+        if (canonicalIP != null) {
+//System.out.println("getAllIpAddresses: canonical IP = " + canonicalIP);
+            ipList.add(canonicalIP);
+        }
+
         try {
             Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
             while (enumer.hasMoreElements()) {
@@ -125,8 +142,11 @@ public class cMsgUtilities {
                         // skip IPv6 addresses (IPv4 addr has 4 bytes)
                         if (addr.getAddress().length != 4) continue;
 
-                        ipList.add(addr.getHostAddress());
-//System.out.println("RC Server:     ip address to client = " + addr.getHostAddress());
+                        String ipAddr = addr.getHostAddress();
+                        if (!ipAddr.equals(canonicalIP)) {
+                            ipList.add(addr.getHostAddress());
+//System.out.println("getAllIpAddresses: ip address = " + ipAddr);
+                        }
                     }
                 }
             }
@@ -134,8 +154,6 @@ public class cMsgUtilities {
         catch (SocketException e) {
             e.printStackTrace();
         }
-        String[] ips = new String[ipList.size()];
-        ipList.toArray(ips);
 
         return ipList;
     }
