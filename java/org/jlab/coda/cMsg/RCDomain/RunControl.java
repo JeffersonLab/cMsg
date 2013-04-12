@@ -513,7 +513,7 @@ public class RunControl extends cMsgDomainAdapter {
      * method of the returned message. This is useful when trying to find the location
      * of a particular AFECS (runcontrol) platform.
      *
-     * @param  command directive for monitoring process (ignored here)
+     * @param  command time in milliseconds to wait for a response to multicasts (1000 default)
      * @return response message containing the host running the rc multicast server contacted
      * @throws cMsgException
      */
