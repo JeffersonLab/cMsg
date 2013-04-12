@@ -416,7 +416,29 @@ public class RunControl extends cMsgDomainAdapter {
             boolean gotTcpConnection = false;
             IOException ioex = null;
 
-            if (rcServerAddresses.size() > 0) {
+            // First try to connect to IP address associated with host name sent by rc server
+            if (rcServerAddress != null) {
+                try {
+//System.out.println("RC connect: Try making tcp connection to RC server (host = " + rcServerAddress.getHostName() + ", " +
+//                    rcServerAddress.getHostAddress() + "; port = " + rcTcpServerPort + ")");
+
+                    tcpSocket = new Socket();
+                    // Don't waste time if a connection cannot be made, timeout = 0.2 seconds
+                    tcpSocket.connect(new InetSocketAddress(rcServerAddress,rcTcpServerPort), 200);
+                    tcpSocket.setTcpNoDelay(true);
+                    tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                    domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
+                                                                              cMsgNetworkConstants.bigBufferSize));
+//System.out.println("RC connect: Made tcp connection to RC server");
+                    gotTcpConnection = true;
+                }
+                catch (IOException e) {
+                    ioex = e;
+                }
+            }
+
+
+            if (!gotTcpConnection && rcServerAddresses.size() > 0) {
                 for (InetAddress rcServerAddr : rcServerAddresses) {
                     try {
 //System.out.println("RC connect: Try making tcp connection to RC server (host = " + rcServerAddr.getHostName() + ", " +
@@ -442,26 +464,6 @@ public class RunControl extends cMsgDomainAdapter {
 //System.out.println("RC connect: try next IP address");
                         ioex = e;
                     }
-                }
-            }
-
-            if (!gotTcpConnection) {
-                try {
-//System.out.println("RC connect: Try making tcp connection to RC server (host = " + rcServerAddress.getHostName() + ", " +
-//                    rcServerAddress.getHostAddress() + "; port = " + rcTcpServerPort + ")");
-
-                    tcpSocket = new Socket();
-                    // don't waste time if a connection cannot be made, timeout = 0.2 seconds
-                    tcpSocket.connect(new InetSocketAddress(rcServerAddress,rcTcpServerPort), 200);
-                    tcpSocket.setTcpNoDelay(true);
-                    tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
-                    domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
-                                                                              cMsgNetworkConstants.bigBufferSize));
-//System.out.println("RC connect: Made tcp connection to RC server");
-                    gotTcpConnection = true;
-                }
-                catch (IOException e) {
-                    ioex = e;
                 }
             }
 
@@ -511,7 +513,7 @@ public class RunControl extends cMsgDomainAdapter {
      * method of the returned message. This is useful when trying to find the location
      * of a particular AFECS (runcontrol) platform.
      *
-     * @param  command directive for monitoring process (ignored here)
+     * @param  command time in milliseconds to wait for a response to multicasts (1000 default)
      * @return response message containing the host running the rc multicast server contacted
      * @throws cMsgException
      */
