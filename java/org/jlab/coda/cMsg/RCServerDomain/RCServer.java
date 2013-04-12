@@ -238,30 +238,8 @@ public class RCServer extends cMsgDomainAdapter {
                 msg.setSenderHost(InetAddress.getByName(InetAddress.getLocalHost().
                                                             getCanonicalHostName()).getHostAddress());
 
-                // send list of our IP addresses
-                LinkedList<String> ipList = new LinkedList<String>();
-                try {
-                    Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
-                    while (enumer.hasMoreElements()) {
-                        NetworkInterface ni = enumer.nextElement();
-                        if (ni.isUp() && !ni.isLoopback()) {
-                            List<InterfaceAddress> inAddrs  = ni.getInterfaceAddresses();
-                            for (InterfaceAddress ifAddr : inAddrs) {
-                                InetAddress addr = ifAddr.getAddress();
-                                byte b[] = addr.getAddress();
-                                // skip IPv6 addresses
-                                if (b.length != 4) continue;
-
-                                ipList.add(addr.getHostAddress());
-//System.out.println("RC Server:     ip address to client = " + addr.getHostAddress());
-                            }
-                        }
-                    }
-
-                }
-                catch (SocketException e) {
-                    e.printStackTrace();
-                }
+                // send list of our IP addresses (starting w/ canonical)
+                List<String> ipList = cMsgUtilities.getAllIpAddresses();
                 String[] ips = new String[ipList.size()];
                 ipList.toArray(ips);
                 cMsgPayloadItem pItem = new cMsgPayloadItem("IpAddresses", ips);
