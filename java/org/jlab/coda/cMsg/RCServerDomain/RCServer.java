@@ -234,7 +234,9 @@ public class RCServer extends cMsgDomainAdapter {
 
                 // Send a special message giving our host & udp port.
                 cMsgMessageFull msg = new cMsgMessageFull();
-                msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
+                //msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
+                msg.setSenderHost(InetAddress.getByName(InetAddress.getLocalHost().
+                                                            getCanonicalHostName()).getHostAddress());
 
                 // send list of our IP addresses
                 LinkedList<String> ipList = new LinkedList<String>();
