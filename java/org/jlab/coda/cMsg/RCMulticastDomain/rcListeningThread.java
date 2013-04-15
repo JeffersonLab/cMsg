@@ -26,10 +26,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
-import java.util.Enumeration;
+import java.util.*;
 
 /**
  * This class implements a thread to listen to runcontrol clients in the
@@ -247,18 +244,21 @@ class rcListeningThread extends Thread {
                 int multicasterTcpPort = cMsgUtilities.bytesToInt(buf, 16); // tcp listening port
                 int nameLen            = cMsgUtilities.bytesToInt(buf, 20); // length of sender's name (# chars)
                 int expidLen           = cMsgUtilities.bytesToInt(buf, 24); // length of expid (# chars)
+                int pos = 28;
 
                 // sender's name
                 String multicasterName = null;
                 try {
-                    multicasterName = new String(buf, 28, nameLen, "US-ASCII");
+                    multicasterName = new String(buf, pos, nameLen, "US-ASCII");
+                    pos += nameLen;
                 }
                 catch (UnsupportedEncodingException e) {}
 
                 // sender's EXPID
                 String multicasterExpid = null;
                 try {
-                    multicasterExpid = new String(buf, 28+nameLen, expidLen, "US-ASCII");
+                    multicasterExpid = new String(buf, pos, expidLen, "US-ASCII");
+                    pos += expidLen;
                 }
                 catch (UnsupportedEncodingException e) {}
 
@@ -300,6 +300,8 @@ class rcListeningThread extends Thread {
                     continue;
                 }
 
+                LinkedList<String> ipList = null;
+
                 // if multicast probe from client ...
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe) {
                     try {
@@ -314,11 +316,27 @@ class rcListeningThread extends Thread {
                 }
                 // if multicast from client ...
                 else if (msgType == cMsgNetworkConstants.rcDomainMulticastClient) {
+                    // Read additional data now sent - list of all IP addrs
+                    // starting with one associated with canonical host name
+                    int listLen = cMsgUtilities.bytesToInt(buf, pos); // # of addrs to follow
+                    pos += 4;
+
+                    int stringLen;
+                    ipList = new LinkedList<String>();
+                    for (int i=0; i < listLen; i++) {
+                        try {
+                            stringLen = cMsgUtilities.bytesToInt(buf, pos); pos += 4;
+                            ipList.add( new String(buf, pos, stringLen, "US-ASCII") );
+                            pos += stringLen;
+                        }
+                        catch (UnsupportedEncodingException e) {/*never happen */}
+                    }
+
                     // Send a reply - some integers, our multicast port, host,
                     // and expid so the client can filter out any rogue responses.
                     // All we want to communicate is that the client was heard and
                     // can now stop multicasting.
-                    // HOWEVER, we cannot send a reply (and have the clients stop muliticasting
+                    // HOWEVER, we cannot send a reply (and have the clients stop multicasting
                     // and looking for the server) and NOT have an active subscription waiting on
                     // this end to process the client's request. So before we accept a client, make
                     // sure we are able to process the connection.
@@ -377,6 +395,17 @@ class rcListeningThread extends Thread {
                 msg.setReceiver(server.getName());
                 msg.setReceiverHost(server.getHost());
                 msg.setReceiverTime(new Date()); // current time
+
+                // Add list of IP addrs for client connections, if any
+                if (ipList != null && ipList.size() > 0) {
+                    try {
+                        String[] ips = new String[ipList.size()];
+                        ipList.toArray(ips);
+                        cMsgPayloadItem pItem = new cMsgPayloadItem("IpAddresses", ips);
+                        msg.addPayloadItem(pItem);
+                    }
+                    catch (cMsgException e) {/* never happen */}
+                }
 
                 // run callbacks for this message
                 runCallbacks(msg);
