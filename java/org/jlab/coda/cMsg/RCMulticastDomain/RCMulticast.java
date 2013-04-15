@@ -642,7 +642,14 @@ public class RCMulticast extends cMsgDomainAdapter {
                         Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
                         while (enumer.hasMoreElements()) {
                             NetworkInterface ni = enumer.nextElement();
+
+//System.out.println("RC Multicast server: found interface " + ni +
+//                           ", up = " + ni.isUp() +
+//                           ", loopback = " + ni.isLoopback() +
+//                           ", has multicast = " + ni.supportsMulticast());
+
                             if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
+//System.out.println("RC Multicast server: sending mcast packet over " + ni.getName());
                                 multicastSocket.setNetworkInterface(ni);
                                 multicastSocket.send(packet);
                             }
