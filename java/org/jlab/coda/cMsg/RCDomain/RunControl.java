@@ -306,8 +306,19 @@ public class RunControl extends cMsgDomainAdapter {
                     out.write(name.getBytes("US-ASCII"));
                     out.write(expid.getBytes("US-ASCII"));
                 }
-                catch (UnsupportedEncodingException e) {
+                catch (UnsupportedEncodingException e) {/* never happen*/}
+
+                // List of our IP addresses (starting w/ canonical)
+                List<String> ipAddrs = cMsgUtilities.getAllIpAddresses();
+                out.writeInt(ipAddrs.size());
+                for (String s : ipAddrs) {
+                    try {
+                        out.writeInt(s.length());
+                        out.write(s.getBytes("US-ASCII"));
+                    }
+                    catch (UnsupportedEncodingException e) {/* never happen*/}
                 }
+
                 out.flush();
                 out.close();
 
@@ -1501,11 +1512,14 @@ public class RunControl extends cMsgDomainAdapter {
                         Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
                         while (enumer.hasMoreElements()) {
                             NetworkInterface ni = enumer.nextElement();
+//System.out.println("RC client: found interface " + ni +
+//                   ", up = " + ni.isUp() +
+//                   ", loopback = " + ni.isLoopback() +
+//                   ", has multicast = " + ni.supportsMulticast());
                             if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
-//System.out.println("RC connect: sending mcast packet over " + ni.getName());
+//System.out.println("RC client: sending mcast packet over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
-                                break;
                             }
                         }
                     }
