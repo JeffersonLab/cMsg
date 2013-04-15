@@ -1505,7 +1505,6 @@ public class RunControl extends cMsgDomainAdapter {
 //System.out.println("RC connect: sending mcast packet over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
-                                break;
                             }
                         }
                     }
