@@ -115,6 +115,10 @@ public class cMsg extends cMsgDomainAdapter {
     /** String containing monitor data received from a cMsg server as a keep alive response. */
     public String monitorXML = "";
 
+    /** User-supplied XML fragment to send to server
+        in client data for keep alive communications. */
+    private String userXML;
+
     /** Time in milliseconds between sending monitor data / keep alives. */
     private final int sleepTime = 2000;
 
@@ -2609,13 +2613,20 @@ System.out.println("disconnect: IO error");
 
 
     /**
-     * {@inheritDoc}
+     * {@inheritDoc}<p>
+     * Any non-null value of the argument is used as an XML fragment
+     * which is appended to the keep alive packet this client sends
+     * to the server. A value of "" will remove it (null is just ignored).
      *
-     * @param  command ignored
+     * @param  command xml fragment appended to the keep alive packet
      * @return {@inheritDoc}
      */
     @Override
     public cMsgMessage monitor(String command) {
+
+        if (command != null) {
+            userXML = command;
+        }
 
         cMsgMessageFull msg = new cMsgMessageFull();
         msg.setText(monitorXML);
@@ -3915,6 +3926,10 @@ System.out.println("\n  333333 Try to allocate " + plen + " bytes for getMonitor
 
                 xml.append(indent1);
                 xml.append("</subscription>\n");
+            }
+
+            if (userXML != null && userXML.length() > 0) {
+                xml.append(userXML);
             }
 
             int size = xml.length() + 4*4 + 8*7;
