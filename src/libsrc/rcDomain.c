@@ -574,7 +574,45 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
     len += nameLen;
     memcpy(buffer+len, (const void *)expid, expidLen);
     len += expidLen;
+
+    /* send our list of presentation (dotted-decimal) IP addrs */
+    {
+        char **ipAddrs = NULL;
+        int  strLen, netOrderInt, addrCount;
         
+        err = codanetGetIpAddrs(&ipAddrs, &addrCount, NULL);
+
+        /* If error getting address data, send nothing */
+        if (err != CMSG_OK) {
+            /* send 0 */
+            *((int32_t *)(buffer + len)) = 0;
+            len += sizeof(int32_t);
+        }
+        else {
+            /* send how many addrs are coming next */
+            netOrderInt = htonl(addrCount);
+            memcpy(buffer+len, (const void *)&netOrderInt, sizeof(int32_t));
+            len += sizeof(int32_t);
+
+            for (i=0; i < addrCount; i++) {
+                /* send len of IP addr */
+                strLen = strlen(ipAddrs[i]);
+                netOrderInt = htonl(strLen);
+                memcpy(buffer+len, (const void *)&netOrderInt, sizeof(int32_t));
+                len += sizeof(int32_t);
+
+                /* send IP addr */
+                memcpy(buffer+len, (const void *)ipAddrs[i], strLen);
+                len += strLen;               
+/*printf("rcClient sending IP addr %s to rc multicast server\n", ipAddrs[i]);*/
+
+                /* free up mem */
+                free(ipAddrs[i]);
+            }
+            free(ipAddrs);
+        }
+    }
+       
     free(serverHost);
     
     /* create and start a thread which will receive any responses to our multicast */
