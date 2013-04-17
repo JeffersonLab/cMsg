@@ -559,7 +559,7 @@ public class RunControl extends cMsgDomainAdapter {
             // multicast on local subnet to find RunControl Multicast server
             //--------------------------------------------------------------
             byte[] buffer;
-            DatagramSocket socket = null;
+            MulticastSocket socket = null;
 
             // create byte array for multicast
             ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
@@ -586,9 +586,10 @@ public class RunControl extends cMsgDomainAdapter {
                 out.close();
 
                 // create socket to receive at anonymous port & all interfaces
-                socket = new DatagramSocket();
+                socket = new MulticastSocket();
                 socket.setReceiveBufferSize(1024);
                 socket.setSoTimeout(sleepTime);
+                socket.setTimeToLive(32);
 
                 // create multicast packet from the byte array
                 buffer = baos.toByteArray();
