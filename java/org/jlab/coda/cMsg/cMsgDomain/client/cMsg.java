@@ -85,7 +85,7 @@ public class cMsg extends cMsgDomainAdapter {
     /** Socket over which to send UDP multicast and receive response packets from server. */
     private MulticastSocket udpSocket;
 
-    /** Socket over which to send messges with UDP. */
+    /** Socket over which to send messages with UDP. */
     private DatagramSocket sendUdpSocket;
 
     /** Packet in which to send messages with UDP. */
