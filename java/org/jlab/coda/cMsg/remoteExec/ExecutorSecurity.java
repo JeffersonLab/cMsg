@@ -26,8 +26,8 @@ import java.security.NoSuchAlgorithmException;
 
 /**
  * This class is used to encrypt passwords which in turn allow
- * users to retrict the ability of Commanders to work with
- * password-enbled Executors. Uses AES (128 bit key) encryption.
+ * users to restrict the ability of Commanders to work with
+ * password-enabled Executors. Uses AES (128 bit key) encryption.
  * Singleton.
  *
  * @author timmer
