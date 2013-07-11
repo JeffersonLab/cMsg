@@ -3812,7 +3812,7 @@ static int unSendAndGet(cMsgDomainInfo *domain, int id) {
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId is bad
- * @returns CMSG_OUT_OF_MEMORY if no memory available
+ * @returns CMSG_OUT_OF_MEMORY if no memory available or command too big (> 8116 bytes)
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSMonitor
  */   
@@ -3842,6 +3842,10 @@ int cmsg_cmsg_monitor(void *domainId, const char *command, void **replyMsg) {
             domain->userXML = NULL;
         }
         else {
+            /* Check to make sure xml fits in limited memory space */
+            if (strlen(command) > 8116) {
+                return(CMSG_OUT_OF_MEMORY);
+            }
             /* Add user's XML fragment */
             domain->userXML = strdup(command);
         }
@@ -6722,7 +6726,8 @@ static int sendMonitorInfo(cMsgDomainInfo *domain, int connfd) {
   char *indent1 = "      ";
   char *indent2 = "        ";
   char buffer[8192], *xml, *pchar;
-  int i, size, tblSize, len=0, num=0, err=CMSG_OK, outInt[5];
+  int i, size, tblSize, len=0, num=0, err=CMSG_OK;
+  int32_t  outInt[5];
   uint64_t out64[7];
   subInfo *sub;
   subscribeCbInfo *cb;
@@ -6890,11 +6895,11 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
   
   /* Respond with monitor data. Normally this is a pthread cancellation point;
    * however, cancellation has been blocked at this point. */
-  if (cMsgNetTcpWrite(connfd, (void *) buffer, len) != len) {
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "sendMonitorInfo: write failure\n");
-    }
-    err = CMSG_NETWORK_ERROR;
+  if ( (err = cMsgNetTcpWrite(connfd, (void *) buffer, len)) != len) {
+      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+          fprintf(stderr, "sendMonitorInfo: write failure, err = %s\n", strerror(errno));
+      }
+      err = CMSG_NETWORK_ERROR;
   }
   
   return err;      
