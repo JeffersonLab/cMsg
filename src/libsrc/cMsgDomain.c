@@ -6896,13 +6896,18 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
   /* Respond with monitor data. Normally this is a pthread cancellation point;
    * however, cancellation has been blocked at this point. */
   if ( (err = cMsgNetTcpWrite(connfd, (void *) buffer, len)) != len) {
-      if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "sendMonitorInfo: write failure, err = %s\n", strerror(errno));
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      if (err < 0) {
+        fprintf(stderr, "sendMonitorInfo: write failure, err = %d (%s)\n", err, strerror(errno));
       }
-      err = CMSG_NETWORK_ERROR;
+      else {
+        fprintf(stderr, "sendMonitorInfo: write failure, partial (%d bytes) monitor data written\n", err);
+      }
+    }
+    return CMSG_NETWORK_ERROR;
   }
   
-  return err;      
+  return CMSG_OK;      
 }
 
 
