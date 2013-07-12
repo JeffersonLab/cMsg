@@ -6726,7 +6726,7 @@ static int sendMonitorInfo(cMsgDomainInfo *domain, int connfd) {
   char *indent1 = "      ";
   char *indent2 = "        ";
   char buffer[8192], *xml, *pchar;
-  int i, size, tblSize, len=0, num=0, err=CMSG_OK;
+  int i, size, tblSize, len=0, num=0, err;
   int32_t  outInt[5];
   uint64_t out64[7];
   subInfo *sub;
