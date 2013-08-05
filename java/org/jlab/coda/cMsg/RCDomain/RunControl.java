@@ -1500,18 +1500,21 @@ System.out.println("RC connect: SUCCESSFUL");
 
 //System.out.println("RC connect: client " + name + ": STARTED multicast sending thread");
             try {
-                /* A slight delay here will help the main thread (calling connect)
-                * to be already waiting for a response from the server when we
-                * multicast to the server here (prompting that response). This
-                * will help insure no responses will be lost.
-                */
+                // A slight delay here will help the main thread (calling connect)
+                // to be already waiting for a response from the server when we
+                // multicast to the server here (prompting that response). This
+                // will help insure no responses will be lost.
                 Thread.sleep(100);
 
                 while (true) {
 
+                    int sleepCount = 0;
+
                     try {
-                        // send a packet over each network interface
+                        // Send a packet over each network interface.
+                        // Place a 1/2 second delay between each.
                         Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+
                         while (enumer.hasMoreElements()) {
                             NetworkInterface ni = enumer.nextElement();
 //System.out.println("RC client: found interface " + ni +
@@ -1522,6 +1525,8 @@ System.out.println("RC connect: SUCCESSFUL");
 //System.out.println("RC client: sending mcast packet over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
+                                Thread.sleep(500);
+                                sleepCount++;
                             }
                         }
                     }
@@ -1529,7 +1534,7 @@ System.out.println("RC connect: SUCCESSFUL");
                         e.printStackTrace();
                     }
 
-                    Thread.sleep(1000);
+                    if (sleepCount < 1) Thread.sleep(1000);
                 }
             }
             catch (InterruptedException e) {
