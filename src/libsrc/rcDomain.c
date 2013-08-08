@@ -1023,8 +1023,9 @@ static void *multicastThd(void *arg) {
     char **ifNames;
     int i, err, useDefaultIf=0, count;
     thdArg *threadArg = (thdArg *) arg;
-    struct timespec wait = {0, 100000000}; /* 0.1 sec */
-    
+    struct timespec  wait = {0, 100000000}; /* 0.1 sec */
+    struct timespec delay = {0, 500000000}; /* 0.5 sec */
+
     /* release resources when done */
     pthread_detach(pthread_self());
     
@@ -1044,6 +1045,7 @@ static void *multicastThd(void *arg) {
     }
 
     while (1) {
+        int sleepCount = 0;
 
         if (useDefaultIf) {
             sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
@@ -1051,9 +1053,9 @@ static void *multicastThd(void *arg) {
         }
         else {
             for (i=0; i < count; i++) {
-//                if (cMsgDebug >= CMSG_DEBUG_INFO) {
+                if (cMsgDebug >= CMSG_DEBUG_INFO) {
                     printf("multicastThd: send mcast on interface %s\n", ifNames[i]);
-//                }
+                }
 
                 /* set socket to send over this interface */
                 err = cMsgNetMcastSetIf(threadArg->sockfd, ifNames[i], 0);
@@ -1062,10 +1064,14 @@ static void *multicastThd(void *arg) {
 /*printf("Send multicast to RC Multicast server\n");*/
                 sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
                        (SA *) threadArg->paddr, threadArg->len);
+
+                /* Wait 1/2 second between multicasting on each interface */
+                nanosleep(&delay, NULL);
+                sleepCount++;
             }
         }
       
-        sleep(1);
+        if (sleepCount < 1) sleep(1);
     }
     
     /* free memory */
