@@ -183,8 +183,9 @@ System.out.println("Join multicast address group of these interfaces:");
         try {
             while (true) {
                 if (killThread) { return; }
+
                 packet.setLength(2048);
-                multicastSocket.receive(packet);
+                multicastSocket.receive(packet);   // blocks
                 if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("     ***** RECEIVED RC DOMAIN MULTICAST PACKET !!!");
                 }
@@ -270,7 +271,7 @@ System.out.println("Unknown command");
                         ", expid = " + multicasterExpid);
                 }
 
-                // Check for conflicting expid's
+                // Check for conflicting expids
                 if (!server.expid.equalsIgnoreCase(multicasterExpid)) {
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println("Conflicting EXPID's, ignoring");
@@ -279,7 +280,7 @@ System.out.println("Unknown command");
                 }
 
                 // Before sending a reply, check to see if we simply got a packet
-                // from ourself when first connecting. Just ignore our own probing
+                // from our self when first connecting. Just ignore our own probing
                 // multicast.
 
                 System.out.println("RC multicast server: accepting Clients = " + server.acceptingClients);
@@ -380,6 +381,7 @@ System.out.println("Send response packet (kill yourself) to server");
 System.out.println("Still starting up but have been probed by starting server. So quit");
                         server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
+                        return;
                     }
                     continue;
                 }
