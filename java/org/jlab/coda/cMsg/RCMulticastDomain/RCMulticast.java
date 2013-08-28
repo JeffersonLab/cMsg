@@ -113,15 +113,15 @@ public class RCMulticast extends cMsgDomainAdapter {
             // send dotted-decimal if possible
             try {
                 host = InetAddress.getLocalHost().getHostAddress();
-System.out.println("RC Multicast server: setting host to " + host);
+//System.out.println("RC Multicast server: setting host to " + host);
             }
             catch (UnknownHostException e) {
                 host = InetAddress.getLocalHost().getCanonicalHostName();
-System.out.println("RC Multicast server: setting host to " + host);
+//System.out.println("RC Multicast server: setting host to " + host);
             }
         }
         catch (UnknownHostException e) {
-System.out.println("RC Multicast server: cannot find localhost name");
+//System.out.println("RC Multicast server: cannot find localhost name");
             throw new cMsgException("cMsg: cannot find host name", e);
         }
 
