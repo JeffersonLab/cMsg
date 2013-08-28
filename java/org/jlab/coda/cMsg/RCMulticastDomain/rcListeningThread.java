@@ -108,11 +108,11 @@ class rcListeningThread extends Thread {
             // Be sure to join the multicast address group of all network interfaces
             // (something not mentioned in any javadocs or books!).
             Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
-System.out.println("Join multicast address group of these interfaces:");
+//System.out.println("Join multicast address group of these interfaces:");
             while (enumer.hasMoreElements()) {
                 NetworkInterface ni = enumer.nextElement();
                 if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
-                    printNI(ni);
+//printNI(ni);
                     multicastSocket.joinGroup(sa, ni);
                 }
             }
@@ -221,26 +221,26 @@ System.out.println("Join multicast address group of these interfaces:");
                 switch (msgType) {
                     // multicasts from rc clients
                     case cMsgNetworkConstants.rcDomainMulticastClient:
-System.out.println("Client wants to connect");
+//System.out.println("Client wants to connect");
                         break;
                     // multicasts from rc servers
                     case cMsgNetworkConstants.rcDomainMulticastServer:
-System.out.println("Server wants to connect");
+//System.out.println("Server wants to connect");
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
-System.out.println("RC multicast server : I was told to kill myself by another multicast server - killing listening thread");
+//System.out.println("RC multicast server : I was told to kill myself by another multicast server - killing listening thread");
                         server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
                         return;
                     // Packet from client just trying to locate rc multicast servers.
                     // Send back a normal response but don't do anything else.
                     case cMsgNetworkConstants.rcDomainMulticastProbe:
-System.out.println("I was probed");
+//System.out.println("I was probed");
                         break;
                     // ignore packets from unknown sources
                     default:
-System.out.println("Unknown command");
+//System.out.println("Unknown command");
                         continue;
                 }
 
@@ -283,12 +283,12 @@ System.out.println("Unknown command");
                 // from our self when first connecting. Just ignore our own probing
                 // multicast.
 
-                System.out.println("RC multicast server: accepting Clients = " + server.acceptingClients);
-                System.out.println("                   : local host = " + InetAddress.getLocalHost().getCanonicalHostName());
-                System.out.println("                   : multicaster's packet's host = " + multicasterHost);
-                System.out.println("                   : multicaster's packet's UDP port = " + multicasterUdpPort);
-                System.out.println("                   : multicaster's packet's TCP port = " + multicasterTcpPort);
-                System.out.println("                   : our port = " + server.localTempPort);
+//                System.out.println("RC multicast server: accepting Clients = " + server.acceptingClients);
+//                System.out.println("                   : local host = " + InetAddress.getLocalHost().getCanonicalHostName());
+//                System.out.println("                   : multicaster's packet's host = " + multicasterHost);
+//                System.out.println("                   : multicaster's packet's UDP port = " + multicasterUdpPort);
+//                System.out.println("                   : multicaster's packet's TCP port = " + multicasterTcpPort);
+//                System.out.println("                   : our port = " + server.localTempPort);
 
                 // Previously the following if() contained the following:
                 //    !server.acceptingClients &&
@@ -299,7 +299,7 @@ System.out.println("Unknown command");
                 //    often different from the host obtained from the multicast packet since it may go
                 //    out a different interface than expected, so exclude that one too.
                 if (multicasterUdpPort == server.localTempPort) {
-System.out.println("RC multicast server : ignore my own udp messages");
+//System.out.println("RC multicast server : ignore my own udp messages");
                     continue;
                 }
 
@@ -309,7 +309,7 @@ System.out.println("RC multicast server : ignore my own udp messages");
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe) {
                     try {
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
-System.out.println("Send response-to-probe packet to client");
+//System.out.println("Send response-to-probe packet to client");
                         multicastSocket.send(sendPacket);
                         continue;
                     }
@@ -344,13 +344,13 @@ System.out.println("Send response-to-probe packet to client");
                     // this end to process the client's request. So before we accept a client, make
                     // sure we are able to process the connection.
                     if (!server.acceptingClients || !server.hasSubscription || !server.isReceiving()) {
-System.out.println("Server is not accepting clients right now, ignore multicast");
+//System.out.println("Server is not accepting clients right now, ignore multicast");
                         continue;
                     }
 
                     try {
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
-System.out.println("Send response packet to client");
+//System.out.println("Send response packet to client");
                         multicastSocket.send(sendPacket);
                     }
                     catch (IOException e) {
@@ -374,18 +374,18 @@ System.out.println("Send response packet to client");
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[2], buf, 8);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainMulticastKillSelf, buf, 12);
                         DatagramPacket pkt = new DatagramPacket(buf, 16, multicasterAddress, server.udpPort);
-System.out.println("Send response packet (kill yourself) to server");
+//System.out.println("Send response packet (kill yourself) to server");
                         multicastSocket.send(pkt);
                     }
                     else {
-System.out.println("Still starting up but have been probed by starting server. So quit");
+//System.out.println("Still starting up but have been probed by starting server. So quit");
                         server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
                         return;
                     }
                     continue;
                 }
-System.out.println("Pass msg on to subscriptions");
+//System.out.println("Pass msg on to subscriptions");
                 if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("Client " + multicasterName + " is now connected");
                 }
