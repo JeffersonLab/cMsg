@@ -890,49 +890,6 @@ public final class cMsgPayloadItem implements Cloneable, Serializable {
         addBigInt(name, big, txt, isSystem, noHeadLen);
     }
 
-    /**
-     * Construct a payload item from an object implementing the Number interface.
-     * The object must be one of either {@link Byte}, {@link Short}, {@link Integer},
-     * {@link Long}, {@link Float}, or {@link Double}. 
-     *
-     * @param name name of item
-     * @param t Number object to be part of the payload
-     * @throws cMsgException if invalid name
-     */
-    public <T extends Number> cMsgPayloadItem(String name, T t) throws cMsgException {
-        if (t == null) throw new cMsgException("cannot add null payload item");
-
-        int typ;
-        String s = t.getClass().getName();
-
-        validName(name, false);
-
-        // casts & "instance of" does not work with generics on naked types (on t), so use getClass()
-
-        if (s.equals("java.lang.Byte")) {
-            typ = cMsgConstants.payloadInt8;
-        }
-        else if (s.equals("java.lang.Short")) {
-            typ = cMsgConstants.payloadInt16;
-        }
-        else if (s.equals("java.lang.Integer")) {
-            typ = cMsgConstants.payloadInt32;            
-        }
-        else if (s.equals("java.lang.Long")) {
-            typ = cMsgConstants.payloadInt64;
-        }
-        else if (s.equals("java.lang.Float")) {
-            typ = cMsgConstants.payloadFlt;
-        }
-        else if (s.equals("java.lang.Double")) {
-            typ = cMsgConstants.payloadDbl;
-        }
-        else {
-            throw new cMsgException("Type T" + s + " not allowed");
-        }
-
-        addNumber(name, t, typ, false);
-    }
 
     //--------------------------
     // Constructors, Ints Arrays
@@ -1167,8 +1124,6 @@ public final class cMsgPayloadItem implements Cloneable, Serializable {
         }
         else if (s.equals("java.lang.Integer")) {
             typ = cMsgConstants.payloadInt32A;
-
-            System.out.println("cMsgPayloadItem constructor: typ = cMsgConstants.payloadInt32A");
         }
         else if (s.equals("java.lang.Long")) {
             typ = cMsgConstants.payloadInt64A;
