@@ -256,7 +256,7 @@ public class cMsgMessage implements Cloneable, Serializable {
     /** List of payload items. BUGBUG why create it here? for clone? */
     transient protected ConcurrentHashMap<String, cMsgPayloadItem> items =
                              new ConcurrentHashMap<String, cMsgPayloadItem>();
-    /** Buffer to help build the text represenation of the payload to send over network. */
+    /** Buffer to help build the text representation of the payload to send over network. */
     transient private StringBuilder buffer = new StringBuilder(512);
     /** String representation of the entire payload (including hidden system payload items). */
     protected String payloadText;
@@ -2073,7 +2073,7 @@ public class cMsgMessage implements Cloneable, Serializable {
     /**
      * This method creates a string representation of the whole compound
      * payload and the hidden system fields (currently fields describing
-     * the history of the message bding sent) of the message and stores
+     * the history of the message being sent) of the message and stores
      * it in the {@link #payloadText} member.
      * This string is used for sending the payload over the network.
      */
