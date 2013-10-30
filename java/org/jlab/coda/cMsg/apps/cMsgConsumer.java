@@ -152,7 +152,7 @@ public class cMsgConsumer {
          *
          * @param msg message received from domain server
          * @param userObject object passed as an argument which was set when the
-         *                   client orginally subscribed to a subject and type of
+         *                   client originally subscribed to a subject and type of
          *                   message.
          */
         public void callback(cMsgMessage msg, Object userObject) {
