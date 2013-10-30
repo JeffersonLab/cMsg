@@ -288,6 +288,8 @@ class rcListeningThread extends Thread {
 //                System.out.println("                   : multicaster's packet's host = " + multicasterHost);
 //                System.out.println("                   : multicaster's packet's UDP port = " + multicasterUdpPort);
 //                System.out.println("                   : multicaster's packet's TCP port = " + multicasterTcpPort);
+//                System.out.println("                   : multicaster's name = " + multicasterName);
+//                System.out.println("                   : multicaster's expid = " + multicasterExpid);
 //                System.out.println("                   : our port = " + server.localTempPort);
 
                 // Previously the following if() contained the following:
@@ -323,13 +325,20 @@ class rcListeningThread extends Thread {
                     // starting with one associated with canonical host name
                     int listLen = cMsgUtilities.bytesToInt(buf, pos); // # of addrs to follow
                     pos += 4;
+//                    System.out.println("   list len = " + listLen);
+//                    System.out.println("   list len = 0x" + Integer.toHexString(listLen));
+//                    System.out.println("   list len swap = 0x" +
+//                            Integer.toHexString(Integer.reverseBytes(listLen)));
 
                     int stringLen;
                     ipList = new LinkedList<String>();
                     for (int i=0; i < listLen; i++) {
                         try {
                             stringLen = cMsgUtilities.bytesToInt(buf, pos); pos += 4;
-                            ipList.add( new String(buf, pos, stringLen, "US-ASCII") );
+//System.out.println("     string len = " + listLen);
+                            String ss = new String(buf, pos, stringLen, "US-ASCII");
+//System.out.println("     string = " + ss);
+                            ipList.add( ss );
                             pos += stringLen;
                         }
                         catch (UnsupportedEncodingException e) {/*never happen */}
