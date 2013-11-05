@@ -2,7 +2,7 @@
 
 <project name="cMsg"  default="compile" basedir=".">
     
-    <!-- enviromental variables -->
+    <!-- environmental variables -->
     <property environment="env"/>
 
     <!-- Version -->
@@ -19,8 +19,7 @@
     <property name="doc.dir"       value="doc/javadoc" />
     <property name="jarName"       value="cMsg-${cMsg.version}.jar" />
     <property name="jarPath"       value="${build.lib}/${jarName}" />
-    <property name="jarLinkName"   value="${build.lib}/cMsg.jar" />
-    
+
     <!-- Set Classpath, ignore caller's classpath -->
     <property name="build.sysclasspath" value="ignore" />
     <path id="classpath">
@@ -123,7 +122,6 @@
           <!-- Dont include Consumer, Producer, and StartET.class files -->
           <fileset dir="${build.classes}" excludes="*.class" />
         </jar>
-        <symlink overwrite="true" link="${jarLinkName}" resource="./${jarName}"/>
      </target>
 
     <!-- Clean, compile, and create jar -->
@@ -131,55 +129,39 @@
 
     <!-- Install Jar file -->
     <target name="install" depends="jar" description="Installs jar file.">
-        <antcall target="-nested-if"/>        
+        <antcall target="-nested-if"/>
     </target>
-    
-        <!-- Look for places to install the jar file (simulated if-then-else constructs) -->
-        <target name="-nested-if">
-            <condition property="prefixDefined">
-                <isset property="prefix"/>
-            </condition>
-            <antcall target="-then"/>
-            <antcall target="-else"/>
-        </target>
-        
-        <target name="-then" if="prefixDefined">
-            <echo>Install ${jarPath} into ${prefix}</echo>
-            <copy file="${jarPath}" todir="${prefix}/jar"/>
-        </target>
-        
-        <target name="-else" unless="prefixDefined">
-            <echo>Prefix is not defined, so look for INSTALL_DIR environmental variable</echo>
-            <condition property="installDirDefined">
-                <isset property="env.INSTALL_DIR"/>
-            </condition>
-            <antcall target="-inner.then"/>
-            <antcall target="-inner.else"/>
-        </target>
-        
-        <target name="-inner.then" if="installDirDefined">
-            <echo>Install ${jarPath} into ${env.INSTALL_DIR}/jar and ${env.INSTALL_DIR}/lib</echo>
-            <copy file="${jarPath}" todir="${env.INSTALL_DIR}/jar"/>
-            <copy file="${jarPath}" todir="${env.INSTALL_DIR}/lib"/>
-        </target>
-        
-        <target name="-inner.else" unless="installDirDefined">
-            <echo>INSTALL_DIR is not defined, so look for CODA_HOME environmental variable</echo>
-            <condition property="codaHomeDefined">
-                <isset property="env.CODA_HOME"/>
-            </condition>
-            <antcall target="-inner.inner.then"/>
-            <antcall target="-inner.inner.else"/>
-        </target>
-        
-            <target name="-inner.inner.then" if="codaHomeDefined">
-                <echo>Install ${jarPath} into ${env.CODA_HOME}/jar and ${env.CODA_HOME}/lib</echo>
-                <copy file="${jarPath}" todir="${env.CODA_HOME}/jar"/>
-                <copy file="${jarPath}" todir="${env.CODA_HOME}/lib"/>
-            </target>
-            
-            <target name="-inner.inner.else" unless="codaHomeDefined">
-                <echo>No install directory given for jarfile</echo>
-            </target>
-    
+
+    <!-- Look for places to install the jar file (simulated if-then-else constructs) -->
+    <target name="-nested-if">
+        <condition property="prefixDefined">
+            <isset property="prefix"/>
+        </condition>
+        <antcall target="-then"/>
+        <antcall target="-else"/>
+    </target>
+
+    <target name="-then" if="prefixDefined">
+        <echo>Install ${jarName} into ${prefix}</echo>
+        <copy file="${jarPath}" todir="${prefix}/jar"/>
+    </target>
+
+    <target name="-else" unless="prefixDefined">
+        <echo>Prefix is not defined, so look for CODA environmental variable</echo>
+        <condition property="installDirDefined">
+            <isset property="env.CODA"/>
+        </condition>
+        <antcall target="-inner.then"/>
+        <antcall target="-inner.else"/>
+    </target>
+
+    <target name="-inner.then" if="installDirDefined">
+        <echo>Install ${jarName} into ${env.CODA}/common/jar</echo>
+        <copy file="${jarPath}" todir="${env.CODA}/common/jar"/>
+    </target>
+
+    <target name="-inner.else" unless="installDirDefined">
+        <fail message="CODA environmental variable not defined, jar NOT installed" />
+    </target>
+
 </project>
