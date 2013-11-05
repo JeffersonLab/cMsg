@@ -24,7 +24,7 @@ os.umask(022)
 
 # Software version
 versionMajor = '3'
-versionMinor = '3'
+versionMinor = '4'
 
 # determine the os and machine names
 uname    = os.uname();
@@ -401,21 +401,16 @@ archDir = '.' + osname + debugSuffix
 # Any user specifed command line installation path overrides default
 if prefix == None:
     # determine install directories since nothing on command line
-    codaDirEnv    = os.getenv('CODA_HOME',"")
-    installDirEnv = os.getenv('INSTALL_DIR', "")
-    if installDirEnv == "":
-        if codaDirEnv == "":
-            if (incdir == None) and (libdir == None):
-                print "Need to define either CODA_HOME or INSTALL_DIR"
-                print "Alternatively, you can use the --prefix option"
-                print "or the combination of --incdir and --libdir"
-                print "options."
-                raise SystemExit
-        else:
-            prefix = codaDirEnv
+    codaDirEnv = os.getenv('CODA',"")
+    if codaDirEnv == "":
+        if (incdir == None) and (libdir == None):
+            print "Need to define CODA"
+            print "Alternatively, you can use the --prefix option"
+            print "or both --incdir and --libdir options."
+            raise SystemExit
     else:
-        prefix = installDirEnv
-    print "Default install directory = ", prefix
+        prefix = codaDirEnv
+        print "Default install directory = ", prefix
 else:
     print 'Cmdline install directory = ', prefix
 
