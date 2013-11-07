@@ -13,12 +13,23 @@
     
     <!-- Directories/Files -->
     <property name="src.dir"       value="java" />
+    <property name="jars.dir"      value="java/jars" />
     <property name="build.dir"     value="build" />
     <property name="build.classes" value="${build.dir}/classes" />
     <property name="build.lib"     value="${build.dir}/lib" />
     <property name="doc.dir"       value="doc/javadoc" />
+    
     <property name="jarName"       value="cMsg-${cMsg.version}.jar" />
     <property name="jarPath"       value="${build.lib}/${jarName}" />
+    
+    <property name="cajJarName"    value="caj-1.1.13.jar" />
+    <property name="etJarName"     value="et-14.0.jar" />
+    <property name="jcaJarName"    value="jca-2.3.6.jar" />
+    <property name="ssJarName"     value="ss.jar" />
+    <property name="cajJarPath"    value="${jars.dir}/${cajJarName}" />
+    <property name="etJarPath"     value="${jars.dir}/${etJarName}" />
+    <property name="jcaJarPath"    value="${jars.dir}/${jcaJarName}" />
+    <property name="ssJarPath"     value="${jars.dir}/${ssJarName}" />
 
     <!-- Set Classpath, ignore caller's classpath -->
     <property name="build.sysclasspath" value="ignore" />
@@ -41,12 +52,16 @@
         <echo message="       compile    - compile java files" />
         <echo message="       clean      - remove class files" />
         <echo message="       cleanall   - remove all generated files" />
-        <echo message="       jar        - compile and create jar file" />
-        <echo message="       install    - create jar file and install into 'prefix'" />
+        <echo message="       jar        - compile and create cmsg jar file" />
+        <echo message="       install    - create cmsg jar file and install all jars into 'prefix'" />
         <echo message="                    if given on command line by -Dprefix=dir'," />
-        <echo message="                    else install into INSTALL_DIR or CODA_HOME" />
-        <echo message="                    if defined (in that order)" />
-        <echo message="       all        - clean, compile and create jar file" />
+        <echo message="                    else install into CODA if defined" />
+        <echo message="                    (ET jar file is not installed)" />
+        <echo message="       uninstall  - remove all jar files previously installed into 'prefix'" />
+        <echo message="                    if given on command line by -Dprefix=dir'," />
+        <echo message="                    else installed into CODA if defined" />
+        <echo message="                    (ET jar file is not removed)" />
+        <echo message="       all        - clean, compile and create cmsg jar file" />
         <echo message="       javadoc    - create javadoc documentation" />
         <echo message="       developdoc - create javadoc documentation for developer" />
         <echo message="       prepare    - create necessary directories" />
@@ -116,6 +131,8 @@
         </javadoc>
     </target>
 
+
+
     <!-- Create Jar file -->
     <target name="jar" depends="compile" description="Generates jar file.">
         <jar jarfile="${jarPath}" manifest="${src.dir}/org/jlab/coda/cMsg/manifest.mf">
@@ -127,12 +144,14 @@
     <!-- Clean, compile, and create jar -->
     <target name="all" depends="clean,jar" description="Cleans, compile, then builds jar file." />
 
-    <!-- Install Jar file -->
-    <target name="install" depends="jar" description="Installs jar file.">
+
+
+    <!-- Install Jar files -->
+    <target name="install" depends="jar" description="Installs jar files.">
         <antcall target="-nested-if"/>
     </target>
 
-    <!-- Look for places to install the jar file (simulated if-then-else constructs) -->
+    <!-- Look for places to install the jar files (simulated if-then-else constructs) -->
     <target name="-nested-if">
         <condition property="prefixDefined">
             <isset property="prefix"/>
@@ -143,7 +162,13 @@
 
     <target name="-then" if="prefixDefined">
         <echo>Install ${jarName} into ${prefix}</echo>
-        <copy file="${jarPath}" todir="${prefix}/jar"/>
+        <echo>Install ${cajJarName} into ${prefix}</echo>
+        <echo>Install ${jcaJarName} into ${prefix}</echo>
+        <echo>Install ${ssJarName} into ${prefix}</echo>
+        <copy file="${jarPath}"    todir="${prefix}/jar"/>
+        <copy file="${cajJarPath}" todir="${prefix}/jar"/>
+        <copy file="${jcaJarPath}" todir="${prefix}/jar"/>
+        <copy file="${ssJarPath}"  todir="${prefix}/jar"/>
     </target>
 
     <target name="-else" unless="prefixDefined">
@@ -157,11 +182,69 @@
 
     <target name="-inner.then" if="installDirDefined">
         <echo>Install ${jarName} into ${env.CODA}/common/jar</echo>
-        <copy file="${jarPath}" todir="${env.CODA}/common/jar"/>
+        <echo>Install ${cajJarName} into ${env.CODA}/common/jar</echo>
+        <echo>Install ${jcaJarName} into ${env.CODA}/common/jar</echo>
+        <echo>Install ${ssJarName} into ${env.CODA}/common/jar</echo>
+        <copy file="${jarPath}"    todir="${env.CODA}/common/jar"/>
+        <copy file="${cajJarPath}" todir="${env.CODA}/common/jar"/>
+        <copy file="${jcaJarPath}" todir="${env.CODA}/common/jar"/>
+        <copy file="${ssJarPath}"  todir="${env.CODA}/common/jar"/>
     </target>
 
     <target name="-inner.else" unless="installDirDefined">
         <fail message="CODA environmental variable not defined, jar NOT installed" />
     </target>
+
+
+
+    <!-- Uninstall Jar files -->
+    <target name="uninstall" description="Uninstalls jar files.">
+        <antcall target="-nested-if2"/>
+    </target>
+
+    <!-- Look for places to uninstall the jar files (simulated if-then-else constructs) -->
+    <target name="-nested-if2">
+        <condition property="prefixDefined">
+            <isset property="prefix"/>
+        </condition>
+        <antcall target="-then2"/>
+        <antcall target="-else2"/>
+    </target>
+
+    <target name="-then2" if="prefixDefined">
+        <echo>Remove ${jarName} from ${prefix}</echo>
+        <echo>Remove ${cajJarName} from ${prefix}</echo>
+        <echo>Remove ${jcaJarName} from ${prefix}</echo>
+        <echo>Remove ${ssJarName} from ${prefix}</echo>
+        <delete file="${prefix}/jar/${jarName}"/>
+        <delete file="${prefix}/jar/${cajJarName}"/>
+        <delete file="${prefix}/jar/${jcaJarName}"/>
+        <delete file="${prefix}/jar/${ssJarName}"/>
+    </target>
+
+    <target name="-else2" unless="prefixDefined">
+        <echo>Prefix is not defined, so look for CODA environmental variable</echo>
+        <condition property="installDirDefined">
+            <isset property="env.CODA"/>
+        </condition>
+        <antcall target="-inner.then2"/>
+        <antcall target="-inner.else2"/>
+    </target>
+
+    <target name="-inner.then2" if="installDirDefined">
+        <echo>Remove ${jarName} from ${env.CODA}/common/jar</echo>
+        <echo>Remove ${cajJarName} from ${env.CODA}/common/jar</echo>
+        <echo>Remove ${jcaJarName} from ${env.CODA}/common/jar</echo>
+        <echo>Remove ${ssJarName} from ${env.CODA}/common/jar</echo>
+        <delete file="${env.CODA}/common/jar/${jarName}"/>
+        <delete file="${env.CODA}/common/jar/${cajJarName}"/>
+        <delete file="${env.CODA}/common/jar/${jcaJarName}"/>
+        <delete file="${env.CODA}/common/jar/${ssJarName}"/>
+    </target>
+
+    <target name="-inner.else2" unless="installDirDefined">
+        <fail message="CODA environmental variable not defined, jar NOT installed" />
+    </target>
+
 
 </project>
