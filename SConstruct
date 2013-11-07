@@ -246,9 +246,6 @@ AddOption('--libdir',
 libdir = GetOption('libdir')
 Help('--libdir=<dir>      copy library files to directory <dir> when doing install\n')
 
-# uninstall option
-Help('-c  install         uninstall libs, headers, examples, and remove all generated files\n')
-
 #########################
 # Compile flags
 #########################
@@ -450,7 +447,10 @@ print 'libDir = ', libDir
 print 'incDir = ', incDir
 
 # use "install" on command line to install libs & headers
-Help('install             install libs, headers, some executables\n')
+Help('install             install libs and headers\n')
+
+# uninstall option
+Help('-c  install         uninstall libs and headers\n')
 
 ###########################
 # Documentation generation
@@ -546,3 +546,6 @@ if 'examples' in COMMAND_LINE_TARGETS:
 
 # use "examples" on command line to install executable examples
 Help('examples            install executable examples\n')
+
+# uninstall option
+Help('-c  examples        uninstall examples\n')
