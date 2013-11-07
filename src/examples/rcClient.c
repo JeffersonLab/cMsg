@@ -95,7 +95,7 @@ int main(int argc,char **argv) {
   *       concluding connect message<p>
   *</ul><p>
   */
-  char *UDL = "cMsg:rc://multicast/testExpid&multicastTO=5&connectTO=5";
+  char *UDL = "cMsg:rc://multicast/emutest&multicastTO=5&connectTO=5";
 
   int   err, debug = 1;
   cMsgSubscribeConfig *config;
