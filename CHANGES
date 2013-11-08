@@ -7,3 +7,12 @@ Changes from the previous version:
 - add user xml fragment to monitoring data
 
 - update jar files for EPICS channel access and ET
+
+- add scons option to remove documentation
+
+- add ant options to:
+    -- remove documentation
+    -- uninstall jar files
+
+- both "scons install" and "ant install" places files into $CODA/...
+  where CODA is an environmental variable
