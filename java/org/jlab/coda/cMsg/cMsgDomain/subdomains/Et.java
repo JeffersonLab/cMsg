@@ -22,6 +22,9 @@ import org.jlab.coda.cMsg.common.cMsgClientInfo;
 import org.jlab.coda.cMsg.common.cMsgMessageFull;
 
 import org.jlab.coda.et.*;
+import org.jlab.coda.et.enums.Mode;
+import org.jlab.coda.et.exception.*;
+
 import java.util.regex.*;
 import java.util.LinkedList;
 import java.lang.*;
@@ -64,19 +67,19 @@ public class Et extends cMsgSubdomainAdapter {
     private int chunkSize = 1;
 
     /** Array of new events from ET system. */
-    private Event[] events;
+    private EtEvent[] events;
 
     /** Events are put back into the ET system one at a time but must be in an array. */
-    private Event[] putEvent = new Event[1];
+    private EtEvent[] putEvent = new EtEvent[1];
 
     /** Number of new events left before we need to call etSystem.newEvents() again. */
     private int eventsLeft = 0;
 
     /** ET system handling object. */
-    private SystemUse etSystem;
+    private EtSystem etSystem;
 
     /** Attachment to GrandCentral station. */
-    private Attachment gcAttachment;
+    private EtAttachment gcAttachment;
 
     /** Are we shut down right now? */
     private boolean shutDown;
@@ -135,7 +138,7 @@ public class Et extends cMsgSubdomainAdapter {
         Matcher matcher = pattern.matcher(udlRemainder);
 
         String s, remainder, mAddr;
-        openMethod = Constants.broadcast;
+        openMethod = EtConstants.broadcast;
 
         if (matcher.find()) {
             // ET system file
@@ -172,7 +175,7 @@ public class Et extends cMsgSubdomainAdapter {
 //System.out.println("chunk size = " + chunk);
         }
         
-        openMethod = Constants.broadcast;
+        openMethod = EtConstants.broadcast;
 
         // look for ?open=value or &open=value
         pattern = Pattern.compile("[\\?&]open=([\\w]+)");
@@ -180,23 +183,23 @@ public class Et extends cMsgSubdomainAdapter {
         if (matcher.find()) {
             s = matcher.group(1);
             if (s.equalsIgnoreCase("direct")) {
-                openMethod = Constants.direct;
+                openMethod = EtConstants.direct;
             }
             else if(s.equalsIgnoreCase("broadcast")) {
-                openMethod = Constants.broadcast;
+                openMethod = EtConstants.broadcast;
             }
             else if(s.equalsIgnoreCase("multicast")) {
-                openMethod = Constants.multicast;
+                openMethod = EtConstants.multicast;
             }
             else if(s.equalsIgnoreCase("broadAndMulticast")) {
-                openMethod = Constants.broadAndMulticast;
+                openMethod = EtConstants.broadAndMulticast;
             }
 //System.out.println("parsed open = " + s);
         }
 
-        serverPort    = Constants.serverPort;
-        broadcastPort = Constants.broadcastPort;
-        multicastPort = Constants.multicastPort;
+        serverPort    = EtConstants.serverPort;
+        broadcastPort = EtConstants.broadcastPort;
+        multicastPort = EtConstants.multicastPort;
 
         // look for ?port=value or &port=value
         pattern = Pattern.compile("[\\?&]port=([0-9]+)");
@@ -206,16 +209,16 @@ public class Et extends cMsgSubdomainAdapter {
             try {
                 port = Integer.parseInt(matcher.group(1));
                 if (port > 1024 && port < 65536) {
-                    if (openMethod == Constants.direct) {
+                    if (openMethod == EtConstants.direct) {
                         serverPort = port;
                     }
-                    else if (openMethod == Constants.broadcast) {
+                    else if (openMethod == EtConstants.broadcast) {
                         broadcastPort = port;
                     }
-                    else if (openMethod == Constants.multicast) {
+                    else if (openMethod == EtConstants.multicast) {
                         multicastPort = port;
                     }
-                    else if (openMethod == Constants.broadAndMulticast) {
+                    else if (openMethod == EtConstants.broadAndMulticast) {
                         broadcastPort = port;
                     }
                 }
@@ -234,8 +237,8 @@ public class Et extends cMsgSubdomainAdapter {
         }
 
         // If we're making a direct connection ...
-        host = Constants.hostAnywhere;
-        if (openMethod == Constants.direct) {
+        host = EtConstants.hostAnywhere;
+        if (openMethod == EtConstants.direct) {
             // look for ?host=value or &host=value
             pattern = Pattern.compile("[\\?&]host=((?:[a-zA-Z]+[\\w\\.\\-]*)|(?:(?:[\\d]{1,3}\\.){3}[\\d]{1,3}))");
             matcher = pattern.matcher(remainder);
@@ -243,12 +246,12 @@ public class Et extends cMsgSubdomainAdapter {
                 host = matcher.group(1);
             }
             else {
-                host = Constants.hostLocal;
+                host = EtConstants.hostLocal;
             }
 //System.out.println("host = " + host);
         }
         // If we're making a multicast connection ...
-        else if (openMethod == Constants.multicast || openMethod == Constants.broadAndMulticast) {
+        else if (openMethod == EtConstants.multicast || openMethod == EtConstants.broadAndMulticast) {
             // look for ?multi=value or &multi=value
             pattern = Pattern.compile("[\\?&]multi=((?:[\\d]{1,3}\\.){3}[\\d]{1,3})");
             matcher = pattern.matcher(remainder);
@@ -272,32 +275,34 @@ public class Et extends cMsgSubdomainAdapter {
         //System.out.println("Registering client");
 
         // open ET system
-        SystemOpenConfig config = null;
+        EtSystemOpenConfig config = null;
 
         // create ET system object
         try {
             // how do we open the ET system?
-            if (openMethod == Constants.direct) {
-                config = new SystemOpenConfig(etFile, host, serverPort);
+            if (openMethod == EtConstants.direct) {
+                config = new EtSystemOpenConfig(etFile, host, serverPort);
             }
-            else if (openMethod == Constants.broadcast) {
-                config = new SystemOpenConfig(etFile, broadcastPort, host);
+            else if (openMethod == EtConstants.broadcast) {
+                config = new EtSystemOpenConfig(etFile, broadcastPort, host);
             }
-            else if (openMethod == Constants.multicast) {
-                config = new SystemOpenConfig(etFile, host, multicastAddrs,
-                                              multicastPort, Constants.multicastTTL);
+            else if (openMethod == EtConstants.multicast) {
+                config = new EtSystemOpenConfig(etFile, host, multicastAddrs,
+                                                multicastPort, EtConstants.multicastTTL);
             }
-            else if (openMethod == Constants.broadAndMulticast) {
-                config = new SystemOpenConfig (etFile, host, true,  multicastAddrs,
-                                               openMethod, 0, broadcastPort, multicastPort,
-                                               Constants.multicastTTL, Constants.policyFirst);
+            else if (openMethod == EtConstants.broadAndMulticast) {
+                // ET system will automatically find subnet addresses
+                config = new EtSystemOpenConfig(etFile, host,
+                                 null, multicastAddrs,
+                                 false, openMethod, 0, broadcastPort, multicastPort,
+                                 EtConstants.multicastTTL, EtConstants.policyFirst);
             }
 
             // open the ET system
-            etSystem = new SystemUse(config, Constants.debugInfo);
+            etSystem = new EtSystem(config, EtConstants.debugInfo);
 
             // get GRAND_CENTRAL station object
-            Station gc = etSystem.stationNameToObject("GRAND_CENTRAL");
+            EtStation gc = etSystem.stationNameToObject("GRAND_CENTRAL");
 
             // attach to grandcentral
             gcAttachment = etSystem.attach(gc);
@@ -320,6 +325,18 @@ public class Et extends cMsgSubdomainAdapter {
             ex.setReturnCode(cMsgConstants.errorLimitExceeded);
             throw ex;
         }
+        catch (EtDeadException e) {
+            e.printStackTrace();
+            cMsgException ex = new cMsgException("ET system dead");
+            ex.setReturnCode(cMsgConstants.errorLostConnection);
+            throw ex;
+        }
+        catch (EtClosedException e) {
+            e.printStackTrace();
+            cMsgException ex = new cMsgException("etSystem object closed");
+            ex.setReturnCode(cMsgConstants.errorLostConnection);
+            throw ex;
+        }
     }
 
 
@@ -339,13 +356,13 @@ public class Et extends cMsgSubdomainAdapter {
                 //System.out.println("Get new events from ET system");
                 int size = (int) etSystem.getEventSize();
                 if (msg.getByteArrayLength() > size) size = msg.getByteArrayLength();
-                events = etSystem.newEvents(gcAttachment, Constants.sleep, 0, chunkSize, size);
+                events = etSystem.newEvents(gcAttachment, Mode.SLEEP, 0, chunkSize, size);
                 eventsLeft = events.length;
             }
 
             int index = events.length - eventsLeft;
             //System.out.println("Put message data into new event[" + index + "] (without copy)");
-            events[index].setData(msg.getByteArray());
+            ((EtEventImpl)events[index]).setData(msg.getByteArray());
             putEvent[0] = events[index];
             eventsLeft--;
 
@@ -368,6 +385,12 @@ public class Et extends cMsgSubdomainAdapter {
             // never happen
         }
         catch (EtWakeUpException e) {
+            //e.printStackTrace();
+        }
+        catch (EtDeadException e) {
+            //e.printStackTrace();
+        }
+        catch (EtClosedException e) {
             //e.printStackTrace();
         }
 
@@ -401,7 +424,7 @@ public class Et extends cMsgSubdomainAdapter {
         //System.out.println("Shutting down client");
         // get rid of unused events
         if (eventsLeft > 0) {
-            Event[] evs = new Event[eventsLeft];
+            EtEvent[] evs = new EtEvent[eventsLeft];
             int index = events.length - eventsLeft;
             try {
                 etSystem.dumpEvents(gcAttachment, evs, index, eventsLeft);
