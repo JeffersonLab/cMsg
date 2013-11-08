@@ -160,6 +160,52 @@ public class cMsgUtilities {
 
 
     /**
+     * Get all local IP broadcast addresses in a list in dotted-decimal form.
+     * This only makes sense for IPv4.
+     * @return list of all local IP broadcast addresses in dotted-decimal form.
+     */
+    public static List<String> getAllBroadcastAddresses() {
+
+        // List of our IP addresses
+        LinkedList<String> ipList = new LinkedList<String>();
+
+        try {
+            Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+            while (enumer.hasMoreElements()) {
+                NetworkInterface ni = enumer.nextElement();
+                if (ni.isUp() && !ni.isLoopback()) {
+                    List<InterfaceAddress> inAddrs = ni.getInterfaceAddresses();
+                    for (InterfaceAddress ifAddr : inAddrs) {
+                        Inet4Address bAddr;
+                        try { bAddr = (Inet4Address)ifAddr.getBroadcast(); }
+                        catch (ClassCastException e) {
+                            // probably IPv6 so ignore
+                            continue;
+                        }
+
+                        String broadcastIP = bAddr.getHostAddress();
+                        ipList.add(broadcastIP);
+                    }
+                }
+            }
+        }
+        catch (SocketException e) {
+            e.printStackTrace();
+        }
+
+        // Try this if nothing else works
+        if (ipList.size() < 1) {
+            ipList.add("255.255.255.255");
+        }
+
+        return ipList;
+    }
+
+
+
+
+
+    /**
       * Determine whether a given host name refers to the local host.
       * @param hostName host name that is checked to see if its local or not
       */
