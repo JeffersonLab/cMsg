@@ -64,6 +64,7 @@
         <echo message="       all        - clean, compile and create cmsg jar file" />
         <echo message="       javadoc    - create javadoc documentation" />
         <echo message="       developdoc - create javadoc documentation for developer" />
+        <echo message="       undoc      - remove all javadoc documentation" />
         <echo message="       prepare    - create necessary directories" />
     </target>
 
@@ -129,6 +130,11 @@
                  use="true" >
             <classpath refid="classpath" />
         </javadoc>
+    </target>
+
+    <!-- Removing Javadoc -->
+    <target name="undoc" description="remove all javadoc.">
+        <delete dir="${doc.dir}" />
     </target>
 
 
