@@ -1,0 +1,9 @@
+Changes from the previous version:
+
+- Bug fixes:
+    -- problem with payload of double type
+    -- put rc domain multicast packets over all network interfaces
+
+- add user xml fragment to monitoring data
+
+- update jar files for EPICS channel access and ET
