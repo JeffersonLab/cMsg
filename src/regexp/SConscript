@@ -1,11 +1,11 @@
 # scons build file for cmsg
 
-Import('env', 'libDir', 'incDir', 'archIncDir', 'debugSuffix')
+Import('env', 'libInstallDir', 'incInstallDir', 'archIncInstallDir', 'debugSuffix')
 import os
 from os import sep
 
 headerList = ['regex.h']
-linkList   = [archIncDir + sep + 'regex.h']
+linkList   = [archIncInstallDir + sep + 'regex.h']
 libFiles   = ['regcomp.c',
               'regerror.c',
               'regexec.c',
@@ -14,10 +14,10 @@ libFiles   = ['regcomp.c',
 env.AppendUnique(CPPPATH = ['.'])
 regexpLib = env.SharedLibrary(target = 'cmsgRegex'+debugSuffix, source = libFiles)
 
-env.Alias("install", env.Install(target = incDir, source = headerList))
-env.Alias("install", env.Install(target = libDir, source = regexpLib))
+env.Alias("install", env.Install(target = incInstallDir, source = headerList))
+env.Alias("install", env.Install(target = libInstallDir, source = regexpLib))
 
 # create symbolic links to installed header files
-if archIncDir != incDir:
+if archIncInstallDir != incInstallDir:
     env.Alias("install", env.CreateSymbolicLinks(target = linkList,
-        source = env.Install(target = incDir, source = headerList)))
+        source = env.Install(target = incInstallDir, source = headerList)))

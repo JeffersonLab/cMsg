@@ -1,5 +1,5 @@
 # scons build file for cmsg
-Import('env', 'binDir', 'archDir', 'execLibs', 'debugSuffix')
+Import('env', 'binInstallDir', 'archDir', 'execLibs', 'debugSuffix')
 
 # list of files to compile (don't compile Channel Access files)
 ccfileList = ['cMsgCommand.cc',
@@ -22,4 +22,4 @@ for fileName in ccfileList:
                                           '#src/libsrc/'+archDir,
                                           '#src/libsrc++/'+archDir],
                                CPPPATH = ['.', '#src/regexp', '#src/libsrc', '#src/libsrc++'])
-    env.Alias('examples', env.Install(target = binDir, source = compiledFile))
+    env.Alias('examples', env.Install(target = binInstallDir, source = compiledFile))

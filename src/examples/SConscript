@@ -1,5 +1,5 @@
 # scons build file for cmsg
-Import('env', 'binDir', 'archDir', 'execLibs', 'debugSuffix')
+Import('env', 'binInstallDir', 'archDir', 'execLibs', 'debugSuffix')
 import re
 
  # lists of all C and C++ files
@@ -25,7 +25,7 @@ for fileName in cfileList:
                                LIBS    = ['cmsgRegex'+debugSuffix, 'cmsg'+debugSuffix] + execLibs,
                                LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
                                CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
-    env.Alias('examples', env.Install(target = binDir, source = compiledFile))
+    env.Alias('examples', env.Install(target = binInstallDir, source = compiledFile))
 
 # If we store all compiled programs in a list and then
 # install the list itself, for some unknown reason the
@@ -42,4 +42,4 @@ for fileName in ccfileList:
                                           '#src/libsrc/'+archDir,
                                           '#src/libsrc++/'+archDir],
                                CPPPATH = ['.', '#src/regexp', '#src/libsrc', '#src/libsrc++'])
-    env.Alias('examples', env.Install(target = binDir, source = compiledFile))
+    env.Alias('examples', env.Install(target = binInstallDir, source = compiledFile))

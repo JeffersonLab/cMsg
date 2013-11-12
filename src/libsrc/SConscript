@@ -1,6 +1,6 @@
 # scons build file for cmsg
     
-Import('env', 'libDir', 'incDir', 'archIncDir', 'debugSuffix')
+Import('env', 'libInstallDir', 'incInstallDir', 'archIncInstallDir', 'debugSuffix')
 import os
 from os import sep
 
@@ -10,11 +10,11 @@ headerList = ['cMsg.h',
               'cMsgNetwork.h',
               'cMsgPrivate.h']
 
-linkList = [archIncDir + sep + 'cMsg.h',
-            archIncDir + sep + 'cMsgConstants.h',
-            archIncDir + sep + 'cMsgDomain.h',
-            archIncDir + sep + 'cMsgNetwork.h',
-            archIncDir + sep + 'cMsgPrivate.h']
+linkList = [archIncInstallDir + sep + 'cMsg.h',
+            archIncInstallDir + sep + 'cMsgConstants.h',
+            archIncInstallDir + sep + 'cMsgDomain.h',
+            archIncInstallDir + sep + 'cMsgNetwork.h',
+            archIncInstallDir + sep + 'cMsgPrivate.h']
 
 
 fileList = ['cMsg.c',
@@ -42,13 +42,13 @@ docList = ['cMsg.h',
 
 env.AppendUnique(CPPPATH = ['.', '#src/regexp'])
 cmsgLib = env.SharedLibrary(target = 'cmsg'+debugSuffix, source = fileList)
-env.Alias("install", env.Install(target = incDir, source = headerList))
-env.Alias("install", env.Install(target = libDir, source = cmsgLib))
+env.Alias("install", env.Install(target = incInstallDir, source = headerList))
+env.Alias("install", env.Install(target = libInstallDir, source = cmsgLib))
 
 # create symbolic links to installed header files
-if archIncDir != incDir:
+if archIncInstallDir != incInstallDir:
     env.Alias("install", env.CreateSymbolicLinks(target = linkList,
-        source = env.Install(target = incDir, source = headerList)))
+        source = env.Install(target = incInstallDir, source = headerList)))
 
 if 'doc' in COMMAND_LINE_TARGETS:
     # generate documentation

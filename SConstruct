@@ -236,7 +236,7 @@ AddOption('--incdir',
            default=None,
            action='store')
 incdir = GetOption('incdir')
-Help('--incdir=<dir>      copy header files to directory <dir> when doing install\n')
+Help('--incdir=<dir>      copy header  files to directory <dir> when doing install\n')
 
 AddOption('--libdir',
            dest='libdir',
@@ -245,6 +245,15 @@ AddOption('--libdir',
            action='store')
 libdir = GetOption('libdir')
 Help('--libdir=<dir>      copy library files to directory <dir> when doing install\n')
+
+AddOption('--bindir',
+          dest='bindir',
+          nargs=1,
+          default=None,
+          action='store')
+bindir = GetOption('bindir')
+Help('--bindir=<dir>      copy binary  files to directory <dir> when doing install\n')
+
 
 #########################
 # Compile flags
@@ -394,57 +403,90 @@ archDir = '.' + osname + debugSuffix
 #########################
 # Install stuff
 #########################
+codaHomeEnv = ''
 
-# Any user specifed command line installation path overrides default
-if prefix == None:
-    # determine install directories since nothing on command line
-    codaDirEnv = os.getenv('CODA',"")
-    if codaDirEnv == "":
-        if (incdir == None) and (libdir == None):
-            print "Need to define CODA"
-            print "Alternatively, you can use the --prefix option"
-            print "or both --incdir and --libdir options."
-            raise SystemExit
+# Are we going to install anything?
+installingStuff = False
+if 'install' in COMMAND_LINE_TARGETS or 'examples' in COMMAND_LINE_TARGETS :
+    installingStuff = True
+
+
+# It's possible no installation is being done
+if not installingStuff:
+    libInstallDir     = "dummy"
+    incInstallDir     = "dummy"
+    binInstallDir     = "dummy"
+    archIncInstallDir = "dummy2"
+
+else:
+    # The installation directory is the user-specified "prefix"
+    # by first choice, "CODA" secondly.
+    # Any user specified command line installation path overrides default
+    if (prefix == None) or (prefix == ''):
+        # prefix not defined try CODA env var
+        codaHomeEnv = os.getenv('CODA',"")
+        if codaHomeEnv == "":
+            if (incdir == None) or (libdir == None) or (bindir == None):
+                print
+                print "Need to define CODA, or use the --prefix option,"
+                print "or all the --incdir, --libdir, and --bindir options."
+                print
+                raise SystemExit
+        else:
+            prefix = codaHomeEnv
+            print "Default install directory = ", prefix
     else:
-        prefix = codaDirEnv
-        print "Default install directory = ", prefix
-else:
-    print 'Cmdline install directory = ', prefix
+        print 'Cmdline install directory = ', prefix
 
-# set our install directories
-if incdir != None:
-    incDir = incdir
-    archIncDir = incdir
-else:
-    archIncDir = prefix + "/" + osname + '/include'
-    incDir = prefix + '/include'
 
-if libdir != None:
-    libDir = libdir
-else:
-    libDir = prefix + "/" + osname + '/lib'
+    # set our install directories
+    if incdir != None:
+        incDir = incdir
+        archIncDir = incdir
+    else:
+        archIncDir = prefix + "/" + osname + '/include'
+        incDir = prefix + '/include'
 
-if prefix != None:
-    binDir = prefix + "/" + osname + '/bin'
-else:
-    binDir = 'bin'
+    if libdir != None:
+        libDir = libdir
+    else:
+        libDir = prefix + "/" + osname + '/lib'
 
-def make_abs_path(d):
-    if not d[0] in [sep,'#','/','.']:
-        if d[1] != ':':
-            d = '#' + d
-    if d[:2] == '.'+sep:
-        d = os.path.join(os.path.abspath('.'), d[2:])
-    return d
+    if bindir != None:
+        binDir = bindir
+    else:
+        binDir = prefix + "/" + osname + '/bin'
 
-incDir = make_abs_path(incDir)
-archIncDir = make_abs_path(archIncDir)
-libDir = make_abs_path(libDir)
-binDir = make_abs_path(binDir)
 
-print 'binDir = ', binDir
-print 'libDir = ', libDir
-print 'incDir = ', incDir
+    # func to determine absolute path
+    def make_abs_path(d):
+        if not d[0] in [sep,'#','/','.']:
+            if d[1] != ':':
+                d = '#' + d
+        if d[:2] == '.'+sep:
+            d = os.path.join(os.path.abspath('.'), d[2:])
+        return d
+
+
+    incInstallDir     = make_abs_path(incDir)
+    archIncInstallDir = make_abs_path(archIncDir)
+    libInstallDir     = make_abs_path(libDir)
+    binInstallDir     = make_abs_path(binDir)
+
+    # print our install directories
+    print 'bin install dir  = ', binInstallDir
+    print 'lib install dir  = ', libInstallDir
+    print 'inc install dirs = ', incInstallDir, ", ", archIncInstallDir
+
+
+#incDir = make_abs_path(incDir)
+#archIncDir = make_abs_path(archIncDir)
+#libDir = make_abs_path(libDir)
+#binDir = make_abs_path(binDir)
+
+#print 'binDir = ', binDir
+#print 'libDir = ', libDir
+#print 'incDir = ', incDir
 
 # use "install" on command line to install libs & headers
 Help('install             install libs and headers\n')
@@ -549,7 +591,7 @@ Help('tar                 create tar file (in ./tar)\n')
 ######################################################
 
 # make available to lower level scons files
-Export('env incDir libDir binDir archIncDir archDir execLibs debugSuffix')
+Export('env incInstallDir libInstallDir binInstallDir archIncInstallDir archDir execLibs debugSuffix')
 
 # run lower level build files
 

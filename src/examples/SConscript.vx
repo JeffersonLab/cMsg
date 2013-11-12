@@ -1,5 +1,5 @@
 # scons build file for cmsg - vxworks
-Import('env', 'binDir')
+Import('env', 'binInstallDir')
 import re
 
 # All vxworks examples start by convention with 'vx'.
@@ -17,4 +17,4 @@ for fileName in fileList:
 for fileName in vxfileList:
     objectFile = env.Object(env.AppendUnique(CPPPATH = ['.', '#src/regexp', '#src/libsrc', '#src/libsrc++']),
                             source  = fileName)
-    env.Alias('examples', env.Install(target = binDir, source = objectFile))
+    env.Alias('examples', env.Install(target = binInstallDir, source = objectFile))
