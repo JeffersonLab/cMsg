@@ -95,6 +95,10 @@ scons --incdir=<dir>  copy header files to directory <dir> when doing install
 scons --libdir=<dir>  copy library files to directory <dir> when doing install
                       (takes precedence over --prefix or default location)
 
+scons --bindir=<dir>  copy executable files to directory <dir> when doing install
+                      (takes precedence over --prefix or default location)
+
+
 
 You can see these options by running "scons -h"
 
