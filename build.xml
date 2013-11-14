@@ -13,10 +13,12 @@
     
     <!-- Directories/Files -->
     <property name="src.dir"       value="java" />
+    <property name="src2.dir"      value="java/org/jlab/coda/cMsg" />
     <property name="jars.dir"      value="java/jars" />
     <property name="build.dir"     value="build" />
     <property name="build.classes" value="${build.dir}/classes" />
     <property name="build.lib"     value="${build.dir}/lib" />
+    <property name="local.jars"    value="java/jars" />
     <property name="doc.dir"       value="doc/javadoc" />
     
     <property name="jarName"       value="cMsg-${cMsg.version}.jar" />
@@ -30,14 +32,6 @@
     <property name="etJarPath"     value="${jars.dir}/${etJarName}" />
     <property name="jcaJarPath"    value="${jars.dir}/${jcaJarName}" />
     <property name="ssJarPath"     value="${jars.dir}/${ssJarName}" />
-
-    <!-- Set Classpath, ignore caller's classpath -->
-    <property name="build.sysclasspath" value="ignore" />
-    <path id="classpath">
-        <fileset dir="java/jars">
-            <include name="**/*.jar" />
-        </fileset>
-    </path>
 
 
     <!-- Targets -->
@@ -80,6 +74,37 @@
         <echo message="    javac.debug   = ${javac.debug}" />
     </target>
 
+
+    <!-- ************************************************************* -->
+    <!-- Set the classpath by checking the CODA environmental variable -->
+    <target name="CODA_test">
+        <condition property="CODA_Defined">
+            <isset property="env.CODA"/>
+        </condition>
+    </target>
+
+    <!-- if $CODA is set, use that for classpath -->
+    <target name="CODA_cp" depends="CODA_test" if="CODA_Defined">
+        <path id="classpath">
+            <fileset dir="${env.CODA}/common/jar" >
+                <include name="*.jar" />
+            </fileset>
+        </path>
+        <echo message="Compile with jars in $CODA/common/jar" />
+    </target>
+
+    <!-- if $CODA is NOT set, use jars provided with this distribution -->
+    <target name="CODA_nocp" depends="CODA_test" unless="CODA_Defined">
+        <path id="classpath">
+            <fileset dir="${local.jars}" >
+                <include name="*.jar" />
+            </fileset>
+        </path>
+        <echo message="Compile with jars in ${local.jars}" />
+    </target>
+    <!-- ************************************************************* -->
+
+
     <!-- Prepare things by creating directories -->
     <target name="prepare">
         <mkdir dir="${build.dir}" />
@@ -101,13 +126,15 @@
     </target>
 
     <!-- Compile all source -->
-    <target name="compile" depends="prepare" description="Compiles all source code.">
+    <target name="compile" depends="prepare,CODA_cp,CODA_nocp" description="Compiles all source code.">
         <javac destdir="${build.classes}" debug="${javac.debug}" >
             <src path="${src.dir}" />
             <classpath refid="classpath" />
         </javac>
     </target>
 
+
+    <!-- ************************************************************* -->
     <!-- Javadoc -->
     <target name="javadoc" description="Create javadoc.">
         <mkdir dir="${doc.dir}" />
@@ -134,9 +161,9 @@
 
     <!-- Removing Javadoc -->
     <target name="undoc" description="remove all javadoc.">
-        <delete dir="${doc.dir}" />
+        <delete dir="${doc.dir}" failonerror="no" />
     </target>
-
+    <!-- ************************************************************* -->
 
 
     <!-- Create Jar file -->
@@ -147,9 +174,9 @@
         </jar>
      </target>
 
+
     <!-- Clean, compile, and create jar -->
     <target name="all" depends="clean,jar" description="Cleans, compile, then builds jar file." />
-
 
 
     <!-- Install Jar files -->
@@ -177,16 +204,13 @@
         <copy file="${ssJarPath}"  todir="${prefix}/jar"/>
     </target>
 
-    <target name="-else" unless="prefixDefined">
+    <target name="-else" depends="CODA_test" unless="prefixDefined">
         <echo>Prefix is not defined, so look for CODA environmental variable</echo>
-        <condition property="installDirDefined">
-            <isset property="env.CODA"/>
-        </condition>
         <antcall target="-inner.then"/>
         <antcall target="-inner.else"/>
     </target>
 
-    <target name="-inner.then" if="installDirDefined">
+    <target name="-inner.then" if="CODA_Defined">
         <echo>Install ${jarName} into ${env.CODA}/common/jar</echo>
         <echo>Install ${cajJarName} into ${env.CODA}/common/jar</echo>
         <echo>Install ${jcaJarName} into ${env.CODA}/common/jar</echo>
@@ -197,7 +221,7 @@
         <copy file="${ssJarPath}"  todir="${env.CODA}/common/jar"/>
     </target>
 
-    <target name="-inner.else" unless="installDirDefined">
+    <target name="-inner.else" unless="CODA_Defined">
         <fail message="CODA environmental variable not defined, jar NOT installed" />
     </target>
 
@@ -228,16 +252,13 @@
         <delete file="${prefix}/jar/${ssJarName}"/>
     </target>
 
-    <target name="-else2" unless="prefixDefined">
+    <target name="-else2" depends="CODA_test" unless="prefixDefined">
         <echo>Prefix is not defined, so look for CODA environmental variable</echo>
-        <condition property="installDirDefined">
-            <isset property="env.CODA"/>
-        </condition>
         <antcall target="-inner.then2"/>
         <antcall target="-inner.else2"/>
     </target>
 
-    <target name="-inner.then2" if="installDirDefined">
+    <target name="-inner.then2" if="CODA_Defined">
         <echo>Remove ${jarName} from ${env.CODA}/common/jar</echo>
         <echo>Remove ${cajJarName} from ${env.CODA}/common/jar</echo>
         <echo>Remove ${jcaJarName} from ${env.CODA}/common/jar</echo>
@@ -248,7 +269,7 @@
         <delete file="${env.CODA}/common/jar/${ssJarName}"/>
     </target>
 
-    <target name="-inner.else2" unless="installDirDefined">
+    <target name="-inner.else2" unless="CODA_Defined">
         <fail message="CODA environmental variable not defined, jar NOT installed" />
     </target>
 
