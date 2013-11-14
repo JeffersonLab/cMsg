@@ -2493,10 +2493,10 @@ int cmsg_rc_shutdownServers(void *domainId, const char *server, int flag) {
  *<li>2) port is optional with a default of {@link RC_MULTICAST_PORT}<p>
  *<li>3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
  *<li>4) multicastTO is the time to wait in seconds before connect returns a
- *       timeout when a rc multicast server does not answer<p>
+ *       timeout when a rc multicast server does not answer. Defaults to no timeout.<p>
  *<li>5) connectTO is the time to wait in seconds before connect returns a
  *       timeout while waiting for the rc server to send a special (tcp)
- *       concluding connect message<p>
+ *       concluding connect message. Defaults to 5 seconds.<p>
  *</ul><p>
  *
  * 
@@ -2732,8 +2732,14 @@ static int parseUDL(const char *UDLR,
                }        
 /*printf("parseUDL: connection timeout = %d\n", t);*/
             }
+            else if (connectTO != NULL) {
+                *connectTO = 5;
+            }
         }
-        
+        else if (connectTO != NULL) {
+            *connectTO = 5;
+        }
+
         /* free up memory */
         cMsgRegfree(&compiled);
         free(val);
