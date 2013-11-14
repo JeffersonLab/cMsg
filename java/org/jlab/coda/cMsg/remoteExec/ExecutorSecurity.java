@@ -108,7 +108,6 @@ public class ExecutorSecurity {
         catch (javax.crypto.BadPaddingException e) { }
         catch (IllegalBlockSizeException e) { }
         catch (UnsupportedEncodingException e) {/*never happen*/}
-        catch (java.io.IOException e) { }
 
         return null;
     }
@@ -132,7 +131,6 @@ public class ExecutorSecurity {
         catch (javax.crypto.BadPaddingException e) { }
         catch (IllegalBlockSizeException e) { }
         catch (UnsupportedEncodingException e) {/*never happen*/}
-        catch (java.io.IOException e) { }
 
         return null;
     }
