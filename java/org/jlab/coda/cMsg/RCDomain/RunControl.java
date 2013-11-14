@@ -64,9 +64,9 @@ public class RunControl extends cMsgDomainAdapter {
 
     /**
      * Timeout in seconds to wait for RC server to finish connection
-     * once RC multicast server responds.
+     * once RC multicast server responds. Defaults to 5 seconds.
      */
-    int connectTimeout;
+    int connectTimeout = 5000;
 
     /** Quit a connection in progress if true. */
     volatile boolean abandonConnection;
@@ -772,10 +772,10 @@ System.out.println("RC connect: SUCCESSFUL");
      *<li>2) port is optional with a default of {@link cMsgNetworkConstants#rcMulticastPort}<p>
      *<li>3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
      *<li>4) multicastTO is the time to wait in seconds before connect returns a
-     *       timeout when a rc multicast server does not answer<p>
+     *       timeout when a rc multicast server does not answer. Defaults to no timeout.<p>
      *<li>5) connectTO is the time to wait in seconds before connect returns a
      *       timeout while waiting for the rc server to send a special (tcp)
-     *       concluding connect message<p>
+     *       concluding connect message. Defaults to 5 seconds.<p>
      *</ul><p>
      *
      * @param udlRemainder partial UDL to parse
