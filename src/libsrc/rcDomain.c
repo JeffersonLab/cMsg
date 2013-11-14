@@ -278,12 +278,12 @@ int cmsg_rc_isConnected(void *domainId, int *connected) {
  * @returns CMSG_ERROR if the EXPID is not defined
  * @returns CMSG_BAD_FORMAT if UDLremainder arg is not in the proper format
  * @returns CMSG_BAD_ARGUMENT if UDLremainder arg is NULL
- * @returns CMSG_ABORT if RC Multicast server aborts connection before rc server
- *                     can complete it
- * @returns CMSG_OUT_OF_RANGE if the port specified in the UDL is out-of-range
+ * @returns CMSG_OUT_OF_RANGE  if the port specified in the UDL is out-of-range
  * @returns CMSG_OUT_OF_MEMORY if out of memory
- * @returns CMSG_TIMEOUT if timed out of wait for either response to multicast or
- *                       for rc server to complete connection
+ * @returns CMSG_ABORT         if RC Multicast server aborts connection before rc server
+ *                             can complete it
+ * @returns CMSG_TIMEOUT       if timed out of wait for response to multicast
+ * @returns CMSG_PEND_ERROR    if timed out of wait for rc server to complete connection
  *
  * @returns CMSG_SOCKET_ERROR if the listening thread finds all the ports it tries
  *                            to listen on are busy, tcp socket to rc server could
@@ -753,7 +753,7 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
-        return(CMSG_TIMEOUT);
+        return(CMSG_PEND_ERROR);
     }
         
     close(domain->sendSocket);
@@ -2493,10 +2493,10 @@ int cmsg_rc_shutdownServers(void *domainId, const char *server, int flag) {
  *<li>2) port is optional with a default of {@link RC_MULTICAST_PORT}<p>
  *<li>3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
  *<li>4) multicastTO is the time to wait in seconds before connect returns a
- *       timeout when a rc multicast server does not answer<p>
+ *       timeout when a rc multicast server does not answer. Defaults to no timeout.<p>
  *<li>5) connectTO is the time to wait in seconds before connect returns a
  *       timeout while waiting for the rc server to send a special (tcp)
- *       concluding connect message<p>
+ *       concluding connect message. Defaults to 5 seconds.<p>
  *</ul><p>
  *
  * 
@@ -2732,6 +2732,12 @@ static int parseUDL(const char *UDLR,
                }        
 /*printf("parseUDL: connection timeout = %d\n", t);*/
             }
+            else if (connectTO != NULL) {
+                *connectTO = 5;
+            }
+        }
+        else if (connectTO != NULL) {
+            *connectTO = 5;
         }
         
         /* free up memory */
