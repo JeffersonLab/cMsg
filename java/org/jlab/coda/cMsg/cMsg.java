@@ -492,7 +492,7 @@ public class cMsg {
             }
         }
 
-        // all options are exhaused, throw error
+        // all options are exhausted, throw error
         if (domainConnectionClass == null) {
             cMsgException ex = new cMsgException("no handler class found");
             ex.setReturnCode(cMsgConstants.errorNoClassFound);
