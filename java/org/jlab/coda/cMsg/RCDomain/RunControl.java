@@ -438,8 +438,8 @@ System.out.println("RC connect: Try making tcp connection to RC server (msg send
                     rcServerAddress.getHostAddress() + "; port = " + rcTcpServerPort + ")");
 
                     tcpSocket = new Socket();
-                    // Don't waste time if a connection cannot be made, timeout = 0.2 seconds
-                    tcpSocket.connect(new InetSocketAddress(rcServerAddress,rcTcpServerPort), 200);
+                    // Don't waste time if a connection cannot be made, timeout = 1 second
+                    tcpSocket.connect(new InetSocketAddress(rcServerAddress,rcTcpServerPort), 1000);
                     tcpSocket.setTcpNoDelay(true);
                     tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
                     domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
@@ -461,8 +461,8 @@ System.out.println("RC connect: Try making tcp connection to RC server (host = "
                    rcServerAddr.getHostAddress() + "; port = " + rcTcpServerPort + ")");
 
                         tcpSocket = new Socket();
-                        // don't waste time if a connection cannot be made, timeout = 0.2 seconds
-                        tcpSocket.connect(new InetSocketAddress(rcServerAddr,rcTcpServerPort), 200);
+                        // don't waste time if a connection cannot be made, timeout = 1 second
+                        tcpSocket.connect(new InetSocketAddress(rcServerAddr,rcTcpServerPort), 1000);
                         tcpSocket.setTcpNoDelay(true);
                         tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
                         domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
