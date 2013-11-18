@@ -71,10 +71,10 @@ public class RunControl extends cMsgDomainAdapter {
     /** Quit a connection in progress if true. */
     volatile boolean abandonConnection;
 
-    /** RunControl server's net addresses obtained from multicast response. */
+    /** RunControl server's net address obtained from multicast response. */
     volatile InetAddress rcServerAddress;
 
-    /** RunControl server's net address obtained from multicast response. */
+    /** RunControl server's net addresses obtained from multicast response. */
     volatile LinkedList<InetAddress> rcServerAddresses = new LinkedList<InetAddress>();
 
     /** RunControl server's UDP listening port obtained from {@link #connect}. */
@@ -431,7 +431,8 @@ public class RunControl extends cMsgDomainAdapter {
             IOException ioex = null;
 
             // First try to connect to IP address associated with host name sent by rc server
-            if (rcServerAddress != null) {
+            //if (rcServerAddress != null) {
+            if (false) {
                 try {
 System.out.println("RC connect: Try making tcp connection to RC server (msg senderHost = " + rcServerAddress.getHostName() + ", " +
                     rcServerAddress.getHostAddress() + "; port = " + rcTcpServerPort + ")");
