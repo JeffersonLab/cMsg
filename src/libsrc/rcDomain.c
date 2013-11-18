@@ -324,8 +324,9 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     hashNode *hashEntries = NULL;
     int hashEntryCount=0, haveHashEntries=0, gotValidRcServerHost=0;
     char *rcServerHost = NULL;
-    struct timeval tv = {0, 300000}; /* 0.3 sec wait for rc Server to respond */
-    
+    /*struct timeval tv = {0, 300000}; *//* 0.3 sec wait for rc Server to respond */
+    struct timeval tv = {1, 0}; /* 1 sec wait for rc Server to respond */
+
     /* clear array */
     memset((void *)buffer, 0, 1024);
     
@@ -769,7 +770,8 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
     haveHashEntries = hashGetAll(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
 
     /* if there are no hash table entries, try old way */
-    if (domain->sendHost != NULL) {
+    /*if (domain->sendHost != NULL) {*/
+    if (0) {
 printf("rc connect: try cMsg msg senderHost field to make tcp connection to RC server = %s\n", domain->sendHost);
         rcServerHost = domain->sendHost;
         if ( (err = cMsgNetTcpConnect(rcServerHost, NULL, (unsigned short) domain->sendPort,
@@ -784,7 +786,7 @@ printf("rc connect: failed to connect to %s\n", rcServerHost);
     if (!gotValidRcServerHost) {
         for (i=0; i < hashEntryCount; i++) {
             rcServerHost = hashEntries[i].key;
-printf("rc connect: from IP list, try making tcp connection to RC server = %s w/ TO = %u sec, %u msec\n",
+printf("rc connect: from IP list, try making tcp connection to RC server = %s w/ TO = %u sec, %u microsec\n",
        rcServerHost, (uint32_t) ((&tv)->tv_sec),(uint32_t) ((&tv)->tv_usec));
             if ((err = cMsgNetTcpConnectTimeout(rcServerHost, (unsigned short) domain->sendPort,
                  CMSG_BIGSOCKBUFSIZE, 0, 1, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
