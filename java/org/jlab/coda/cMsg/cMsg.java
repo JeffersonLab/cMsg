@@ -325,7 +325,8 @@ public class cMsg {
         int i=0;
         StringBuffer finalUDL = new StringBuffer(500);
         for (String s : udlSet) {
-            finalUDL.append("cMsg://");
+            finalUDL.append(domainName);
+            finalUDL.append("://");
             finalUDL.append(s);
             finalUDL.append(";");
             // pick off first udl remainder
