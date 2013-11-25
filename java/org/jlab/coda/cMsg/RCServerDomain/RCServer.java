@@ -41,29 +41,33 @@ import java.io.*;
 public class RCServer extends cMsgDomainAdapter {
 
     /** Runcontrol client's TCP listening port obtained from UDL. */
-    int rcClientPort;
+    private int rcClientPort;
 
     /** Runcontrol client's name returned from the connect message. */
-    String rcClientName;
-
-    /** Runcontrol client's host obtained from UDL. */
-    String rcClientHost;
+    private String rcClientName;
 
     /** UDP port on which to receive messages from the rc client. */
     int localUdpPort;
 
     /** TCP port on which to receive messages from the rc client. */
-    int localTcpPort;
+    private int localTcpPort;
+
+    /** List of client IP addresses. */
+    private ArrayList<String> clientIpList;
+
+    /** Set of client IP addresses sorted so that first addr
+     *  is on same subnet as rc server. */
+    private LinkedHashSet<String> clientIpOrderedSet;
+
+    /** Set of server IP addresses sorted so that first addr
+     *  is on same subnet as rc client. */
+    private LinkedHashSet<String> serverIpOrderedSet;
 
     /** Thread that listens for TCP packets sent to this server. */
-    //rcTcpListeningThread tcpListener;
-    rcListeningThread listenerThread;
-
-    /** Thread that listens for UDP packets sent to this server. */
-//    rcUdpListeningThread udpListener;
+    private rcListeningThread listenerThread;
 
     /** TCP socket over which to send rc commands to runcontrol client. */
-    Socket socket;
+    private Socket socket;
 
     /** Buffered data output stream associated with {@link #socket}. */
     private DataOutputStream out;
@@ -79,22 +83,22 @@ public class RCServer extends cMsgDomainAdapter {
     private final ReentrantReadWriteLock methodLock = new ReentrantReadWriteLock();
 
     /** Lock for calling {@link #connect} or {@link #disconnect}. */
-    Lock connectLock = methodLock.writeLock();
+    private Lock connectLock = methodLock.writeLock();
 
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
-    Lock notConnectLock = methodLock.readLock();
+    private Lock notConnectLock = methodLock.readLock();
 
     /** Lock to ensure that methods using the socket, write in sequence. */
-    Lock socketLock = new ReentrantLock();
+    private Lock socketLock = new ReentrantLock();
 
     /** Lock to ensure
-     * {@link #subscribe(String, String, org.jlab.coda.cMsg.cMsgCallbackInterface, Object)}
-     * and {@link #unsubscribe(org.jlab.coda.cMsg.cMsgSubscriptionHandle)}
+     * {@link #subscribe(String, String, cMsgCallbackInterface, Object)}
+     * and {@link #unsubscribe(cMsgSubscriptionHandle)}
      * calls are sequential. */
-    Lock subscribeLock = new ReentrantLock();
+    private Lock subscribeLock = new ReentrantLock();
 
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
-    AtomicInteger uniqueId;
+    private AtomicInteger uniqueId;
 
     /**
      * Collection of all of this client's message subscriptions which are
@@ -116,17 +120,19 @@ public class RCServer extends cMsgDomainAdapter {
      * calls currently in execution.
      * SubscribeAndGets are very similar to subscriptions and can be thought of as
      * one-shot subscriptions.
-     * Key is receiverSubscribeId object, value is {@link org.jlab.coda.cMsg.common.cMsgSubscription}
+     * Key is receiverSubscribeId object, value is {@link cMsgSubscription}
      * object.
      */
     ConcurrentHashMap<Integer,cMsgSubscription> subscribeAndGets;
 
     /**
-     * Collection of all of this client's {@link #sendAndGet(org.jlab.coda.cMsg.cMsgMessage, int)}
+     * Collection of all of this client's {@link #sendAndGet(cMsgMessage, int)}
      * calls currently in execution.
      * Key is senderToken object, value is {@link cMsgGetHelper} object.
      */
     ConcurrentHashMap<Integer,cMsgGetHelper> sendAndGets;
+
+
 
     /**
      * Returns a string back to the top level API user indicating the name
@@ -174,6 +180,154 @@ public class RCServer extends cMsgDomainAdapter {
 
 
     /**
+     * Set the UDL of the client which may be a semicolon separated
+     * list of (sub)UDLs in this domain. Bad sub UDLs are ignored, but
+     * at least one must be valid.
+     *
+     * @param UDL UDL of client
+     * @throws cMsgException if UDL is null or no valid UDL exists
+     */
+    public void setUDL(String UDL) throws cMsgException {
+        if (UDL == null) {
+            throw new cMsgException("UDL argument is null");
+        }
+
+        this.UDL = UDL;
+
+        // The UDL is a semicolon separated list of UDLs. Separate them.
+        String[] UDLstrings = UDL.split(";");
+
+        if (debug >= cMsgConstants.debugInfo) {
+            for (int i=0; i<UDLstrings.length; i++) {
+                System.out.println("UDL #" + i + " = " + UDLstrings[i]);
+            }
+        }
+
+        // Parse the list of UDLs and store them. Ignore any bad UDLs in the list.
+        clientIpList = new ArrayList<String>(UDLstrings.length);
+
+        for (String udl : UDLstrings) {
+            // Strip off the beginning domain stuff
+            Pattern pattern = Pattern.compile("(cMsg)?:?([\\w\\-]+)://(.*)", Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(udl);
+
+            String udlRemainder;
+
+            if (matcher.matches()) {
+                // udl remainder
+                udlRemainder = matcher.group(3);
+            }
+            else {
+                // Ignore bad udl
+                continue;
+            }
+
+            // Any remaining UDL is analyzed
+            if (udlRemainder == null) {
+                // Ignore bad udl
+                continue;
+            }
+
+            try {
+                // Parse udl remainder to get host, TCP port, UDP port
+                Object[] retObjs = parseUDL(udlRemainder);
+
+                // Set the client TCP port. Pick the first legitimate value.
+                // Should all be the same!
+                int tcpPort = (Integer) retObjs[1];
+                if ((rcClientPort == 0) && (tcpPort > 1023 && tcpPort < 65536)) {
+                     rcClientPort = tcpPort;
+                }
+
+                // Store it
+                clientIpList.add((String)retObjs[0]);
+System.out.println("RCS setUDL(): storing addr = " + retObjs[0] + ", port = " +
+                   retObjs[1]);
+            }
+            catch (UnknownHostException e) { /* ignore bad udl */ }
+        }
+
+        // Do we have anything useful?
+        if (clientIpList.size() < 1) {
+            throw new cMsgException("no valid UDL given");
+        }
+
+        // Create list of addresses with those on the same subnets as this server, first
+        orderIpAddresses();
+    }
+
+
+    /**
+     * Order both the rc server and rc client ip address lists (actually
+     * create new lists) so that the first address on each list is on the
+     * same subnet. This should facilitate communication between the 2
+     * with a minimum of waiting.
+     */
+    private void orderIpAddresses() {
+        // Get all info about the network interfaces on this machine
+        List<InterfaceAddress> ipInfoList = cMsgUtilities.getAllIpInfo();
+
+        // Find a match between the network (subnet) addresses on this
+        // machine and of the client. If they're on
+        // the same subnet, use that for communication.
+
+        InterfaceAddress iAddr;
+        ListIterator<InterfaceAddress> lit = ipInfoList.listIterator();
+        clientIpOrderedSet = new LinkedHashSet<String>();
+        serverIpOrderedSet = new LinkedHashSet<String>();
+
+        // For each local interface address ...
+        while (lit.hasNext()) {
+            iAddr = lit.next();
+            // Get the local network (subnet) address
+            String ipLocalNet = cMsgUtilities.getNetworkAddressString(iAddr.getAddress().getAddress(),
+                                                                      iAddr.getNetworkPrefixLength());
+
+System.out.println("Compare local network = " + ipLocalNet + " :");
+            // For each client dotted-decimal ip address ...
+            ListIterator<String> clit = clientIpList.listIterator();
+            while (clit.hasNext()) {
+                String clientHost = clit.next();
+System.out.println("  with client ip = " + clientHost);
+                // Apply the local network prefix (mask) to get a possible
+                // client network (subnet) address
+                String ipClientNet = cMsgUtilities.getNetworkAddressString(clientHost,
+                                                             iAddr.getNetworkPrefixLength());
+System.out.println("  apply subnet mask of " + ipLocalNet + " (= " +
+                   iAddr.getNetworkPrefixLength() + " bits)");
+System.out.println("  which should have client network = " + ipClientNet);
+                // Compare local and client subnet addresses
+                if (ipLocalNet.equals(ipClientNet)) {
+                    // They're on the same subnet, so place the
+                    // addresses in each set at the same place.
+System.out.println("  on same network");
+                    clientIpOrderedSet.add(clientHost);
+                    serverIpOrderedSet.add(iAddr.getAddress().getHostAddress());
+                }
+                else {
+System.out.println("  NOT on same network");
+                }
+            }
+        }
+
+        // By now, all client addresses on same subnets as this server have been added.
+        // Now add the rest.
+        ListIterator<String> clit = clientIpList.listIterator();
+        while (clit.hasNext()) {
+            clientIpOrderedSet.add(clit.next());
+        }
+
+        // Likewise, all server addresses on same subnets as the client have been added.
+        // Now add the rest.
+        lit = ipInfoList.listIterator();
+        while (lit.hasNext()) {
+            iAddr = lit.next();
+            serverIpOrderedSet.add(iAddr.getAddress().getHostAddress());
+        }
+    }
+
+
+    /**
      * Method to connect to the rc client from this server.
      *
      * @throws cMsgException if there are problems parsing the UDL,
@@ -181,13 +335,6 @@ public class RCServer extends cMsgDomainAdapter {
      *                       or cannot start up a TCP listening thread
      */
     public void connect() throws cMsgException {
-
-        try {
-            parseUDL(UDLremainder);
-        }
-        catch (UnknownHostException e) {
-            e.printStackTrace();
-        }
 
         // cannot run this simultaneously with any other public method
         connectLock.lock();
@@ -198,20 +345,41 @@ public class RCServer extends cMsgDomainAdapter {
             }
 
             try {
-                // Create an object to deliver messages to the RC client.
-//System.out.println("RC server: create connection with RC client (host = " + rcClientHost +
-//", port = " + rcClientPort);
-                createTCPClientConnection(rcClientHost, rcClientPort);
+                // Iterate through client ip addresses
+                String clientHost = null;
+                boolean failed = true;
+                Iterator<String> it = clientIpOrderedSet.iterator();
+                while (it.hasNext()) {
+                    try {
+                        clientHost = it.next();
+
+System.out.println("RC server: try connection with RC client (host = " + clientHost +
+                   ", port = " + rcClientPort);
+                        // Create an object to deliver messages to the RC client.
+                        createTCPClientConnection(clientHost, rcClientPort);
+                        failed = false;
+                        break;
+                    }
+                    catch (IOException e) {
+                        // failure to communicate
+System.out.println("RC server: failed to connect to RC client (host = " + clientHost +
+                                ", port = " + rcClientPort);
+                    }
+                }
+
+                if (failed) {
+                    throw new cMsgException("Failed to create socket to rc client");
+                }
+System.out.println("RC server: connected to RC client!");
 
                 // Start listening for tcp connections if not already
                 if (listenerThread == null) {
                     listenerThread = new rcListeningThread(this);
                     listenerThread.start();
 
-                    // Wait for indication listener threads are actually running before
-                    // continuing on. These thread must be running before we talk to
-                    // the client since the client tries to communicate with these
-                    // listening threads.
+                    // Wait for indication listener thread is actually running before
+                    // continuing on. This thread must be running before we talk to
+                    // the client since the client tries to communicate with it.
                     synchronized (listenerThread) {
                         if (!listenerThread.isAlive()) {
                             try {
@@ -236,16 +404,13 @@ public class RCServer extends cMsgDomainAdapter {
                 cMsgMessageFull msg = new cMsgMessageFull();
                 //msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
                 msg.setSenderHost(InetAddress.getByName(InetAddress.getLocalHost().
-                                                            getCanonicalHostName()).getHostAddress());
+                                                        getCanonicalHostName()).getHostAddress());
 
-                // send list of our IP addresses (starting w/ canonical)
-                List<String> ipList = cMsgUtilities.getAllIpAddresses();
-                String[] ips = new String[ipList.size()];
-                ipList.toArray(ips);
+                // send list of our IP addresses
+                String[] ips = new String[serverIpOrderedSet.size()];
+                serverIpOrderedSet.toArray(ips);
                 cMsgPayloadItem pItem = new cMsgPayloadItem("IpAddresses", ips);
                 msg.addPayloadItem(pItem);
-
-//System.out.println("RC Server:     canonical host name = " + InetAddress.getLocalHost().getCanonicalHostName());
                 msg.setText(localUdpPort+":"+localTcpPort);
                 deliverMessage(msg, cMsgConstants.msgRcConnect);
 
@@ -267,118 +432,11 @@ public class RCServer extends cMsgDomainAdapter {
 
 
     /**
-     * Method to connect to the rc client from this server.
-     *
-     * @throws cMsgException if there are problems parsing the UDL,
-     *                       communication problems with the client,
-     *                       or cannot start up a TCP listening thread
-     */
-    public void connectOrig() throws cMsgException {
-        // these lines are here so it will compile TODO: get rid of it
-        rcTcpListeningThread tcpListener = null;
-        rcUdpListeningThread udpListener = null;
-
-        try {
-            parseUDL(UDLremainder);
-        }
-        catch (UnknownHostException e) {
-            e.printStackTrace();
-        }
-
-        // cannot run this simultaneously with any other public method
-        connectLock.lock();
-
-        try {
-            if (connected) {
-                return;
-            }
-
-            try {
-                // Create an object to deliver messages to the RC client.
-//System.out.println("RC server: create connection with RC client ... ");
-                createTCPClientConnection(rcClientHost, rcClientPort);
-
-                // Start listening for tcp connections if not already
-                if (tcpListener == null) {
-                    tcpListener = new rcTcpListeningThread(this);
-                    tcpListener.start();
-
-                    // Wait for indication listener threads are actually running before
-                    // continuing on. These thread must be running before we talk to
-                    // the client since the client tries to communicate with these
-                    // listening threads.
-                    synchronized (tcpListener) {
-                        if (!tcpListener.isAlive()) {
-                            try {
-                                tcpListener.wait();
-                            }
-                            catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                }
-
-                // Start listening for udp packets if not already
-                if (udpListener == null) {
-                    udpListener = new rcUdpListeningThread(this);
-                    udpListener.start();
-
-                    // Wait for indication listener threads are actually running before
-                    // continuing on. These thread must be running before we talk to
-                    // the client since the client tries to communicate with these
-                    // listening threads.
-                    synchronized (udpListener) {
-                        if (!udpListener.isAlive()) {
-                            try {
-                                udpListener.wait();
-                            }
-                            catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                }
-
-                // Get the port selected for listening on
-                localTcpPort = tcpListener.getPort();
-
-                // Get the port selected for communicating on
-                localUdpPort = udpListener.getPort();
-
-                // Send a special message giving our host & udp port.
-                cMsgMessageFull msg = new cMsgMessageFull();
-                msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
-                msg.setText(localUdpPort+":"+localTcpPort);
-                deliverMessage(msg, cMsgConstants.msgRcConnect);
-
-                connected = true;
-            }
-            catch (IOException e) {
-                if (tcpListener != null) tcpListener.killThread();
-                if (udpListener != null) udpListener.killThread();
-                throw new cMsgException("cannot connect, IO error", e);
-            }
-
-        }
-        finally {
-            connectLock.unlock();
-        }
-
-        return;
-    }
-
-
-    /**
      * This method results in this object
      * becoming functionally useless.
      */
     public void close() {
         disconnect();
-//        if (udpListener != null) {
-//            udpListener.killThread();
-//            udpListener = null;
-//        }
         if (listenerThread != null) {
             listenerThread.killThread();
             listenerThread = null;
@@ -397,9 +455,6 @@ public class RCServer extends cMsgDomainAdapter {
         try {
             if (!connected) return;
             connected = false;
-
-            //udpListener.killThread();
-            //tcpListener.killThread();
 
             if (in != null)     try {in.close();}     catch (IOException e) {}
             if (out != null)    try {out.close();}    catch (IOException e) {}
@@ -449,22 +504,21 @@ public class RCServer extends cMsgDomainAdapter {
     /**
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      * RC Server domain UDL is of the form:<p>
-     *       cMsg:rcs://&lt;host&gt;:&lt;tcpPort&gt;/?port=&lt;udpPort&gt;<p>
+     *       cMsg:rcs://&lt;host&gt;:&lt;tcpPort&gt;<p>
      *
-     * The intial cMsg:rcs:// is stripped off by the top layer API
+     * The initial cMsg:rcs:// is stripped off by the top layer API
      *
      * Remember that for this domain:<p>
      * <ul>
      * <li>host is NOT optional, may be in dotted form (129.57.35.21) or "localhost"<p>
      * <li>tcp port is optional and defaults to cMsgNetworkConstants.rcClientPort<p>
-     * <li>the udp port to listen on may be given by the optional port parameter.
-     *     if it's not given, the system assigns one<p>
      * </ul>
      *
      * @param udlRemainder partial UDL to parse
+     * @return array of Objects: 1) host (String), 2) tcp port (Integer)
      * @throws cMsgException if udlRemainder is null
      */
-    private void parseUDL(String udlRemainder) throws cMsgException, UnknownHostException {
+    private Object[] parseUDL(String udlRemainder) throws cMsgException, UnknownHostException {
 
         if (udlRemainder == null) {
             throw new cMsgException("invalid UDL");
@@ -473,21 +527,19 @@ public class RCServer extends cMsgDomainAdapter {
         Pattern pattern = Pattern.compile("([^:/]+):?(\\d+)?/?(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
-        String udlHost, udlPort, remainder;
+        String udlHost, udlPort, clientHost=null;
+        int clientPort=0;
 
         if (matcher.find()) {
             // host
             udlHost = matcher.group(1);
             // port
             udlPort = matcher.group(2);
-            // remainder
-            remainder = matcher.group(3);
 
            if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("\nparseUDL: " +
                                    "\n  host = " + udlHost +
-                                   "\n  port = " + udlPort +
-                                   "\n  junk = " + remainder);
+                                   "\n  port = " + udlPort);
            }
         }
         else {
@@ -496,62 +548,41 @@ public class RCServer extends cMsgDomainAdapter {
 
         // if the host is "localhost", find the actual, fully qualified  host name
         if (udlHost.equalsIgnoreCase("localhost")) {
-            rcClientHost = InetAddress.getLocalHost().getCanonicalHostName();
+            clientHost = InetAddress.getByName(InetAddress.getLocalHost().
+                                               getCanonicalHostName()).getHostAddress();
             if (debug >= cMsgConstants.debugWarn) {
                 System.out.println("parseUDL: rctcp client host given as \"localhost\", substituting " +
                                    udlHost);
             }
         }
         else {
-            rcClientHost = InetAddress.getByName(udlHost).getCanonicalHostName();
+            clientHost = udlHost;
         }
 
         // get runcontrol client port or guess if it's not given
         if (udlPort != null && udlPort.length() > 0) {
             try {
-                rcClientPort = Integer.parseInt(udlPort);
+                clientPort = Integer.parseInt(udlPort);
             }
             catch (NumberFormatException e) {
-                rcClientPort = cMsgNetworkConstants.rcClientPort;
+                clientPort = cMsgNetworkConstants.rcClientPort;
                 if (debug >= cMsgConstants.debugWarn) {
                     System.out.println("parseUDL: non-integer port, guessing codaComponent port is " + rcClientPort);
                 }
             }
         }
         else {
-            rcClientPort = cMsgNetworkConstants.rcClientPort;
+            clientPort = cMsgNetworkConstants.rcClientPort;
             if (debug >= cMsgConstants.debugWarn) {
                 System.out.println("parseUDL: guessing codaComponent port is " + rcClientPort);
             }
         }
 
-        if (rcClientPort < 1024 || rcClientPort > 65535) {
+        if (clientPort < 1024 || clientPort > 65535) {
             throw new cMsgException("parseUDL: illegal port number");
         }
 
-        // any remaining UDL is ...
-        if (remainder == null) {
-            UDLremainder = "";
-        }
-        else {
-            UDLremainder = remainder;
-        }
-
-        // Find our udp port in UDL if it exists ...
-        if (remainder != null) {
-            // now look for ?port=value& or &port=value&
-            pattern = Pattern.compile("[\\?&]port=([0-9]+)", Pattern.CASE_INSENSITIVE);
-            matcher = pattern.matcher(remainder);
-            if (matcher.find()) {
-                try {
-                    localUdpPort = Integer.parseInt(matcher.group(1));
-//System.out.println("parseUDL: local udp port = " + localUdpPort);
-                }
-                catch (NumberFormatException e) {
-                    // ignore error and keep value of 0
-                }
-            }
-        }
+        return new Object[] {clientHost, clientPort};
     }
 
 
@@ -567,7 +598,7 @@ public class RCServer extends cMsgDomainAdapter {
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
-        // protect communicatons over socket for thread safety
+        // protect communications over socket for thread safety
         socketLock.lock();
 
         try {
