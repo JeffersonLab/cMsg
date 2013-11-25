@@ -21,9 +21,9 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.ByteChannel;
 import java.nio.ByteBuffer;
 import java.io.IOException;
-import java.util.Enumeration;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * This class stores methods which are neatly self-contained and
@@ -112,23 +112,21 @@ public class cMsgUtilities {
      * the canonical host name.
      * @return list of all local IP addresses in dotted-decimal form.
      */
-    public static List<String> getAllIpAddresses() {
-        String canonicalIP = null;
+    public static Collection<String> getAllIpAddresses() {
+        // Set of our IP addresses in order
+        LinkedHashSet<String> set = new LinkedHashSet<String>();
+
         try {
-            canonicalIP = InetAddress.getByName(InetAddress.getLocalHost().
+            // Start with IP addr associated with canonical host name (if any)
+            String canonicalIP = InetAddress.getByName(InetAddress.getLocalHost().
                                                 getCanonicalHostName()).getHostAddress();
+
+            if (canonicalIP != null) {
+//System.out.println("getAllIpAddresses: add canonical IP = " + canonicalIP);
+                set.add(canonicalIP);
+            }
         }
         catch (UnknownHostException e) {}
-
-
-        // List of our IP addresses
-        LinkedList<String> ipList = new LinkedList<String>();
-
-        // Start with IP addr associated with canonical host name (if any)
-        if (canonicalIP != null) {
-//System.out.println("getAllIpAddresses: canonical IP = " + canonicalIP);
-            ipList.add(canonicalIP);
-        }
 
         try {
             Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
@@ -142,11 +140,8 @@ public class cMsgUtilities {
                         // skip IPv6 addresses (IPv4 addr has 4 bytes)
                         if (addr.getAddress().length != 4) continue;
 
-                        String ipAddr = addr.getHostAddress();
-                        if (!ipAddr.equals(canonicalIP)) {
-                            ipList.add(addr.getHostAddress());
-//System.out.println("getAllIpAddresses: ip address = " + ipAddr);
-                        }
+                        set.add(addr.getHostAddress());
+//System.out.println("getAllIpAddresses: add ip address = " + addr.getHostAddress());
                     }
                 }
             }
@@ -155,7 +150,7 @@ public class cMsgUtilities {
             e.printStackTrace();
         }
 
-        return ipList;
+        return set;
     }
 
 
@@ -164,10 +159,10 @@ public class cMsgUtilities {
      * This only makes sense for IPv4.
      * @return list of all local IP broadcast addresses in dotted-decimal form.
      */
-    public static List<String> getAllBroadcastAddresses() {
+    public static Collection<String> getAllBroadcastAddresses() {
 
-        // List of our IP addresses
-        LinkedList<String> ipList = new LinkedList<String>();
+        // Set of our IP addresses
+        LinkedHashSet<String> set = new LinkedHashSet<String>();
 
         try {
             Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
@@ -183,8 +178,7 @@ public class cMsgUtilities {
                             continue;
                         }
 
-                        String broadcastIP = bAddr.getHostAddress();
-                        ipList.add(broadcastIP);
+                        set.add(bAddr.getHostAddress());
                     }
                 }
             }
@@ -194,15 +188,163 @@ public class cMsgUtilities {
         }
 
         // Try this if nothing else works
-        if (ipList.size() < 1) {
-            ipList.add("255.255.255.255");
+        if (set.size() < 1) {
+            set.add("255.255.255.255");
+        }
+
+        return set;
+    }
+
+
+
+    /**
+     * Get all local IP addresses, broadcast addresses and subnet masks in a
+     * single list of InterfaceAddress objects. This only returns IPv4 info
+     * from interfaces which are up and are NOT the loopback.
+     *
+     * @return lists of all InterfaceAddress objects which are up and not loopback.
+     */
+    public static List<InterfaceAddress> getAllIpInfo() {
+
+        // List of our IP addresses
+        LinkedList<InterfaceAddress> ipList = new LinkedList<InterfaceAddress>();
+
+        try {
+            Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+
+            while (enumer.hasMoreElements()) {
+                NetworkInterface ni = enumer.nextElement();
+
+                if (ni.isUp() && !ni.isLoopback()) {
+                    List<InterfaceAddress> inAddrs = ni.getInterfaceAddresses();
+
+                    for (InterfaceAddress ifAddr : inAddrs) {
+                        // Regular IP address
+                        InetAddress addr = ifAddr.getAddress();
+                        // Skip IPv6 addresses (IPv4 addr has 4 bytes)
+                        if (addr.getAddress().length != 4) continue;
+                        ipList.add(ifAddr);
+                    }
+                }
+            }
+        }
+        catch (SocketException e) {
+            e.printStackTrace();
         }
 
         return ipList;
     }
 
 
+    /**
+     * Get the network or subnet address (32-bit integer format)
+     * of the given IP address (byte array format)
+     * for the given netmask (# of bits format).
+     *
+     * @param addr IP address (byte array format)
+     * @param netPrefixLen netmask (# of bits format)
+     * @return network or subnet address (32-bit integer format);
+     *         -1 if bad arg(s)
+     */
+    public static int getNetworkAddressInt(byte[] addr, short netPrefixLen) {
+        if (addr == null || netPrefixLen < 0 || netPrefixLen > 32) return -1;
 
+        // Convert 4 byte addr (network byte order) into 32 bit int
+        int intAddr = 0;
+        for (int i = 0; i < 4; ++i) {
+            intAddr |= ((addr[i] & 0xff) << 8*(3-i));
+        }
+
+        // Turn net prefix len into integer mask
+        int intNetMask = 0;
+        for (int j = 0; j < netPrefixLen; ++j) {
+            intNetMask |= (1 << 31-j);
+        }
+
+        // Find network (subnet) address as int
+        return (intAddr & intNetMask);
+    }
+
+
+    /**
+     * Get the network or subnet address as a dotted-decimal string
+     * of the given IP address (byte array format)
+     * for the given netmask (# of bits format).
+     *
+     * @param addr IP address (byte array format)
+     * @param netPrefixLen netmask (# of bits format)
+     * @return network or subnet address (dotted-decimal string format);
+     *         null if bad arg(s)
+     */
+    public static String getNetworkAddressString(byte[] addr, short netPrefixLen) {
+        if (addr == null || netPrefixLen < 0 || netPrefixLen > 32) return null;
+
+        // Find network (subnet) address as int
+        int network = getNetworkAddressInt(addr, netPrefixLen);
+
+        // Turn network int into 4 bytes of network byte order
+        // (highest order byte = ret[0]).
+        byte ret[] = new byte[4];
+        for (int j = 3; j >= 0; --j) {
+            ret[j] |= (network >>> 8*(3-j));
+        }
+
+        // Convert 4 byte array into dotted-decimal format
+        StringBuilder strBuilder = new StringBuilder();
+        for (int i = 0; i < ret.length; ++i) {
+            int bite = ((int) ret[i]) & 0xff;
+            strBuilder.append(bite);
+            if (i != ret.length - 1) {
+                strBuilder.append(".");
+            }
+        }
+
+        return strBuilder.toString();
+    }
+
+
+    /**
+     * Get the network or subnet address as a dotted-decimal string
+     * of the given IP address (dotted-decimal string format)
+     * for the given netmask (# of bits format).
+     *
+     * @param hostDottedDecimal IP address (dotted-decimal string format)
+     * @param netPrefixLen netmask (# of bits format)
+     * @return network or subnet address (dotted-decimal string format);
+     *         null if bad arg(s)
+     */
+    public static String getNetworkAddressString(String hostDottedDecimal, short netPrefixLen) {
+
+        if (hostDottedDecimal == null || netPrefixLen < 0 || netPrefixLen > 32) return null;
+
+        String IP_ADDRESS = "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})";
+        Pattern pattern = Pattern.compile(IP_ADDRESS);
+        Matcher matcher = pattern.matcher(hostDottedDecimal);
+//System.out.println("getNetworkAddressString: host arg = " + hostDottedDecimal);
+        if (!matcher.matches()) return null;
+
+        try {
+            int[] hostInts = new int[4];
+            for (int i = 1; i <= 4; ++i) {
+// System.out.println("   group(" + i + ") = " + matcher.group(i));
+                hostInts[i-1] = Integer.parseInt(matcher.group(i));
+                if (hostInts[i-1] > 255) return null;
+            }
+
+            // Change ints to bytes
+            byte[] hostBytes = new byte[4];
+            hostBytes[0] = (byte) hostInts[0];
+            hostBytes[1] = (byte) hostInts[1];
+            hostBytes[2] = (byte) hostInts[2];
+            hostBytes[3] = (byte) hostInts[3];
+
+            return getNetworkAddressString(hostBytes, netPrefixLen);
+        }
+        catch (IndexOutOfBoundsException e) {}
+        catch (NumberFormatException e) {}
+
+        return null;
+    }
 
 
     /**
