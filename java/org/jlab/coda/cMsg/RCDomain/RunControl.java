@@ -309,7 +309,7 @@ public class RunControl extends cMsgDomainAdapter {
                 catch (UnsupportedEncodingException e) {/* never happen*/}
 
                 // List of our IP addresses (starting w/ canonical)
-                List<String> ipAddrs = cMsgUtilities.getAllIpAddresses();
+                Collection<String> ipAddrs = cMsgUtilities.getAllIpAddresses();
                 out.writeInt(ipAddrs.size());
 //System.out.println("RC connect to rcm server: ip list size = " + ipAddrs.size());
                 for (String s : ipAddrs) {
