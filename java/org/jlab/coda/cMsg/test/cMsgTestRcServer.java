@@ -16,11 +16,7 @@
 
 package org.jlab.coda.cMsg.test;
 
-import org.jlab.coda.cMsg.cMsg;
-import org.jlab.coda.cMsg.cMsgCallbackAdapter;
-import org.jlab.coda.cMsg.cMsgMessage;
-import org.jlab.coda.cMsg.cMsgException;
-import org.jlab.coda.cMsg.cMsgSubscriptionHandle;
+import org.jlab.coda.cMsg.*;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
@@ -37,6 +33,7 @@ public class cMsgTestRcServer {
     private int count;
     private boolean debug;
     private String UDL;
+    private String rcsUDL;
 
 
     class MulticastCallback extends cMsgCallbackAdapter {
@@ -46,8 +43,31 @@ public class cMsgTestRcServer {
 
              System.out.println("Running RC Multicast domain callback, host = " + rcClientHost +
                                 ", port = " + rcClientTcpPort +
-                                ", name = " + msg.getSender() +
-                                ", over IP address = " + msg.getText());
+                                ", name = " + msg.getSender());
+
+             // Use the ip addresses and port that the client sends over to
+             // create the UDL we need for the rc server.
+             cMsgPayloadItem item = msg.getPayloadItem("IpAddresses");
+             if (item != null) {
+                 try {
+                     String[] addrs = item.getStringArray();
+                     StringBuilder builder = new StringBuilder(512);
+                     for (int i=0; i < addrs.length; i++) {
+                         builder.append("rcs://");
+                         builder.append(addrs[i]);
+                         builder.append(":");
+                         builder.append(rcClientTcpPort);
+                         if (i < addrs.length - 1) builder.append(";");
+                     }
+
+                     rcsUDL = builder.toString();
+                 }
+                 catch (cMsgException e) {
+                 }
+             }
+             else {
+                 rcsUDL = "rcs://" + rcClientHost + ":" + rcClientTcpPort;
+             }
 
              // finish connection
              latch.countDown();
@@ -182,12 +202,11 @@ public class cMsgTestRcServer {
 
         // Now that we have a message, we know what TCP host and port
         // to connect to in the RC Server domain.
-        System.out.println("Starting RC Server Domain test server");
+        System.out.println("Starting RC Server Domain test server with UDL: ");
+        System.out.println("    " + rcsUDL);
 
         //try {Thread.sleep(4000);}
         //catch (InterruptedException e) {}
-
-        String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort;
 
         // Connect to the RC client that just connected with our RC multicast server,
         // and thereby conclude the client's complicated connection process.
