@@ -55,12 +55,8 @@ public class RCServer extends cMsgDomainAdapter {
     /** TCP port on which to receive messages from the rc client. */
     int localTcpPort;
 
-    /** Thread that listens for TCP packets sent to this server. */
-    //rcTcpListeningThread tcpListener;
+    /** Thread that listens for TCP & UDP packets sent to this server. */
     rcListeningThread listenerThread;
-
-    /** Thread that listens for UDP packets sent to this server. */
-//    rcUdpListeningThread udpListener;
 
     /** TCP socket over which to send rc commands to runcontrol client. */
     Socket socket;
@@ -253,110 +249,6 @@ public class RCServer extends cMsgDomainAdapter {
             }
             catch (IOException e) {
                 if (listenerThread != null) listenerThread.killThread();
-                //if (udpListener != null) udpListener.killThread();
-                throw new cMsgException("cannot connect, IO error", e);
-            }
-
-        }
-        finally {
-            connectLock.unlock();
-        }
-
-        return;
-    }
-
-
-    /**
-     * Method to connect to the rc client from this server.
-     *
-     * @throws cMsgException if there are problems parsing the UDL,
-     *                       communication problems with the client,
-     *                       or cannot start up a TCP listening thread
-     */
-    public void connectOrig() throws cMsgException {
-        // these lines are here so it will compile TODO: get rid of it
-        rcTcpListeningThread tcpListener = null;
-        rcUdpListeningThread udpListener = null;
-
-        try {
-            parseUDL(UDLremainder);
-        }
-        catch (UnknownHostException e) {
-            e.printStackTrace();
-        }
-
-        // cannot run this simultaneously with any other public method
-        connectLock.lock();
-
-        try {
-            if (connected) {
-                return;
-            }
-
-            try {
-                // Create an object to deliver messages to the RC client.
-//System.out.println("RC server: create connection with RC client ... ");
-                createTCPClientConnection(rcClientHost, rcClientPort);
-
-                // Start listening for tcp connections if not already
-                if (tcpListener == null) {
-                    tcpListener = new rcTcpListeningThread(this);
-                    tcpListener.start();
-
-                    // Wait for indication listener threads are actually running before
-                    // continuing on. These thread must be running before we talk to
-                    // the client since the client tries to communicate with these
-                    // listening threads.
-                    synchronized (tcpListener) {
-                        if (!tcpListener.isAlive()) {
-                            try {
-                                tcpListener.wait();
-                            }
-                            catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                }
-
-                // Start listening for udp packets if not already
-                if (udpListener == null) {
-                    udpListener = new rcUdpListeningThread(this);
-                    udpListener.start();
-
-                    // Wait for indication listener threads are actually running before
-                    // continuing on. These thread must be running before we talk to
-                    // the client since the client tries to communicate with these
-                    // listening threads.
-                    synchronized (udpListener) {
-                        if (!udpListener.isAlive()) {
-                            try {
-                                udpListener.wait();
-                            }
-                            catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                }
-
-                // Get the port selected for listening on
-                localTcpPort = tcpListener.getPort();
-
-                // Get the port selected for communicating on
-                localUdpPort = udpListener.getPort();
-
-                // Send a special message giving our host & udp port.
-                cMsgMessageFull msg = new cMsgMessageFull();
-                msg.setSenderHost(InetAddress.getLocalHost().getCanonicalHostName());
-                msg.setText(localUdpPort+":"+localTcpPort);
-                deliverMessage(msg, cMsgConstants.msgRcConnect);
-
-                connected = true;
-            }
-            catch (IOException e) {
-                if (tcpListener != null) tcpListener.killThread();
-                if (udpListener != null) udpListener.killThread();
                 throw new cMsgException("cannot connect, IO error", e);
             }
 
@@ -375,10 +267,6 @@ public class RCServer extends cMsgDomainAdapter {
      */
     public void close() {
         disconnect();
-//        if (udpListener != null) {
-//            udpListener.killThread();
-//            udpListener = null;
-//        }
         if (listenerThread != null) {
             listenerThread.killThread();
             listenerThread = null;
@@ -397,9 +285,6 @@ public class RCServer extends cMsgDomainAdapter {
         try {
             if (!connected) return;
             connected = false;
-
-            //udpListener.killThread();
-            //tcpListener.killThread();
 
             if (in != null)     try {in.close();}     catch (IOException e) {}
             if (out != null)    try {out.close();}    catch (IOException e) {}
