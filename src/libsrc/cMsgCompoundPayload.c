@@ -7642,16 +7642,25 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
   /* start after header, first item is length */
   t = pVal;
   s = strpbrk(t, "\n");
-  if (s == NULL) return(CMSG_BAD_FORMAT);
+  if (s == NULL) {
+if (debug) printf("addStringFromText: no newlline after string len, bad format\n");
+      return(CMSG_BAD_FORMAT);
+  }
   
   /* read length of string */
   sscanf(t, "%d", &len);
-  if (len < 1) return(CMSG_BAD_FORMAT);
+if (debug) printf("addStringFromText: string len = %d\n", len);
+  if (len < 0) {
+if (debug) printf("addStringFromText: string len must be > -1\n", len);
+      return(CMSG_BAD_FORMAT);
+  }
   t = s+1;
   
   /* allocate memory to hold string */
   str = (char *) malloc(len+1);
-  if (str == NULL) return(CMSG_OUT_OF_MEMORY);
+  if (str == NULL) {
+      return(CMSG_OUT_OF_MEMORY);
+  }
   
   /* copy string into memory */
   memcpy(str, t, len);
