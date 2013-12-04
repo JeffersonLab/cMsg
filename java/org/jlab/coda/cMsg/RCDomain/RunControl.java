@@ -310,6 +310,11 @@ public class RunControl extends cMsgDomainAdapter {
 
                 // List of our IP addresses (starting w/ canonical)
                 List<String> ipAddrs = cMsgUtilities.getAllIpAddresses();
+System.out.println("RC connect to rcm server: send ip list ->")     ;
+for (String ip : ipAddrs) {
+    System.out.println("    " + ip);
+}
+
                 out.writeInt(ipAddrs.size());
 //System.out.println("RC connect to rcm server: ip list size = " + ipAddrs.size());
                 for (String s : ipAddrs) {
@@ -385,7 +390,7 @@ public class RunControl extends cMsgDomainAdapter {
                 throw new cMsgException("No response to UDP multicast received");
             }
             else {
-//System.out.println("RC connect: got a response to multicast!");
+System.out.println("RC connect: got a response to multicast!");
             }
 
             // Now that we got a response from the RC Multicast server,
@@ -419,11 +424,11 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             if (!completed) {
-//System.out.println("RC connect: Did NOT complete the connection");
+System.out.println("RC connect: Did NOT complete the connection");
                 throw new cMsgException("No connect from the RC server received");
             }
             else {
-//System.out.println("RC connect: Completed the connection from RC server");
+System.out.println("RC connect: Completed the connection from RC server");
             }
 
             // create a TCP connection to the RC Server

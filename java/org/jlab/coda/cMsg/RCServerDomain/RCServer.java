@@ -195,7 +195,7 @@ public class RCServer extends cMsgDomainAdapter {
 
             try {
                 // Create an object to deliver messages to the RC client.
-//System.out.println("RC server: create connection with RC client (host = " + rcClientHost +
+//System.out.println("RC server: try connection with RC client (host = " + rcClientHost +
 //", port = " + rcClientPort);
                 createTCPClientConnection(rcClientHost, rcClientPort);
 
@@ -225,8 +225,8 @@ public class RCServer extends cMsgDomainAdapter {
 
                 // Get the port selected for communicating on (NEVER used now)
                 localUdpPort = listenerThread.getUdpPort();
-//System.out.println("RC server: listening on TCP port = " + localTcpPort + " and UDP port = " +
-//localUdpPort);
+System.out.println("RC server: listening on TCP port = " + localTcpPort + " and UDP port = " +
+localUdpPort);
 
                 // Send a special message giving our host & udp port.
                 cMsgMessageFull msg = new cMsgMessageFull();
@@ -241,7 +241,10 @@ public class RCServer extends cMsgDomainAdapter {
                 cMsgPayloadItem pItem = new cMsgPayloadItem("IpAddresses", ips);
                 msg.addPayloadItem(pItem);
 
-//System.out.println("RC Server:     canonical host name = " + InetAddress.getLocalHost().getCanonicalHostName());
+System.out.println("RC Server:     send final connection msg to rc client with list of ip addrs -> ");
+                for (String ip : ipList) {
+                    System.out.println("         :     " + ip);
+                }
                 msg.setText(localUdpPort+":"+localTcpPort);
                 deliverMessage(msg, cMsgConstants.msgRcConnect);
 
@@ -328,6 +331,7 @@ public class RCServer extends cMsgDomainAdapter {
             if (socket != null) try {socket.close();} catch (IOException e1) {}
             throw e;
         }
+System.out.println("RC Server: made tcp socket to rc client " + clientHost + " on port " + clientPort);
     }
 
 
