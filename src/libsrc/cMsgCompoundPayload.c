@@ -7657,7 +7657,7 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
   memcpy(str, t, len);
   str[len] = '\0';
 
-if (debug) printf("addStringFromText: str to add = %s\n", str);
+  if (debug) printf("addStringFromText: str to add = (%s), ignore parens\n", str);
   
   /* is regular field in msg */
   if (isSystem) {
