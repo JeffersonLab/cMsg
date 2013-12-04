@@ -74,7 +74,7 @@ import java.text.SimpleDateFormat;
  *<b><i>for (arrays of) binary (converted into text) items:</i></b><p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
  *    string_length_1   original_binary_byte_length_1   endian_1[nl]
- *    string_characters_1[nl]</pre><p>
+ *    string_characters_1[nl]
  *     .
  *     .
  *     .
