@@ -2495,7 +2495,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         index1 = index2 + 1;
         index2 = index1 + noHeadLen - secondLineLen - 1; // don't look for \n's !!!
 
-        if (index2 < 1) throw new cMsgException("bad format");
+        if (index2 < index1) throw new cMsgException("bad format");
         String val = txt.substring(index1, index2);
 
         // is regular field in msg
