@@ -604,7 +604,14 @@ printf("*****   got type length = %d\n", lengths[3]);
   /* read payloadText string */
   /*-------------------------*/
   if (lengths[4] > 0) {
-      //char *pt = pchar;
+      char *pt = pchar;
+      int j;
+printf("*****   Payload text =\n");
+      for (j=0; j<lengths[4]; j++) {
+          printf("%c", *pt);
+          pt++;
+      }
+      
       err = cMsgPayloadSetAllFieldsFromText(msg, pchar);
       if (err != CMSG_OK) {
           if (msg->sender != NULL)     free((void *) msg->sender);
