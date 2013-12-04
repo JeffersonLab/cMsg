@@ -447,13 +447,10 @@ int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
   int  i, err, hasPayload, stringLen, lengths[7], inComing[17];
   char *pchar, *tmp;
 
-  if ( (err = cMsgNetTcpRead(connfd, inComing, sizeof(inComing))) != sizeof(inComing)) {
-//    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-        fprintf(stderr, "cMsgReadMessage: error reading msg, only %d bytes out of 4*17 (68)\n", err);
-        for (i=0; i < err/4; i++) {
-fprintf(stderr, "     0x%x\n", inComing[i]);
-        }
-//    }
+  if (cMsgNetTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgReadMessage: error reading message 1\n");
+    }
     return(CMSG_NETWORK_ERROR);
   }
 
@@ -496,9 +493,9 @@ fprintf(stderr, "     0x%x\n", inComing[i]);
               lengths[3] + lengths[4] + lengths[5];
 
   if (cMsgNetTcpRead(connfd, buffer, stringLen) != stringLen) {
-//    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgReadMessage: error reading message, not enough data to fill strings\n");
-//    }
+    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      fprintf(stderr, "cMsgReadMessage: error reading message 2\n");
+    }
     return(CMSG_NETWORK_ERROR);
   }
 
@@ -521,7 +518,7 @@ fprintf(stderr, "     0x%x\n", inComing[i]);
     msg->sender = tmp;
     /* go to next string */
     pchar += lengths[0];
-printf("sender = %s\n", tmp);
+    /* printf("sender = %s\n", tmp); */
   }
   else {
     msg->sender = NULL;
@@ -540,7 +537,7 @@ printf("sender = %s\n", tmp);
     tmp[lengths[1]] = 0;
     msg->senderHost = tmp;
     pchar += lengths[1];
-printf("senderHost = %s\n", tmp);
+    /* printf("senderHost = %s\n", tmp); */
   }
   else {
     msg->senderHost = NULL;
@@ -561,15 +558,15 @@ printf("senderHost = %s\n", tmp);
     tmp[lengths[2]] = 0;
     msg->subject = tmp;
     pchar += lengths[2];
-
+/*
 printf("*****   got subject = %s, len = %d\n", tmp, lengths[2]);
 if (strcmp(tmp, " ") == 0) printf("subject is one space\n");
 if (strcmp(tmp, "") == 0) printf("subject is blank\n");
-
+*/
   }
   else {
     msg->subject = NULL;
-printf("*****   got subject length %d\n", lengths[2]);
+/*printf("*****   got subject length %d\n", lengths[2]);*/
   }
 
   /*------------------*/
@@ -589,29 +586,22 @@ printf("*****   got subject length %d\n", lengths[2]);
     tmp[lengths[3]] = 0;
     msg->type = tmp;
     pchar += lengths[3];
-
+/*
 printf("*****   got type = %s, len = %d\n", tmp, lengths[3]);
 if (strcmp(tmp, " ") == 0) printf("type is one space\n");
 if (strcmp(tmp, "") == 0) printf("type is blank\n");
-
+*/
   }
   else {
     msg->type = NULL;
-printf("*****   got type length = %d\n", lengths[3]);
+/*printf("*****   got type length = %d\n", lengths[3]);*/
   }
 
   /*-------------------------*/
   /* read payloadText string */
   /*-------------------------*/
   if (lengths[4] > 0) {
-      char *pt = pchar;
-      int j;
-printf("*****   Payload text =\n");
-      for (j=0; j<lengths[4]; j++) {
-          printf("%c", *pt);
-          pt++;
-      }
-      
+      //char *pt = pchar;
       err = cMsgPayloadSetAllFieldsFromText(msg, pchar);
       if (err != CMSG_OK) {
           if (msg->sender != NULL)     free((void *) msg->sender);
@@ -622,10 +612,7 @@ printf("*****   Payload text =\n");
           msg->senderHost = NULL;
           msg->subject    = NULL;
           msg->type       = NULL;
-//    if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-          fprintf(stderr, "cMsgReadMessage: error (%d) setting payload fields from text\n", err);
-//        }
-              return(err);
+          return(err);
       }
       pchar += lengths[4];
       //pchar = '\0';
@@ -658,7 +645,7 @@ printf("*****   Payload text =\n");
       memcpy(tmp, pchar, lengths[5]);
       tmp[lengths[5]] = 0;
       msg->text = tmp;
-printf("text = %s\n", tmp);
+      /* printf("text = %s\n", tmp); */
       pchar += lengths[5];
   }
   else {
