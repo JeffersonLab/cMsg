@@ -617,9 +617,9 @@ printf("rc clientThread %d: Got CONNECT message\n", localCount);
           }
                     
           /* read the message */
-          if ( cMsgReadMessage(connfd, buffer, message) != CMSG_OK) {
+          if ( (err = cMsgReadMessage(connfd, buffer, message)) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
+                fprintf(stderr, "clientThread %d: error (%d) reading message\n", localCount, err);
             }
             cMsgFreeMessage(&msg);
             goto end;
