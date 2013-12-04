@@ -365,6 +365,8 @@ static void *clientThread(void *arg)
   origArg = info->arg;
   free(arg);
 
+cMsgDebug = CMSG_DEBUG_ERROR;
+  
   /* increase concurrency for this thread */
   sun_setconcurrency(sun_getconcurrency() + 1);
   
@@ -436,11 +438,11 @@ static void *clientThread(void *arg)
     retry:
     
     if (cMsgNetTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
-      /*
+      
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "clientThread %d: error reading command\n", localCount);
       }
-      */
+      
       /* if there's a timeout, try again */
       if (errno == EWOULDBLOCK || errno == EAGAIN) {
         /* test to see if someone wants to shutdown this thread */
@@ -564,7 +566,8 @@ static void *clientThread(void *arg)
       /* for RC server & RC domains only */
       case  CMSG_RC_CONNECT_ABORT:
       {
-            domain->rcConnectAbort = 1;
+printf("rc clientThread %d: Got CONNECT_ABORT message\n", localCount);
+          domain->rcConnectAbort = 1;
 
             /* disable pthread cancellation to protect mutexes */
             status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);
@@ -592,7 +595,7 @@ static void *clientThread(void *arg)
           char *pchar;
           char **ipAddrStrings;
           
-/*printf("rc clientThread %d: Got CMSG_RC_CONNECT message!!!\n", localCount);*/
+printf("rc clientThread %d: Got CONNECT message\n", localCount);
           /* disable pthread cancellation until message memory is released or
            * we'll get a mem leak */
           status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
@@ -649,7 +652,9 @@ static void *clientThread(void *arg)
           err = cMsgGetStringArray(msg, "IpAddresses", &ipAddrStrings, &len);
           if (err == CMSG_OK) {
               int i;
+printf("rc clientThread %d: server's ip addrs->\n");
               for (i=0; i < len; i++) {
+printf("      %s\n", ipAddrStrings[i]);
                   hashInsert(&domain->rcIpAddrTable, ipAddrStrings[i], NULL, NULL);
               }
           }
@@ -657,8 +662,7 @@ static void *clientThread(void *arg)
           /* now free message */
           cMsgFreeMessage(&msg);
 
-/*printf("rc clientThread %d: connecting, tcp port = %d, udp port = %d, senderHost = %s\n",
-localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
+printf("rc clientThread %d: try connecting to server, tcp port = %d, udp port = %d, senderHost = %s\n", localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);
           
           /* First look to see if we are already connected.
            * If so, then the server must have died, been resurrected,
@@ -667,7 +671,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
            * go ahead and complete the standard connection procedure.
            */
           if (domain->gotConnection == 0) {
-/*printf("rc clientThread %d: try to connect for first time by setting latch\n", localCount);*/
+printf("rc clientThread %d: try to connect for first time by setting latch\n", localCount);
             /* notify "connect" call that it may resume and end now */
             wait.tv_sec  = 1;
             wait.tv_nsec = 0;
@@ -694,7 +698,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             memset((void *)&addr, 0, sizeof(addr));
             addr.sin_family = AF_INET;
             addr.sin_port   = htons(domain->sendUdpPort);
-/*printf("rc clientThread %d: try to reconnect\n", localCount);*/
+printf("rc clientThread %d: try to reconnect\n", localCount);
             
             /*
              * Don't allow changes to the sockets while communication
@@ -744,8 +748,6 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             }
 
             /* create TCP sending socket and store */
-/*printf("rc clientThread %d: tcp socket = %d, port = %d\n", localCount,
-                   domain->sendSocket, domain->sendPort);*/
             if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
                                        (unsigned short) domain->sendPort,
                                        CMSG_BIGSOCKBUFSIZE, 0, 1, &domain->sendSocket, NULL)) != CMSG_OK) {
@@ -756,6 +758,9 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
                 goto end;
             }
             
+printf("rc clientThread %d: created tcp socket = %d, port = %d\n", localCount,
+                   domain->sendSocket, domain->sendPort);
+
             /* Allow socket communications to resume. */
             cMsgSocketMutexUnlock(domain);
         }
@@ -781,7 +786,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
         memcpy(returnBuf+len, (void *)domain->name,  lenName); /* write name into buffer */
         len += lenName;
 
-/*printf("rc clientThread %d: send return value to rc server\n");*/
+printf("rc clientThread %d: send return value to rc server\n");
         if (cMsgNetTcpWrite(connfd, returnBuf, len) != len) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
             fprintf(stderr, "clientThread %d: write failure\n", localCount);

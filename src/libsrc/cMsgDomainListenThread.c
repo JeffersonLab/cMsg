@@ -447,9 +447,12 @@ int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
   int  i, err, hasPayload, stringLen, lengths[7], inComing[17];
   char *pchar, *tmp;
 
-  if (cMsgNetTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
+  if ( (err = cMsgNetTcpRead(connfd, inComing, sizeof(inComing))) != sizeof(inComing)) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgReadMessage: error reading message 1\n");
+        fprintf(stderr, "cMsgReadMessage: error reading msg, only %d bytes out of 4*17 (68)\n", err);
+        for (i=0; i < err/4; i++) {
+fprintf(stderr, "     0x%x\n", inComing[i]);
+        }
     }
     return(CMSG_NETWORK_ERROR);
   }
@@ -494,7 +497,7 @@ int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
 
   if (cMsgNetTcpRead(connfd, buffer, stringLen) != stringLen) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-      fprintf(stderr, "cMsgReadMessage: error reading message 2\n");
+      fprintf(stderr, "cMsgReadMessage: error reading message, not enough data to fill strings\n");
     }
     return(CMSG_NETWORK_ERROR);
   }
