@@ -652,7 +652,7 @@ printf("rc clientThread %d: Got CONNECT message\n", localCount);
           err = cMsgGetStringArray(msg, "IpAddresses", &ipAddrStrings, &len);
           if (err == CMSG_OK) {
               int i;
-printf("rc clientThread %d: server's ip addrs->\n");
+printf("rc clientThread %d: server's ip addrs->\n", localCount);
               for (i=0; i < len; i++) {
 printf("      %s\n", ipAddrStrings[i]);
                   hashInsert(&domain->rcIpAddrTable, ipAddrStrings[i], NULL, NULL);
@@ -786,7 +786,7 @@ printf("rc clientThread %d: created tcp socket = %d, port = %d\n", localCount,
         memcpy(returnBuf+len, (void *)domain->name,  lenName); /* write name into buffer */
         len += lenName;
 
-printf("rc clientThread %d: send return value to rc server\n");
+printf("rc clientThread %d: send return value to rc server\n", localCount);
         if (cMsgNetTcpWrite(connfd, returnBuf, len) != len) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
             fprintf(stderr, "clientThread %d: write failure\n", localCount);

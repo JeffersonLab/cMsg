@@ -26,16 +26,21 @@ os.umask(022)
 versionMajor = '3'
 versionMinor = '4'
 
+# Create an environment while importing the user's PATH.
+# This allows us to get to the vxworks compiler for example.
+# So for vxworks, make sure the tools are in your PATH
+env = Environment(ENV = {'PATH' : os.environ['PATH']})
+
 # determine the os and machine names
 uname    = os.uname();
 platform = uname[0]
 machine  = uname[4]
 osname   = platform + '-' +  machine
 
-# Create an environment while importing the user's PATH.
-# This allows us to get to the vxworks compiler for example.
-# So for vxworks, make sure the tools are in your PATH
-env = Environment(ENV = {'PATH' : os.environ['PATH']})
+codaOsName = os.getenv('CODA_OSNAME',"")
+if codaOsName != "":
+    osname = codaOsName
+
 
 if 'LD_LIBRARY_PATH' in os.environ:
     env.Append(ENV = {
