@@ -7634,7 +7634,7 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
                              const char *pVal, const char *pText, int textLen, int noHeaderLen) {
   const char *t;
   char *s, *str;
-  int len;
+  int len, debug=1;
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -7656,6 +7656,8 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
   /* copy string into memory */
   memcpy(str, t, len);
   str[len] = '\0';
+
+if (debug) printf("addStringFromText: str to add = %s\n", str);
   
   /* is regular field in msg */
   if (isSystem) {
