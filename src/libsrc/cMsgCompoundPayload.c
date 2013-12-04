@@ -1586,7 +1586,7 @@ static int setFieldsFromText(void *vmsg, const char *text, int flag, const char 
   const char *t, *pmsgTxt;
   char *s, name[CMSG_PAYLOAD_NAME_LEN+1];
   int i, j, err, type, count, fields, ignore;
-  int noHeaderLen, isSystem, msgTxtLen, debug=1, headerLen;
+  int noHeaderLen, isSystem, msgTxtLen, debug=0, headerLen;
   
   /* payloadItem *item, *prev; */
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -1652,44 +1652,38 @@ if(debug) printf("  skipped field\n");
     
     /* string */
     if (type == CMSG_CP_STR) {
-if(debug) printf("  call addStringFromText()\n");
-        err = addStringFromText(vmsg, name, type, count, isSystem,
-                                t, pmsgTxt, msgTxtLen, noHeaderLen);
+      err = addStringFromText(vmsg, name, type, count, isSystem,
+                              t, pmsgTxt, msgTxtLen, noHeaderLen);
     }
     
     /* string array */
     else if (type == CMSG_CP_STR_A) {
-if(debug) printf("  call addStringArrayFromText()\n");
-        err = addStringArrayFromText(vmsg, name, type, count, isSystem,
-                                     t, pmsgTxt, msgTxtLen, noHeaderLen);
+      err = addStringArrayFromText(vmsg, name, type, count, isSystem,
+                                   t, pmsgTxt, msgTxtLen, noHeaderLen);
     }
     
     /* binary data */
     else if (type == CMSG_CP_BIN) {
-if(debug) printf("  call addBinaryFromText()\n");
-        err = addBinaryFromText(vmsg, name, type, count, isSystem,
-                                t, pmsgTxt, msgTxtLen, noHeaderLen);
+      err = addBinaryFromText(vmsg, name, type, count, isSystem,
+                              t, pmsgTxt, msgTxtLen, noHeaderLen);
     }
         
     /* array of binary data */
     else if (type == CMSG_CP_BIN_A) {
-if(debug) printf("  call addBinaryArrayFromText()\n");
         err = addBinaryArrayFromText(vmsg, name, type, count, isSystem,
                                      t, pmsgTxt, msgTxtLen, noHeaderLen);
     }
         
     /* double or float */
     else if (type == CMSG_CP_DBL || type == CMSG_CP_FLT) {
-if(debug) printf("  call addRealFromText()\n");
         err = addRealFromText(vmsg, name, type, count, isSystem,
                               t, pmsgTxt, msgTxtLen, noHeaderLen);
     }
 
     /* double or float array */
     else if (type == CMSG_CP_DBL_A || type == CMSG_CP_FLT_A) {          
-if(debug) printf("  call addRealArrayFromText()\n");
-        err = addRealArrayFromText(vmsg, name, type, count, isSystem,
-                                   t, pmsgTxt, msgTxtLen, noHeaderLen);
+      err = addRealArrayFromText(vmsg, name, type, count, isSystem,
+                                 t, pmsgTxt, msgTxtLen, noHeaderLen);
     }
 
     /* all ints */
@@ -1698,9 +1692,8 @@ if(debug) printf("  call addRealArrayFromText()\n");
              type == CMSG_CP_UINT8  || type == CMSG_CP_UINT16 ||
              type == CMSG_CP_UINT32 || type == CMSG_CP_UINT64)  {
       
-if(debug) printf("  call addIntFromText()\n");
-        err = addIntFromText(vmsg, name, type, count, isSystem,
-                             t, pmsgTxt, msgTxtLen, noHeaderLen);
+      err = addIntFromText(vmsg, name, type, count, isSystem,
+                           t, pmsgTxt, msgTxtLen, noHeaderLen);
     }
             
     /* all int arrays */
@@ -1708,10 +1701,8 @@ if(debug) printf("  call addIntFromText()\n");
              type == CMSG_CP_INT32_A  || type == CMSG_CP_INT64_A  ||
              type == CMSG_CP_UINT8_A  || type == CMSG_CP_UINT16_A ||
              type == CMSG_CP_UINT32_A || type == CMSG_CP_UINT64_A)  {
-      
-if(debug) printf("  call addIntArrayFromText()\n");
-        err = addIntArrayFromText(vmsg, name, type, count, isSystem,
-                                  t, pmsgTxt, msgTxtLen, noHeaderLen);
+      err = addIntArrayFromText(vmsg, name, type, count, isSystem,
+                                t, pmsgTxt, msgTxtLen, noHeaderLen);
     }
     
     /* cMsg message */
@@ -1724,7 +1715,6 @@ if(debug) printf("  call addIntArrayFromText()\n");
       if (newMsg == NULL) return(CMSG_OUT_OF_MEMORY);
 
       /* recursive call to setFieldsFromText to fill msg's fields */
-if(debug) printf("  call recursively setFieldsFromText() to parse cMsg message\n");
       err = setFieldsFromText(newMsg, t, CMSG_BOTH_FIELDS, &endptr);
       if (err != CMSG_OK) {
 /*printf("err setting fields for msg in payload\n");*/
@@ -1765,7 +1755,6 @@ if(debug) {
           if (myArray[j] == NULL) return(CMSG_OUT_OF_MEMORY);
 
           /* recursive call to setFieldsFromText to fill msg's fields */
-if(debug) printf("  call recursively setFieldsFromText() to parse array of cMsg messages\n");
           err = setFieldsFromText(myArray[j], ptext, CMSG_BOTH_FIELDS, &endptr);
           if (err != CMSG_OK) {
 /*printf("err setting fields for msg in payload\n");*/
@@ -7634,7 +7623,7 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
                              const char *pVal, const char *pText, int textLen, int noHeaderLen) {
   const char *t;
   char *s, *str;
-  int len, debug=1;
+  int len;
   payloadItem *item;  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -7642,31 +7631,20 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
   /* start after header, first item is length */
   t = pVal;
   s = strpbrk(t, "\n");
-  if (s == NULL) {
-if (debug) printf("addStringFromText: no newlline after string len, bad format\n");
-      return(CMSG_BAD_FORMAT);
-  }
+  if (s == NULL) return(CMSG_BAD_FORMAT);
   
   /* read length of string */
   sscanf(t, "%d", &len);
-if (debug) printf("addStringFromText: string len = %d\n", len);
-  if (len < 0) {
-if (debug) printf("addStringFromText: string len must be > -1\n", len);
-      return(CMSG_BAD_FORMAT);
-  }
+  if (len < 0) return(CMSG_BAD_FORMAT);
   t = s+1;
   
   /* allocate memory to hold string */
   str = (char *) malloc(len+1);
-  if (str == NULL) {
-      return(CMSG_OUT_OF_MEMORY);
-  }
+  if (str == NULL) return(CMSG_OUT_OF_MEMORY);
   
   /* copy string into memory */
   memcpy(str, t, len);
   str[len] = '\0';
-
-  if (debug) printf("addStringFromText: str to add = (%s), ignore parens\n", str);
   
   /* is regular field in msg */
   if (isSystem) {
