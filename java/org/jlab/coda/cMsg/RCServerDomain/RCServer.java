@@ -80,9 +80,6 @@ public class RCServer extends cMsgDomainAdapter {
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
     Lock notConnectLock = methodLock.readLock();
 
-    /** Lock to ensure that methods using the socket, write in sequence. */
-    Lock socketLock = new ReentrantLock();
-
     /** Lock to ensure
      * {@link #subscribe(String, String, org.jlab.coda.cMsg.cMsgCallbackInterface, Object)}
      * and {@link #unsubscribe(org.jlab.coda.cMsg.cMsgSubscriptionHandle)}
@@ -456,8 +453,6 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
-        // protect communicatons over socket for thread safety
-        socketLock.lock();
 
         try {
             if (!connected) {
@@ -469,7 +464,6 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
             throw new cMsgException(e.getMessage(),e);
         }
         finally {
-            socketLock.unlock();
             notConnectLock.unlock();
         }
 
@@ -487,7 +481,7 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
      * @param msgType type of message to be sent
      * @throws IOException if the message cannot be sent over the channel
      */
-    private void deliverMessage(cMsgMessage msg, int msgType) throws IOException {
+    synchronized private void deliverMessage(cMsgMessage msg, int msgType) throws IOException {
 
         int[] len = new int[6]; // int arrays are initialized to 0
         int binLength = 0;
