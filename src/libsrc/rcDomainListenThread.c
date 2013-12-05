@@ -451,6 +451,7 @@ static void *clientThread(void *arg)
     }
     
     size = ntohl(inComing[0]);
+fprintf(stderr, "clientThread %d: size = %d bytes\n", localCount, size);
     
     /* make sure we have big enough buffer */
     if (size > bufSize) {
