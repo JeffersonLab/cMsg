@@ -509,6 +509,9 @@ class rcListeningThread extends Thread {
                 }
             }
 
+//int totalBytes = 4*17 + stringBytesToRead +  lengthBinary;
+//System.out.println("readIncomingMessage(): read " + totalBytes + " bytes");
+
             // fill in message object's members
             msg.setDomain(domainType);
             msg.setReceiver(client.getName());
