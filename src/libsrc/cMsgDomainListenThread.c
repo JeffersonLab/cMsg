@@ -690,6 +690,8 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
       return(CMSG_NETWORK_ERROR);
     }
 
+/*printf("cMsgReadMessage(): read %d bytes in msg\n", (4*17 + stringLen + lengths[6]));*/
+
     msg->byteArray       = tmp;
     msg->byteArrayOffset = 0;
     msg->byteArrayLength = lengths[6];
