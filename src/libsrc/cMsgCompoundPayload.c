@@ -7635,7 +7635,7 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
   
   /* read length of string */
   sscanf(t, "%d", &len);
-  if (len < 1) return(CMSG_BAD_FORMAT);
+  if (len < 0) return(CMSG_BAD_FORMAT);
   t = s+1;
   
   /* allocate memory to hold string */
