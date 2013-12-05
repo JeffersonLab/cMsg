@@ -474,7 +474,7 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
      * Method to deliver a message to a client. This is a somewhat modified "copy"
      * of {@link org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer#deliverMessageReal(cMsgMessage, int)}.
      * It leaves open the possibility that many fields may be null and still will not
-     * barf. It's always possible that a knowledgable user could create an object of
+     * barf. It's always possible that a knowledgeable user could create an object of
      * type cMsgMessageFull and pass that in. That way the user gets to set all fields.
      *
      * @param msg message to be sent
@@ -599,7 +599,7 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
 
             int id;
 
-            // client listening thread may be interating thru subscriptions concurrently
+            // client listening thread may be iterating through subscriptions concurrently
             // and we may change set structure
             synchronized (subscriptions) {
 
@@ -627,7 +627,7 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
                 newSub = new cMsgSubscription(subject, type, id, cbThread);
                 unsubscriptions.put(cbThread, newSub);
 
-                // client listening thread may be interating thru subscriptions concurrently
+                // client listening thread may be iterating through subscriptions concurrently
                 // and we're changing the set structure
                 subscriptions.add(newSub);
             }
