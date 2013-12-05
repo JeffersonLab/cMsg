@@ -450,8 +450,21 @@ static void *clientThread(void *arg)
       goto end;
     }
     
+    /* extract size in bytes */
     size = ntohl(inComing[0]);
-fprintf(stderr, "clientThread %d: size = %d bytes\n", localCount, size);
+
+    /* extract command */
+    msgId = ntohl(inComing[1]);
+
+fprintf(stderr, "clientThread %d: size = %d bytes, msgId = %d\n", localCount, size, msgId);
+
+    if (msgId != CMSG_SUBSCRIBE_RESPONSE &&
+        msgId != CMSG_RC_CONNECT_ABORT &&
+        msgId != CMSG_RC_CONNECT) {
+    
+fprintf(stderr, "clientThread %d: bad command, quitting thread\n", localCount);
+          goto end;
+    }
     
     /* make sure we have big enough buffer */
     if (size > bufSize) {
@@ -486,8 +499,6 @@ fprintf(stderr, "clientThread %d: size = %d bytes\n", localCount, size);
       }
     }
         
-    /* extract command */
-    msgId = ntohl(inComing[1]);
     
     switch (msgId) {
 
