@@ -285,11 +285,11 @@ System.out.println("rcListening thd: handlerThd size = " + handlerThreads.size()
 
                     // read first int -- total size in bytes
                     int size = in.readInt();
-                    //System.out.println(" size = " + size + ", id = " + id);
+System.out.println(" msg size = " + size);
 
                     // read client's request
                     int msgId = in.readInt();
-                    //System.out.println(" msgId = " + msgId + ", id = " + id);
+System.out.println(" msgId = " + msgId + " (0x" + Integer.toHexString(msgId) + ")");
 
                     cMsgMessageFull msg;
 
@@ -486,7 +486,7 @@ System.out.println("rcClient server handler: write back response to rc server");
                     msg.setFieldsFromText(s, cMsgMessage.allFields);
                 }
                 catch (cMsgException e) {
-                    System.out.println("msg payload is in the wrong format: " + e.getMessage());
+                    System.out.println("readIncomingMessage(): msg payload in wrong format: " + e.getMessage());
                 }
             }
 
@@ -495,6 +495,9 @@ System.out.println("rcClient server handler: write back response to rc server");
                 msg.setText(new String(bytes, offset, lengthText, "US-ASCII"));
                 //System.out.println("text = " + msg.getText());
                 offset += lengthText;
+            }
+            else {
+                System.out.println("readIncomingMessage(): text field len = " + lengthText);
             }
 
             // read binary array
@@ -510,6 +513,9 @@ System.out.println("rcClient server handler: write back response to rc server");
                 catch (cMsgException e) {
                 }
             }
+
+            int totalBytes = 4*17 + stringBytesToRead +  lengthBinary;
+            System.out.println("readIncomingMessage(): read " + totalBytes + " bytes");
 
             // fill in message object's members
             msg.setDomain(domainType);
