@@ -88,9 +88,6 @@ public class RCServer extends cMsgDomainAdapter {
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
     private Lock notConnectLock = methodLock.readLock();
 
-    /** Lock to ensure that methods using the socket, write in sequence. */
-    private Lock socketLock = new ReentrantLock();
-
     /** Lock to ensure
      * {@link #subscribe(String, String, cMsgCallbackInterface, Object)}
      * and {@link #unsubscribe(cMsgSubscriptionHandle)}
@@ -241,8 +238,8 @@ public class RCServer extends cMsgDomainAdapter {
 
                 // Store it
                 clientIpList.add((String)retObjs[0]);
-System.out.println("RCS setUDL(): storing addr = " + retObjs[0] + ", port = " +
-                   retObjs[1]);
+//System.out.println("RCS setUDL(): storing addr = " + retObjs[0] + ", port = " +
+//                   retObjs[1]);
             }
             catch (UnknownHostException e) { /* ignore bad udl */ }
         }
@@ -283,29 +280,29 @@ System.out.println("RCS setUDL(): storing addr = " + retObjs[0] + ", port = " +
             String ipLocalNet = cMsgUtilities.getNetworkAddressString(iAddr.getAddress().getAddress(),
                                                                       iAddr.getNetworkPrefixLength());
 
-System.out.println("Compare local network = " + ipLocalNet + " :");
+//System.out.println("Compare local network = " + ipLocalNet + " :");
             // For each client dotted-decimal ip address ...
             ListIterator<String> clit = clientIpList.listIterator();
             while (clit.hasNext()) {
                 String clientHost = clit.next();
-System.out.println("  with client ip = " + clientHost);
+//System.out.println("  with client ip = " + clientHost);
                 // Apply the local network prefix (mask) to get a possible
                 // client network (subnet) address
                 String ipClientNet = cMsgUtilities.getNetworkAddressString(clientHost,
                                                              iAddr.getNetworkPrefixLength());
-System.out.println("  apply subnet mask of " + ipLocalNet + " (= " +
-                   iAddr.getNetworkPrefixLength() + " bits)");
-System.out.println("  which should have client network = " + ipClientNet);
+//System.out.println("  apply subnet mask of " + ipLocalNet + " (= " +
+//                   iAddr.getNetworkPrefixLength() + " bits)");
+//System.out.println("  which should have client network = " + ipClientNet);
                 // Compare local and client subnet addresses
                 if (ipLocalNet.equals(ipClientNet)) {
                     // They're on the same subnet, so place the
                     // addresses in each set at the same place.
-System.out.println("  on same network");
+//System.out.println("  on same network");
                     clientIpOrderedSet.add(clientHost);
                     serverIpOrderedSet.add(iAddr.getAddress().getHostAddress());
                 }
                 else {
-System.out.println("  NOT on same network");
+//System.out.println("  NOT on same network");
                 }
             }
         }
@@ -349,6 +346,7 @@ System.out.println("  NOT on same network");
                 String clientHost = null;
                 boolean failed = true;
                 Iterator<String> it = clientIpOrderedSet.iterator();
+
                 while (it.hasNext()) {
                     try {
                         clientHost = it.next();
@@ -498,6 +496,8 @@ System.out.println("RC server: connected to RC client!");
             if (socket != null) try {socket.close();} catch (IOException e1) {}
             throw e;
         }
+
+System.out.println("RC Server: made tcp socket to rc client " + clientHost + " on port " + clientPort);
     }
 
 
@@ -598,8 +598,6 @@ System.out.println("RC server: connected to RC client!");
 
         // cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
-        // protect communications over socket for thread safety
-        socketLock.lock();
 
         try {
             if (!connected) {
@@ -611,7 +609,6 @@ System.out.println("RC server: connected to RC client!");
             throw new cMsgException(e.getMessage(),e);
         }
         finally {
-            socketLock.unlock();
             notConnectLock.unlock();
         }
 
@@ -629,7 +626,7 @@ System.out.println("RC server: connected to RC client!");
      * @param msgType type of message to be sent
      * @throws IOException if the message cannot be sent over the channel
      */
-    private void deliverMessage(cMsgMessage msg, int msgType) throws IOException {
+    synchronized private void deliverMessage(cMsgMessage msg, int msgType) throws IOException {
 
         int[] len = new int[6]; // int arrays are initialized to 0
         int binLength = 0;
