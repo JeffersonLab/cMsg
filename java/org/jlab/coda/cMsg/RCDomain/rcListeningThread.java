@@ -153,9 +153,9 @@ class rcListeningThread extends Thread {
 
                         // read magic numbers
                         while (bytesRead < BYTES_TO_READ) {
-System.out.println("rcListening thd:   try reading rest of Buffer");
-System.out.println("rcListening thd:   Buffer capacity = " + buffer.capacity() + ", limit = " + buffer.limit()
-                    + ", position = " + buffer.position() );
+//System.out.println("rcListening thd:   try reading rest of Buffer");
+//System.out.println("rcListening thd:   Buffer capacity = " + buffer.capacity() + ", limit = " + buffer.limit()
+//                    + ", position = " + buffer.position() );
                             bytes = channel.read(buffer);
                             // for End-of-stream ...
                             if (bytes == -1) {
@@ -163,7 +163,7 @@ System.out.println("rcListening thd:   Buffer capacity = " + buffer.capacity() +
                                 continue keyLoop;
                             }
                             bytesRead += bytes;
-System.out.println("rcListening thd:   bytes read = " + bytesRead);
+//System.out.println("rcListening thd:   bytes read = " + bytesRead);
 
                             // if we've read everything, look to see if it's sent the magic #s
                             if (bytesRead >= BYTES_TO_READ) {
@@ -174,7 +174,7 @@ System.out.println("rcListening thd:   bytes read = " + bytesRead);
                                 if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
                                     magic2 != cMsgNetworkConstants.magicNumbers[1] ||
                                     magic3 != cMsgNetworkConstants.magicNumbers[2])  {
-System.out.println("rcListening thd: magic numbers did NOT match");
+//System.out.println("rcListening thd: magic numbers did NOT match");
                                     it.remove();
                                     continue keyLoop;
                                 }
@@ -182,7 +182,7 @@ System.out.println("rcListening thd: magic numbers did NOT match");
                             else {
                                 // give client 10 loops (.1 sec) to send its stuff, else no deal
                                 if (++loops > 10) {
-System.out.println("rcListening thd: too long to send 3 ints, terminate");
+//System.out.println("rcListening thd: too long to send 3 ints, terminate");
                                     it.remove();
                                     continue keyLoop;
                                 }
@@ -190,7 +190,7 @@ System.out.println("rcListening thd: too long to send 3 ints, terminate");
                                 catch (InterruptedException e) { }
                             }
                         }
-System.out.println("rcListening thd: magic numbers did match");
+//System.out.println("rcListening thd: magic numbers did match");
 
                         // back to using streams
                         channel.configureBlocking(true);
@@ -204,7 +204,7 @@ System.out.println("rcListening thd: magic numbers did match");
 
                         // start up client handling thread & store reference
                         handlerThreads.add(new ClientHandler(channel));
-System.out.println("rcListening thd: handlerThd size = " + handlerThreads.size());
+//System.out.println("rcListening thd: handlerThd size = " + handlerThreads.size());
 
                         if (debug >= cMsgConstants.debugInfo) {
                              System.out.println("rcClientListeningThread: new connection");
@@ -285,11 +285,11 @@ System.out.println("rcListening thd: handlerThd size = " + handlerThreads.size()
 
                     // read first int -- total size in bytes
                     int size = in.readInt();
-System.out.println(" msg size = " + size);
+//System.out.println(" msg size = " + size);
 
                     // read client's request
                     int msgId = in.readInt();
-System.out.println(" msgId = " + msgId + " (0x" + Integer.toHexString(msgId) + ")");
+//System.out.println(" msgId = " + msgId + " (0x" + Integer.toHexString(msgId) + ")");
 
                     cMsgMessageFull msg;
 
@@ -312,17 +312,17 @@ System.out.println(" msgId = " + msgId + " (0x" + Integer.toHexString(msgId) + "
 
                         // (rc multicast) server bailing out of connect loop
                         case cMsgConstants.msgRcAbortConnect:
-System.out.println("rcClient server handler: Got ABORT message");
+//System.out.println("rcClient server handler: Got ABORT message");
                             client.abandonConnection = true;
                             client.connectCompletion.countDown();
                             break;
 
                         // (rc) server finishing connect loop
                         case cMsgConstants.msgRcConnect:
-System.out.println("rcClient server handler: Got rc connect message");
+//System.out.println("rcClient server handler: Got rc connect message");
                             // read the message
                             msg = readIncomingMessage();
-System.out.println("rcClient server handler: Finished reading message");
+//System.out.println("rcClient server handler: Finished reading message");
 
                             // We need 3 pieces of info from the server: 1) server's host,
                             // 2) server's UDP port, 3) server's TCP port, and 4) list of
@@ -332,11 +332,11 @@ System.out.println("rcClient server handler: Finished reading message");
                             client.rcServerAddresses.clear();
                             cMsgPayloadItem pItem = msg.getPayloadItem("IpAddresses");
                             if (pItem != null) {
-System.out.println("rcClient server handler: server's ip addrs->");
+//System.out.println("rcClient server handler: server's ip addrs->");
                                 try {
                                     String[] ips = pItem.getStringArray();
                                     for (String ip : ips) {
-System.out.println("      "+ip);
+//System.out.println("      "+ip);
                                         client.rcServerAddresses.add(InetAddress.getByName(ip));
                                     }
                                 }
@@ -347,7 +347,7 @@ System.out.println("      "+ip);
                             client.rcTcpServerPort = Integer.parseInt(ports[1]);
 
                             if (client.isConnected()) {
-System.out.println("rcClient server handler: Reestablish broken socket, do udp connect ...");
+//System.out.println("rcClient server handler: Reestablish broken socket, do udp connect ...");
                                 // Reestablish the broken socket.
                                 // Create a UDP "connection". This means security check is done only once
                                 // and communication with any other host/port is not allowed.
@@ -356,22 +356,22 @@ System.out.println("rcClient server handler: Reestablish broken socket, do udp c
 //                                                                          client.rcServerAddress, client.rcUdpServerPort);
 
                                 // create a TCP connection to the RC Server
-System.out.println("rcClient server handler: Do tcp connect back to rc server ...");
+//System.out.println("rcClient server handler: Do tcp connect back to rc server ...");
                                 client.tcpSocket = new Socket(client.rcServerAddress, client.rcTcpServerPort);
                                 client.tcpSocket.setTcpNoDelay(true);
                                 client.tcpSocket.setSendBufferSize(65535);
                                 client.domainOut = new DataOutputStream(
                                         new BufferedOutputStream(client.tcpSocket.getOutputStream(), 65536));
-System.out.println("rcClient server handler: Done connecting");
+//System.out.println("rcClient server handler: Done connecting");
                             }
                             else {
-System.out.println("rcClient server handler: complete client's connect() call");
+//System.out.println("rcClient server handler: complete client's connect() call");
                                 // complete the client's connect() call
                                 client.connectCompletion.countDown();
                             }
 
                             // Send back a response - the name of this client
-System.out.println("rcClient server handler: write back response to rc server");
+//System.out.println("rcClient server handler: write back response to rc server");
                             out.writeInt(client.getName().length());
                             try {
                                 out.write(client.getName().getBytes("US-ASCII"));
@@ -496,9 +496,6 @@ System.out.println("rcClient server handler: write back response to rc server");
                 //System.out.println("text = " + msg.getText());
                 offset += lengthText;
             }
-            else {
-                System.out.println("readIncomingMessage(): text field len = " + lengthText);
-            }
 
             // read binary array
             if (lengthBinary > 0) {
@@ -514,8 +511,8 @@ System.out.println("rcClient server handler: write back response to rc server");
                 }
             }
 
-            int totalBytes = 4*17 + stringBytesToRead +  lengthBinary;
-            System.out.println("readIncomingMessage(): read " + totalBytes + " bytes");
+//int totalBytes = 4*17 + stringBytesToRead +  lengthBinary;
+//System.out.println("readIncomingMessage(): read " + totalBytes + " bytes");
 
             // fill in message object's members
             msg.setDomain(domainType);
