@@ -649,7 +649,6 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
       pchar += lengths[5];
   }
   else {
-printf("cMsgReadMessage(): msg text field len = %d, set text field to NULL\n", lengths[5]);
       msg->text = NULL;
   }
 
@@ -691,7 +690,7 @@ printf("cMsgReadMessage(): msg text field len = %d, set text field to NULL\n", l
       return(CMSG_NETWORK_ERROR);
     }
 
-    printf("cMsgReadMessage(): read %d bytes in msg\n", (4*17 + stringLen + lengths[6]));
+/*printf("cMsgReadMessage(): read %d bytes in msg\n", (4*17 + stringLen + lengths[6]));*/
 
     msg->byteArray       = tmp;
     msg->byteArrayOffset = 0;
