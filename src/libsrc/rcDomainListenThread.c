@@ -456,14 +456,14 @@ static void *clientThread(void *arg)
     /* extract command */
     msgId = ntohl(inComing[1]);
 
-fprintf(stderr, "clientThread %d: size = %d bytes, msgId = %d\n", localCount, size, msgId);
+/*fprintf(stderr, "clientThread %d: size = %d bytes, msgId = %d\n", localCount, size, msgId);*/
 
     if (msgId != CMSG_SUBSCRIBE_RESPONSE &&
         msgId != CMSG_RC_CONNECT_ABORT &&
         msgId != CMSG_RC_CONNECT) {
     
-fprintf(stderr, "clientThread %d: bad command, quitting thread\n", localCount);
-          goto end;
+fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCount, msgId);
+        goto end;
     }
     
     /* make sure we have big enough buffer */
