@@ -332,10 +332,12 @@ class rcListeningThread extends Thread {
                             client.rcServerAddresses.clear();
                             cMsgPayloadItem pItem = msg.getPayloadItem("IpAddresses");
                             if (pItem != null) {
+//System.out.println("rcClient server handler: server's ip addrs->");
                                 try {
                                     String[] ips = pItem.getStringArray();
                                     for (String ip : ips) {
                                         client.rcServerAddresses.add(InetAddress.getByName(ip));
+//System.out.println("      "+ip);
                                     }
                                 }
                                 catch (cMsgException e) {/* never happen*/}
