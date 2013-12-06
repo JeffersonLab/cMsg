@@ -444,7 +444,6 @@ printf("rc connect: create listening socket on port %d\n", domain->listenPort );
     /* Block SIGPIPE for this and all spawned threads. */
     cMsgBlockSignals(domain);
 
-printf("rc connect: start pend thread\n");
     status = pthread_create(&domain->pendThread, NULL,
                             rcClientListeningThread, (void *) threadArg);
     if (status != 0) {
@@ -778,9 +777,11 @@ printf("rc connect: try cMsg msg senderHost field to make tcp connection to RC s
                                       CMSG_BIGSOCKBUFSIZE, 0, 1, &domain->sendSocket, NULL)) == CMSG_OK) {
             gotValidRcServerHost = 1;
         }
+        /*
         else {
 printf("rc connect: failed to connect to %s\n", rcServerHost);
         }
+        */
     }
     
     if (!gotValidRcServerHost) {
@@ -794,7 +795,7 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
                 printf("rc connect: SUCCESS connecting to %s\n", rcServerHost);
                 break;
             }
-printf("rc connect: failed to connect to %s\n", rcServerHost);
+/*printf("rc connect: failed to connect to %s\n", rcServerHost);*/
         }
 
         if (!gotValidRcServerHost) {
@@ -877,7 +878,7 @@ printf("rc connect: failed to connect to %s\n", rcServerHost);
     cmsg_rc_setShutdownHandler((void *)domain, defaultShutdownHandler, NULL);
 
     domain->gotConnection = 1;
-/*printf("rc connect: DONE\n");*/
+printf("rc connect: DONE\n");
     
     return(CMSG_OK);
 }
