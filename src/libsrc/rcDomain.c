@@ -769,16 +769,19 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
     haveHashEntries = hashGetAll(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
 
     /* if there are no hash table entries, try old way */
-    if (domain->sendHost != NULL) {
+    /*if (domain->sendHost != NULL) {*/
+    if (0) {
 printf("rc connect: try cMsg msg senderHost field to make tcp connection to RC server = %s\n", domain->sendHost);
         rcServerHost = domain->sendHost;
         if ( (err = cMsgNetTcpConnect(rcServerHost, NULL, (unsigned short) domain->sendPort,
                                       CMSG_BIGSOCKBUFSIZE, 0, 1, &domain->sendSocket, NULL)) == CMSG_OK) {
             gotValidRcServerHost = 1;
         }
+        /*
         else {
 printf("rc connect: failed to connect to %s\n", rcServerHost);
         }
+        */
     }
     
     if (!gotValidRcServerHost) {
@@ -792,7 +795,7 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
                 printf("rc connect: SUCCESS connecting to %s\n", rcServerHost);
                 break;
             }
-printf("rc connect: failed to connect to %s\n", rcServerHost);
+/*printf("rc connect: failed to connect to %s\n", rcServerHost);*/
         }
 
         if (!gotValidRcServerHost) {
