@@ -390,7 +390,7 @@ for (String ip : ipAddrs) {
                 throw new cMsgException("No response to UDP multicast received");
             }
             else {
-System.out.println("RC connect: got a response to multicast!");
+//System.out.println("RC connect: got a response to multicast!");
             }
 
             // Now that we got a response from the RC Multicast server,
@@ -424,11 +424,11 @@ System.out.println("RC connect: got a response to multicast!");
             }
 
             if (!completed) {
-System.out.println("RC connect: Did NOT complete the connection");
+//System.out.println("RC connect: Did NOT complete the connection");
                 throw new cMsgException("No connect from the RC server received");
             }
             else {
-System.out.println("RC connect: Completed the connection from RC server");
+//System.out.println("RC connect: Completed the connection from RC server");
             }
 
             // create a TCP connection to the RC Server
@@ -439,8 +439,8 @@ System.out.println("RC connect: Completed the connection from RC server");
             //if (rcServerAddress != null) {
             if (false) {
                 try {
-System.out.println("RC connect: Try making tcp connection to RC server (msg senderHost = " + rcServerAddress.getHostName() + ", " +
-                    rcServerAddress.getHostAddress() + "; port = " + rcTcpServerPort + ")");
+//System.out.println("RC connect: Try making tcp connection to RC server (msg senderHost = " + rcServerAddress.getHostName() + ", " +
+//                    rcServerAddress.getHostAddress() + "; port = " + rcTcpServerPort + ")");
 
                     tcpSocket = new Socket();
                     // Don't waste time if a connection cannot be made, timeout = 1 second
@@ -449,11 +449,11 @@ System.out.println("RC connect: Try making tcp connection to RC server (msg send
                     tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
                     domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
                                                                               cMsgNetworkConstants.bigBufferSize));
-System.out.println("RC connect: Made tcp connection to RC server");
+//System.out.println("RC connect: Made tcp connection to RC server");
                     gotTcpConnection = true;
                 }
                 catch (IOException e) {
-System.out.println("RC connect: connection failed");
+//System.out.println("RC connect: connection failed");
                     ioex = e;
                 }
             }
@@ -462,8 +462,8 @@ System.out.println("RC connect: connection failed");
             if (!gotTcpConnection && rcServerAddresses.size() > 0) {
                 for (InetAddress rcServerAddr : rcServerAddresses) {
                     try {
-System.out.println("RC connect: Try making tcp connection to RC server (host = " + rcServerAddr.getHostName() + ", " +
-                   rcServerAddr.getHostAddress() + "; port = " + rcTcpServerPort + ")");
+//System.out.println("RC connect: Try making tcp connection to RC server (host = " + rcServerAddr.getHostName() + ", " +
+//                   rcServerAddr.getHostAddress() + "; port = " + rcTcpServerPort + ")");
 
                         tcpSocket = new Socket();
                         // don't waste time if a connection cannot be made, timeout = 1 second
@@ -472,17 +472,17 @@ System.out.println("RC connect: Try making tcp connection to RC server (host = "
                         tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
                         domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
                                                                                   cMsgNetworkConstants.bigBufferSize));
-System.out.println("RC connect: Made tcp connection to RC server");
+//System.out.println("RC connect: Made tcp connection to RC server");
                         rcServerAddress = rcServerAddr;
                         gotTcpConnection = true;
                         break;
                     }
                     catch (SocketTimeoutException e) {
-System.out.println("RC connect: connection TIMEOUT");
+//System.out.println("RC connect: connection TIMEOUT");
                         ioex = e;
                     }
                     catch (IOException e) {
-System.out.println("RC connect: connection failed");
+//System.out.println("RC connect: connection failed");
                         ioex = e;
                     }
                 }
