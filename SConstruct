@@ -383,7 +383,7 @@ else:
         env.Append(CCFLAGS = ['-fmessage-length=0'])
         if is64bits and not use32bits:
             env.Append(CCFLAGS = ['-arch x86_64'],
-                       LINKFLAGS = ['-arch x86_64','-Wl,-bind_at_load'])
+                       LINKFLAGS = ['-arch x86_64','-Wl','-bind_at_load'])
 
     elif platform == 'Linux':
         if is64bits and use32bits:
@@ -477,16 +477,6 @@ else:
     print 'bin install dir  = ', binInstallDir
     print 'lib install dir  = ', libInstallDir
     print 'inc install dirs = ', incInstallDir, ", ", archIncInstallDir
-
-
-#incDir = make_abs_path(incDir)
-#archIncDir = make_abs_path(archIncDir)
-#libDir = make_abs_path(libDir)
-#binDir = make_abs_path(binDir)
-
-#print 'binDir = ', binDir
-#print 'libDir = ', libDir
-#print 'incDir = ', incDir
 
 # use "install" on command line to install libs & headers
 Help('install             install libs and headers\n')
