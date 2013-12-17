@@ -17,27 +17,18 @@
  *
  *----------------------------------------------------------------------------*/
  
-#ifndef __cMsgCommonNetwork_h
-#define __cMsgCommonNetwork_h
-
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <time.h>
-#include <semLib.h>
-#else
-#include <sys/time.h>    /* struct timeval */
-#endif
+#ifndef __etCommonNetwork_h
+#define __etCommonNetwork_h
 
 
 /*#include <netinet/ip.h>*/  /* IPTOS_LOWDELAY defn */
-#include <netinet/in.h>	 /* sockaddr_in{} and other Internet defns */
+#include <netinet/in.h>	 /* sockaddr_in{}, sockaddr_storage{} and other Internet defns */
 #include <netinet/tcp.h> /* TCP_NODELAY def */
 #include <net/if.h>	     /* find broacast addr */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <pthread.h>
+#ifndef VXWORKS
+#include <sys/time.h>    /* struct timeval */
+#endif
 
 
 /* cmsg or et definitions here */
@@ -48,7 +39,6 @@
 extern "C" {
 #endif
 
-//char *codanetStr = "codanet";
 
 /* rename variables & routines to avoid naming conflicts w/ ET network lib */
 #define   codanetStr                    "cMsgNet"
@@ -88,9 +78,11 @@ extern "C" {
 
 #define   codanetIsDottedDecimal        cMsgNetIsDottedDecimal
 #define   codanetOnSameSubnet           cMsgNetOnSameSubnet
+#define   codanetOnSameSubnet2          cMsgNetOnSameSubnet2
 #define   codanetLocalHost              cMsgNetLocalHost
 #define   codanetLocalAddress           cMsgNetLocalAddress
 #define   codanetLocalByteOrder         cMsgNetLocalByteOrder
+#define   codanetLocalSocketAddress     cMsgNetLocalSocketAddress
 
 #define   codanetNodeSame               cMsgNetNodeSame
 #define   codanetNodeIsLocal            cMsgNetNodeIsLocal
@@ -105,11 +97,13 @@ extern "C" {
 #define   codanetFreeInterfaceInfo      cMsgNetFreeInterfaceInfo
 #define   codanetFreeIpAddrs            cMsgNetFreeIpAddrs
 #define   codanetGetNetworkInfo         cMsgNetGetNetworkInfo
-#define   codanetFreeBroadcastAddrs     cMsgNetFreeBroadcastAddrs
+#define   codanetFreeAddrList           cMsgNetFreeAddrList
 #define   codanetGetBroadcastAddrs      cMsgNetGetBroadcastAddrs
 #define   codanetGetIpAddrs             cMsgNetGetIpAddrs
 #define   codanetMcastSetIf             cMsgNetMcastSetIf
 #define   codanetGetIfNames             cMsgNetGetIfNames
+
+
 
 /* convenient network definitions (from Richard Stevens ) */
 #define SA                  struct sockaddr
@@ -122,10 +116,20 @@ extern "C" {
 #define INET_ATON_ERR   0
 #endif
 
+#ifdef VXWORKS
+/*
+struct sockaddr_storage {
+    uint8_t ss_len;
+    sa_family_t ss_family;
+};
+*/
+#endif
+
 
 /*****************************************************************************
- * The following is taken from R. Stevens book, UNIX Network Programming,
- * Chapter 16. Used for finding network info. Yes, we stole the code.
+ * The following is taken from R. Stevens book, UNIX Network Programming, 3rd ed.
+ * Chapter 17. Used for finding network info. Yes, we stole the code.
+ * However, we also added the subnet mask to it.
  */
 #define IFI_NAME    16  /* same as IFNAMSIZ in <net/if.h> */
 #define IFI_HADDR    8  /* allow for 64-bit EUI-64 in future */
@@ -140,6 +144,7 @@ struct ifi_info {
     struct sockaddr  *ifi_addr;   /* primary address */
     struct sockaddr  *ifi_brdaddr;/* broadcast address */
     struct sockaddr  *ifi_dstaddr;/* destination address */
+    struct sockaddr  *ifi_netmask;/* subnet mask */
     struct ifi_info  *ifi_next;   /* next of these structures */
 };
 /*****************************************************************************
@@ -171,45 +176,47 @@ struct ifi_info {
 /** Structure to handle dotted-decimal IP addresses in a linked list. */
 typedef struct codaIpList_t {
     char                addr[CODA_IPADDRSTRLEN]; /**< Single dotted-decimal address. */
-    struct codaIpList_t *next;                  /**< Next item in linked list. */
+    struct codaIpList_t *next;                   /**< Next item in linked list. */
 } codaIpList;
 
 /** Structure to handle multiple dotted-decimal IP addresses. */
 typedef struct codaDotDecIpAddrs_t {
-    int       count;                                  /**< Number of valid addresses in this structure. */
+    int       count;                                      /**< Number of valid addresses in this structure. */
     char      addr[CODA_MAXADDRESSES][CODA_IPADDRSTRLEN]; /**< Array of addresses. */
-    pthread_t tid[CODA_MAXADDRESSES];                   /**< Array of pthread thread ids. */
+    pthread_t tid[CODA_MAXADDRESSES];                     /**< Array of pthread thread ids. */
 } codaDotDecIpAddrs;
 
 
 /**
  * This structure holds a single IP address (dotted-decimal
- * and binary forms) along with its canonical name, aliases,
+ * and binary forms) along with its canonical name, name aliases,
  * broadcast address, and a place to store a thread id.
  */
 typedef struct codaIpAddr_t {
-    int    aliasCount;                 /**< Number of aliases stored in this structure. */
-    char   **aliases;                  /**< Array of alias strings. */
+    int    aliasCount;                   /**< Number of aliases stored in this structure. */
+    char   **aliases;                    /**< Array of alias strings. */
     char   addr[CODA_IPADDRSTRLEN];      /**< IP address in dotted-decimal form. */
     char   canon[CODA_MAXHOSTNAMELEN];   /**< Canonical name of host associated with addr. */
     char   broadcast[CODA_IPADDRSTRLEN]; /**< Broadcast address in dotted-decimal form. */
-    struct sockaddr_in saddr;          /**< Binary form of IP address. */
-    struct codaIpAddr_t *next;          /**< Next item in linked list. */
+    struct sockaddr_in saddr;            /**< Binary form of IP address. */
+    struct sockaddr_in netmask;          /**< Binary form of subnet mask. */
+    struct codaIpAddr_t *next;           /**< Next item in linked list. */
 } codaIpAddr;
 
 /**
  * This structure holds a single IP address (dotted-decimal
- * and binary forms) along with its canonical name, aliases,
+ * and binary forms) along with its canonical name, name aliases,
  * broadcast address, and a place to store a thread id. This
  * form is for use with shared memory since it is of fixed size.
  */
 typedef struct codaIpInfo_t {
-    int    aliasCount;                 /**< Number of aliases stored in this item. */
+    int    aliasCount;                   /**< Number of aliases stored in this item. */
     char   addr[CODA_IPADDRSTRLEN];      /**< IP address in dotted-decimal form. */
     char   canon[CODA_MAXHOSTNAMELEN];   /**< Canonical name of host associated with addr. */
     char   broadcast[CODA_IPADDRSTRLEN]; /**< Broadcast address in dotted-decimal form. */
     char   aliases[CODA_MAXADDRESSES][CODA_MAXHOSTNAMELEN]; /**< Array of alias strings. */
-    struct sockaddr_in saddr;          /**< Binary form of IP address (net byte order). */
+    struct sockaddr_in saddr;            /**< Binary form of IP address (net byte order). */
+    struct sockaddr_in netmask;          /**< Binary form of subnet mask. */
 } codaIpInfo;
 
 /**
@@ -217,7 +224,7 @@ typedef struct codaIpInfo_t {
  * all the network interface data of a computer.
  */
 typedef struct codaNetInfo_t {
-    int       count;                   /**< Number of valid array items. */
+    int       count;                      /**< Number of valid array items. */
     codaIpInfo ipinfo[CODA_MAXADDRESSES]; /**< Array of structures each of which holds a
     single IP address and its related data. */
 } codaNetInfo;
@@ -249,10 +256,13 @@ extern int   codanetTcpWritev(int fd, struct iovec iov[], int nbufs, int iov_max
 extern int   codanetLocalHost(char *host, int length);
 extern int   codanetLocalAddress(char *address);
 extern int   codanetLocalByteOrder(int *endian);
+extern int   codanetLocalSocketAddress(int sockfd, char *ipAddress);
 
 extern int   codanetIsDottedDecimal(const char *ipAddress, int *decimals);
 extern int   codanetOnSameSubnet(const char *ipAddress1, const char *ipAddress2,
                                  const char *subnetMask, int *sameSubnet);
+extern int   codanetOnSameSubnet2(const char *ipAddress1, const char *ipAddress2,
+                                  uint32_t subnetMask, int *sameSubnet);
 extern int   codanetNodeSame(const char *node1, const char *node2, int *same);
 extern int   codanetNodeIsLocal(const char *host, int *isLocal);
 extern int   codanetGetUname(char *host, int length);
@@ -266,7 +276,7 @@ extern struct ifi_info *codanetGetInterfaceInfo(int family, int doaliases);
 extern void  codanetFreeInterfaceInfo(struct ifi_info *ifihead);
 extern void  codanetFreeIpAddrs(codaIpAddr *ipaddr);
 extern int   codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info);
-extern void  codanetFreeBroadcastAddrs(codaIpList *addr);
+extern void  codanetFreeAddrList(codaIpList *addr);
 extern int   codanetGetBroadcastAddrs(codaIpList **addrs, codaDotDecIpAddrs *bcaddrs);
 extern int   codanetGetIpaddrs(char ***ipAddrs, int *count, char *host);
 extern int   codanetMcastSetIf(int sockfd, const char *ifname, uint32_t ifindex);

@@ -55,6 +55,7 @@
 #include <sys/utsname.h>
 #include <inttypes.h>
 #include <arpa/inet.h>   /* htonl stuff */
+#include <netinet/in.h>
 #ifdef __APPLE__
 #include <ifaddrs.h>
 #endif
@@ -64,7 +65,6 @@
 #ifdef sun
 #include <sys/filio.h>
 #include <sys/sockio.h>  /* find broacast addr */
-#include <stropts.h>
 #else
 #include <sys/ioctl.h>   /* find broacast addr */
 #endif
@@ -210,13 +210,17 @@ int codanetTcpListen(int nonblocking, unsigned short port,
     /* make this socket non-blocking if desired */
     if (nonblocking) {
 #ifdef VXWORKS
-        if ( (val = ioctl(listenfd, FIONBIO, (int)&on)) < 0) {
+    val = ioctl(listenfd, FIONBIO, 1);
+    if (val < 0) {
+        if (codanetDebug >= CODA_DEBUG_ERROR) fprintf(stderr, "%sTcpListen: setsockopt error\n", codanetStr);
+        return(CODA_SOCKET_ERROR);
+    }
 #else
-        if ( (val = ioctl(listenfd, FIONBIO, &on)) < 0) {
+    val = fcntl(listenfd, F_GETFL, 0);
+    if (val > -1) {
+        fcntl(listenfd, F_SETFL, val | O_NONBLOCK);
+    }
 #endif
-            if (codanetDebug >= CODA_DEBUG_ERROR) fprintf(stderr, "%sTcpListen: setsockopt error\n", codanetStr);
-            return(CODA_SOCKET_ERROR);
-        }
     }
   
     /* don't let anyone else have this port */
@@ -325,7 +329,7 @@ static void connect_w_to(void) {
     socklen_t lon;
 #endif
 
-    /* Create socket */
+    // Create socket
     soc = socket(AF_INET, SOCK_STREAM, 0);
     if (soc < 0) {
         fprintf(stderr, "Error creating socket (%d %s)\n", errno, strerror(errno));
@@ -336,7 +340,16 @@ static void connect_w_to(void) {
     addr.sin_port = htons(2000);
     addr.sin_addr.s_addr = inet_addr("192.168.0.1");
 
-    /* Set non-blocking  */    
+    // Set non-blocking 
+    if( (arg = fcntl(soc, F_GETFL, NULL)) < 0) {
+        fprintf(stderr, "Error fcntl(..., F_GETFL) (%s)\n", strerror(errno));
+        exit(0);
+    }
+    arg |= O_NONBLOCK;
+    if( fcntl(soc, F_SETFL, arg) < 0) {
+        fprintf(stderr, "Error fcntl(..., F_SETFL) (%s)\n", strerror(errno));
+        exit(0);
+    }
 #ifdef VXWORKS
     if (ioctl(soc, FIONBIO, (int)&on) < 0) {
 #else
@@ -346,7 +359,7 @@ static void connect_w_to(void) {
         exit(0);
     }
     
-    /*  Trying to connect with timeout */
+    // Trying to connect with timeout 
     res = connect(soc, (struct sockaddr *)&addr, sizeof(addr));
     if (res < 0) {
         if (errno == EINPROGRESS) {
@@ -362,14 +375,14 @@ static void connect_w_to(void) {
                     exit(0);
                 }
                 else if (res > 0) {
-                    /* Socket selected for write */
+                    // Socket selected for write 
                     lon = sizeof(int);
                     if (getsockopt(soc, SOL_SOCKET, SO_ERROR, (void*)(&valopt), &lon) < 0) {
                         fprintf(stderr, "Error in getsockopt() %d - %s\n", errno, strerror(errno));
                         exit(0);
                     }
                     
-                    /* Check the value returned...  */
+                    // Check the value returned... 
                     if (valopt) {
                         fprintf(stderr, "Error in delayed connection() %d - %s\n", valopt, strerror(valopt)
                                );
@@ -389,7 +402,17 @@ static void connect_w_to(void) {
         }
     }
     
-    /* Set to blocking mode again...  */    
+    // Set to blocking mode again... 
+    if( (arg = fcntl(soc, F_GETFL, NULL)) < 0) {
+        fprintf(stderr, "Error fcntl(..., F_GETFL) (%s)\n", strerror(errno));
+        exit(0);
+    }
+    arg &= (~O_NONBLOCK);
+    if( fcntl(soc, F_SETFL, arg) < 0) {
+        fprintf(stderr, "Error fcntl(..., F_SETFL) (%s)\n", strerror(errno));
+        exit(0);
+    }
+    
 #ifdef VXWORKS
     if (ioctl(soc, FIONBIO, (int)&off) < 0) {
 #else
@@ -435,7 +458,7 @@ static int connectWithTimeout(int sockfd, struct sockaddr *pAddr, socklen_t addr
             FD_ZERO(&myset);
             FD_SET(sockfd, &myset);
             
-            /* select irritatingly sets thei timeout values to be 0 in Linux, so use copy of tv */
+            /* select irritatingly sets the timeout values to be 0 in Linux, so use copy of tv */
             timeout.tv_sec  = tv->tv_sec;
             timeout.tv_usec = tv->tv_usec;
 
@@ -448,7 +471,7 @@ static int connectWithTimeout(int sockfd, struct sockaddr *pAddr, socklen_t addr
                 return -1;
             }
             else if (result > 0) {
-                /* Socket selected for write */
+                // Socket selected for write
                 lon = sizeof(int);
                 if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, (void*)(&valopt), &lon) < 0) {
                     if (codanetDebug >= CODA_DEBUG_ERROR) {
@@ -457,7 +480,7 @@ static int connectWithTimeout(int sockfd, struct sockaddr *pAddr, socklen_t addr
                     return -1;
                 }
                     
-                /* Check the value returned... */
+                // Check the value returned...
                 if (valopt) {
                     if (codanetDebug >= CODA_DEBUG_ERROR) {
                         fprintf(stderr, "connectWithTimeout: error in delayed connection() %d - %s\n", valopt, strerror(valopt));
@@ -1123,7 +1146,7 @@ int codanetTcpConnect2(uint32_t inetaddr, const char *interface, unsigned short 
             return(CODA_SOCKET_ERROR);
         }
     }
-    
+  
     /* set send buffer size unless default specified by a value <= 0 */
     if (sendBufSize > 0) {
         err = setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (char*) &sendBufSize, sizeof(sendBufSize));
@@ -1688,6 +1711,54 @@ int codanetLocalByteOrder(int *endian)
 
 
 /**
+ * This routine returns the local IP address associated with a socket.
+ * Used only for IPv4 TCP sockets.
+ *
+ * @param sockfd socket file descriptor
+ * @param ipAddress array of at least 16 characters
+ *
+ * @returns ET/CMSG_OK    if successful
+ * @returns ET_ERROR_BADARG/CMSG_BAD_ARGUMENT if any arg has a bad value
+ * @returns ET/CMSG_ERROR if error
+ */
+int codanetLocalSocketAddress(int sockfd, char *ipAddress)
+{
+    int   err;
+    char *ip;
+    struct sockaddr_in *sa;
+
+#ifdef VXWORKS_5
+    struct sockaddr_in ss;
+    int len = sizeof(ss);
+#else
+    struct sockaddr_storage ss;
+    socklen_t len = sizeof(ss);
+#endif
+    
+    if (sockfd < 0 || ipAddress == NULL) return(CODA_BAD_ARGUMENT);
+    
+    if (getsockname(sockfd, (SA *) &ss, &len) < 0) {
+        return (CODA_ERROR);
+    }
+
+#ifdef VXWORKS_5
+    if (ss.sin_family == AF_INET) {
+#else
+    if (ss.ss_family == AF_INET) {
+#endif
+        sa = (struct sockaddr_in *) &ss;
+        ip = inet_ntoa(sa->sin_addr);
+        strncpy(ipAddress, ip, CODA_IPADDRSTRLEN-1);
+    }
+    else {
+        return (CODA_ERROR);
+    }
+
+    return(CODA_OK);
+}
+
+
+/**
  * This routine tells whether the given ip address is in dot-decimal notation or not.
  *
  * @param ipAddress ip address in string form
@@ -1725,12 +1796,12 @@ int codanetIsDottedDecimal(const char *ipAddress, int *decimals)
 
 
 /**
- * This routine tells whether the 2 given IP addresses (dot-decimal notation)
- * are on the given subnet or not.
+ * This routine tells whether the 2 given IP addresses in dot-decimal notation
+ * are on the same subnet or not given a subnet mask in dot-decimal notation,
  *
  * @param ipAddress1 first  IP address in dot-decimal notation
  * @param ipAddress2 second IP address in dot-decimal notation
- * @param subnetMask subnet mask for subnet of interest
+ * @param subnetMask subnet mask in dot-decimal notation for subnet of interest
  * @param sameSubnet pointer to int gets filled with 1 if addresses on same subnet, else 0
  *
  * @returns ET/CMSG_OK    if successful
@@ -1739,25 +1810,55 @@ int codanetIsDottedDecimal(const char *ipAddress, int *decimals)
 int codanetOnSameSubnet(const char *ipAddress1, const char *ipAddress2,
                         const char *subnetMask, int *sameSubnet)
 {
-    int err, j, ip1[4], ip2[4], msk[4], addr1, addr2, mask;
+    int msk[4];
+    uint32_t mask;
 
-    if (!codanetIsDottedDecimal(ipAddress1, ip1) ||
-        !codanetIsDottedDecimal(ipAddress2, ip2) ||
-        !codanetIsDottedDecimal(subnetMask, msk) || sameSubnet == NULL) {
+    if (!codanetIsDottedDecimal(subnetMask, msk)) {
         return(CODA_ERROR);
     }
 
-    addr1 = (ip1[0] && 0xff) << 24 | (ip1[1] && 0xff) << 16 | (ip1[2] && 0xff) << 8 | (ip1[3] && 0xff);
-    addr2 = (ip2[0] && 0xff) << 24 | (ip2[1] && 0xff) << 16 | (ip2[2] && 0xff) << 8 | (ip2[3] && 0xff);
-    mask  = (msk[0] && 0xff) << 24 | (msk[1] && 0xff) << 16 | (msk[2] && 0xff) << 8 | (msk[3] && 0xff);
+    mask  = (msk[0] << 24) | (msk[1] << 16) | (msk[2] << 8) | msk[3];
 
-    if ((addr1 && mask) == (addr2 && mask)) {
+    return codanetOnSameSubnet2(ipAddress1, ipAddress2, mask, sameSubnet);
+}
+
+
+/**
+ * This routine tells whether the 2 given IP addresses in dot-decimal notation
+ * are on the same subnet or not given a subnet mask in 32 bit binary form
+ * (local byte order).
+ *
+ * @param ipAddress1 first  IP address in dot-decimal notation
+ * @param ipAddress2 second IP address in dot-decimal notation
+ * @param subnetMask subnet mask as LOCAL-byte-ordered 32 bit int
+ * @param sameSubnet pointer to int gets filled with 1 if addresses on same subnet, else 0
+ *
+ * @returns ET/CMSG_OK    if successful
+ * @returns ET/CMSG_ERROR if args are NULL or not in dot-decimal form
+ */
+int codanetOnSameSubnet2(const char *ipAddress1, const char *ipAddress2,
+                         uint32_t subnetMask, int *sameSubnet)
+{
+    int ip1[4], ip2[4];
+    uint32_t addr1, addr2;
+
+    if (!codanetIsDottedDecimal(ipAddress1, ip1) ||
+       !codanetIsDottedDecimal(ipAddress2, ip2) ||
+       sameSubnet == NULL) {
+
+        return(CODA_ERROR);
+    }
+    
+    addr1 = (ip1[0] << 24) | (ip1[1] << 16) | (ip1[2] << 8) | ip1[3];
+    addr2 = (ip2[0] << 24) | (ip2[1] << 16) | (ip2[2] << 8) | ip2[3];
+
+    if ((addr1 & subnetMask) == (addr2 & subnetMask)) {
         *sameSubnet = 1;
     }
     else {
         *sameSubnet = 0;
     }
-    
+
     return(CODA_OK);
 }
 
@@ -2245,22 +2346,15 @@ static char *sock_ntop_host(const struct sockaddr *sa, socklen_t salen)
  */
 int codanetMcastSetIf(int sockfd, const char *ifname, uint32_t ifindex) {
     int err;
-
 #ifdef VXWORKS_5
-
     struct sockaddr_in ss;
     int len = sizeof(ss);
-    
-    if (getsockname(sockfd, (SA *) &ss, &len) < 0) {
-        
 #else
-
     struct sockaddr_storage ss;
     socklen_t len = sizeof(ss);
-    
-    if (getsockname(sockfd, (SA *) &ss, &len) < 0) {
-        
 #endif
+
+    if (getsockname(sockfd, (SA *) &ss, &len) < 0) {
         return(CODA_ERROR);
     }
 
@@ -2388,16 +2482,9 @@ struct ifi_info *codanetGetInterfaceInfo(int family, int doaliases)
                     len = sizeof(struct sockaddr_in6);
                     break;
   #endif
-  #if !defined linux && !defined __APPLE__
-                case AF_LINK:
-                    len = sizeof(struct sockaddr_dl);
-                    break;
-  #endif
-  #if defined __APPLE__
                 case AF_LINK:
                     len = sizeof(struct sockaddr);
                     continue;
-  #endif
                 case AF_INET:
                     len = sizeof(struct sockaddr);
                     break;
@@ -2468,7 +2555,7 @@ struct ifi_info *codanetGetInterfaceInfo(int family, int doaliases)
 struct ifi_info *codanetGetInterfaceInfo(int family, int doaliases)
 {
     struct ifi_info     *ifi, *ifihead, **ifipnext;
-    int                 sockfd, len, lastlen, flags, myflags;
+    int                 err, sockfd, len, lastlen, flags, myflags;
     char                *ptr, *buf, lastname[IFNAMSIZ], *cptr;
     struct ifconf       ifc;
     struct ifreq        *ifr, ifrcopy;
@@ -2488,19 +2575,13 @@ struct ifi_info *codanetGetInterfaceInfo(int family, int doaliases)
         buf = malloc(len);
         ifc.ifc_len = len;
         ifc.ifc_buf = buf;
-  #if defined __APPLE__
-        /* Newer BSD systems (>=4.4) do not return arrays of constant
-           sized elements if SIOCGIFCONF is used. To get the "old-style"
-           structures, OSIOCGIFCONF must be used. I found this from
-           the following URL:
-           http://www.omniorb-support.com/pipermail/omniorb-dev/2004-January/000134.html
-        */
-        if (ioctl(sockfd, OSIOCGIFCONF, &ifc) < 0) {
-  #elif defined VXWORKS
+        
+  #if defined VXWORKS
         if (ioctl(sockfd, SIOCGIFCONF, (int) &ifc) < 0) {
   #else
         if (ioctl(sockfd, SIOCGIFCONF, &ifc) < 0) {
   #endif
+  
             if (errno != EINVAL || lastlen != 0) {
 fprintf(stderr, "et_get_ifi_info: ioctl error\n");
                 close(sockfd);
@@ -2531,7 +2612,7 @@ fprintf(stderr, "et_get_ifi_info: ioctl error\n");
                 len = sizeof(struct sockaddr_in6);
                 break;
   #endif
-  #if !defined linux && !defined __APPLE__
+  #if !defined linux
             case AF_LINK:
                 len = sizeof(struct sockaddr_dl);
                 break;
@@ -2613,6 +2694,20 @@ fprintf(stderr, "et_get_ifi_info: ioctl error\n");
                         ifi->ifi_dstaddr = calloc(1, sizeof(struct sockaddr_in));
                         memcpy(ifi->ifi_dstaddr, sinptr, sizeof(struct sockaddr_in));
                     }
+
+                    /* Get the subnet mask as well (added by Timmer) */
+#ifdef VXWORKS
+                    err = ioctl(sockfd, SIOCGIFNETMASK, (int)&ifrcopy);
+#else
+                    err = ioctl(sockfd, SIOCGIFNETMASK, &ifrcopy);
+#endif
+                    if (err == 0) {
+                        sinptr = (struct sockaddr_in *) &ifrcopy.ifr_addr;
+                        ifi->ifi_netmask = calloc(1, sizeof(struct sockaddr_in));
+/*printf("et_get_ifi_info: Subnet mask = %s\n", inet_ntoa(sinptr->sin_addr));*/
+                        memcpy(ifi->ifi_netmask, sinptr, sizeof(struct sockaddr_in));
+                    }
+                    
                 }
                 break;
 
@@ -2655,6 +2750,9 @@ void codanetFreeInterfaceInfo(struct ifi_info *ifihead)
         if (ifi->ifi_dstaddr != NULL) {
             free(ifi->ifi_dstaddr);
         }
+        if (ifi->ifi_netmask != NULL) {
+            free(ifi->ifi_netmask);
+        }
         ifinext = ifi->ifi_next;        /* can't fetch ifi_next after free() */
         free(ifi);                      /* the ifi_info{} itself */
     }
@@ -2686,8 +2784,8 @@ void codanetFreeIpAddrs(codaIpAddr *ipaddr) {
 
 
 /**
- * This routine finds all IP addresses, their names & subnets of this host and
- * returns the data in the arguments. Only the first item of the returned linked
+ * This routine finds all IP addresses, their names, subnets, & subnet masks of this host
+ * and returns the data in the arguments. Only the first item of the returned linked
  * list or array will have the canonical name and aliases.
  *
  * @param ipaddrs address of pointer to a struct to hold IP data in linked list.
@@ -2737,7 +2835,7 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
             /* allocate space for IP data */
             ipaddr = (codaIpAddr *)calloc(1, sizeof(codaIpAddr));
             if (ipaddr == NULL) {
-                codanetFreeIpAddrs(first);
+                if (first != NULL) codanetFreeIpAddrs(first);
                 codanetFreeInterfaceInfo(ifihead);
                 if (codanetDebug >= CODA_DEBUG_ERROR) fprintf(stderr, "%sGetNetworkInfo: no memory\n", codanetStr);
                 return CODA_OUT_OF_MEMORY;
@@ -2753,9 +2851,7 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
    
             /* if there is an address listed ... */
             if ( (sa = ifi->ifi_addr) != NULL) {
-
                 ipaddr->saddr = *((struct sockaddr_in *) sa);    /* copy it */
-                
                 /* copy IP address - only 1 per loop */
                 if ((pChar = sock_ntop_host(sa, sizeof(*sa))) != NULL) {
                     strncpy(ipaddr->addr, pChar, CODA_IPADDRSTRLEN-1);
@@ -2763,6 +2859,11 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
                         printf("%sGetNetworkInfo address   : %s\n", codanetStr, pChar);
                     }
                 }
+            }
+            
+            /* if there is a subnet mask listed ... */
+            if ( (sa = ifi->ifi_netmask) != NULL) {
+                ipaddr->netmask = *((struct sockaddr_in *) sa);    /* copy it */
             }
             
             /* if the interface is broadcast enabled */
@@ -2883,7 +2984,8 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
             /* look at no more than CODA_MAXADDRESSES IP addresses */
             if (i >= CODA_MAXADDRESSES) break;
             
-            info->ipinfo[i].saddr.sin_addr.s_addr = ipaddr->saddr.sin_addr.s_addr;
+            info->ipinfo[i].saddr.sin_addr.s_addr   = ipaddr->saddr.sin_addr.s_addr;
+            info->ipinfo[i].netmask.sin_addr.s_addr = ipaddr->netmask.sin_addr.s_addr;
             
             if (ipaddr->addr  != NULL) strcpy(info->ipinfo[i].addr, ipaddr->addr);
             else  info->ipinfo[i].addr[0] = '\0';
@@ -2900,7 +3002,7 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
                 strcpy(info->ipinfo[i].aliases[j], ipaddr->aliases[j]);
             }
             info->ipinfo[i].aliasCount = j;
-      
+            
             i++;
             ipaddr = ipaddr->next;
         }
@@ -2911,7 +3013,7 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
         *ipaddrs = first;
     }
     else {
-        codanetFreeIpAddrs(first);
+        if (first != NULL) codanetFreeIpAddrs(first);
     }
   
     return CODA_OK;
@@ -2919,236 +3021,10 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
 
 
 /**
- * This routine finds all IP addresses, their names & subnets of this host and
- * returns the data in the arguments.
- *
- * @param ipaddrs address of pointer to a struct to hold IP data in linked list.
- *                If NULL, nothing is returned here.
- * @param ipinfo  pointer to struct to hold IP data in a fixed size array for
- *                storage in shared memory. This array is CODA_MAXADDRESSES in size.
- *                If NULL, nothing is returned here.
- *
- * @returns ET/CMSG_OK                        if successful
- * @returns ET/CMSG_ERROR                     if error
- * @returns ET_ERROR_NOMEM/CMSG_OUT_OF_MEMORY if no more memory
- */
-int codanetGetNetworkInfoOrig(codaIpAddr **ipaddrs, codaNetInfo *info)
-{
-    struct ifi_info   *ifi, *ifihead, *default_ifi=NULL;
-    struct sockaddr   *sa;
-    struct hostent    *hptr;
-#ifdef VXWORKS
-    int               vxaddr;
-    char              vxhost[CODA_MAXHOSTNAMELEN];
-#endif
-    int               i, debug=0;
-    char              **pptr, *pChar, host[CODA_MAXHOSTNAMELEN];
-    codaIpAddr         *ipaddr=NULL, *prev=NULL, *first=NULL;
-  
-  
-    /* get fully qualified canonical hostname of this host */
-    codanetLocalHost(host, CODA_MAXHOSTNAMELEN);
-
-    /* look through IPv4 interfaces */
-    ifihead = ifi = codanetGetInterfaceInfo(AF_INET, 1);
-    if (ifi == NULL) {
-        if (codanetDebug >= CODA_DEBUG_ERROR) {
-            fprintf(stderr, "%sGetNetworkInfo: cannot find network interface info\n", codanetStr);
-        }
-        return CODA_ERROR;
-    }
-
-    for (;ifi != NULL; ifi = ifi->ifi_next) {
-        /* ignore loopback interface */
-        if (ifi->ifi_flags & IFF_LOOPBACK) {
-            continue;
-        }
-        /* if the interface is up */
-        if (ifi->ifi_flags & IFF_UP) {
-    
-            /* allocate space for IP data */
-            ipaddr = (codaIpAddr *)calloc(1, sizeof(codaIpAddr));
-            if (ipaddr == NULL) {
-                codanetFreeIpAddrs(first);
-                codanetFreeInterfaceInfo(ifihead);
-                if (codanetDebug >= CODA_DEBUG_ERROR) fprintf(stderr, "%sGetNetworkInfo: no memory\n", codanetStr);
-                return CODA_OUT_OF_MEMORY;
-            }
-            /* string IP address info structs in linked list */
-            if (prev != NULL) {
-                prev->next = ipaddr;
-            }
-            else {
-                first = ipaddr;
-            }
-            prev = ipaddr;
-   
-            /* if there is an address listed ... */
-            if ( (sa = ifi->ifi_addr) != NULL) {
-                
-                ipaddr->saddr = *((struct sockaddr_in *) sa); /* copy it */
-
-#ifdef VXWORKS
-                /* Internet address starts at the 4th byte of the sockaddr structure
-                * This corresponds to sa->sa_data[2] */
-                vxaddr = (int)(ipaddr->saddr.sin_addr.s_addr);
-                if (hostGetByAddr(vxaddr,vxhost) < 0) {
-                    codanetFreeIpAddrs(first);
-                    codanetFreeInterfaceInfo(ifihead);
-                    if (codanetDebug >= CODA_DEBUG_ERROR) {
-                        fprintf(stderr,"%sGetNetworkInfo: error in hostGetByAddr\n", codanetStr);
-                    }
-                    return CODA_ERROR;
-                }
-
-                hptr = gethostbyname(vxhost);
-        
-                /* if this is the default interface, mark it */
-                if (strcmp(host, vxhost) == 0) {
-                    default_ifi = ifi;
-                }
-
-                if (hptr != NULL) {
-        
-#else
-                hptr = gethostbyaddr((const char *)&ipaddr->saddr.sin_addr,
-                                      sizeof(struct in_addr), AF_INET);
-                /* Occasionally, hptr is NULL since there is no OS data about an address,
-                 * even though nothing is wrong and the error returned is HOST_NOT_FOUND.
-                 * Just ignore it and go on to the next item. */
-                if (hptr == NULL) {
-                    /*codanetFreeIpAddrs(first); */
-                    /*codanetFreeInterfaceInfo(ifihead); */
-                    if (codanetDebug >= CODA_DEBUG_WARN) {
-                        fprintf(stderr, "%sGetNetworkInfo: error in gethostbyaddr, %s\n", codanetStr, hstrerror(h_errno));
-                    }
-                }
-
-                else {
-                
-                    /* if this is the default interface, mark it */
-                    if (strcmp(host, hptr->h_name) == 0) {
-                        default_ifi = ifi;
-                    }
-#endif
-                    /* copy canonical name ... */
-                    if (hptr->h_name != NULL) {
-                        strncpy(ipaddr->canon, hptr->h_name, CODA_MAXHOSTNAMELEN-1);
-                        if (codanetDebug >= CODA_DEBUG_INFO) {
-                            printf("%sGetNetworkInfo canon name: %s\n", codanetStr, hptr->h_name);
-                        }
-                    }
-                    
-                    /* copy aliases, but first count them */
-                    for (pptr= hptr->h_aliases; *pptr != NULL; pptr++) {
-                        ipaddr->aliasCount++;
-                    }
-        
-                    if (ipaddr->aliasCount > 0) {
-                        ipaddr->aliases = (char **)calloc(ipaddr->aliasCount, sizeof(char *));
-                        if (ipaddr->aliases == NULL) {
-                            codanetFreeIpAddrs(first);
-                            codanetFreeInterfaceInfo(ifihead);
-                            if (codanetDebug >= CODA_DEBUG_ERROR) fprintf(stderr, "%sGetNetworkInfo: no memory\n", codanetStr);
-                            return CODA_OUT_OF_MEMORY;
-                        }
-                    }
-        
-                    i=0;
-                    for (pptr= hptr->h_aliases; *pptr != NULL; pptr++) {
-                        ipaddr->aliases[i] = strdup(*pptr);
-                        if (ipaddr->aliases[i] == NULL) {
-                            ipaddr->aliasCount = i;
-                            codanetFreeIpAddrs(first);
-                            codanetFreeInterfaceInfo(ifihead);
-                            if (codanetDebug >= CODA_DEBUG_ERROR) fprintf(stderr, "%sGetNetworkInfo: no memory\n", codanetStr);
-                            return CODA_OUT_OF_MEMORY;
-                        }
-                        i++;
-                        if (codanetDebug >= CODA_DEBUG_INFO) {
-                            printf("%sGetNetworkInfo alias #%d  : %s\n", codanetStr, i, *pptr);
-                        }
-                    }
-
-                }
-                
-                /* copy IP address - only 1 per loop */
-                if ((pChar = sock_ntop_host(sa, sizeof(*sa))) != NULL) {
-                    strncpy(ipaddr->addr, pChar, CODA_IPADDRSTRLEN-1);
-                    if (codanetDebug >= CODA_DEBUG_INFO) {
-                        printf("%sGetNetworkInfo address   : %s\n", codanetStr, pChar);
-                    }
-                }
-            }
-
-            /* if the interface is broadcast enabled */
-            if ((ifi->ifi_flags & IFF_BROADCAST) > 0) {
-                /* if there is a broadcast (subnet) address listed ... */
-                if ( (sa = ifi->ifi_brdaddr) != NULL) {
-                    if ((pChar = sock_ntop_host(sa, sizeof(*sa))) != NULL) {
-                        strncpy(ipaddr->broadcast, pChar, CODA_IPADDRSTRLEN-1);
-                        if (codanetDebug >= CODA_DEBUG_INFO) {
-                            printf("%sGetNetworkInfo broadcast : %s\n", codanetStr, pChar);
-                        }
-                    }
-                }
-            }
-
-        } /* if interface is up */
-
-        if (codanetDebug >= CODA_DEBUG_INFO) printf("\n");
-
-    } /* for each interface */
-
-    /* free memory */
-    codanetFreeInterfaceInfo(ifihead);
-
-    /* ************************ */
-    /* send back data to caller */
-    /* ************************ */
-
-    /* copy everything into a fixed-size array of structures for use in shared memory */
-    if (info != NULL) {
-        int j, i=0;
-        ipaddr = first;
-
-        while (ipaddr != NULL) {
-            /* look at no more than CODA_MAXADDRESSES IP addresses */
-            if (i >= CODA_MAXADDRESSES) break;
-            info->ipinfo[i].saddr.sin_addr.s_addr = ipaddr->saddr.sin_addr.s_addr;
-            if (ipaddr->addr != NULL)      strcpy(info->ipinfo[i].addr, ipaddr->addr);
-            if (ipaddr->canon != NULL)     strcpy(info->ipinfo[i].canon, ipaddr->canon);
-            if (ipaddr->broadcast != NULL) strcpy(info->ipinfo[i].broadcast, ipaddr->broadcast);
-            for (j=0; j < ipaddr->aliasCount; j++) {
-                /* look at no more than CODA_MAXADDRESSES aliases */
-                if (j >= CODA_MAXADDRESSES) break;
-                strcpy(info->ipinfo[i].aliases[j], ipaddr->aliases[j]);
-            }
-            info->ipinfo[i].aliasCount = j;
-
-            i++;
-            ipaddr = ipaddr->next;
-        }
-        info->count = i;
-    }
-
-    if (ipaddrs != NULL) {
-        *ipaddrs = first;
-    }
-    else {
-        codanetFreeIpAddrs(first);
-    }
-
-    return CODA_OK;
-}
-
-
-/**
- * This routine frees allocated memory of a linked list containing broadcast addresses.
- *
+ * This routine frees allocated memory of a linked list containing IP addresses.
  * @param addr pointer to first element of linked list to be freed
 ` */
-void codanetFreeBroadcastAddrs(codaIpList *addr) {
+void codanetFreeAddrList(codaIpList *addr) {
     codaIpList *next;
     while (addr != NULL) {
         next = addr->next;
@@ -3218,7 +3094,7 @@ int codanetGetBroadcastAddrs(codaIpList **addrs, codaDotDecIpAddrs *bcaddrs)
                 /* allocate space for broadcast data */
                 baddr = (codaIpList *)calloc(1, sizeof(codaIpList));
                 if (baddr == NULL) {
-                    codanetFreeBroadcastAddrs(first);
+                    if (first != NULL) codanetFreeAddrList(first);
                     codanetFreeInterfaceInfo(ifihead);
                     if (codanetDebug >= CODA_DEBUG_ERROR) fprintf(stderr, "%sGetBroadcastAddrs: no memory\n", codanetStr);
                     return CODA_OUT_OF_MEMORY;
@@ -3267,7 +3143,7 @@ int codanetGetBroadcastAddrs(codaIpList **addrs, codaDotDecIpAddrs *bcaddrs)
         *addrs = first;
     }
     else {
-        codanetFreeBroadcastAddrs(first);
+        if (first != NULL) codanetFreeAddrList(first);
     }
   
     return CODA_OK;
@@ -3357,15 +3233,15 @@ int codanetGetIfNames(char ***ifNames, int *count) {
 
 
 /**
- * This routine returns an allocated array of local dotted-decimal IP addresses
+ * This routine returns an allocated array of dotted-decimal IP addresses
  * and the array size in the arguments. To free all allocated memory,
  * free each of ipAddrs' count elements, then free ipAddrs itself.
  *
- * @param ipAddrs pointer which gets filled with allocated array of local dotted-decimal IP addresses.
+ * @param ipAddrs pointer which gets filled with allocated array of dotted-decimal IP addresses.
  *                If NULL, nothing is returned here.
  * @param count   number of addresses returned.
  *                If NULL, nothing is returned here.
- * @param host    if NULL, return addrs of local host, else return address of given host.
+ * @param host    if NULL, return addressess of local host, else return addresses of given host.
  *
  * @returns ET/CMSG_OK                        if successful
  * @returns ET/CMSG_ERROR                     if cannot find network interface or host info
@@ -3373,7 +3249,7 @@ int codanetGetIfNames(char ***ifNames, int *count) {
  */
 int codanetGetIpAddrs(char ***ipAddrs, int *count, char *host) {
 
-    static char str[128], *pStr;
+    static char str[128];
     char   **array, *pChar;
     int    err, status, index=0, numIps=0, debug=0, hostIsLocal=0, h_errnop=0;
     struct sockaddr *sa;
@@ -3439,21 +3315,12 @@ int codanetGetIpAddrs(char ***ipAddrs, int *count, char *host) {
 
             pptr = (struct in_addr **) hp->h_addr_list;
             for ( ; *pptr != NULL; pptr++) {
-#ifndef VXWORKS
                 if (inet_ntop(hp->h_addrtype, *pptr, str, sizeof(str)) != NULL) {
                     array[index++] = strdup(str);
                     if (codanetDebug >= CODA_DEBUG_INFO) {
                         printf("%sGetIpaddrs address : %s\n", codanetStr, str);
                     }
                 }
-#else
-                if ((pStr = inet_ntoa(**pptr)) != NULL) {
-                    array[index++] = strdup(pStr);
-                    if (codanetDebug >= CODA_DEBUG_INFO) {
-                        printf("%sGetIpaddrs address : %s\n", codanetStr, pStr);
-                    }
-                }
-#endif
             }
         }
 
