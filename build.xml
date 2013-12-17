@@ -13,8 +13,6 @@
     
     <!-- Directories/Files -->
     <property name="src.dir"       value="java" />
-    <property name="src2.dir"      value="java/org/jlab/coda/cMsg" />
-    <property name="jars.dir"      value="java/jars" />
     <property name="build.dir"     value="build" />
     <property name="build.classes" value="${build.dir}/classes" />
     <property name="build.lib"     value="${build.dir}/lib" />
@@ -29,10 +27,10 @@
     <property name="etJarName"     value="et-14.0.jar" />
     <property name="jcaJarName"    value="jca-2.3.6.jar" />
     <property name="ssJarName"     value="ss.jar" />
-    <property name="cajJarPath"    value="${jars.dir}/${cajJarName}" />
-    <property name="etJarPath"     value="${jars.dir}/${etJarName}" />
-    <property name="jcaJarPath"    value="${jars.dir}/${jcaJarName}" />
-    <property name="ssJarPath"     value="${jars.dir}/${ssJarName}" />
+    <property name="cajJarPath"    value="${local.jars}/${cajJarName}" />
+    <property name="etJarPath"     value="${local.jars}/${etJarName}" />
+    <property name="jcaJarPath"    value="${local.jars}/${jcaJarName}" />
+    <property name="ssJarPath"     value="${local.jars}/${ssJarName}" />
 
 
     <!-- Targets -->
