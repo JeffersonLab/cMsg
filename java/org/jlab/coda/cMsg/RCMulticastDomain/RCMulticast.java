@@ -188,7 +188,7 @@ public class RCMulticast extends cMsgDomainAdapter {
             DataOutputStream out = new DataOutputStream(baos);
 
             try {
-                // Put our TCP listening port, our name, and
+                // Put our TCP listening port (irrelevant here), our name, and
                 // the EXPID (experiment id string) into byte array.
 
                 // this multicast is from an rc multicast domain server
