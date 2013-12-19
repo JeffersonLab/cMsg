@@ -68,6 +68,7 @@ extern "C" {
 #define   codanetTcpConnect             cMsgNetTcpConnect
 #define   codanetTcpConnect2            cMsgNetTcpConnect2
 #define   codanetTcpConnectTimeout      cMsgNetTcpConnectTimeout
+#define   codanetTcpConnectTimeout2     cMsgNetTcpConnectTimeout2
 #define   codanetGetListeningSocket     cMsgNetGetListeningSocket
 #define   codanetUdpReceive             cMsgNetUdpReceive
 
@@ -242,6 +243,9 @@ extern int   codanetTcpConnectTimeout(const char *ip_address, unsigned short por
                                       int sendBufSize, int rcvBufSize,
                                       int noDelay, struct timeval *timeout,
                                       int *fd, int *localPort);
+extern int   codanetTcpConnectTimeout2(const char *ip_address, const char *interface, unsigned short port,
+                                       int sendBufSize, int rcvBufSize, int noDelay, struct timeval *timeout,
+                                       int *fd, int *localPort);
 extern int   codanetGetListeningSocket(int nonblocking, unsigned short startingPort,
                                        int sendBufSize, int rcvBufSize, int noDelay,
                                        int *finalPort, int *fd);
