@@ -548,12 +548,11 @@ Help('undoc               remove javadoc and doxygen docs (in ./doc)\n')
 # Tar file
 #########################
 
-# Function that does the tar. Note that tar on Solaris is different
-# (more primitive) than tar on Linux and MacOS. Solaris tar has no -z option
-# and the exclude file does not allow wildcards. Thus, stick to Linux for
-# creating the tar file.
-
 if 'tar' in COMMAND_LINE_TARGETS:
+    # Function that does the tar. Note that tar on Solaris is different
+    # (more primitive) than tar on Linux and MacOS. Solaris tar has no -z option
+    # and the exclude file does not allow wildcards. Thus, stick to Linux for
+    # creating the tar file.
     def tarballer(target, source, env):
         if platform == 'SunOS':
             print '\nMake tar file from Linux or MacOS please\n'
