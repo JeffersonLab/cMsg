@@ -284,7 +284,15 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 msgCount++;
                 msgCopy = message.copy();
                 msgCopy.setContext(context);
-                callback.callback(msgCopy, arg);
+                try {
+                    callback.callback(msgCopy, arg);
+                }
+                catch (Exception e) {
+                    // Ignore any exceptions thrown to avoid killing this thread.
+                    // Don't want processing of messages to stop as that may back
+                    // everything up the TCP pipe.
+System.out.println("Error in callback (sub[" + subject + "],type[" + type + "]): " + e.getMessage());
+                }
             }
         }
     }
