@@ -344,7 +344,9 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                     // Block trying to put msg on queue. That will propagate
                     // back pressure through the whole cmsg system.
                     while (!messageQueue.offer(message, 10, TimeUnit.SECONDS)) {
-                        System.out.println("Cannot place incoming message on full queue, wait 10 seconds");
+                        System.out.println("Cannot place incoming message on full queue, wait 10 seconds,");
+                        System.out.println("Q size = " + messageQueue.size() +
+                                           "subject = " + subject + ", type = " + type);
                     }
                 }
                 catch (InterruptedException e) {
