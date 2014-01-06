@@ -284,7 +284,15 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 msgCount++;
                 msgCopy = message.copy();
                 msgCopy.setContext(context);
-                callback.callback(msgCopy, arg);
+                try {
+                    callback.callback(msgCopy, arg);
+                }
+                catch (Exception e) {
+                    // Ignore any exceptions thrown to avoid killing this thread.
+                    // Don't want processing of messages to stop as that may back
+                    // everything up the TCP pipe.
+System.out.println("Error in callback (sub[" + subject + "],type[" + type + "]): " + e.getMessage());
+                }
             }
         }
     }
@@ -344,7 +352,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                     // Block trying to put msg on queue. That will propagate
                     // back pressure through the whole cmsg system.
                     while (!messageQueue.offer(message, 10, TimeUnit.SECONDS)) {
-                        System.out.println("Cannot place incoming message on full queue, wait 10 seconds,");
+                        System.out.println("Cannot place incoming message on full callback Q, wait 10 seconds,");
                         System.out.println("Q size = " + messageQueue.size() +
                                            "subject = " + subject + ", type = " + type);
                     }
