@@ -452,6 +452,16 @@ class rcListeningThread extends Thread {
 
             // read all string bytes
             if (stringBytesToRead > bytes.length) {
+                //if (debug >= cMsgConstants.debugInfo) {
+                // Print warning if strings + payload > 20MB
+                if (stringBytesToRead > 20000000) {
+System.out.println("readIncomingMessage: WARNING: attempt reading strings+payload of msg = " +
+                    stringBytesToRead + " bytes");
+System.out.println("     bytes: sender " + lengthSender +
+                   ", sender host " + lengthSenderHost + ", sub " + lengthSubject +
+                   ", type " + lengthType + ", text " + lengthText +
+                   ", payload " + lengthPayloadText);
+                }
                 bytes = new byte[stringBytesToRead];
             }
             in.readFully(bytes, 0, stringBytesToRead);
