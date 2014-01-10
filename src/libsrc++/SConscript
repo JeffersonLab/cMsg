@@ -1,34 +1,12 @@
-# scons build file for cmsg
-
+# scons build file for cMsg C++ library
 Import('env', 'libInstallDir', 'incInstallDir', 'archIncInstallDir', 'debugSuffix')
-import os
-from os import sep
 
-headerList = ['cMsg.hxx',
-              'cMsgPrivate.hxx']
-
-linkList   = [archIncInstallDir + sep + 'cMsg.hxx',
-              archIncInstallDir + sep + 'cMsgPrivate.hxx']
-
-fileList   = ['cMsgWrapper.cc',
-              'cMsgPayload.cc']
-
-docList = ['cMsg.hxx',
-           'cMsgWrapper.cc',
-           'cMsgPayload.cc']              
+fileList   = Glob('*.cc',  strings=True)
+headerList = Glob('*.hxx', strings=True)
 
 env.AppendUnique(CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
 cmsgxxLib = env.SharedLibrary(target = 'cmsgxx'+debugSuffix, source = fileList)
     
-env.Alias("install", env.Install(target = incInstallDir, source = headerList))
-env.Alias("install", env.Install(target = libInstallDir, source = cmsgxxLib))
-
-# create symbolic links to installed header files
-if archIncInstallDir != incInstallDir:
-    env.Alias("install", env.CreateSymbolicLinks(target = linkList,
-        source = env.Install(target = incInstallDir, source = headerList)))
-
-if 'doc' in COMMAND_LINE_TARGETS:
-    # generate documentation
-    env.Alias('doc', env.DocGenCC(target = ['#/doc/doxygen/CC/html/index.html'],
-                                  source = docList ))
+if 'install' in COMMAND_LINE_TARGETS:
+    env.Alias("install", env.Install(target = [incInstallDir, archIncInstallDir], source = headerList))
+    env.Alias("install", env.Install(target = libInstallDir, source = cmsgxxLib))
