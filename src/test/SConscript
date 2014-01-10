@@ -1,0 +1,30 @@
+# scons build file for cMsg tests
+Import('env', 'binInstallDir', 'archDir', 'execLibs', 'debugSuffix')
+
+# C & C++ files. Filter out all vxworks files (which start by convention with case-independent 'vx')
+cfileList  = filter( (lambda a : a not in Glob('[vV][xX]*.c',  strings=True)), Glob('*.c',  strings=True))
+ccfileList = filter( (lambda a : a not in Glob('[vV][xX]*.cc', strings=True)), Glob('*.cc', strings=True))
+
+# Compile C++ files and install that executable if "scons install" is run
+for fileName in cfileList:
+    compiledFile = env.Program(source  = fileName,
+                               LIBS    = ['cmsgRegex'+debugSuffix, 'cmsg'+debugSuffix] + execLibs,
+                               LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
+                               CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
+    
+    if 'install' in COMMAND_LINE_TARGETS:
+        env.Alias('install', env.Install(target = binInstallDir+'/test', source = compiledFile))
+
+# Compile C++ files and install
+for fileName in ccfileList:
+    compiledFile = env.Program(source  = fileName,
+                               LIBS    = ['cmsgRegex'+debugSuffix,
+                                          'cmsg'+debugSuffix,
+                                          'cmsgxx'+debugSuffix] + execLibs,
+                               LIBPATH = ['#src/regexp/'+archDir,
+                                          '#src/libsrc/'+archDir,
+                                          '#src/libsrc++/'+archDir],
+                               CPPPATH = ['.', '#src/regexp', '#src/libsrc', '#src/libsrc++'])
+
+    if 'install' in COMMAND_LINE_TARGETS:
+        env.Alias('install', env.Install(target = binInstallDir+'/test', source = compiledFile))
