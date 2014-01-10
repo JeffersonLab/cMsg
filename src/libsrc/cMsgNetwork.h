@@ -42,9 +42,6 @@
  */
 #define CMSG_MAXHOSTNAMELEN 256
 
-/* convenient network definitions (from Richard Stevens ) */
-#define SA                  struct sockaddr
-#define LISTENQ             10
 
 /* The following is alot of stuff to define 64 bit byte swapping */
 
