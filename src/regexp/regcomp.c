@@ -5,7 +5,7 @@
 #include <limits.h>
 #include <stdlib.h>
 
-#include "regex.h"
+#include "cMsgRegex.h"
 #include "utils.h"
 #include "regex2.h"
 
