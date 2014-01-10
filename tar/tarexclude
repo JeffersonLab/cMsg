@@ -1,5 +1,6 @@
 .svn
 .scon*
+*~
 coda.pyc
 *.iml
 config.log
