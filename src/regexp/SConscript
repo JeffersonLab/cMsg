@@ -1,11 +1,9 @@
-# scons build file for cmsg
-
+# scons build file for cMsg C regular expression library
 Import('env', 'libInstallDir', 'incInstallDir', 'archIncInstallDir', 'debugSuffix')
-import os
-from os import sep
 
-headerList = ['regex.h']
-linkList   = [archIncInstallDir + sep + 'regex.h']
+# Header files to install
+headerList = Glob('cMsg*.h',  strings=True)
+
 libFiles   = ['regcomp.c',
               'regerror.c',
               'regexec.c',
@@ -14,10 +12,6 @@ libFiles   = ['regcomp.c',
 env.AppendUnique(CPPPATH = ['.'])
 regexpLib = env.SharedLibrary(target = 'cmsgRegex'+debugSuffix, source = libFiles)
 
-env.Alias("install", env.Install(target = incInstallDir, source = headerList))
-env.Alias("install", env.Install(target = libInstallDir, source = regexpLib))
-
-# create symbolic links to installed header files
-if archIncInstallDir != incInstallDir:
-    env.Alias("install", env.CreateSymbolicLinks(target = linkList,
-        source = env.Install(target = incInstallDir, source = headerList)))
+if 'install' in COMMAND_LINE_TARGETS:
+    env.Alias("install", env.Install(target = [incInstallDir, archIncInstallDir], source = headerList))
+    env.Alias("install", env.Install(target = libInstallDir, source = regexpLib))

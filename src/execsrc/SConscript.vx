@@ -1,11 +1,13 @@
-# scons build file for cmsg - vxworks
+# scons build file for cMsg - vxworks
 Import('env', 'binInstallDir')
 
-# Files to compile for vxworks
-vxfileList = ['cMsgExecutor.c']
+# All vxworks files start by convention with case-independent 'vx'.
+vxfileList = Glob('[vV][xX]*.c',  strings=True) + Glob('[vV][xX]*.cc',  strings=True)
 
-# for vxworks all we need is the object
+# For vxworks all we need is the object
 for fileName in vxfileList:
     objectFile = env.Object(env.AppendUnique(CPPPATH = ['.', '#src/regexp', '#src/libsrc', '#src/libsrc++']),
                             source = fileName)
-    env.Alias('install', env.Install(target = binInstallDir, source = objectFile))
+    
+    if 'install' in COMMAND_LINE_TARGETS:
+        env.Alias('install', env.Install(target = binInstallDir, source = objectFile))
