@@ -25,6 +25,7 @@
 #include <netinet/in.h>	 /* sockaddr_in{}, sockaddr_storage{} and other Internet defns */
 #include <netinet/tcp.h> /* TCP_NODELAY def */
 #include <net/if.h>	     /* find broacast addr */
+#include <pthread.h>
 
 #ifndef VXWORKS
 #include <sys/time.h>    /* struct timeval */
