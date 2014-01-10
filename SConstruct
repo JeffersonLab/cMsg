@@ -39,10 +39,6 @@ osname   = os.getenv('CODA_OSNAME', platform + '-' +  machine)
 # So for vxworks, make sure the tools are in your PATH
 env = Environment(ENV = {'PATH' : os.environ['PATH']})
 
-# ?????
-if 'LD_LIBRARY_PATH' in os.environ:
-    env.Append(ENV = {'LD_LIBRARY_PATH' : os.environ['LD_LIBRARY_PATH']})
-
 
 ################################
 # 64 or 32 bit operating system?
