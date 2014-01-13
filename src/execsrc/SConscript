@@ -5,7 +5,7 @@ Import('env', 'binInstallDir', 'archDir', 'execLibs', 'debugSuffix')
 cfileList  = filter( (lambda a : a not in Glob('[vV][xX]*.c',  strings=True)), Glob('*.c',  strings=True))
 ccfileList = filter( (lambda a : a not in Glob('[vV][xX]*.cc', strings=True)), Glob('*.cc', strings=True))
 
-# Compile C++ files and install that executable if "scons install" is run
+# Compile C files and install that executable if "scons install" is run
 for fileName in cfileList:
     compiledFile = env.Program(source  = fileName,
                                LIBS    = ['cmsgRegex'+debugSuffix, 'cmsg'+debugSuffix] + execLibs,
