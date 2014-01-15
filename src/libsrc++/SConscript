@@ -2,7 +2,7 @@
 Import('env', 'libInstallDir', 'incInstallDir', 'archIncInstallDir', 'debugSuffix')
 
 fileList   = Glob('*.cc',  strings=True)
-headerList = Glob('*.hxx', strings=True)
+headerList = Glob('*.h*', strings=True)
 
 env.AppendUnique(CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
 cmsgxxLib = env.SharedLibrary(target = 'cmsgxx'+debugSuffix, source = fileList)
