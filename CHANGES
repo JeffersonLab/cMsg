@@ -16,3 +16,6 @@ Changes from the previous version:
 
 - both "scons install" and "ant install" places files into $CODA/...
   where CODA is an environmental variable
+  
+- "scons install" builds all executable files. FIles in src/test and src/examples
+  are placed in bin/test, and bin/examples.
