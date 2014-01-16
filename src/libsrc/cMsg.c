@@ -84,6 +84,10 @@
 #include <string.h>
 #include <ctype.h>
 
+#ifdef Darwin
+#include <time.h>
+#endif
+
 /* package includes */
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
