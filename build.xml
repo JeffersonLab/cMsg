@@ -112,6 +112,9 @@
             <fileset dir="${env.CODA}/common/jar" >
                 <include name="*.jar" />
             </fileset>
+            <fileset dir="${local.jars}" >
+                <include name="*.jar" />
+            </fileset>
         </path>
         <echo message="Compile with jars in $CODA/common/jar" />
     </target>
