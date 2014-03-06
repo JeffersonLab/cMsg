@@ -59,7 +59,7 @@
 #include "cMsg.h"
 #include "cMsgNetwork.h"
 #include "rwlock.h"
-#include "regex.h"
+#include "cMsgRegex.h"
 #include "cMsgDomain.h"
 
 

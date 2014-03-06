@@ -70,7 +70,7 @@
 #include "cMsg.h"
 #include "cMsgDomain.h"
 #include "rwlock.h"
-#include "regex.h"
+#include "cMsgRegex.h"
 
 
 

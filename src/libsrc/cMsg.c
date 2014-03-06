@@ -92,7 +92,7 @@
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
 #include "cMsg.h"
-#include "regex.h"
+#include "cMsgRegex.h"
 
 
 /** Number of local array elements in connectionPointers array. */

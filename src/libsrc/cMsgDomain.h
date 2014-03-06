@@ -32,7 +32,7 @@
 
 #include "cMsgPrivate.h"
 #include "rwlock.h"
-#include "regex.h"
+#include "cMsgRegex.h"
 #include "hash.h"
 
 #ifdef	__cplusplus
