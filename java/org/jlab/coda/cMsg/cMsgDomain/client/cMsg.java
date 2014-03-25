@@ -1255,7 +1255,7 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
         connectLock.lock();
 
         try {
-System.out.println("disconnect: CONNECTED = FALSE");
+//System.out.println("disconnect: CONNECTED = FALSE");
             connected = false;
 
             // if we already called disconnect, wait for it to take place in keepalive thread
