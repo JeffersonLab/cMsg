@@ -916,7 +916,7 @@ System.out.println("Server to join not in \"host:port\" format:\n" + e.getMessag
         }
 
         // next line in by Elliott Wolin's request
-System.out.println(">> **** cMsg server sucessfully started at " + (new Date()) + " **** <<");
+//System.out.println(">> **** cMsg server sucessfully started at " + (new Date()) + " **** <<");
     }
 
 
