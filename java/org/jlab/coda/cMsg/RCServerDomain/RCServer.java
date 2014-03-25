@@ -351,8 +351,8 @@ public class RCServer extends cMsgDomainAdapter {
                     try {
                         clientHost = it.next();
 
-System.out.println("RC server: try connection with RC client (host = " + clientHost +
-                   ", port = " + rcClientPort);
+//System.out.println("RC server: try connection with RC client (host = " + clientHost +
+//                   ", port = " + rcClientPort);
                         // Create an object to deliver messages to the RC client.
                         createTCPClientConnection(clientHost, rcClientPort);
                         failed = false;
@@ -368,7 +368,7 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
                 if (failed) {
                     throw new cMsgException("Failed to create socket to rc client");
                 }
-System.out.println("RC server: connected to RC client!");
+//System.out.println("RC server: connected to RC client!");
 
                 // Start listening for tcp connections if not already
                 if (listenerThread == null) {
@@ -497,7 +497,7 @@ System.out.println("RC server: connected to RC client!");
             throw e;
         }
 
-System.out.println("RC Server: made tcp socket to rc client " + clientHost + " on port " + clientPort);
+//System.out.println("RC Server: made tcp socket to rc client " + clientHost + " on port " + clientPort);
     }
 
 
