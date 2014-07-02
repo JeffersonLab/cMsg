@@ -19,3 +19,9 @@ Changes from the previous version:
   
 - "scons install" builds all executable files. FIles in src/test and src/examples
   are placed in bin/test, and bin/examples.
+
+
+Version 3.5.1
+    - add emu domain for communication between Rocs and EBs
+    - add syncSend to rc server domain to act as a ping of client
+
