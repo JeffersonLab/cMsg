@@ -310,7 +310,14 @@ class rcListeningThread extends Thread {
                             runCallbacks(msg);
                             break;
 
-                        // (rc multicast) server bailing out of connect loop
+                        // rc server pinging this client
+                        case cMsgConstants.msgSyncSendRequest:
+//System.out.println("Got PING message!!!");
+                            out.writeInt(1);
+                            out.flush();
+                            break;
+
+                        // rc (multicast) server bailing out of connect loop
                         case cMsgConstants.msgRcAbortConnect:
 //System.out.println("Got ABORT message!!!");
                             client.abandonConnection = true;
