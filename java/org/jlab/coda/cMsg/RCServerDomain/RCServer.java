@@ -616,20 +616,53 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
 
 
     /**
+     * Method to send a "ping" command to the rc client. It writes a message
+     * and returns a zero if no connection to client exists, any other
+     * value indicates a valid connection.
+     *
+     * @param message {@inheritDoc}
+     * @param timeout ignored
+     * @return 0 if no valid TCP connection to client, 1 if there is a connection.
+     */
+    public int syncSend(cMsgMessage message, int timeout) {
+
+        notConnectLock.lock();
+        int val;
+
+        try {
+            if (!connected) {
+                return 0;
+            }
+            val = deliverMessage(message, cMsgConstants.msgSyncSendRequest);
+        }
+        catch (IOException e) {
+            return 0;
+        }
+        finally {
+            notConnectLock.unlock();
+        }
+
+        return val;
+    }
+
+
+    /**
      * Method to deliver a message to a client. This is a somewhat modified "copy"
      * of {@link org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer#deliverMessageReal(cMsgMessage, int)}.
      * It leaves open the possibility that many fields may be null and still will not
-     * barf. It's always possible that a knowledgable user could create an object of
+     * barf. It's always possible that a knowledgeable user could create an object of
      * type cMsgMessageFull and pass that in. That way the user gets to set all fields.
      *
      * @param msg message to be sent
      * @param msgType type of message to be sent
+     * @return integer return from msgType = cMsgConstants.msgSyncSendRequest,
+     *         in which 1 means valid connection exists, 0 means no connection.
      * @throws IOException if the message cannot be sent over the channel
      */
-    synchronized private void deliverMessage(cMsgMessage msg, int msgType) throws IOException {
+    synchronized private int deliverMessage(cMsgMessage msg, int msgType) throws IOException {
 
         int[] len = new int[6]; // int arrays are initialized to 0
-        int binLength = 0;
+        int binLength = 0, returnValue = 0;
 
         if (msg.getSender()      != null) len[0] = msg.getSender().length();
         if (msg.getSenderHost()  != null) len[1] = msg.getSenderHost().length();
@@ -696,8 +729,11 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
             // read subject
             rcClientName = new String(bytes, 0, lengthClientName, "US-ASCII");
         }
+        else if (msgType == cMsgConstants.msgSyncSendRequest) {
+            returnValue = in.readInt();
+        }
 
-        return;
+        return returnValue;
     }
 
 
