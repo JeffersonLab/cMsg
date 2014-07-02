@@ -572,6 +572,20 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
       break;
 
       
+      /* RC server pinging this client */
+      case  CMSG_SYNC_SEND_REQUEST:
+      { 
+			int32_t answer = htonl(1);          
+      		if (cMsgNetTcpWrite(connfd, &answer, sizeof(int32_t)) != sizeof(int32_t)) {
+          		if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+            		fprintf(stderr, "clientThread %d: write failure\n", localCount);
+				}
+          		goto end;
+          	}
+      }
+      break;
+      
+
       /* for RC server & RC domains only */
       case  CMSG_RC_CONNECT_ABORT:
       {
