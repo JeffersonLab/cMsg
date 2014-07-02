@@ -303,4 +303,22 @@ public class cMsgConstants {
     public static final int payloadBinA    = 35;
 
 
+    // Commands in Emu domain
+    /** Evio single event data coming next. */
+    public static final int    emuEvioEvent    = 1;
+    /** Evio file-format data coming next. */
+    public static final int    emuEvioFile     = 2;
+    /** Will shutdown socket on other end. */
+    public static final int    emuEnd          = 3;
+
+    /** Must be same as org.jlab.coda.emu.support.data.EventType.ROC_RAW. */
+    public static final int    emuEventTypeRoc  = 0;
+    /** Must be same as org.jlab.coda.emu.support.data.EventType.PARTIAL_PHYSICS. */
+    public static final int    emuEventTypePP   = 2;
+    /** Must be same as org.jlab.coda.emu.support.data.EventType.CONTROL. */
+    public static final int    emuEventTypeControl = 5;
+
+
+
+
 }
