@@ -476,6 +476,9 @@ public class cMsg {
             else if (domain.equalsIgnoreCase("rc")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.RCDomain.RunControl";
             }
+            else if (domain.equalsIgnoreCase("emu")) {
+                domainConnectionClass = "org.jlab.coda.cMsg.EmuDomain.EmuClient";
+            }
             else if (domain.equalsIgnoreCase("rcs")) {
                 domainConnectionClass = "org.jlab.coda.cMsg.RCServerDomain.RCServer";
             }
@@ -493,7 +496,7 @@ public class cMsg {
             }
         }
 
-        // all options are exhaused, throw error
+        // all options are exhausted, throw error
         if (domainConnectionClass == null) {
             cMsgException ex = new cMsgException("no handler class found");
             ex.setReturnCode(cMsgConstants.errorNoClassFound);
