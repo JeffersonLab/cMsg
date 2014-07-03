@@ -626,17 +626,20 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
      */
     public int syncSend(cMsgMessage message, int timeout) {
 
+        int val = 0;
+
         notConnectLock.lock();
-        int val;
 
         try {
             if (!connected) {
-                return 0;
+                return val;
             }
-            val = deliverMessage(message, cMsgConstants.msgSyncSendRequest);
+            out.writeInt(4);
+            out.writeInt(cMsgConstants.msgSyncSendRequest);
+            val = in.readInt();
         }
         catch (IOException e) {
-            return 0;
+            return val;
         }
         finally {
             notConnectLock.unlock();
@@ -644,6 +647,7 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
 
         return val;
     }
+
 
 
     /**
@@ -655,14 +659,12 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
      *
      * @param msg message to be sent
      * @param msgType type of message to be sent
-     * @return integer return from msgType = cMsgConstants.msgSyncSendRequest,
-     *         in which 1 means valid connection exists, 0 means no connection.
      * @throws IOException if the message cannot be sent over the channel
      */
-    synchronized private int deliverMessage(cMsgMessage msg, int msgType) throws IOException {
+    synchronized private void deliverMessage(cMsgMessage msg, int msgType) throws IOException {
 
         int[] len = new int[6]; // int arrays are initialized to 0
-        int binLength = 0, returnValue = 0;
+        int binLength = 0;
 
         if (msg.getSender()      != null) len[0] = msg.getSender().length();
         if (msg.getSenderHost()  != null) len[1] = msg.getSenderHost().length();
@@ -729,11 +731,8 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
             // read subject
             rcClientName = new String(bytes, 0, lengthClientName, "US-ASCII");
         }
-        else if (msgType == cMsgConstants.msgSyncSendRequest) {
-            returnValue = in.readInt();
-        }
 
-        return returnValue;
+        return;
     }
 
 
