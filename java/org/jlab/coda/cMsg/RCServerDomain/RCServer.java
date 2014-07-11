@@ -43,6 +43,9 @@ public class RCServer extends cMsgDomainAdapter {
     /** Runcontrol client's TCP listening port obtained from UDL. */
     private int rcClientPort;
 
+    /** Runcontrol client's host obtained from UDL. */
+    private String rcClientHost;
+
     /** Runcontrol client's name returned from the connect message. */
     private String rcClientName;
 
@@ -132,12 +135,12 @@ public class RCServer extends cMsgDomainAdapter {
 
 
     /**
-     * Returns a string back to the top level API user indicating the name
-     * of the client that this server is communicating with.
-     * @return name of client
+     * Returns a string back to the top level API user indicating the host
+     * and port of the client that this server is communicating with.
+     * @return host:port of client
      */
     public String getString() {
-        return rcClientName;
+        return rcClientHost+":"+rcClientPort;
     }
 
 
@@ -355,6 +358,7 @@ public class RCServer extends cMsgDomainAdapter {
 //                   ", port = " + rcClientPort);
                         // Create an object to deliver messages to the RC client.
                         createTCPClientConnection(clientHost, rcClientPort);
+                        rcClientHost = clientHost;
                         failed = false;
                         break;
                     }
