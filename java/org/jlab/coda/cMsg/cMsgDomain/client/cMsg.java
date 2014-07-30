@@ -1464,7 +1464,7 @@ System.out.println("disconnect: IO error");
                 int size = 4 * 15 + subject.length() + type.length() + payloadLen +
                                   textLen + binaryLength;
 
-                // protect communicatons over socket
+                // protect communications over socket
                 socketLock.lock();
 
                 try {
@@ -2897,7 +2897,8 @@ System.out.println("disconnect: IO error");
      *    or the server's UDP port if multicasting. Defaults used if not specified are
      *    {@link cMsgNetworkConstants#nameServerTcpPort} if connecting directly, else
      *    {@link cMsgNetworkConstants#nameServerUdpPort} if multicasting<p>
-     * <li>host can be "localhost" and may also be in dotted form (129.57.35.21), but may not contain a colon<p>
+     * <li>host can be "localhost" and may also be in dotted form (129.57.35.21), but may not contain a colon.
+     *     It can also be "multicast"<p>
      * <li>if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
      *    if subdomainType is not cMsg, it is required<p>
      * <li>the domain name is case insensitive as is the subdomainType<p>
