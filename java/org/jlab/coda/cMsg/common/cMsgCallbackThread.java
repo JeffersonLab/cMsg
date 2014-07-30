@@ -239,13 +239,13 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 while (message == null) {
                     // die immediately if commanded to
                     if (dieNow) {
-//System.out.println("Worker: -1");
+//System.out.println("Worker: die now");
                         return;
                     }
 
                     // remove temp worker thread if no work available
                     if (!permanent && ++empty % 10 == 0) {
-//System.out.println("Worker: -1");
+//System.out.println("Worker: end this temp worker thread");
                         threads.decrementAndGet();
                         return;
                     }
@@ -259,8 +259,10 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                     }
                 }
 
+//System.out.println("Worker, callback: got msg from Q");
+
                 if (dieNow) {
-//System.out.println("Worker: -1");
+//System.out.println("Worker: die now");
                     return;
                 }
 
@@ -268,15 +270,18 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 if (pause) {
                     try {
                         // wait till restart is called
+//System.out.println("Worker: wait for latch");
                         latch.await();
+//System.out.println("Worker: done waiting for latch");
                     }
                     catch (InterruptedException e) {
                         if (dieNow) {
-//System.out.println("Worker: -1");
+//System.out.println("Worker: die now");
                             return;
                         }
                     }
                     if (dieNow) {
+//System.out.println("Worker: die now");
                         return;
                     }
                 }
@@ -285,6 +290,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 msgCopy = message.copy();
                 msgCopy.setContext(context);
                 try {
+//System.out.println("Worker, RUN callback: sub=" + subject + ",type=" + type);
                     callback.callback(msgCopy, arg);
                 }
                 catch (Exception e) {
