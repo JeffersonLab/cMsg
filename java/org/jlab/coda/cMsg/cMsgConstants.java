@@ -30,7 +30,7 @@ public class cMsgConstants {
     /** Major cMsg version number = {@value} */
     public static final int    version      = 3;
     /** Minor cMsg version number = {@value} */
-    public static final int    minorVersion = 4;
+    public static final int    minorVersion = 5;
 
     // constants from cMsgConstants.h
 
