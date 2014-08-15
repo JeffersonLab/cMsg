@@ -125,6 +125,7 @@ int cMsgDebug = CMSG_DEBUG_ERROR;
 extern domainTypeInfo  cmsgDomainTypeInfo;
 extern domainTypeInfo  fileDomainTypeInfo;
 extern domainTypeInfo    rcDomainTypeInfo;
+extern domainTypeInfo   emuDomainTypeInfo;
 /*extern domainTypeInfo dummyDomainTypeInfo;*/
 
 /**
@@ -2255,11 +2256,15 @@ static int registerPermanentDomains() {
   dTypeInfo[2].type = (char *)strdup(fileDomainTypeInfo.type);
   dTypeInfo[2].functions = fileDomainTypeInfo.functions;
   
+  /* for file domain */
+  dTypeInfo[3].type = (char *)strdup(emuDomainTypeInfo.type);
+  dTypeInfo[3].functions = emuDomainTypeInfo.functions;
+  
   
   /* for dummy domain */
   /*
-  dTypeInfo[3].type = (char *)strdup(dummyDomainTypeInfo.type);
-  dTypeInfo[3].functions = dummyDomainTypeInfo.functions;
+  dTypeInfo[4].type = (char *)strdup(dummyDomainTypeInfo.type);
+  dTypeInfo[4].functions = dummyDomainTypeInfo.functions;
   */
   return(CMSG_OK);
 }
