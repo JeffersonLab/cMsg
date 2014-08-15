@@ -25,9 +25,6 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,86 +36,43 @@ import java.util.regex.Pattern;
  */
 public class EmuClient extends cMsgDomainAdapter {
 
-    static final int version = 1;
+    /** Timeout in milliseconds to wait for emu server to respond to multicasts. */
+    private int multicastTimeout = 3000;
 
-
-    /** Timeout in milliseconds to wait for server to respond to multicasts. */
-    int multicastTimeout;
-
-    /**
-     * Timeout in seconds to wait for RC server to finish connection
-     * once RC multicast server responds. Defaults to 5 seconds.
-     */
-    int connectTimeout = 5000;
-
-    /** Server's net addresses obtained from multicast response. */
-    volatile InetAddress serverAddress;
-
-    /** Server's net address obtained from multicast response. */
-    volatile ArrayList<InetAddress> serverAddresses = new ArrayList<InetAddress>(10);
-
-    /** Server's UDP listening port obtained from {@link #connect}. */
-    volatile int udpServerPort;
+    /** All of server's net addresses obtained from multicast response. */
+    private volatile ArrayList<InetAddress> serverAddresses = new ArrayList<InetAddress>(10);
 
     /** Server's TCP listening port obtained from {@link #connect}. */
-    volatile int tcpServerPort;
-
-    String tcpServerHost;
-
-    /** Server's net address obtained from UDL. */
-    InetAddress multicastServerAddress;
+    private volatile int tcpServerPort;
 
     /** Server's multicast listening port obtained from UDL. */
-    int multicastServerPort;
-
-    /**
-     * Packet to send over UDP to server to implement
-     * {@link #send(org.jlab.coda.cMsg.cMsgMessage)}.
-     */
-    DatagramPacket sendUdpPacket;
+    private int multicastServerPort;
 
     /** Socket over which to UDP multicast to and receive UDP packets from the server. */
-    MulticastSocket multicastUdpSocket;
+    private MulticastSocket multicastUdpSocket;
 
     /** Socket over which to send messages to the server over TCP. */
-    Socket tcpSocket;
+    private Socket tcpSocket;
 
     /** Output TCP data stream from this client to the server. */
-    DataOutputStream domainOut;
-
-    /**
-     * This lock is for controlling access to the methods of this class.
-     * It is inherently more flexible than synchronizing code. The {@link #connect}
-     * and {@link #disconnect} methods of this object cannot be called simultaneously
-     * with each other or any other method. However, the {@link #send(org.jlab.coda.cMsg.cMsgMessage)}
-     * method is thread-safe and may be called simultaneously from multiple threads.
-     */
-    private final ReentrantReadWriteLock methodLock = new ReentrantReadWriteLock();
-
-    /** Lock for calling {@link #connect} or {@link #disconnect}. */
-    Lock connectLock = methodLock.writeLock();
-
-    /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
-    Lock notConnectLock = methodLock.readLock();
-
-    /** Lock to ensure that methods using the socket, write in sequence. */
-    Lock socketLock = new ReentrantLock();
+    private DataOutputStream domainOut;
 
     /** Signal to coordinate the multicasting and waiting for responses. */
-    CountDownLatch multicastResponse;
+    private CountDownLatch multicastResponse;
 
-
-    /////////// New Stuff
-
-    /** Maximum size, in bytes, of data chunk to be sent. */
+    /** From UDL, max size, in bytes, of data chunk to be sent in one msg. */
     private int maxSize = 2100000;
 
-    private int tcpSendBufferSize = 0;
+    /** TCP send buffer size in bytes. */
+    private int tcpSendBufferSize = maxSize + 1024;
 
+    /** From UDL, no delay setting for TCP socket. */
     private boolean tcpNoDelay = false;
 
-    private int myCodaID = 22;
+    /** From UDL, our coda id. */
+    private int codaID;
 
+    /** From UDL, our experiment id. */
     private String expid;
 
 
@@ -141,12 +95,10 @@ public class EmuClient extends cMsgDomainAdapter {
         parseUDL(UDLremainder);
 
         if (connected) return;
-System.out.println("Emu connect: connecting");
 
         // set the latches
         multicastResponse = new CountDownLatch(1);
 
-System.out.println("Emu connect: create multicast packet");
         //--------------------------------------------------------------
         // multicast on local subnets to find EmuClient Multicast server
         //--------------------------------------------------------------
@@ -178,7 +130,7 @@ System.out.println("Emu connect: create multicast packet");
             // create socket to receive at anonymous port & all interfaces
             multicastUdpSocket = new MulticastSocket();
             multicastUdpSocket.setTimeToLive(32);  // Make it through routers
-
+            InetAddress multicastServerAddress = null;
             try {multicastServerAddress = InetAddress.getByName(cMsgNetworkConstants.emuMulticast); }
             catch (UnknownHostException e) {}
 
@@ -200,15 +152,12 @@ System.out.println("Emu connect: create multicast packet");
             }
             throw new cMsgException(e.getMessage(), e);
         }
-System.out.println("Emu connect: start receiver & sender threads");
 
         // create a thread which will receive any responses to our multicast
-System.out.println("Emu connect: client " + name + ": will start multicast receiver thread");
         MulticastReceiver receiver = new MulticastReceiver();
         receiver.start();
 
         // create a thread which will send our multicast
-System.out.println("Emu connect: client " + name + ": will start multicast sender thread");
         Multicaster sender = new Multicaster(udpPacket);
         sender.start();
 
@@ -218,7 +167,6 @@ System.out.println("Emu connect: client " + name + ": will start multicast sende
         boolean response = false;
         if (multicastTimeout > 0) {
             try {
-System.out.println("Emu connect: timed wait4  response");
                 if (multicastResponse.await(multicastTimeout, TimeUnit.MILLISECONDS)) {
                     response = true;
                 }
@@ -228,7 +176,6 @@ System.out.println("Emu connect: timed wait4  response");
         // wait forever
         else {
             try {
-System.out.println("Emu connect: infinite wait 4 response");
                 multicastResponse.await();
                 response = true;
             }
@@ -262,12 +209,11 @@ System.out.println("Emu connect: Try making tcp connection to server (host = " +
                     tcpSocket = new Socket();
                     // Don't waste time if a connection can't be made, timeout = 0.2 sec
                     tcpSocket.connect(new InetSocketAddress(serverAddr, tcpServerPort), 200);
-                    tcpSocket.setTcpNoDelay(true);
-                    tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                    tcpSocket.setTcpNoDelay(tcpNoDelay);
+                    tcpSocket.setSendBufferSize(tcpSendBufferSize);
                     domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
                                                                               cMsgNetworkConstants.bigBufferSize));
 System.out.println("Emu connect: Made tcp connection to Emu server");
-                    serverAddress = serverAddr;
                     gotTcpConnection = true;
                     break;
                 }
@@ -282,13 +228,11 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
             }
         }
 
-
         if (!gotTcpConnection) {
             if (domainOut != null) try {domainOut.close();}  catch (IOException e1) {}
             if (tcpSocket != null) try {tcpSocket.close();}  catch (IOException e1) {}
             throw new cMsgException("Cannot make TCP connection to Emu server", ioex);
         }
-
 
         try {
             talkToServer();
@@ -297,35 +241,26 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
             throw new cMsgException("Communication error with Emu server", e);
         }
 
-
         // create request sending (to domain) channel (This takes longest so do last)
         connected = true;
-
-System.out.println("Emu connect: SUCCESSFUL");
 
         return;
     }
 
 
-
+    /** Talk to emu server over TCP connection. */
     private void talkToServer() throws IOException {
-
         try {
-            System.out.println("talk to emu domain tcp server");
             // Send emu server some info
             domainOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
             domainOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             domainOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
-            System.out.println("wrote magic ints");
 
             // version, coda id, buffer size, isBigEndian
             domainOut.writeInt(cMsgConstants.version);
-            domainOut.writeInt(myCodaID);
+            domainOut.writeInt(codaID);
             domainOut.writeInt(maxSize);
-            domainOut.writeInt(1);  // any single event is sent in big endian
-            System.out.println("done writing");
             domainOut.flush();
-            System.out.println("flushed");
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -338,21 +273,22 @@ System.out.println("Emu connect: SUCCESSFUL");
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      *
      * Emu domain UDL is of the form:<p>
-     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;?myCodaId=&lt;id&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&noDelay     </b><p>
+     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&noDelay     </b><p>
      *
      * Remember that for this domain:
      *<ul>
      *<li>1) multicast address is always 239.230.0.0<p>
      *<li>2) port is required<p>
      *<li>3) expid is required<p>
-     *<li>4) myCodaId is required<p>
+     *<li>4) codaId is required<p>
+     *<li>5) optional timeout for connecting to emu server, defaults to 3 seconds<p>
      *<li>5) optional bufSize (max size in bytes of a single send) defaults to 2.1MB<p>
      *<li>6) optional tcpSend is the TCP send buffer size in bytes<p>
      *<li>7) optional noDelay is the TCP no-delay parameter turned on<p>
      *</ul><p>
      *
      * @param udlRemainder partial UDL to parse
-     * @throws org.jlab.coda.cMsg.cMsgException if udlRemainder is null
+     * @throws cMsgException if udlRemainder is null
      */
     void parseUDL(String udlRemainder) throws cMsgException {
 
@@ -384,8 +320,6 @@ System.out.println("Emu connect: SUCCESSFUL");
             throw new cMsgException("invalid UDL");
         }
 
-
-
         // Get multicast server port
         try {
             multicastServerPort = Integer.parseInt(udlPort);
@@ -397,32 +331,48 @@ System.out.println("Emu connect: SUCCESSFUL");
         if (multicastServerPort < 1024 || multicastServerPort > 65535) {
             throw new cMsgException("parseUDL: illegal port number");
         }
-System.out.println("Port = " + multicastServerPort);
+//System.out.println("Port = " + multicastServerPort);
 
         // Get expid
         if (udlExpid == null) {
             throw new cMsgException("parseUDL: must specify the EXPID");
         }
         expid = udlExpid;
-System.out.println("expid = " + udlExpid);
+//System.out.println("expid = " + udlExpid);
 
         // If no remaining UDL to parse, return
         if (remainder == null) {
             throw new cMsgException("parseUDL: must specify the CODA id");
         }
 
-        // Look for ?myCodaId=value&
-        pattern = Pattern.compile("[\\?]myCodaId=([0-9]+)", Pattern.CASE_INSENSITIVE);
+        // Look for ?codaId=value&
+        pattern = Pattern.compile("[\\?]codaId=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
             try {
-                myCodaID = Integer.parseInt(matcher.group(1));
+                codaID = Integer.parseInt(matcher.group(1));
             }
             catch (NumberFormatException e) {
                 throw new cMsgException("parseUDL: improper CODA id", e);
             }
         }
-System.out.println("CODA id = " + myCodaID);
+        else {
+            throw new cMsgException("parseUDL: must specify the CODA id");
+        }
+//System.out.println("CODA id = " + codaID);
+
+        // Look for ?timeout=value& or &timeout=value&
+        pattern = Pattern.compile("[\\?&]timeout=([0-9]+)", Pattern.CASE_INSENSITIVE);
+        matcher = pattern.matcher(remainder);
+        if (matcher.find()) {
+            try {
+                multicastTimeout = 1000 * Integer.parseInt(matcher.group(1));
+//System.out.println("timeout = " + multicastTimeout + " seconds");
+            }
+            catch (NumberFormatException e) {
+                // ignore error and keep default value of 2.1MB
+            }
+        }
 
         // Look for ?bufSize=value& or &bufSize=value&
         pattern = Pattern.compile("[\\?&]bufSize=([0-9]+)", Pattern.CASE_INSENSITIVE);
@@ -430,7 +380,10 @@ System.out.println("CODA id = " + myCodaID);
         if (matcher.find()) {
             try {
                 maxSize = Integer.parseInt(matcher.group(1));
-System.out.println("max buffer size = " + maxSize);
+                if (maxSize == 0) {
+                    maxSize = 2100000;
+                }
+//System.out.println("max data buffer size = " + maxSize);
             }
             catch (NumberFormatException e) {
                 // ignore error and keep default value of 2.1MB
@@ -443,7 +396,10 @@ System.out.println("max buffer size = " + maxSize);
         if (matcher.find()) {
             try {
                 tcpSendBufferSize = Integer.parseInt(matcher.group(1));
-System.out.println("tcp send buffer size = " + tcpSendBufferSize);
+                if (tcpSendBufferSize == 0) {
+                    tcpSendBufferSize = maxSize + 1024;
+                }
+//System.out.println("tcp send buffer size = " + tcpSendBufferSize);
             }
             catch (NumberFormatException e) {
                 // ignore error and keep value of 0
@@ -456,7 +412,7 @@ System.out.println("tcp send buffer size = " + tcpSendBufferSize);
         if (matcher.find()) {
             try {
                 tcpNoDelay = true;
-System.out.println("tcp no-delay = " + tcpNoDelay);
+//System.out.println("tcp noDelay = " + tcpNoDelay);
             }
             catch (NumberFormatException e) {
                 // ignore error and keep value of false
@@ -499,13 +455,18 @@ System.out.println("tcp no-delay = " + tcpNoDelay);
             // Type of message is in 1st (lowest) byte.
             // Source (Emu's EventType) of message is in 2nd byte.
             domainOut.writeInt(message.getUserInt());
-
+//System.out.println("send: cmd int = 0x" + Integer.toHexString(message.getUserInt()));
             // Total length of binary (not including this int)
             domainOut.writeInt(binaryLength);
+//System.out.println("send: bin len = 0x" + Integer.toHexString(binaryLength) + ", " +
+//                           binaryLength);
 
             // Write byte array
             try {
                 if (binaryLength > 0) {
+//System.out.println("send: bin len = offset = " + message.getByteArrayOffset());
+//                    Utilities.printBuffer(ByteBuffer.wrap(message.getByteArray()),
+//                                          message.getByteArrayOffset(),binaryLength/4, "sending bytes");
                     domainOut.write(message.getByteArray(),
                                     message.getByteArrayOffset(),
                                     binaryLength);
@@ -536,7 +497,7 @@ System.out.println("tcp no-delay = " + tcpNoDelay);
 
         public void run() {
 
-System.out.println("Emu client " + name + ": STARTED multicast receiving thread");
+//System.out.println("Emu client " + name + ": STARTED multicast receiving thread");
             /* A slight delay here will help the main thread (calling connect)
              * to be already waiting for a response from the server when we
              * multicast to the server here (prompting that response). This
@@ -565,7 +526,7 @@ System.out.println("Emu client " + name + ": STARTED multicast receiving thread"
                         }
                         continue;
                     }
-System.out.println("received multicast packet");
+//System.out.println("received multicast packet");
                     int magic1 = cMsgUtilities.bytesToInt(buf, index); index += 4;
                     int magic2 = cMsgUtilities.bytesToInt(buf, index); index += 4;
                     int magic3 = cMsgUtilities.bytesToInt(buf, index); index += 4;
@@ -627,7 +588,7 @@ System.out.println("received multicast packet");
                         if (len > 0) {
                             ip = new String(buf, index, len, "US-ASCII");
                             serverAddresses.add(InetAddress.getByName(ip));
-System.out.println("host = " + ip);
+//System.out.println("host = " + ip);
                         }
                     }
 
@@ -684,10 +645,10 @@ System.out.println("Got IOException in multicast receive, exiting");
 //                   ", loopback = " + ni.isLoopback() +
 //                   ", has multicast = " + ni.supportsMulticast());
                             if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
-System.out.println("RC client: sending mcast packet over " + ni.getName());
+//System.out.println("Emu client: sending mcast packet over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
-                                Thread.sleep(500);
+                                Thread.sleep(200);
                                 sleepCount++;
                             }
                         }
