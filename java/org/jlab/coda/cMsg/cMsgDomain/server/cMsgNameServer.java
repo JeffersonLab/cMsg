@@ -383,7 +383,7 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
         domainServers        = new ConcurrentHashMap<cMsgDomainServer,String>(20);
         domainServersSelect  = new ConcurrentHashMap<cMsgDomainServerSelect,String>(20);
         handlerThreads = new ArrayList<ClientHandler>(10);
-        availableDomainServers = Collections.synchronizedList(new LinkedList<cMsgDomainServerSelect>());   // CHANGED
+        availableDomainServers = Collections.synchronizedList(new ArrayList<cMsgDomainServerSelect>(20));   // CHANGED
 
         this.debug          = debug;
         this.clientsMax     = clientsMax;
@@ -2278,7 +2278,7 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
             boolean gotCloudLock  = false;
             boolean gotRegistrationLock = false;
             boolean registrationSuccessful = false;
-            LinkedList<cMsgServerBridge> lockedServers = new LinkedList<cMsgServerBridge>();
+            ArrayList<cMsgServerBridge> lockedServers = new ArrayList<cMsgServerBridge>();
 
             // variables having to do with grabbing locks
             int grabLockTries, maxNumberOfTrys=6, numberOfTrys=0;

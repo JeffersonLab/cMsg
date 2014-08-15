@@ -339,7 +339,7 @@ if(methodDebug) System.out.println("    << JR: Could not connect to any given se
         boolean amInCloud     = false;
         cMsgServerBridge firstLockBridge = null;
         int maxNumberOfTrys=3, numberOfTrys=0;
-        LinkedList<cMsgServerBridge> lockedBridges = new LinkedList<cMsgServerBridge>();
+        ArrayList<cMsgServerBridge> lockedBridges = new ArrayList<cMsgServerBridge>();
 
 if(methodDebug) System.out.println("    << JR: About to grab all cloudlocks");
 
