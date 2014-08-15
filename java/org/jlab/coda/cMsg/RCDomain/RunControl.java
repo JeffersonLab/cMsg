@@ -344,8 +344,6 @@ public class RunControl extends cMsgDomainAdapter {
             Multicaster sender = new Multicaster(udpPacket);
             sender.start();
 
-            // TODO: make sure sender & receiver are started before waiting for a response?
-
             // wait up to multicast timeout seconds
             boolean response = false;
             if (multicastTimeout > 0) {
