@@ -25,8 +25,8 @@ import org.jlab.coda.et.*;
 import org.jlab.coda.et.enums.Mode;
 import org.jlab.coda.et.exception.*;
 
+import java.util.ArrayList;
 import java.util.regex.*;
-import java.util.LinkedList;
 import java.lang.*;
 import java.io.IOException;
 
@@ -58,7 +58,7 @@ public class Et extends cMsgSubdomainAdapter {
     private int serverPort;
 
     /** List of all multicast addresses (dotted decimal format) as strings. */
-    private LinkedList<String> multicastAddrs = new LinkedList<String>();
+    private ArrayList<String> multicastAddrs = new ArrayList<String>();
 
     /** Directly connect to this port to open ET system. */
     private String host;
