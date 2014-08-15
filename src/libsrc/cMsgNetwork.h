@@ -138,6 +138,15 @@
 #define CMSG_DOMAIN_MULTICAST 1
 /** First int to send in UDP multicast to server if RC domain. */
 #define RC_DOMAIN_MULTICAST 2
+/** First int to send in UDP multicast to server if emu domain. */
+#define EMU_DOMAIN_MULTICAST 2
+
+
+/** Command in Emu domain - evio file format data coming next */
+#define    EMU_EVIO_FILE_FORMAT 1
+/** Command in Emu domain - will shutdown socket on other end. */
+#define    EMU_END              2
+
 
 /** The biggest single UDP packet size is 2^16 - IP 64 byte header - 8 byte UDP header. */
 #define BIGGEST_UDP_PACKET_SIZE 65463
@@ -157,6 +166,9 @@
     
 /** Multicast address for cMsg domain name server. */
 #define CMSG_MULTICAST_ADDR "239.220.0.0"
+
+/** Multicast address for cMsg domain name server. */
+#define EMU_MULTICAST_ADDR "239.230.0.0"
 
 /** The size (in bytes) of biggest buffers used to send UDP data from client to server. */
 #define CMSG_BIGGEST_UDP_BUFFER_SIZE 65536
