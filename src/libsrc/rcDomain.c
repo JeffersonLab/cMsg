@@ -80,11 +80,11 @@ typedef struct thdArg_t {
 } thdArg;
 
 /* built-in limits */
-/** Number of seconds to wait for cMsgClientListeningThread threads to start. */
+/** Number of seconds to wait for rcClientListeningThread threads to start. */
 #define WAIT_FOR_THREADS 10
 
 /* global variables */
-/** Function in cMsgServer.c which implements the network listening thread of a client. */
+/** Function in rcDomainListenThread.c which implements the network listening thread of a client. */
 void *rcClientListeningThread(void *arg);
 
 /* local variables */
@@ -150,7 +150,7 @@ int   cmsg_rc_isConnected       (void *domainId, int *connected);
 int   cmsg_rc_setUDL            (void *domainId, const char *udl, const char *remainder);
 int   cmsg_rc_getCurrentUDL     (void *domainId, const char **udl);
 
-/** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
+/** List of the functions which implement the standard cMsg tasks in this domain. */
 static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_reconnect,
                                     cmsg_rc_send, cmsg_rc_syncSend, cmsg_rc_flush,
                                     cmsg_rc_subscribe, cmsg_rc_unsubscribe,
@@ -255,11 +255,18 @@ int cmsg_rc_isConnected(void *domainId, int *connected) {
  * The argument "myUDL" is the Universal Domain Locator used to uniquely
  * identify the RC server to connect to.
  * It has the form:<p>
- *       <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/</b><p>
- * where the first "cMsg:" is optional. Both the host and port are also
- * optional. If a host is NOT specified, a multicast on the local subnet
- * is used to locate the server. If the port is omitted, a default port
- * (RC_MULTICAST_PORT) is used.
+ *    <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;?multicastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;</b><p>
+ * where:
+ *<ul>
+ *<li>1) host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
+ *<li>2) port is optional with a default of {@link RC_MULTICAST_PORT}<p>
+ *<li>3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
+ *<li>4) multicastTO is the time to wait in seconds before connect returns a
+ *       timeout when a rc multicast server does not answer. Defaults to no timeout.<p>
+ *<li>5) connectTO is the time to wait in seconds before connect returns a
+ *       timeout while waiting for the rc server to send a special (tcp)
+ *       concluding connect message. Defaults to 5 seconds.<p>
+ *</ul><p>
  *
  * If successful, this routine fills the argument "domainId", which identifies
  * the connection uniquely and is required as an argument by many other routines.
@@ -275,8 +282,7 @@ int cmsg_rc_isConnected(void *domainId, int *connected) {
  *
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_ERROR if the EXPID is not defined
- * @returns CMSG_BAD_FORMAT if UDLremainder arg is not in the proper format
+ * @returns CMSG_BAD_FORMAT if UDLremainder arg is not in the proper format (sg. expid not defined)
  * @returns CMSG_BAD_ARGUMENT if UDLremainder arg is NULL
  * @returns CMSG_ABORT if RC Multicast server aborts connection before rc server
  *                     can complete it
@@ -329,27 +335,11 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     /* clear array */
     memset((void *)buffer, 0, 1024);
     
-    /* parse the UDLRemainder to get the host and port but ignore everything else */
+    /* parse the UDLRemainder to get the host, port, & expid but ignore everything else */
     err = parseUDL(UDLremainder, &serverHost, &serverPort,
                    &expid, &multicastTO, &connectTO, NULL);
     if (err != CMSG_OK) {
         return(err);
-    }
-
-    /*
-     * The EXPID is obtained from the UDL, but if it's not defined there
-     * then use the environmental variable EXPID 's value.
-     */
-    if (expid == NULL) {
-        expid = getenv("EXPID");
-        if (expid != NULL) {
-            expid = (char *)strdup(expid);
-        }
-        else {
-            /* if expid not defined anywhere, return error */
-printf("EXPID is not set!\n");
-            return(CMSG_ERROR);
-        }
     }
 
     /* allocate struct to hold connection info */
@@ -812,6 +802,16 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
      * is still pointing to valid string inside hashtable. */
     if (hashEntries != NULL) free(hashEntries);
 
+    /* Clear & free memory in table */
+    hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
+    if (hashEntries != NULL) {
+        for (i=0; i < hashEntryCount; i++) {
+/*printf("rc connect: freeing %s\n", hashEntries[i].key); */
+            free(hashEntries[i].key);
+        }
+        free(hashEntries);
+    }
+
     /*
      * Create a new UDP "connection". This means all subsequent sends are to
      * be done with the "send" and not the "sendto" function. The benefit is 
@@ -909,7 +909,7 @@ static void *receiverThd(void *arg) {
 
     thdArg *threadArg = (thdArg *) arg;
     int  ints[6], magic[3], port, len1, len2, minMsgSize;
-    char buf[1024], *pbuf, *tmp, *host=NULL, *expid=NULL;
+    char buf[1024], *pbuf, *host, *expid;
     ssize_t len;
 
     minMsgSize = 6*sizeof(int);
@@ -967,35 +967,37 @@ static void *receiverThd(void *arg) {
           continue;
         }
 
+        host = expid = NULL;
+
         /* host */
         if (len1 > 0) {
-          if ( (tmp = (char *) malloc(len1+1)) == NULL) {
+          if ( (host = (char *) malloc(len1+1)) == NULL) {
             printf("receiverThd: out of memory\n");
             exit(-1);
           }
           /* read host string into memory */
-          memcpy(tmp, pbuf, len1);
+          memcpy(host, pbuf, len1);
           /* add null terminator to string */
-          tmp[len1] = 0;
-          /* store string */
-          host = tmp;
+          host[len1] = 0;
           /* go to next string */
           pbuf += len1;
-/*printf("host = %s\n", host);*/
+/*printf("host = %s\n", host);*/         
         }
-                
+        
+        /* expid */        
         if (len2 > 0) {
-          if ( (tmp = (char *) malloc(len2+1)) == NULL) {
+          if ( (expid = (char *) malloc(len2+1)) == NULL) {
             printf("receiverThd: out of memory\n");
             exit(-1);
           }
-          memcpy(tmp, pbuf, len2);
-          tmp[len2] = 0;
-          expid = tmp;
+          memcpy(expid, pbuf, len2);
+          expid[len2] = 0;
           pbuf += len2;
 /*printf("expid = %s\n", expid);*/
           if (strcmp(expid, threadArg->expid) != 0) {
             printf("receiverThd: got bogus expid response to multicast\n");
+            if (host != NULL) free(host);
+            free(expid);
             continue;
           }
         }
@@ -1007,6 +1009,11 @@ printf("Multicast response from: %s, on port %hu, listening port = %d, host = %s
 */                        
         /* Tell main thread we are done. */
         pthread_cond_signal(&cond);
+
+        /* free up memory */
+        if (host  != NULL) free(host);
+        if (expid != NULL) free(expid);
+
         break;
     }
     
@@ -1017,6 +1024,40 @@ printf("Multicast response from: %s, on port %hu, listening port = %d, host = %s
 
 /*-------------------------------------------------------------------*/
 
+
+/** Structure for freeing memory in cleanUpHandler. */
+typedef struct freeMem_t {
+    char **ifNames;
+    int nameCount;
+} freeMem;
+
+
+/*-------------------------------------------------------------------*
+ * multicastThd needs a pthread cancellation cleanup handler.
+ * This handler will be called when the multicastThd is
+ * cancelled. It's task is to free memory.
+ *-------------------------------------------------------------------*/
+static void cleanUpHandler(void *arg) {
+  int i;  
+  freeMem *pMem = (freeMem *)arg;
+  
+  if (cMsgDebug >= CMSG_DEBUG_INFO) {
+    fprintf(stderr, "cleanUpHandler: in\n");
+  }
+  
+  /* release memory */
+  if (pMem == NULL) return;
+  if (pMem->ifNames != NULL) {
+      for (i=0; i < pMem->nameCount; i++) {
+          free(pMem->ifNames[i]);
+      }
+      free(pMem->ifNames);
+  }
+
+  free(pMem);
+}
+
+
 /**
  * This routine starts a thread to multicast a UDP packet to the server
  * every second.
@@ -1024,6 +1065,7 @@ printf("Multicast response from: %s, on port %hu, listening port = %d, host = %s
 static void *multicastThd(void *arg) {
 
     char **ifNames;
+    freeMem *pfreeMem;
     int i, err, useDefaultIf=0, count;
     thdArg *threadArg = (thdArg *) arg;
     struct timespec  wait = {0, 100000000}; /* 0.1 sec */
@@ -1046,6 +1088,22 @@ static void *multicastThd(void *arg) {
         }
         useDefaultIf = 1;
     }
+
+    /* Install a cleanup handler for this thread's cancellation. 
+     * Give it a pointer which points to the memory which must
+     * be freed upon cancelling this thread. */
+
+    /* Create pointer to malloced mem which will hold 2 pointers. */
+    pfreeMem = (freeMem *) malloc(sizeof(freeMem));
+    if (pfreeMem == NULL) {
+        if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
+            fprintf(stderr, "multicastThd: cannot allocate memory\n");
+        }
+        exit(1);
+    }
+    pfreeMem->ifNames = ifNames;
+    pfreeMem->nameCount = count;
+    pthread_cleanup_push(cleanUpHandler, (void *)pfreeMem);
 
     while (1) {
         int sleepCount = 0;
@@ -1077,13 +1135,9 @@ static void *multicastThd(void *arg) {
         if (sleepCount < 1) sleep(1);
     }
     
-    /* free memory */
-    if (ifNames != NULL) {
-        for (i=0; i < count; i++) {
-            free(ifNames[i]);
-        }
-        free(ifNames);
-    }
+ printf("Send multicast: exiting!\n");
+    /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
+    pthread_cleanup_pop(1);
 
     pthread_exit(NULL);
     return NULL;
@@ -2509,7 +2563,7 @@ int cmsg_rc_shutdownServers(void *domainId, const char *server, int flag) {
  * @param expid pointer filled in with expid tag's value if it exists
  * @param multicastTO pointer filled in with multicast timeout tag's value if it exists
  * @param connectTO   pointer filled in with connect timeout tag's value if it exists
- * @param remainder   pointer filled in with the part of the udl after host:port/ if it exists,
+ * @param remainder   pointer filled in with the part of the udl after host:port/expid if it exists,
  *                    else it is set to NULL
  *
  * @returns CMSG_OK if successful
