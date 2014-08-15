@@ -41,32 +41,21 @@ import java.nio.channels.ServerSocketChannel;
  * @version 1.0
  */
 public class RunControl extends cMsgDomainAdapter {
-    /** Port number to listen on. */
-    int port;
-
-    /** Port number from which to start looking for a suitable listening port. */
-    int startingPort;
-
-    /** Server channel (contains socket). */
-     ServerSocketChannel serverChannel;
 
     /** Thread listening for TCP connections and responding to RC domain server commands. */
-    rcListeningThread listeningThread;
-
-    /** Name of local host. */
-    String localHost;
+    private rcListeningThread listeningThread;
 
     /** Coda experiment id under which this is running. */
-    String expid;
+    private String expid;
 
     /** Timeout in milliseconds to wait for server to respond to multicasts. */
-    int multicastTimeout;
+    private int multicastTimeout;
 
     /**
      * Timeout in seconds to wait for RC server to finish connection
      * once RC multicast server responds. Defaults to 5 seconds.
      */
-    int connectTimeout = 5000;
+    private int connectTimeout = 5000;
 
     /** Quit a connection in progress if true. */
     volatile boolean abandonConnection;
@@ -84,22 +73,22 @@ public class RunControl extends cMsgDomainAdapter {
     volatile int rcTcpServerPort;
 
     /** RunControl multicast server's net address obtained from UDL. */
-    InetAddress rcMulticastServerAddress;
+    private InetAddress rcMulticastServerAddress;
 
     /** RunControl multicast server's multicast listening port obtained from UDL. */
-    int rcMulticastServerPort;
+    private int rcMulticastServerPort;
 
     /**
      * Packet to send over UDP to RC server to implement
      * {@link #send(org.jlab.coda.cMsg.cMsgMessage)}.
      */
-    DatagramPacket sendUdpPacket;
+    private DatagramPacket sendUdpPacket;
 
     /** Socket over which to UDP multicast to and receive UDP packets from the RCMulticast server. */
-    MulticastSocket multicastUdpSocket;
+    private MulticastSocket multicastUdpSocket;
 
     /** Socket over which to end messages to the RC server over UDP. */
-    DatagramSocket udpSocket;
+    private DatagramSocket udpSocket;
 
     /** Socket over which to send messages to the RC server over TCP. */
     Socket tcpSocket;
@@ -132,10 +121,10 @@ public class RunControl extends cMsgDomainAdapter {
     private final ReentrantReadWriteLock methodLock = new ReentrantReadWriteLock();
 
     /** Lock for calling {@link #connect} or {@link #disconnect}. */
-    Lock connectLock = methodLock.writeLock();
+    private Lock connectLock = methodLock.writeLock();
 
     /** Lock for calling methods other than {@link #connect} or {@link #disconnect}. */
-    Lock notConnectLock = methodLock.readLock();
+    private Lock notConnectLock = methodLock.readLock();
 
     /**
      * Lock to ensure
@@ -143,16 +132,16 @@ public class RunControl extends cMsgDomainAdapter {
      * and {@link #unsubscribe(org.jlab.coda.cMsg.cMsgSubscriptionHandle)}
      * calls are sequential.
      */
-    Lock subscribeLock = new ReentrantLock();
+    private Lock subscribeLock = new ReentrantLock();
 
     /** Lock to ensure that methods using the socket, write in sequence. */
-    Lock socketLock = new ReentrantLock();
+    private Lock socketLock = new ReentrantLock();
 
     /** Used to create unique id numbers associated with a specific message subject/type pair. */
-    AtomicInteger uniqueId;
+    private AtomicInteger uniqueId;
 
     /** Signal to coordinate the multicasting and waiting for responses. */
-    CountDownLatch multicastResponse;
+    private CountDownLatch multicastResponse;
 
     /** Signal to coordinate the finishing of the 3-leg connect method. */
     CountDownLatch connectCompletion;
@@ -160,18 +149,11 @@ public class RunControl extends cMsgDomainAdapter {
 
 
     /** Constructor. */
-    public RunControl() throws cMsgException {
+    public RunControl() {
         domain = "rc";
         subscriptions    = new HashSet<cMsgSubscription>(20);
         uniqueId         = new AtomicInteger();
         unsubscriptions  = Collections.synchronizedMap(new HashMap<Object, cMsgSubscription>(20));
-
-        try {
-            localHost = InetAddress.getLocalHost().getCanonicalHostName();
-        }
-        catch (UnknownHostException e) {
-            throw new cMsgException(e.getMessage());
-        }
     }
 
 
@@ -211,6 +193,7 @@ public class RunControl extends cMsgDomainAdapter {
             connectCompletion = new CountDownLatch(1);
 
             // read env variable for starting port number
+            int startingPort=0;
             try {
                 String env = System.getenv("CMSG_RC_CLIENT_PORT");
                 if (env != null) {
@@ -227,6 +210,8 @@ public class RunControl extends cMsgDomainAdapter {
 
             // At this point, find a port to bind to. If that isn't possible, throw
             // an exception.
+            /** Server channel (contains socket). */
+            ServerSocketChannel serverChannel;
             try {
                 serverChannel = ServerSocketChannel.open();
             }
@@ -235,7 +220,7 @@ public class RunControl extends cMsgDomainAdapter {
                 throw new cMsgException("connect: cannot open a listening socket", ex);
             }
 
-            port = startingPort;
+            int port = startingPort;
             ServerSocket listeningSocket = serverChannel.socket();
 
             while (true) {
