@@ -294,7 +294,7 @@ public class cMsg extends cMsgDomainAdapter {
         syncSends        = new ConcurrentHashMap<Integer,cMsgGetHelper>(10);
         uniqueId         = new AtomicInteger();
         unsubscriptions  = Collections.synchronizedMap(new HashMap<Object, cMsgSubscription>(20));
-        failoverUdls     = Collections.synchronizedList(new LinkedList<ParsedUDL>());
+        failoverUdls     = Collections.synchronizedList(new ArrayList<ParsedUDL>(20));
         cloudServers     = Collections.synchronizedMap(new LinkedHashMap<String,ParsedUDL>(20));
         mayConnect       = true;
 
