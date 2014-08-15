@@ -448,9 +448,14 @@ static int connectWithTimeout(int sockfd, struct sockaddr *pAddr, socklen_t addr
     struct timeval timeout;
 
     result = connect(sockfd, pAddr, addrlen);
+    codanetDebug = CODA_DEBUG_INFO;
     
     if (result < 0) {
-        if (errno == EINPROGRESS) {
+       if (codanetDebug >= CODA_DEBUG_ERROR) {
+           fprintf(stderr, "connectWithTimeout: error in connect(), errno = %d, %s\n", errno, strerror(errno));
+       }
+
+       if (errno == EINPROGRESS) {
             if (codanetDebug >= CODA_DEBUG_INFO) {
                 fprintf(stderr, "connectWithTimeout: EINPROGRESS in connect() - selecting\n");
             }
@@ -778,14 +783,14 @@ int codanetTcpConnectTimeout(const char *ip_address, unsigned short port,
             *localPort = 0;
         }
     }
-   
+  
     status = pthread_mutex_unlock(&getHostByNameMutex);
     if (status != 0) {
         coda_err_abort(status, "Unlock gethostbyname Mutex");
     }
+
     
-#endif
-  
+#endif  
     if (err != CODA_OK) {
         close(sockfd);
         return(err);
