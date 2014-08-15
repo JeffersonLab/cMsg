@@ -51,7 +51,7 @@
 
 
 
-/* Prototypes of the 17 functions which implement the standard cMsg tasks in the cMsg domain. */
+/* Prototypes of the 17 functions which implement the standard cMsg tasks in each domain. */
 int   cmsg_file_connect(const char *myUDL, const char *myName, const char *myDescription,
                         const char *UDLremainder, void **domainId);
 int   cmsg_file_reconnect(void *domainId);
@@ -83,7 +83,7 @@ int   cmsg_file_setUDL(void *domainId, const char *udl, const char *remainder);
 int   cmsg_file_getCurrentUDL(void *domainId, char **udl);
 
 
-/** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
+/** List of the functions which implement the standard cMsg tasks in each domain. */
 static domainFunctions functions = { cmsg_file_connect, cmsg_file_reconnect,
                                      cmsg_file_send, cmsg_file_syncSend, cmsg_file_flush,
                                      cmsg_file_subscribe, cmsg_file_unsubscribe,
