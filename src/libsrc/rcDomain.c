@@ -790,26 +790,19 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
 
         if (!gotValidRcServerHost) {
             if (hashEntries != NULL) free(hashEntries);
+            hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
+            if (hashEntries != NULL) {
+                for (i=0; i < hashEntryCount; i++) {
+                    free(hashEntries[i].key);
+                }
+                free(hashEntries);
+            }
             cMsgRestoreSignals(domain);
             pthread_cancel(domain->pendThread);
             cMsgDomainFree(domain);
             free(domain);
             return(err);
         }
-    }
-
-    /* Even though we free hash entries array, rcServerHost
-     * is still pointing to valid string inside hashtable. */
-    if (hashEntries != NULL) free(hashEntries);
-
-    /* Clear & free memory in table */
-    hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
-    if (hashEntries != NULL) {
-        for (i=0; i < hashEntryCount; i++) {
-/*printf("rc connect: freeing %s\n", hashEntries[i].key); */
-            free(hashEntries[i].key);
-        }
-        free(hashEntries);
     }
 
     /*
@@ -829,6 +822,14 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
     domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
     if (domain->sendUdpSocket < 0) {
+        if (hashEntries != NULL) free(hashEntries);
+        hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
+        if (hashEntries != NULL) {
+            for (i=0; i < hashEntryCount; i++) {
+                free(hashEntries[i].key);
+            }
+            free(hashEntries);
+        }
         cMsgRestoreSignals(domain);
         close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
@@ -840,6 +841,14 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
     /* set send buffer size */
     err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
     if (err < 0) {
+        if (hashEntries != NULL) free(hashEntries);
+        hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
+        if (hashEntries != NULL) {
+            for (i=0; i < hashEntryCount; i++) {
+                free(hashEntries[i].key);
+            }
+            free(hashEntries);
+        }
         cMsgRestoreSignals(domain);
         close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
@@ -850,6 +859,14 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
 
     /* convert string host into binary numeric host */
     if ( (err = cMsgNetStringToNumericIPaddr(rcServerHost, &addr)) != CMSG_OK ) {
+        if (hashEntries != NULL) free(hashEntries);
+        hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
+        if (hashEntries != NULL) {
+            for (i=0; i < hashEntryCount; i++) {
+                free(hashEntries[i].key);
+            }
+            free(hashEntries);
+        }
         cMsgRestoreSignals(domain);
         close(domain->sendUdpSocket);
         close(domain->sendSocket);
@@ -862,6 +879,14 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
 /*rintf("rc connect: try UDP connection rc server on port = %hu\n", ntohs(addr.sin_port));*/
     err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
     if (err < 0) {
+        if (hashEntries != NULL) free(hashEntries);
+        hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
+        if (hashEntries != NULL) {
+            for (i=0; i < hashEntryCount; i++) {
+                free(hashEntries[i].key);
+            }
+            free(hashEntries);
+        }
         cMsgRestoreSignals(domain);
         close(domain->sendUdpSocket);
         close(domain->sendSocket);
@@ -870,7 +895,20 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
         free(domain);
         return(CMSG_SOCKET_ERROR);
     }
-   
+    
+    /* Even though we free hash entries array, rcServerHost
+     * is still pointing to valid string inside hashtable. */
+    if (hashEntries != NULL) free(hashEntries);
+    
+    /* Clear & free memory in table */
+    hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
+    if (hashEntries != NULL) {
+        for (i=0; i < hashEntryCount; i++) {
+            free(hashEntries[i].key);
+        }
+        free(hashEntries);
+    }
+    
     /* return id */
     *domainId = (void *) domain;
         
