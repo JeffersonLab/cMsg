@@ -957,7 +957,8 @@ int cMsgPayloadGetType(const void *vmsg, const char *name, int *type) {
  * @return CMSG_OK if successful
  * @return CMSG_ERROR if no payload is found
  * @return CMSG_BAD_ARGUMENT if any arg is NULL or of improper value
- * @return CMSG_LIMIT_EXCEEDED if len < the number of items
+ * @return CMSG_LIMIT_EXCEEDED if len < the number of items, but len number of valid values
+ *                             are still returned in names and types
  */   
 int cMsgPayloadGet(const void *vmsg, char **names, int *types, int len) {  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
