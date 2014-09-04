@@ -962,7 +962,7 @@ int cMsgPayloadGetType(const void *vmsg, const char *name, int *type) {
 int cMsgPayloadGet(const void *vmsg, char **names, int *types, int len) {  
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
   payloadItem *item;
-  int count=0;
+  int count=0, err=CMSG_OK;
   
   if (msg == NULL || names == NULL || types == NULL || len < 1) {
     return(CMSG_BAD_ARGUMENT);
@@ -974,18 +974,19 @@ int cMsgPayloadGet(const void *vmsg, char **names, int *types, int len) {
 
   grabMutex();
     
-  /* not enough room to place all the items */
-  if (msg->payloadCount > len) return(CMSG_LIMIT_EXCEEDED);
+  /* Warn caller, not enough room to place all the items */
+  if (msg->payloadCount > len) err = CMSG_LIMIT_EXCEEDED;
     
   item = msg->payload;
-  while (item != NULL) {
+  while ((item != NULL) && (len > 0)) {
     names[count]   = item->name;
     types[count++] = item->type;
     item = item->next;
+    len--;
   }
    
   releaseMutex();
-  return(CMSG_OK);
+  return(err);
 }
 
 
