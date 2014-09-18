@@ -144,6 +144,8 @@ int   cmsg_emu_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, 
 int   cmsg_emu_isConnected       (void *domainId, int *connected);
 int   cmsg_emu_setUDL            (void *domainId, const char *udl, const char *remainder);
 int   cmsg_emu_getCurrentUDL     (void *domainId, const char **udl);
+int   cmsg_emu_getServerHost     (void *domainId, const char **ipAddress);
+int   cmsg_emu_getServerPort     (void *domainId, int *port);
 
 /** List of the functions which implement the standard cMsg tasks in this domain. */
 static domainFunctions functions = {cmsg_emu_connect, cmsg_emu_reconnect,
@@ -157,8 +159,9 @@ static domainFunctions functions = {cmsg_emu_connect, cmsg_emu_reconnect,
                                     cmsg_emu_stop, cmsg_emu_disconnect,
                                     cmsg_emu_shutdownClients, cmsg_emu_shutdownServers,
                                     cmsg_emu_setShutdownHandler, cmsg_emu_isConnected,
-                                    cmsg_emu_setUDL, cmsg_emu_getCurrentUDL};
-
+                                    cmsg_emu_setUDL, cmsg_emu_getCurrentUDL,
+                                    cmsg_emu_getServerHost, cmsg_emu_getServerPort};
+                                    
 /* emu domain type */
 domainTypeInfo emuDomainTypeInfo = {
   "emu",
@@ -201,6 +204,56 @@ int cmsg_emu_getCurrentUDL(void *domainId, const char **udl) {
     return(CMSG_OK);
 }
 
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine gets the IP address (in dotted-decimal form) that the
+* client used to make the TCP socket connection to the server.
+* Do NOT write into or free the returned char pointer.
+*
+* @param domainId id of the domain connection
+* @param ipAddress pointer filled in with IP address of server
+*
+* @returns CMSG_OK if successful
+* @returns CMSG_BAD_ARGUMENT if domainId arg is NULL
+*/
+int cmsg_emu_getServerHost(void *domainId, const char **ipAddress) {
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    
+    /* check args */
+    if (domain == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+    if (ipAddress != NULL) *ipAddress = domain->sendHost;
+    return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine gets the port that the client used to make the
+* TCP socket connection to the server.
+*
+* @param domainId id of the domain connection
+* @param udl pointer filled in with cMsg server TCP port
+*
+* @returns CMSG_OK if successful
+* @returns CMSG_BAD_ARGUMENT if domainId arg is NULL
+*/
+int cmsg_emu_getServerPort(void *domainId, int *port) {
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    
+    /* check args */
+    if (domain == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+    if (port != NULL) *port = domain->sendPort;
+    return(CMSG_OK);
+}
 
 
 /*-------------------------------------------------------------------*/

@@ -78,9 +78,9 @@ extern "C" {
     } while (0)
 
 /** Major version number. */
-#define CMSG_VERSION_MAJOR 3
+#define CMSG_VERSION_MAJOR 4
 /** Minor version number. */
-#define CMSG_VERSION_MINOR 6
+#define CMSG_VERSION_MINOR 0
 
 /** Default vxworks stack size for subscription threads. */
 #define CMSG_VX_DEFAULT_STACK_SIZE 40000
@@ -184,13 +184,13 @@ typedef int (*SHUTDOWN_PTR)             (void *domainId, const char *client, int
 typedef int (*SET_SHUTDOWN_HANDLER_PTR) (void *domainId, cMsgShutdownHandler *handler,
                                          void *userArg);
                                          
-/** Typedef for a domain's isConnected function */
+/** Typedef for a domain's isConnected and getServerPort functions */
 typedef int (*ISCONNECTED_PTR)          (void *domainId, int *connected);
 
 /** Typedef for a domain's setUDL function */
 typedef int (*SETUDL_PTR)               (void *domainId, const char *udl, const char *udlRemainder);
 
-/** Typedef for a domain's getCurrentUDL function */
+/** Typedef for a domain's getCurrentUDL and getServerHost functions */
 typedef int (*GETUDL_PTR)               (void *domainId, const char **udl);
 
 
@@ -282,6 +282,12 @@ typedef struct domainFunctions_t {
   
   /** This function gets the UDL currently used. */
   GETUDL_PTR getCurrentUDL;
+  
+  /** This function gets the IP address (dotted-decimal) used by client to connect to cMsg server. */
+  GETUDL_PTR getServerHost;
+  
+  /** This function gets the TCP port used by client to connect to cMsg server. */
+  ISCONNECTED_PTR getServerPort;
   
 } domainFunctions;
 

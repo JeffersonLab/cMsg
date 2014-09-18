@@ -149,6 +149,8 @@ int   cmsg_rc_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, v
 int   cmsg_rc_isConnected       (void *domainId, int *connected);
 int   cmsg_rc_setUDL            (void *domainId, const char *udl, const char *remainder);
 int   cmsg_rc_getCurrentUDL     (void *domainId, const char **udl);
+int   cmsg_rc_getServerHost     (void *domainId, const char **ipAddress);
+int   cmsg_rc_getServerPort     (void *domainId, int *port);
 
 /** List of the functions which implement the standard cMsg tasks in this domain. */
 static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_reconnect,
@@ -162,8 +164,9 @@ static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_reconnect,
                                     cmsg_rc_stop, cmsg_rc_disconnect,
                                     cmsg_rc_shutdownClients, cmsg_rc_shutdownServers,
                                     cmsg_rc_setShutdownHandler, cmsg_rc_isConnected,
-                                    cmsg_rc_setUDL, cmsg_rc_getCurrentUDL};
-
+                                    cmsg_rc_setUDL, cmsg_rc_getCurrentUDL,
+                                    cmsg_rc_getServerHost, cmsg_rc_getServerPort};
+                                    
 /* rc domain type */
 domainTypeInfo rcDomainTypeInfo = {
   "rc",
@@ -192,9 +195,11 @@ int cmsg_rc_setUDL(void *domainId, const char *newUDL, const char *newRemainder)
 
 /**
  * This routine gets the UDL current used in the existing connection.
+ * Do NOT write into or free the returned char pointer.
  *
+ * @param domainId id of the domain connection
  * @param udl pointer filled in with current UDL (do not write to this
-              pointer)
+ *            pointer)
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId arg is NULL
@@ -210,6 +215,56 @@ int cmsg_rc_getCurrentUDL(void *domainId, const char **udl) {
     return(CMSG_OK);
 }
 
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine gets the IP address (in dotted-decimal form) that the
+ * client used to make the TCP socket connection to the rc server.
+ * Do NOT write into or free the returned char pointer.
+ *
+ * @param domainId id of the domain connection
+ * @param ipAddress pointer filled in with IP address of server
+ *
+ * @returns CMSG_OK if successful
+ * @returns CMSG_BAD_ARGUMENT if domainId arg is NULL
+ */
+int cmsg_rc_getServerHost(void *domainId, const char **ipAddress) {
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    
+    /* check args */
+    if (domain == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+    if (ipAddress != NULL) *ipAddress = domain->sendHost;
+    return(CMSG_OK);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine gets the port that the client used to make the
+* TCP socket connection to the rc server.
+*
+* @param domainId id of the domain connection
+* @param udl pointer filled in with cMsg server TCP port
+*
+* @returns CMSG_OK if successful
+* @returns CMSG_BAD_ARGUMENT if domainId arg is NULL
+*/
+int cmsg_rc_getServerPort(void *domainId, int *port) {
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    
+    /* check args */
+    if (domain == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+    if (port != NULL) *port = domain->sendPort;
+    return(CMSG_OK);
+}
 
 
 /*-------------------------------------------------------------------*/
@@ -758,21 +813,6 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
      * Try one at a time to see which we can use to connect. */
     haveHashEntries = hashGetAll(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
 
-    /* if there are no hash table entries, try old way */
-    /*if (domain->sendHost != NULL) {*/
-    if (0) {
-printf("rc connect: try cMsg msg senderHost field to make tcp connection to RC server = %s\n", domain->sendHost);
-        rcServerHost = domain->sendHost;
-        if ( (err = cMsgNetTcpConnect(rcServerHost, NULL, (unsigned short) domain->sendPort,
-                                      CMSG_BIGSOCKBUFSIZE, 0, 1, &domain->sendSocket, NULL)) == CMSG_OK) {
-            gotValidRcServerHost = 1;
-        }
-        /*
-        else {
-printf("rc connect: failed to connect to %s\n", rcServerHost);
-        }
-        */
-    }
     
     if (!gotValidRcServerHost) {
         for (i=0; i < hashEntryCount; i++) {
@@ -783,6 +823,9 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
                  CMSG_BIGSOCKBUFSIZE, 0, 1, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
                 gotValidRcServerHost = 1;
                 printf("rc connect: SUCCESS connecting to %s\n", rcServerHost);
+                // Copy host for getServerHost() function
+                if (domain->sendHost != NULL) free(domain->sendHost);
+                domain->sendHost = strdup(rcServerHost);
                 break;
             }
 /*printf("rc connect: failed to connect to %s\n", rcServerHost);*/

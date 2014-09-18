@@ -164,6 +164,8 @@ int clock_gettime(int dummy, struct timespec *t1);
   int   cMsgGetConnectState   (void *domainId,  int *connectState);
   int   cMsgSetUDL            (void *domainId, const char *udl);
   int   cMsgGetCurrentUDL     (void *domainId, const char **udl);
+  int   cMsgGetServerHost     (void *domainId, const char **ipAddress);
+  int   cMsgGetServerPort     (void *domainId, int *port);
   char *cMsgPerror            (int errorCode);
   
   
