@@ -6,7 +6,7 @@
     <property environment="env"/>
 
     <!-- Version -->
-    <property name="cMsg.version" value="3.6" />
+    <property name="cMsg.version" value="4.0" />
     
     <!-- Debug -->
     <property name="javac.debug" value="on" />
