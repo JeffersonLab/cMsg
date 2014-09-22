@@ -26,7 +26,7 @@ os.umask(002)
 
 # Software version
 versionMajor = '3'
-versionMinor = '5.1'
+versionMinor = '5.2'
 
 # Determine the os and machine names
 uname    = os.uname();
@@ -167,7 +167,7 @@ else:
 
     elif platform == 'Darwin':
         execLibs = ['pthread', 'dl']
-        env.Append(CPPDEFINES = ['Darwin'], SHLINKFLAGS = ['-multiply_defined suppress', '-flat_namespace', '-undefined suppress'])
+        env.Append(CPPDEFINES = ['Darwin'], SHLINKFLAGS = ['-multiply_defined', '-undefined', '-flat_namespace', 'suppress'])
         env.Append(CCFLAGS = ['-fmessage-length=0'])
 
 
