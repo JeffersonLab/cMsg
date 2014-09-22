@@ -25,6 +25,6 @@ Version 3.5.1
     - add emu domain for communication between Rocs and EBs
     - add syncSend to rc server domain to act as a ping of client
 
-9/22/2014
+Version 3.5.2    9/22/2014
 	- fix flags for Mac OSX compilation
 
