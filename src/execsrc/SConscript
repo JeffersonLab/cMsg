@@ -8,7 +8,7 @@ ccfileList = filter( (lambda a : a not in Glob('[vV][xX]*.cc', strings=True)), G
 # Compile C files and install that executable if "scons install" is run
 for fileName in cfileList:
     compiledFile = env.Program(source  = fileName,
-                               LIBS    = ['cmsgRegex'+debugSuffix, 'cmsg'+debugSuffix] + execLibs,
+                               LIBS    = ['cmsg'+debugSuffix, 'cmsgRegex'+debugSuffix] + execLibs,
                                LIBPATH = ['#src/regexp/'+archDir, '#src/libsrc/'+archDir],
                                CPPPATH = ['.', '#src/regexp', '#src/libsrc'])
     
@@ -18,9 +18,9 @@ for fileName in cfileList:
 # Compile C++ files and install
 for fileName in ccfileList:
     compiledFile = env.Program(source  = fileName,
-                               LIBS    = ['cmsgRegex'+debugSuffix,
+                               LIBS    = ['cmsgxx'+debugSuffix,
                                           'cmsg'+debugSuffix,
-                                          'cmsgxx'+debugSuffix] + execLibs,
+                                          'cmsgRegex'+debugSuffix] + execLibs,
                                LIBPATH = ['#src/regexp/'+archDir,
                                           '#src/libsrc/'+archDir,
                                           '#src/libsrc++/'+archDir],
