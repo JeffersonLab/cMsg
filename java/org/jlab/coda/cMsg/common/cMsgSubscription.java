@@ -184,11 +184,11 @@ public class cMsgSubscription extends cMsgGetHelper {
      */
     private static final String exprSec  = "(i|[0-9]+)([<>=])(i|[0-9]+)([|&])*";
 
-    /** Compiled regular expression ojbect of {@link #exprRange}. */
+    /** Compiled regular expression object of {@link #exprRange}. */
     private static final Pattern patRange = Pattern.compile(exprRange);
-    /** Compiled regular expression ojbect of {@link #exprFull}. */
+    /** Compiled regular expression object of {@link #exprFull}. */
     private static final Pattern patFull = Pattern.compile(exprFull);
-    /** Compiled regular expression ojbect of {@link #exprSec}. */
+    /** Compiled regular expression object of {@link #exprSec}. */
     private static final Pattern patSec  = Pattern.compile(exprSec);
 
     /** List of lists each of which stores numbers, operators, and conjunctions extracted
