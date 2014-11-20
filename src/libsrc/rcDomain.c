@@ -65,17 +65,14 @@
 
 
 /**
- * Structure for arg to be passed to receiver/multicast threads.
- * Allows data to flow back and forth with these threads.
+ * Structure for arg to be passed to multicast thread.
+ * Allows data to flow back and forth with this thread.
  */
 typedef struct thdArg_t {
     int sockfd;
     socklen_t len;
-    unsigned short port;
-    struct sockaddr_in addr;
     struct sockaddr_in *paddr;
     int   bufferLen;
-    char *expid;
     char *buffer;
 } thdArg;
 
@@ -108,13 +105,12 @@ static pthread_cond_t cond   = PTHREAD_COND_INITIALIZER;
 /* Local prototypes */
 static void  staticMutexLock(void);
 static void  staticMutexUnlock(void);
-static void *receiverThd(void *arg);
 static void *multicastThd(void *arg);
 static int   udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static void  defaultShutdownHandler(void *userArg);
 static int   parseUDL(const char *UDLR, char **host,
                       unsigned short *port, char **expid,
-                      int  *multicastTO, int *connectTO, char **junk);
+                      int *connectTO, char **junk);
                       
 /* Prototypes of the 17 functions which implement the standard tasks in cMsg. */
 int   cmsg_rc_connect           (const char *myUDL, const char *myName,
@@ -310,18 +306,16 @@ int cmsg_rc_isConnected(void *domainId, int *connected) {
  * The argument "myUDL" is the Universal Domain Locator used to uniquely
  * identify the RC server to connect to.
  * It has the form:<p>
- *    <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;?multicastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;</b><p>
+ *    <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;&connectTO=&lt;timeout&gt;</b><p>
  * where:
- *<ul>
- *<li>1) host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
- *<li>2) port is optional with a default of {@link RC_MULTICAST_PORT}<p>
- *<li>3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
- *<li>4) multicastTO is the time to wait in seconds before connect returns a
- *       timeout when a rc multicast server does not answer. Defaults to no timeout.<p>
- *<li>5) connectTO is the time to wait in seconds before connect returns a
+ *<ol>
+ *<li>host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
+ *<li>port is optional with a default of {@link RC_MULTICAST_PORT}<p>
+ *<li>the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
+ *<li>connectTO is the time to wait in seconds before connect returns a
  *       timeout while waiting for the rc server to send a special (tcp)
  *       concluding connect message. Defaults to 5 seconds.<p>
- *</ul><p>
+ *</ol><p>
  *
  * If successful, this routine fills the argument "domainId", which identifies
  * the connection uniquely and is required as an argument by many other routines.
@@ -362,8 +356,9 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
   
     unsigned short serverPort;
     char  *serverHost, *expid=NULL, buffer[1024];
-    int    err, status, len, expidLen, nameLen;
-    int    i, index=0, outGoing[7], multicastTO=0, connectTO=0;
+    int    err, status, len;
+    int    i, index=0, connectTO=0;
+    int32_t outGoing[7], packetNumber=1, expidLen, nameLen;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
     unsigned char ttl = 32;
@@ -374,11 +369,10 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     struct timespec waitForThread;
     
     pthread_t rThread, bThread;
-    thdArg    rArg,    bArg;
+    thdArg    bArg;
     
     struct timespec wait, time;
     struct sockaddr_in servaddr, addr;
-    int    gotResponse=0;
     const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
         
     /* for connecting to rc Server w/ TCP */
@@ -392,7 +386,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     
     /* parse the UDLRemainder to get the host, port, & expid but ignore everything else */
     err = parseUDL(UDLremainder, &serverHost, &serverPort,
-                   &expid, &multicastTO, &connectTO, NULL);
+                   &expid, &connectTO, NULL);
     if (err != CMSG_OK) {
         return(err);
     }
@@ -623,7 +617,7 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
     /* send our list of presentation (dotted-decimal) IP addrs */
     {
         char **ipAddrs = NULL;
-        int  strLen, netOrderInt, addrCount;
+        int32_t  strLen, netOrderInt, addrCount;
         
         err = codanetGetIpAddrs(&ipAddrs, &addrCount, NULL);
 
@@ -657,22 +651,13 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
             free(ipAddrs);
         }
     }
-       
+    
+    packetNumber = htonl(packetNumber);
+    memcpy(buffer+len, (void *)&packetNumber, sizeof(packetNumber));
+    len += sizeof(packetNumber);
+    
     free(serverHost);
-    
-    /* create and start a thread which will receive any responses to our multicast */
-    memset((void *)&rArg.addr, 0, sizeof(rArg.addr));
-    rArg.len             = (socklen_t) sizeof(rArg.addr);
-    rArg.port            = serverPort;
-    rArg.expid           = expid;
-    rArg.sockfd          = domain->sendSocket;
-    rArg.addr.sin_family = AF_INET;
-    
-/*printf("rc connect: will create receiver thread\n");*/
-    status = pthread_create(&rThread, NULL, receiverThd, (void *)(&rArg));
-    if (status != 0) {
-        cmsg_err_abort(status, "Creating multicast response receiving thread");
-    }
+    free(expid);
     
     /* create and start a thread which will multicast every second */
     bArg.len       = (socklen_t) sizeof(servaddr);
@@ -686,76 +671,9 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
     if (status != 0) {
         cmsg_err_abort(status, "Creating multicast sending thread");
     }
-    
-    /* Wait for a response. If multicastTO is given in the UDL, use that.
-     * The default wait or the wait if multicastTO is set to 0, is forever.
-     * Round things to the nearest second since we're only multicasting a
-     * message every second anyway.
-     */    
-    if (multicastTO > 0) {
-        wait.tv_sec  = multicastTO;
-        wait.tv_nsec = 0;
-        cMsgGetAbsoluteTime(&wait, &time);
-        
-        status = pthread_mutex_lock(&mutex);
-        if (status != 0) {
-            cmsg_err_abort(status, "pthread_mutex_lock");
-        }
- 
-/*printf("rc connect: wait %d seconds for multicast server to answer\n", multicastTO);*/
-        status = pthread_cond_timedwait(&cond, &mutex, &time);
-        if (status == ETIMEDOUT) {
-          /* stop receiving thread */
-          pthread_cancel(rThread);
-        }
-        else if (status != 0) {
-            cmsg_err_abort(status, "pthread_cond_timedwait");
-        }
-        else {
-            gotResponse = 1;
-        }
-        
-        status = pthread_mutex_unlock(&mutex);
-        if (status != 0) {
-            cmsg_err_abort(status, "pthread_mutex_lock");
-        }
-    }
-    else {
-        status = pthread_mutex_lock(&mutex);
-        if (status != 0) {
-            cmsg_err_abort(status, "pthread_mutex_lock");
-        }
- 
-/*printf("rc connect: wait forever for multicast server to answer\n");*/
-        status = pthread_cond_wait(&cond, &mutex);
-        if (status != 0) {
-            cmsg_err_abort(status, "pthread_cond_timedwait");
-        }
-        gotResponse = 1;
-        
-        status = pthread_mutex_unlock(&mutex);
-        if (status != 0) {
-            cmsg_err_abort(status, "pthread_mutex_lock");
-        }
-    }
-    
-    /* stop multicasting thread */
-    pthread_cancel(bThread);
-    free(expid);
-    
-    if (!gotResponse) {
-/*printf("rc connect: got no response\n");*/
-        close(domain->sendSocket);
-        cMsgRestoreSignals(domain);
-        pthread_cancel(domain->pendThread);
-        cMsgDomainFree(domain);
-        free(domain);
-        return(CMSG_TIMEOUT);
-    }
-    
-/*printf("rc connect: got a response from mcast server, now wait for connect to finish\n");*/
-
-    /* Wait for a special message to come in to the TCP listening thread.
+            
+    /*
+     * Wait for a message to come in to the TCP listening thread.
      * The message will contain the host and UDP port of the destination
      * of our subsequent sends. If connectTO is given in the UDL, use that.
      * Otherwise, wait for a maximum of 30 seconds before timing out of this
@@ -785,6 +703,7 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
 /*printf("rc connect: told to abort connect by RC Multicast server\n");*/
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
+        pthread_cancel(bThread);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
@@ -795,11 +714,15 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
 /*printf("rc connect: wait timeout or rcConnectComplete is not 1\n");*/
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
+        pthread_cancel(bThread);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
         return(CMSG_TIMEOUT);
     }
+    
+    /* stop multicasting thread */
+    pthread_cancel(bThread);
         
     close(domain->sendSocket);
 
@@ -982,129 +905,6 @@ int cmsg_rc_reconnect(void *domainId) {
 
 /*-------------------------------------------------------------------*/
 
-/**
- * This routine starts a thread to receive a return UDP packet from
- * the server due to our initial uni/multicast.
- */
-static void *receiverThd(void *arg) {
-
-    thdArg *threadArg = (thdArg *) arg;
-    int  ints[6], magic[3], port, len1, len2, minMsgSize;
-    char buf[1024], *pbuf, *host, *expid;
-    ssize_t len;
-
-    minMsgSize = 6*sizeof(int);
-    
-    /* release resources when done */
-    pthread_detach(pthread_self());
-    
-    while (1) {
-        /* zero buffer */
-        memset((void *)buf,0,1024);
-
-        /* ignore error as it will be caught later */   
-        len = recvfrom(threadArg->sockfd, (void *)buf, 1024, 0,
-                       (SA *) &threadArg->addr, &(threadArg->len));
-        
-        /* server is sending:
-         *         -> 3 magic ints
-         *         -> port server is listening on
-         *         -> length of server's host name
-         *         -> length of server's expid
-         *         -> server's host name
-         *         -> server's expid
-         */
-        if (len < minMsgSize) {
-          /*printf("receiverThd: got packet that's too small\n");*/
-          continue;
-        }
-        
-        pbuf = buf;
-        memcpy(ints, pbuf, sizeof(ints));
-        pbuf += sizeof(ints);
-
-        magic[0] = ntohl(ints[0]);
-        magic[1] = ntohl(ints[1]);
-        magic[2] = ntohl(ints[2]);
-        if (magic[0] != CMSG_MAGIC_INT1 ||
-            magic[1] != CMSG_MAGIC_INT2 ||
-            magic[2] != CMSG_MAGIC_INT3)  {
-          printf("receiverThd: got bogus magic # response to multicast\n");
-          continue;
-        }
-
-        port = ntohl(ints[3]);
-
-        if (port != threadArg->port) {
-          printf("receiverThd: got bogus port response to multicast\n");
-          continue;
-        }
-
-        len1 = ntohl(ints[4]);
-        len2 = ntohl(ints[5]);
-        
-        if (len < minMsgSize + len1 + len2) {
-          printf("receiverThd: got packet that's too small or internal error\n");
-          continue;
-        }
-
-        host = expid = NULL;
-
-        /* host */
-        if (len1 > 0) {
-          if ( (host = (char *) malloc(len1+1)) == NULL) {
-            printf("receiverThd: out of memory\n");
-            exit(-1);
-          }
-          /* read host string into memory */
-          memcpy(host, pbuf, len1);
-          /* add null terminator to string */
-          host[len1] = 0;
-          /* go to next string */
-          pbuf += len1;
-/*printf("host = %s\n", host);*/         
-        }
-        
-        /* expid */        
-        if (len2 > 0) {
-          if ( (expid = (char *) malloc(len2+1)) == NULL) {
-            printf("receiverThd: out of memory\n");
-            exit(-1);
-          }
-          memcpy(expid, pbuf, len2);
-          expid[len2] = 0;
-          pbuf += len2;
-/*printf("expid = %s\n", expid);*/
-          if (strcmp(expid, threadArg->expid) != 0) {
-            printf("receiverThd: got bogus expid response to multicast\n");
-            if (host != NULL) free(host);
-            free(expid);
-            continue;
-          }
-        }
-/*
-printf("Multicast response from: %s, on port %hu, listening port = %d, host = %s, expid = %s\n",
-                inet_ntoa(threadArg->addr.sin_addr),
-                ntohs(threadArg->addr.sin_port),
-                port, host, expid);
-*/                        
-        /* Tell main thread we are done. */
-        pthread_cond_signal(&cond);
-
-        /* free up memory */
-        if (host  != NULL) free(host);
-        if (expid != NULL) free(expid);
-
-        break;
-    }
-    
-    pthread_exit(NULL);
-    return NULL;
-}
-
-
-/*-------------------------------------------------------------------*/
-
 
 /** Structure for freeing memory in cleanUpHandler. */
 typedef struct freeMem_t {
@@ -1151,6 +951,8 @@ static void *multicastThd(void *arg) {
     thdArg *threadArg = (thdArg *) arg;
     struct timespec  wait = {0, 100000000}; /* 0.1 sec */
     struct timespec delay = {0, 500000000}; /* 0.5 sec */
+    char *buffer  = threadArg->buffer;
+    int bufferLen = threadArg->bufferLen;
 
     /* release resources when done */
     pthread_detach(pthread_self());
@@ -1188,10 +990,24 @@ static void *multicastThd(void *arg) {
 
     while (1) {
         int sleepCount = 0;
+        int32_t num;
 
         if (useDefaultIf) {
-            sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
+            sendto(threadArg->sockfd, (void *)buffer, bufferLen, 0,
                    (SA *) threadArg->paddr, threadArg->len);
+                   
+            /*-------------------------------------------------
+            * Increment packet number (last 4 bytes in buffer)
+            * for the next time the packet is sent out.
+            *-------------------------------------------------*/
+            /* Read existing packet # */
+            num = *((int32_t *)(buffer +  bufferLen - 4));
+            num = ntohl(num);      
+            /* Add 1 */
+            num++;
+            /* Write it into packet data */
+            num = htonl(num);
+            memcpy((void *)(buffer +  bufferLen - 4), (const void *)&num, sizeof(int32_t));
         }
         else {
             for (i=0; i < count; i++) {
@@ -1204,9 +1020,15 @@ static void *multicastThd(void *arg) {
                 if (err != CMSG_OK) continue;
     
 /*printf("Send multicast to RC Multicast server\n");*/
-                sendto(threadArg->sockfd, (void *)threadArg->buffer, threadArg->bufferLen, 0,
+                sendto(threadArg->sockfd, (void *)buffer, bufferLen, 0,
                        (SA *) threadArg->paddr, threadArg->len);
-
+                                
+                num = *((int32_t *)(buffer +  bufferLen - 4));
+                num = ntohl(num);      
+                num++;
+                num = htonl(num);
+                memcpy((void *)(buffer +  bufferLen - 4), (const void *)&num, sizeof(int32_t));
+                
                 /* Wait 1/2 second between multicasting on each interface */
                 nanosleep(&delay, NULL);
                 sleepCount++;
@@ -2620,29 +2442,26 @@ int cmsg_rc_shutdownServers(void *domainId, const char *server, int flag) {
  * portion of the UDL sent from the next level up" in the API.
  *
  * Runcontrol domain UDL is of the form:<p>
- *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;?multicastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;</b><p>
+ *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;&connectTO=&lt;timeout&gt;</b><p>
  *
  * For the cMsg domain the UDL has the more specific form:<p>
  *   <b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ...</b><p>
  *
  * Remember that for this domain:
- *<ul>
- *<li>1) host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
- *<li>2) port is optional with a default of {@link RC_MULTICAST_PORT}<p>
- *<li>3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
- *<li>4) multicastTO is the time to wait in seconds before connect returns a
- *       timeout when a rc multicast server does not answer. Defaults to no timeout.<p>
- *<li>5) connectTO is the time to wait in seconds before connect returns a
+ *<ol>
+ *<li>host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
+ *<li>port is optional with a default of {@link RC_MULTICAST_PORT}<p>
+ *<li>the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
+ *<li>connectTO is the time to wait in seconds before connect returns a
  *       timeout while waiting for the rc server to send a special (tcp)
  *       concluding connect message. Defaults to 5 seconds.<p>
- *</ul><p>
+ *</ol><p>
  *
  * 
  * @param UDLR  udl to be parsed
  * @param host  pointer filled in with host
  * @param port  pointer filled in with port
  * @param expid pointer filled in with expid tag's value if it exists
- * @param multicastTO pointer filled in with multicast timeout tag's value if it exists
  * @param connectTO   pointer filled in with connect timeout tag's value if it exists
  * @param remainder   pointer filled in with the part of the udl after host:port/expid if it exists,
  *                    else it is set to NULL
@@ -2657,7 +2476,6 @@ static int parseUDL(const char *UDLR,
                     char **host,
                     unsigned short *port,
                     char **expid,
-                    int  *multicastTO,
                     int  *connectTO,
                     char **remainder) {
 
@@ -2815,36 +2633,6 @@ static int parseUDL(const char *UDLR,
     len = strlen(buffer);
     while (len > 0) {
         val = strdup(buffer);
-
-        /* look for ?multicastTO=value& or &multicastTO=value& */
-        pattern = "multicastTO=([0-9]+)&?";
-
-        /* compile regular expression */
-        cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
-
-        /* find matches */
-        err = cMsgRegexec(&compiled, val, 2, matches, 0);
-        
-        /* if there's a match ... */
-        if (err == 0) {
-            /* find timeout (in milliseconds) */
-            if (matches[1].rm_so >= 0) {
-               int t;
-               buffer[0] = 0;
-               len = matches[1].rm_eo - matches[1].rm_so;
-               strncat(buffer, val+matches[1].rm_so, len);
-               t = atoi(buffer);
-               if (t < 1) t=0;
-               if (multicastTO != NULL) {
-                 *multicastTO = t;
-               }        
-/*printf("parseUDL: multicast timeout = %d\n", t);*/
-            }
-        }
-        
-        
-        /* free up memory */
-        cMsgRegfree(&compiled);
        
         /* now look for ?connectTO=value& or &connectTO=value& */
         pattern = "connectTO=([0-9]+)&?";
