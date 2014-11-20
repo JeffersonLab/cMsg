@@ -48,9 +48,6 @@ public class RunControl extends cMsgDomainAdapter {
     /** Coda experiment id under which this is running. */
     private String expid;
 
-    /** Timeout in milliseconds to wait for server to respond to multicasts. */
-    private int multicastTimeout;
-
     /**
      * Timeout in seconds to wait for RC server to finish connection
      * once RC multicast server responds. Defaults to 5 seconds.
@@ -307,6 +304,10 @@ public class RunControl extends cMsgDomainAdapter {
                     catch (UnsupportedEncodingException e) {/* never happen*/}
                 }
 
+                // Write out a packet id# (starting at 1). This will be incremented
+                // each time another packet is sent out to the rc multicast server.
+                out.writeInt(1);
+
                 out.flush();
                 out.close();
 
@@ -334,42 +335,16 @@ public class RunControl extends cMsgDomainAdapter {
             }
 //System.out.println("RC connect: start receiver & sender threads");
 
-            // create a thread which will receive any responses to our multicast
-//System.out.println("RC connect: RC client " + name + ": will start multicast receiver thread");
-            MulticastReceiver receiver = new MulticastReceiver();
-            receiver.start();
-
             // create a thread which will send our multicast
 //System.out.println("RC connect: RC client " + name + ": will start multicast sender thread");
             Multicaster sender = new Multicaster(udpPacket);
             sender.start();
 
-            // wait up to multicast timeout seconds
-            boolean response = false;
-            if (multicastTimeout > 0) {
-                try {
-//System.out.println("RC connect: wait response");
-                    if (multicastResponse.await(multicastTimeout, TimeUnit.MILLISECONDS)) {
-                        response = true;
-                    }
-                }
-                catch (InterruptedException e) {}
-            }
-            // wait forever
-            else {
-                try { multicastResponse.await(); response = true;}
-                catch (InterruptedException e) {}
-            }
-
-            multicastUdpSocket.close();
-            sender.interrupt();
-
-            if (!response) {
-                throw new cMsgException("No response to UDP multicast received");
-            }
-            else {
-//System.out.println("RC connect: got a response to multicast!");
-            }
+//            try {
+//                Thread.sleep(5000);
+//            }
+//            catch (InterruptedException e) {
+//            }
 
             // Now that we got a response from the RC Multicast server,
             // wait for that server to pass its info on to the RC server
@@ -409,33 +384,13 @@ public class RunControl extends cMsgDomainAdapter {
 //System.out.println("RC connect: Completed the connection from RC server");
             }
 
-            // create a TCP connection to the RC Server
+            // Stop sending multicast packets now
+            multicastUdpSocket.close();
+            sender.interrupt();
+
+            // Create a TCP connection to the RC Server
             boolean gotTcpConnection = false;
             IOException ioex = null;
-
-            // First try to connect to IP address associated with host name sent by rc server
-            if (false) {
-                //if (rcServerAddress != null) {
-                try {
-//System.out.println("RC connect: Try making tcp connection to RC server (msg senderHost = " + rcServerAddress.getHostName() + ", " +
-//                    rcServerAddress.getHostAddress() + "; port = " + rcTcpServerPort + ")");
-
-                    tcpSocket = new Socket();
-                    // Don't waste time if a connection cannot be made, timeout = 0.2 seconds
-                    tcpSocket.connect(new InetSocketAddress(rcServerAddress,rcTcpServerPort), 200);
-                    tcpSocket.setTcpNoDelay(true);
-                    tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
-                    domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
-                                                                              cMsgNetworkConstants.bigBufferSize));
-//System.out.println("RC connect: Made tcp connection to RC server");
-                    gotTcpConnection = true;
-                }
-                catch (IOException e) {
-//System.out.println("RC connect: connection failed");
-                    ioex = e;
-                }
-            }
-
 
             if (!gotTcpConnection && rcServerAddresses.size() > 0) {
                 for (InetAddress rcServerAddr : rcServerAddresses) {
@@ -466,14 +421,12 @@ public class RunControl extends cMsgDomainAdapter {
                 }
             }
 
-
             if (!gotTcpConnection) {
                 listeningThread.killThread();
                 if (domainOut != null) try {domainOut.close();}  catch (IOException e1) {}
                 if (tcpSocket != null) try {tcpSocket.close();}  catch (IOException e1) {}
                 throw new cMsgException("Cannot make TCP connection to RC server", ioex);
             }
-
 
             // Create a UDP "connection". This means security check is done only once
             // and communication with any other host/port is not allowed.
@@ -745,22 +698,20 @@ System.out.println("RC connect: SUCCESSFUL");
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      *
      * Runcontrol domain UDL is of the form:<p>
-     *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;?multicastTO=&lt;timeout&gt;&connectTO=&lt;timeout&gt;</b><p>
+     *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;&connectTO=&lt;timeout&gt;</b><p>
      *
      * For the cMsg domain the UDL has the more specific form:<p>
      *   <b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ...</b><p>
      *
      * Remember that for this domain:
-     *<ul>
-     *<li>1) host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
-     *<li>2) port is optional with a default of {@link cMsgNetworkConstants#rcMulticastPort}<p>
-     *<li>3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
-     *<li>4) multicastTO is the time to wait in seconds before connect returns a
-     *       timeout when a rc multicast server does not answer. Defaults to no timeout.<p>
-     *<li>5) connectTO is the time to wait in seconds before connect returns a
-     *       timeout while waiting for the rc server to send a special (tcp)
-     *       concluding connect message. Defaults to 5 seconds.<p>
-     *</ul><p>
+     *<ol>
+     *<li>host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
+     *<li>port is optional with a default of {@link cMsgNetworkConstants#rcMulticastPort}<p>
+     *<li>the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
+     *<li>connectTO is the time to wait in seconds before connect returns a
+     *    timeout while waiting for the rc server to send a special (tcp)
+     *    concluding connect message. Defaults to 5 seconds.<p>
+     *</ol><p>
      *
      * @param udlRemainder partial UDL to parse
      * @throws cMsgException if udlRemainder is null
@@ -880,19 +831,6 @@ System.out.println("RC connect: SUCCESSFUL");
         // if no remaining UDL to parse, return
         if (remainder == null) {
             return;
-        }
-
-        // now look for ?multicastTO=value& or &multicastTO=value&
-        pattern = Pattern.compile("[\\?&]multicastTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
-        matcher = pattern.matcher(remainder);
-        if (matcher.find()) {
-            try {
-                multicastTimeout = 1000 * Integer.parseInt(matcher.group(1));
-//System.out.println("multicast TO = " + multicastTimeout);
-            }
-            catch (NumberFormatException e) {
-                // ignore error and keep value of 0
-            }
         }
 
         // now look for ?connectTO=value& or &connectTO=value&
@@ -1364,113 +1302,6 @@ System.out.println("RC connect: SUCCESSFUL");
 
 
     /**
-     * This class gets any response to our UDP multicast. A response will
-     * stop the multicast and tell us to wait for the completion of the
-     * connect call by the RC server (not RC Multicast server).
-     */
-    class MulticastReceiver extends Thread {
-
-        public void run() {
-
-//System.out.println("RC client " + name + ": STARTED multicast receiving thread");
-            /* A slight delay here will help the main thread (calling connect)
-             * to be already waiting for a response from the server when we
-             * multicast to the server here (prompting that response). This
-             * will help insure no responses will be lost.
-             */
-            try { Thread.sleep(200); }
-            catch (InterruptedException e) {}
-
-            byte[] buf = new byte[1024];
-            DatagramPacket packet = new DatagramPacket(buf, 1024);
-            int index;
-
-            while (true) {
-                // reset for each round
-                packet.setLength(1024);
-                index = 0;
-
-                try {
-                    multicastUdpSocket.receive(packet);
-                    // if we get too small of a packet, reject it
-                    if (packet.getLength() < 6*4) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                                     System.out.println("Multicast receiver: got packet that's too small");
-                        }
-                        continue;
-                    }
-//System.out.println("received multicast packet");
-                    int magic1 = cMsgUtilities.bytesToInt(buf, index);
-                    index += 4;
-                    int magic2 = cMsgUtilities.bytesToInt(buf, index);
-                    index += 4;
-                    int magic3 = cMsgUtilities.bytesToInt(buf, index);
-                    index += 4;
-                    
-                    if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
-                        magic2 != cMsgNetworkConstants.magicNumbers[1] ||
-                        magic3 != cMsgNetworkConstants.magicNumbers[2])  {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("Multicast receiver: got bad magic # response to multicast");
-                        }
-                        continue;
-                    }
-
-                    int port = cMsgUtilities.bytesToInt(buf, index);
-                    index += 4;
-
-                    if (port != rcMulticastServerPort) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("Multicast receiver: got bad port response to multicast (" + port + ")");
-                        }
-                        continue;
-                    }
-
-                    int hostLen = cMsgUtilities.bytesToInt(buf, index);
-                    index += 4;
-                    int expidLen = cMsgUtilities.bytesToInt(buf, index);
-                    index += 4;
-
-                    if (packet.getLength() < 4*6 + hostLen + expidLen) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("Multicast receiver: got packet that's too small");
-                        }
-                        continue;
-                    }
-
-                    // get host
-                    if (hostLen > 0) {
-//                        String host = new String(buf, index, hostLen, "US-ASCII");
-//System.out.println("host = " + host);
-                        index += hostLen;
-                    }
-
-                    // get expid
-                    if (expidLen > 0) {
-                        String serverExpid = new String(buf, index, expidLen, "US-ASCII");
-//System.out.println("expid = " + serverExpid);
-                        if (!expid.equals(serverExpid)) {
-                            if (debug >= cMsgConstants.debugWarn) {
-                                System.out.println("Multicast receiver: got bad expid response to multicast (" + serverExpid + ")");
-                            }
-                            continue;
-                        }
-                    }
-                }
-                catch (UnsupportedEncodingException e) {continue;}
-                catch (IOException e) {
-//System.out.println("Got IOException in multicast receive, exiting");
-                    return;
-                }
-                break;
-            }
-
-            multicastResponse.countDown();
-        }
-    }
-
-
-    /**
      * This class defines a thread to multicast a UDP packet to the
      * RC Multicast server every second.
      */
@@ -1512,6 +1343,32 @@ System.out.println("RC connect: SUCCESSFUL");
 //System.out.println("RC client: sending mcast packet over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
+
+                                //-------------------------------------------------
+                                // Increment packet number (last 4 bytes in array)
+                                // for the next time the packet is sent out.
+                                //-------------------------------------------------
+                                // Get packet data
+                                byte[] data = packet.getData();
+
+                                // Read existing packet #
+                                int off = data.length - 4;
+                                int num = (0xff & data[  off]) << 24 |
+                                          (0xff & data[1+off]) << 16 |
+                                          (0xff & data[2+off]) <<  8 |
+                                          (0xff & data[3+off]);
+                                // Add 1
+                                num++;
+
+                                // Write it into packet data
+                                data[off  ] = (byte)(num >> 24);
+                                data[off+1] = (byte)(num >> 16);
+                                data[off+2] = (byte)(num >>  8);
+                                data[off+3] = (byte)(num      );
+
+                                // Update packet with new data
+                                packet.setData(data);
+
                                 Thread.sleep(500);
                                 sleepCount++;
                             }
