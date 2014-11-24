@@ -313,11 +313,11 @@ class rcListeningThread extends Thread {
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
 //System.out.println("Send response-to-probe packet to client");
                         multicastSocket.send(sendPacket);
-                        continue;
                     }
                     catch (IOException e) {
                         System.out.println("I/O Error: " + e);
                     }
+                    continue;
                 }
                 // if multicast from client ...
                 else if (msgType == cMsgNetworkConstants.rcDomainMulticastClient) {
