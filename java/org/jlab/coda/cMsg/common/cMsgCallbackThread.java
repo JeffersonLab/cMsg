@@ -239,7 +239,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 while (message == null) {
                     // die immediately if commanded to
                     if (dieNow) {
-//System.out.println("Worker: die now");
+//System.out.println("Worker: die now 1");
                         return;
                     }
 
@@ -262,7 +262,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
 //System.out.println("Worker, callback: got msg from Q");
 
                 if (dieNow) {
-//System.out.println("Worker: die now");
+//System.out.println("Worker: die now 2");
                     return;
                 }
 
@@ -275,13 +275,10 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
 //System.out.println("Worker: done waiting for latch");
                     }
                     catch (InterruptedException e) {
-                        if (dieNow) {
-//System.out.println("Worker: die now");
-                            return;
-                        }
                     }
+
                     if (dieNow) {
-//System.out.println("Worker: die now");
+//System.out.println("Worker: die now 3");
                         return;
                     }
                 }
