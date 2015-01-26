@@ -1175,19 +1175,19 @@ System.out.println("Server to join not in \"host:port\" format:\n" + e.getMessag
                         try {
                             // read magic numbers
                             while (bytesRead < BYTES_TO_READ) {
-    //System.out.println("  try reading rest of Buffer");
-    //System.out.println("  Buffer capacity = " + buffer.capacity() + ", limit = " + buffer.limit()
-    //                    + ", position = " + buffer.position() );
+//System.out.println("  try reading rest of Buffer");
+//System.out.println("  Buffer capacity = " + buffer.capacity() + ", limit = " + buffer.limit()
+//                   + ", position = " + buffer.position() );
                                 bytes = channel.read(buffer);
                                 // for End-of-stream ...
                                 if (bytes == -1) {
-    //System.out.println("cMsgNameServer: closing bad channel");
+//System.out.println("cMsgNameServer: closing bad channel");
                                     channel.close();
                                     it.remove();
                                     continue keyLoop;
                                 }
                                 bytesRead += bytes;
-    //System.out.println("  bytes read = " + bytesRead);
+//System.out.println("  bytes read = " + bytesRead);
 
                                 // if we've read everything, look to see if it's sent the magic #s
                                 if (bytesRead >= BYTES_TO_READ) {
@@ -1198,21 +1198,23 @@ System.out.println("Server to join not in \"host:port\" format:\n" + e.getMessag
                                     if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
                                         magic2 != cMsgNetworkConstants.magicNumbers[1] ||
                                         magic3 != cMsgNetworkConstants.magicNumbers[2])  {
-    //System.out.println("cMsgNameServer:  Magic numbers did NOT match, send response");
+//System.out.println("cMsgNameServer:  Magic numbers did NOT match, send response");
                                         // For old versions of cMsg (1 and 2), it's expecting a response
                                         buffer.clear();
                                         buffer.put(respond);
                                         buffer.flip();
                                         channel.write(buffer);
-    //System.out.println("cMsgNameServer: closing bad channel");
+//System.out.println("cMsgNameServer: closing bad channel");
                                         channel.close();
                                         it.remove();
                                         continue keyLoop;
                                     }
                                 }
                                 else {
-                                    // give client 10 loops (.1 sec) to send its stuff, else no deal
-                                    if (++loops > 10) {
+                                    // give client 50 loops (.5 sec total) to send its stuff, else no deal
+                                    if (++loops > 50) {
+//System.out.println("cMsgNameServer: taking too long, closing bad channel");
+                                        channel.close();
                                         it.remove();
                                         continue keyLoop;
                                     }
