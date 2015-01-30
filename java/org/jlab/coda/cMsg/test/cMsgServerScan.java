@@ -1,6 +1,5 @@
 package org.jlab.coda.cMsg.test;
 
-import org.jlab.coda.cMsg.cMsgException;
 import org.jlab.coda.cMsg.cMsgNetworkConstants;
 
 import java.io.*;
