@@ -1,24 +1,25 @@
 Changes from the previous version:
 
-- Bug fixes:
-    -- problem with payload of double type
-    -- put rc domain multicast packets over all network interfaces
+Version 3.5
+    - Bug fixes:
+        -- problem with payload of double type
+        -- put rc domain multicast packets over all network interfaces
 
-- add user xml fragment to monitoring data
+    - add user xml fragment to monitoring data
 
-- update jar files for EPICS channel access and ET
+    - update jar files for EPICS channel access and ET
 
-- add scons option to remove documentation
+    - add scons option to remove documentation
 
-- add ant options to:
-    -- remove documentation
-    -- uninstall jar files
+    - add ant options to:
+        -- remove documentation
+        -- uninstall jar files
 
-- both "scons install" and "ant install" places files into $CODA/...
-  where CODA is an environmental variable
+    - both "scons install" and "ant install" places files into $CODA/...
+      where CODA is an environmental variable
   
-- "scons install" builds all executable files. FIles in src/test and src/examples
-  are placed in bin/test, and bin/examples.
+    - "scons install" builds all executable files. FIles in src/test and src/examples
+      are placed in bin/test, and bin/examples.
 
 
 Version 3.5.1
@@ -28,3 +29,10 @@ Version 3.5.1
 Version 3.6
 	- add emu domain in C language for communication between Rocs and EBs
     - fix flags for Mac OSX compilation 9/22/4104
+
+For the future:
+    Version 4.0
+	- change the cMsg domain communication protocol allowing the handling
+      of multiple server IP addresses
+	- enable the cMsg domain server to be identified by a unique name
+
