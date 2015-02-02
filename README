@@ -1,9 +1,7 @@
 cMsg Software Package
 
-You must install Java version 1.5 or higher if you plan to compile
-the cMsg code and run it. If you're using the jar file from the CODA
-website, version 1.6 or higher is necessary since it was compiled with
-version 1.6.0_24.
+You must install Java version 1.6 or higher if you plan to compile
+the cMsg code and run it.
 
 If you only plan to run C/C++ clients (i.e. if
 you will use someone else's cMsg server) you can skip the Java
@@ -119,9 +117,7 @@ One can download the cMsg-3.x.jar file from the CODA website or it can
 be generated from the general cMsg distribution.  In either case,
 put the jar file into your classpath and run your java application.
 
-If you're using the jar file from the CODA website, java version 1.6 or
-higher is necessary since it was compiled with version 1.6.0_24. If
-generating it, use java version 1.5 or higher to compile.
+Use java version 1.6 or higher.
 
 If you wish to recompile the java part of cMsg, ant must be installed
 on your system (http://ant.apache.org). First extract the package files
@@ -203,8 +199,7 @@ for developer-level documentation. To remove it:
 
 5) Problems
 
-Elliott Wolin - wolin@jlab.org, or
-Carl Timmer   - timmer@jlab.org
+Carl Timmer - timmer@jlab.org
 
 
 6) Copyright
