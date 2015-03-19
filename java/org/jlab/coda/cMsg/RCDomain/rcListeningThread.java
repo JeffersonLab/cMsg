@@ -312,7 +312,7 @@ class rcListeningThread extends Thread {
 
                         // rc server pinging this client
                         case cMsgConstants.msgSyncSendRequest:
-System.out.println("Got PING message!!!");
+//System.out.println("Got PING message!!!");
                             out.writeInt(1);
                             out.flush();
                             break;

@@ -628,7 +628,7 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
      * @param timeout ignored
      * @return 0 if no valid TCP connection to client, 1 if there is a connection.
      */
-    synchronized public int syncSend(cMsgMessage message, int timeout) {
+    public int syncSend(cMsgMessage message, int timeout) {
 
         int val = 0;
 
@@ -640,7 +640,6 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
             }
             out.writeInt(4);
             out.writeInt(cMsgConstants.msgSyncSendRequest);
-            out.flush();
             val = in.readInt();
         }
         catch (IOException e) {
