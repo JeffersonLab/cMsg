@@ -285,14 +285,12 @@ public class RCServer extends cMsgDomainAdapter {
 
 //System.out.println("Compare local network = " + ipLocalNet + " :");
             // For each client dotted-decimal ip address ...
-            ListIterator<String> clit = clientIpList.listIterator();
-            while (clit.hasNext()) {
-                String clientHost = clit.next();
-//System.out.println("  with client ip = " + clientHost);
+            for (String clientHost : clientIpList) {
+                //System.out.println("  with client ip = " + clientHost);
                 // Apply the local network prefix (mask) to get a possible
                 // client network (subnet) address
                 String ipClientNet = cMsgUtilities.getNetworkAddressString(clientHost,
-                                                             iAddr.getNetworkPrefixLength());
+                                                                           iAddr.getNetworkPrefixLength());
 //System.out.println("  apply subnet mask of " + ipLocalNet + " (= " +
 //                   iAddr.getNetworkPrefixLength() + " bits)");
 //System.out.println("  which should have client network = " + ipClientNet);
@@ -312,9 +310,8 @@ public class RCServer extends cMsgDomainAdapter {
 
         // By now, all client addresses on same subnets as this server have been added.
         // Now add the rest.
-        ListIterator<String> clit = clientIpList.listIterator();
-        while (clit.hasNext()) {
-            clientIpOrderedSet.add(clit.next());
+        for (String clientHost : clientIpList) {
+            clientIpOrderedSet.add(clientHost);
         }
 
         // Likewise, all server addresses on same subnets as the client have been added.
@@ -346,13 +343,10 @@ public class RCServer extends cMsgDomainAdapter {
 
             try {
                 // Iterate through client ip addresses
-                String clientHost = null;
                 boolean failed = true;
-                Iterator<String> it = clientIpOrderedSet.iterator();
 
-                while (it.hasNext()) {
+                for (String clientHost : clientIpOrderedSet) {
                     try {
-                        clientHost = it.next();
 
 //System.out.println("RC server: try connection with RC client (host = " + clientHost +
 //                   ", port = " + rcClientPort);
@@ -364,15 +358,15 @@ public class RCServer extends cMsgDomainAdapter {
                     }
                     catch (IOException e) {
                         // failure to communicate
-System.out.println("RC server: failed to connect to RC client (host = " + clientHost +
-                                ", port = " + rcClientPort);
+                        System.out.println("RC server: failed to connect to RC client (host = " + clientHost +
+                                                   ", port = " + rcClientPort);
                     }
                 }
 
                 if (failed) {
                     throw new cMsgException("Failed to create socket to rc client");
                 }
-//System.out.println("RC server: connected to RC client!");
+System.out.println("RC server: connected to RC client!");
 
                 // Start listening for tcp connections if not already
                 if (listenerThread == null) {
@@ -399,8 +393,8 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
 
                 // Get the port selected for communicating on (NEVER used now)
                 localUdpPort = listenerThread.getUdpPort();
-//System.out.println("RC server: listening on TCP port = " + localTcpPort + " and UDP port = " +
-//localUdpPort);
+System.out.println("RC server: listening on TCP port = " + localTcpPort + " and UDP port = " +
+localUdpPort);
 
                 // Send a special message giving our host & udp port.
                 cMsgMessageFull msg = new cMsgMessageFull();
@@ -438,6 +432,7 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
      * becoming functionally useless.
      */
     public void close() {
+System.out.println("RC Server: CLOSE() called");
         disconnect();
         if (listenerThread != null) {
             listenerThread.killThread();
@@ -451,6 +446,7 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
      * threads running in case another call to connect() is made.
      */
     public void disconnect() {
+System.out.println("RC Server: DISCONNECT() called");
         // cannot run this simultaneously with connect or send
         connectLock.lock();
 
@@ -501,7 +497,7 @@ System.out.println("RC server: failed to connect to RC client (host = " + client
             throw e;
         }
 
-//System.out.println("RC Server: made tcp socket to rc client " + clientHost + " on port " + clientPort);
+System.out.println("RC Server: made tcp socket to rc client " + clientHost + " on port " + clientPort);
     }
 
 
