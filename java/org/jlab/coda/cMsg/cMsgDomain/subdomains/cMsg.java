@@ -736,9 +736,6 @@ public class cMsg extends cMsgSubdomainAdapter {
                 try {
 //System.out.println("handleSendRequest(subdh): send msg to client " + client.getName());
 //System.out.println("handleSendRequest(subdh): channel = " + client.getMessageChannel());
-                    if (message.getSubject().equalsIgnoreCase("ControlDesigner")) {
-                        System.out.println("cMsg SERVER: send msg w/sub = ControlDesigner");
-                    }
                     client.getDeliverer().deliverMessage(message, cMsgConstants.msgSubscribeResponse);
                 }
                 catch (IOException e) {}
