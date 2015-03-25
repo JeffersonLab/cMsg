@@ -162,8 +162,6 @@ int   cmsg_cmsg_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
 int   cmsg_cmsg_isConnected       (void *domainId, int *connected);
 int   cmsg_cmsg_setUDL            (void *domainId, const char *udl, const char *remainder);
 int   cmsg_cmsg_getCurrentUDL     (void *domainId, const char **udl);
-int   cmsg_cmsg_getServerHost     (void *domainId, const char **ipAddress);
-int   cmsg_cmsg_getServerPort     (void *domainId, int *port);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
@@ -178,8 +176,7 @@ static domainFunctions functions = {cmsg_cmsg_connect, cmsg_cmsg_reconnect,
                                     cmsg_cmsg_stop, cmsg_cmsg_disconnect,
                                     cmsg_cmsg_shutdownClients, cmsg_cmsg_shutdownServers,
                                     cmsg_cmsg_setShutdownHandler, cmsg_cmsg_isConnected,
-                                    cmsg_cmsg_setUDL, cmsg_cmsg_getCurrentUDL,
-                                    cmsg_cmsg_getServerHost, cmsg_cmsg_getServerPort};
+                                    cmsg_cmsg_setUDL, cmsg_cmsg_getCurrentUDL};
 
 /* cMsg domain type */
 domainTypeInfo cmsgDomainTypeInfo = {
@@ -585,7 +582,7 @@ int cmsg_cmsg_setUDL(void *domainId, const char *newUDL, const char *newRemainde
  *            or = NULL if no connection
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is bad or is disconnected
+ * @returns CMSG_BAD_ARGUMENT if domainId is bad
  */
 int cmsg_cmsg_getCurrentUDL(void *domainId, const char **udl) {
     intptr_t index;
@@ -600,7 +597,7 @@ int cmsg_cmsg_getCurrentUDL(void *domainId, const char **udl) {
     domain = connectPointers[index];
     if (domain == NULL || domain->disconnectCalled) {
         cMsgMemoryMutexUnlock();
-        return(CMSG_BAD_ARGUMENT);
+        return(CMSG_OK);
     }
     if (udl != NULL) {
         if (domain->gotConnection) {
@@ -615,92 +612,6 @@ int cmsg_cmsg_getCurrentUDL(void *domainId, const char **udl) {
     return(CMSG_OK);
 }
 
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine gets the IP address (in dotted-decimal form) that the
- * client used to make the TCP socket connection to the cMsg server.
- * Do NOT write into or free the returned char pointer.
- *
- * @param domainId id of the domain connection
- * @param ipAddress pointer filled in with IP address of server,
- *                  or NULL if no connection
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is bad or is disconnected
- */
-int cmsg_cmsg_getServerHost(void *domainId, const char **ipAddress) {
-    intptr_t index;
-    cMsgDomainInfo *domain;
-    
-    index = (intptr_t) domainId;
-    if (index < 0 || index > CMSG_CONNECT_PTRS_ARRAY_SIZE-1) {
-        return(CMSG_BAD_ARGUMENT);
-    }
-    
-    cMsgMemoryMutexLock();
-    domain = connectPointers[index];
-    if (domain == NULL || domain->disconnectCalled) {
-        cMsgMemoryMutexUnlock();
-        return(CMSG_BAD_ARGUMENT);
-    }
-    if (ipAddress != NULL) {
-        if (domain->gotConnection) {
-            *ipAddress = domain->sendHost;
-        }
-        else {
-            *ipAddress = NULL;
-        }
-    }
-    cMsgMemoryMutexUnlock();
-    
-    return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine gets the port that the client used to make the
- * TCP socket connection to the cMsg server.
- *
- * @param domainId id of the domain connection
- * @param udl pointer filled in with cMsg server TCP port,
- *            or -1 if no connection
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is bad or is disconnected
- */
-int cmsg_cmsg_getServerPort(void *domainId, int *port) {
-    intptr_t index;
-    cMsgDomainInfo *domain;
-    
-    index = (intptr_t) domainId;
-    if (index < 0 || index > CMSG_CONNECT_PTRS_ARRAY_SIZE-1) {
-        return(CMSG_BAD_ARGUMENT);
-    }
-    
-    cMsgMemoryMutexLock();
-    domain = connectPointers[index];
-    if (domain == NULL || domain->disconnectCalled) {
-        cMsgMemoryMutexUnlock();
-        return(CMSG_BAD_ARGUMENT);
-    }
-    if (port != NULL) {
-        if (domain->gotConnection) {
-            *port = domain->sendPort;
-        }
-        else {
-            *port = -1;
-        }
-    }
-    cMsgMemoryMutexUnlock();
-    
-    return(CMSG_OK);
-}
 
 
 /*-------------------------------------------------------------------*/
@@ -3900,7 +3811,7 @@ static int unSendAndGet(cMsgDomainInfo *domain, int id) {
  *                 NULL if setting user-generated XML fragment in monitoring data
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is bad or is disconnected
+ * @returns CMSG_BAD_ARGUMENT if domainId is bad
  * @returns CMSG_OUT_OF_MEMORY if no memory available or command too big (> 8116 bytes)
  * @returns any errors returned from the actual domain dependent implemenation
  *          of cMsgSMonitor
@@ -5045,7 +4956,7 @@ int cmsg_cmsg_subscriptionMessagesTotal(void *domainId, void *handle, int *total
  * @param domainId id of the domain connection
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is null or is disconnected
+ * @returns CMSG_BAD_ARGUMENT if domainId is null
  */   
 int cmsg_cmsg_start(void *domainId) {
   intptr_t index;
@@ -5079,7 +4990,7 @@ int cmsg_cmsg_start(void *domainId) {
  * @param domainId id of the domain connection
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if domainId is bad or is disconnected
+ * @returns CMSG_BAD_ARGUMENT if domainId is bad
  */   
 int cmsg_cmsg_stop(void *domainId) {
     intptr_t index;
@@ -5128,12 +5039,8 @@ int cmsg_cmsg_disconnect(void **domainId) {
     
     cMsgMemoryMutexLock();
     domain = connectPointers[index];
-    if (domain == NULL) {
+    if (domain == NULL || domain->disconnectCalled) {
         return(CMSG_BAD_ARGUMENT);
-        cMsgMemoryMutexUnlock();
-    }
-    if (domain->disconnectCalled) {
-        return(CMSG_OK);
         cMsgMemoryMutexUnlock();
     }
     domain->functionsRunning++;
@@ -5598,7 +5505,7 @@ static void defaultShutdownHandler(void *userArg) {
  * @param userArg argument to shutdown handler 
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if the id is bad or is disconnected
+ * @returns CMSG_BAD_ARGUMENT if the id is bad
  */   
 int cmsg_cmsg_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg) {
 

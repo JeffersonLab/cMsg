@@ -25,8 +25,8 @@ import coda
 os.umask(002)
 
 # Software version
-versionMajor = '4'
-versionMinor = '0'
+versionMajor = '3'
+versionMinor = '6'
 
 # Determine the os and machine names
 uname    = os.uname();

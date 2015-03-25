@@ -248,7 +248,6 @@ class rcListeningThread extends Thread {
                 int nameLen            = cMsgUtilities.bytesToInt(buf, 20); // length of sender's name (# chars)
                 int expidLen           = cMsgUtilities.bytesToInt(buf, 24); // length of expid (# chars)
                 int pos = 28;
-                int packetNumber = 1;
 
                 // sender's name
                 String multicasterName = null;
@@ -345,17 +344,26 @@ class rcListeningThread extends Thread {
                         catch (UnsupportedEncodingException e) {/*never happen */}
                     }
 
-                    // Read in packet number
-                    packetNumber = cMsgUtilities.bytesToInt(buf, pos);
-System.out.println("Server got client packet #" + packetNumber);
-
-                    // We must have an active subscription waiting on
-                    // this end to process the client's request.
-                    // So before we accept a client, make
+                    // Send a reply - some integers, our multicast port, host,
+                    // and expid so the client can filter out any rogue responses.
+                    // All we want to communicate is that the client was heard and
+                    // can now stop multicasting.
+                    // HOWEVER, we cannot send a reply (and have the clients stop multicasting
+                    // and looking for the server) and NOT have an active subscription waiting on
+                    // this end to process the client's request. So before we accept a client, make
                     // sure we are able to process the connection.
                     if (!server.acceptingClients || !server.hasSubscription || !server.isReceiving()) {
 //System.out.println("Server is not accepting clients right now, ignore multicast");
                         continue;
+                    }
+
+                    try {
+                        sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
+//System.out.println("Send response packet to client");
+                        multicastSocket.send(sendPacket);
+                    }
+                    catch (IOException e) {
+                        System.out.println("I/O Error: " + e);
                     }
                 }
                 // else if multicast from server ...
@@ -402,7 +410,7 @@ System.out.println("Server got client packet #" + packetNumber);
                 msg.setReceiverTime(new Date()); // current time
 
                 // Add list of IP addrs for client connections, if any
-                if (ipList.size() > 0) {
+                if (ipList != null && ipList.size() > 0) {
                     try {
                         String[] ips = new String[ipList.size()];
                         ipList.toArray(ips);
@@ -411,12 +419,6 @@ System.out.println("Server got client packet #" + packetNumber);
                     }
                     catch (cMsgException e) {/* never happen */}
                 }
-
-                try {
-                    cMsgPayloadItem pItem = new cMsgPayloadItem("packetNumber", packetNumber);
-                    msg.addPayloadItem(pItem);
-                }
-                catch (cMsgException e) {/* never happen */}
 
                 // run callbacks for this message
                 runCallbacks(msg);

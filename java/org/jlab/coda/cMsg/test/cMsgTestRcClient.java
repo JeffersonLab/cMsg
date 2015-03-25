@@ -134,7 +134,7 @@ public class cMsgTestRcClient {
         System.out.println("Starting RC domain test client");
 
        /* Runcontrol domain UDL is of the form:
-        *        cMsg:rc://<host>:<port>/<expid>?connectTO=<timeout>
+        *        cMsg:rc://<host>:<port>/<expid>?multicastTO=<timeout>&connectTO=<timeout>
         *
         * Remember that for this domain:
         * 1) host is required and may also be "multicast", "localhost", or in dotted decimal form
@@ -146,7 +146,7 @@ public class cMsgTestRcClient {
         *       timeout while waiting for the rc server to send a special (tcp)
         *       concluding connect message
         */
-        if (UDL == null) UDL = "cMsg:rc://multicast/testExpid&connectTO=5";
+        if (UDL == null) UDL = "cMsg:rc://multicast/testExpid&multicastTO=5&connectTO=5";
 
         cmsg = new cMsg(UDL, "java rc client", "rc trial");
 

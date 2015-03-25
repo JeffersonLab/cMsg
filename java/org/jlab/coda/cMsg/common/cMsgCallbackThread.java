@@ -239,7 +239,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 while (message == null) {
                     // die immediately if commanded to
                     if (dieNow) {
-//System.out.println("Worker: die now");
+//System.out.println("Worker: die now 1");
                         return;
                     }
 
@@ -262,7 +262,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
 //System.out.println("Worker, callback: got msg from Q");
 
                 if (dieNow) {
-//System.out.println("Worker: die now");
+//System.out.println("Worker: die now 2");
                     return;
                 }
 
@@ -275,13 +275,10 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
 //System.out.println("Worker: done waiting for latch");
                     }
                     catch (InterruptedException e) {
-                        if (dieNow) {
-//System.out.println("Worker: die now");
-                            return;
-                        }
                     }
+
                     if (dieNow) {
-//System.out.println("Worker: die now");
+//System.out.println("Worker: die now 3");
                         return;
                     }
                 }
@@ -290,7 +287,9 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 msgCopy = message.copy();
                 msgCopy.setContext(context);
                 try {
-//System.out.println("Worker, RUN callback: sub=" + subject + ",type=" + type);
+                    if (subject.equalsIgnoreCase("ControlDesigner")) {
+                        System.out.println("cMsgCbThd: RUN cb(" + callback + "), sub=" + subject + ", type=" + type);
+                    }
                     callback.callback(msgCopy, arg);
                 }
                 catch (Exception e) {
@@ -352,14 +351,14 @@ System.out.println("Error in callback: sub=" + subject + ",type=" + type + ",msg
             // If we're being terminated, return. This way, we won't block.
             if (dieNow) return;
 
-//System.out.println("QUEUE FULL");
+System.out.println("cMsgCbThd: Q FULL");
             // if messages may not be skipped ...
             if (!callback.maySkipMessages()) {
                 try {
                     // Block trying to put msg on queue. That will propagate
                     // back pressure through the whole cmsg system.
                     while (!messageQueue.offer(message, 10, TimeUnit.SECONDS)) {
-                        System.out.println("Cannot place incoming message on full callback Q, wait 10 seconds,");
+                        System.out.println("cMsgCbThd: can't place msg on full cb Q, wait 10 sec,");
                         System.out.println("Q size = " + messageQueue.size() +
                                            "subject = " + subject + ", type = " + type);
                     }
@@ -371,9 +370,12 @@ System.out.println("Error in callback: sub=" + subject + ",type=" + type + ",msg
                 messageQueue.drainTo(dumpList, callback.getSkipSize());
                 dumpList.clear();
                 messageQueue.offer(message);
-//System.out.println("QUEUE DRAINED");
+System.out.println("cMsgCbThd: Q DRAINED & new msg placed on Q");
             }
         }
+//        else {
+//            System.out.println("cMsgCallbackThread: msg placed on callback's Q");
+//        }
 //            try {Thread.sleep(1);}
 //            catch (InterruptedException e) {}
 

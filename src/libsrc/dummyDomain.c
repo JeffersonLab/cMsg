@@ -68,8 +68,6 @@ int   cmsg_dummy_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler
 int   cmsg_dummy_isConnected(void *domainId, int *connected);
 int   cmsg_dummy_setUDL(void *domainId, const char *udl, const char *remainder);
 int   cmsg_dummy_getCurrentUDL(void *domainId, const char **udl);
-int   cmsg_dummy_getServerHost(void *domainId, const char **ipAddress);
-int   cmsg_dummy_getServerPort(void *domainId, int *port);
 
 
 /** List of the functions which implement the standard tasks in this domain. */
@@ -84,9 +82,8 @@ static domainFunctions functions = { cmsg_dummy_connect, cmsg_dummy_reconnect,
                                      cmsg_dummy_stop, cmsg_dummy_disconnect,
                                      cmsg_dummy_shutdownClients, cmsg_dummy_shutdownServers,
                                      cmsg_dummy_setShutdownHandler, cmsg_dummy_isConnected,
-                                     cmsg_dummy_setUDL, cmsg_dummy_getCurrentUDL,
-                                     cmsg_dummy_getServerHost, cmsg_dummy_getServerPort};
-                                     
+                                     cmsg_dummy_setUDL, cmsg_dummy_getCurrentUDL};
+
 
 /* for registering the domain */
 domainTypeInfo dummyDomainTypeInfo = {"dummy",&functions};
@@ -106,24 +103,6 @@ int cmsg_dummy_setUDL(void *domainId, const char *newUDL, const char *newRemaind
 int cmsg_dummy_getCurrentUDL(void *domainId, const char **udl) {
   printf("getCurrentUDL\n");
   return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cmsg_dummy_getServerHost(void *domainId, const char **ipAddress) {
-    printf("getServerHost\n");
-    return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-int cmsg_dummy_getServerPort(void *domainId, int *port) {
-    printf("getServerPort\n");
-    return(CMSG_OK);
 }
 
 

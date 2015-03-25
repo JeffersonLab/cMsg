@@ -49,7 +49,8 @@
  * <H2>
  * There is a User's Guide, API documentation in the form of web pages generated
  * by javadoc and doxygen, and a Developer's Guide. Try it and let us know what
- * you think about it.
+ * you think about it. If you find any bugs, we have a bug-report web page at
+ * http://xdaq.jlab.org/CODA/portal/html/ .
  * </H2><p>
  */
   
@@ -1071,15 +1072,15 @@ int cMsgSetUDL(void *domainId, const char *UDL) {
 
 /**
  * This routine gets the UDL current used in the existing connection.
- * Do NOT write into or free the returned char pointer.
  *
  * @param domainId domain connection id
  * @param udl pointer filled in with current UDL or NULL if no connection
  *
  * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
- * @returns any additional errors returned from the actual domain dependent
- *          implemenation of cMsgGetCurrentUDL
+ * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called or
+ *                            udl arg is NULL
+ * @returns any errors returned from the actual domain dependent implemenation
+ *          of cMsgGetConnectState
  */
 int cMsgGetCurrentUDL(void *domainId, const char **udl) {
     int err;
@@ -1091,81 +1092,8 @@ int cMsgGetCurrentUDL(void *domainId, const char **udl) {
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
     
     if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
-    
     /* dispatch to function registered for this domain type */
     err = domain->functions->getCurrentUDL(domain->implId, udl);
-    
-    cleanupAfterFunc(index);
-    
-    return(err);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine gets the IP address (in dotted-decimal form) that the
- * client used to make the TCP socket connection to the cMsg server.
- * Do NOT write into or free the returned char pointer.
- *
- * @param domainId domain connection id
- * @param ipAddress pointer filled in with IP address of server
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
- * @returns any additional errors returned from the actual domain dependent
- *          implemenation of cMsgGetServerHost
- */
-int cMsgGetServerHost(void *domainId, const char **ipAddress) {
-    int err;
-    intptr_t    index;
-    cMsgDomain *domain;
-    
-    /* check args */
-    index = (intptr_t) domainId;
-    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
-    
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
-    
-    /* dispatch to function registered for this domain type */
-    err = domain->functions->getServerHost(domain->implId, ipAddress);
-    
-    cleanupAfterFunc(index);
-    
-    return(err);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine gets the port that the client used to make the
- * TCP socket connection to the cMsg server.
- *
- * @param domainId id of the domain connection
- * @param udl pointer filled in with cMsg server TCP port
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
- * @returns any additional errors returned from the actual domain dependent
- *          implemenation of cMsgGetServerPort
- */
-int cMsgGetServerPort(void *domainId, int *port) {
-    int err;
-    intptr_t    index;
-    cMsgDomain *domain;
-    
-    /* check args */
-    index = (intptr_t) domainId;
-    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
-    
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
-    
-    /* dispatch to function registered for this domain type */
-    err = domain->functions->getServerPort(domain->implId, port);
-    
     cleanupAfterFunc(index);
     
     return(err);
@@ -2307,29 +2235,32 @@ int cMsgSetDebugLevel(int level) {
  * This routine registers a few permanent domain implementations consisting
  * of a set of functions that implement all the basic domain
  * functionality (connect, disconnect, send, syncSend, flush, subscribe,
- * unsubscribe, sendAndGet, subscribeAndGet, start, stop, etc.). These
- * permanent domains are the cMsg, rc, file, and emu domains.
+ * unsubscribe, sendAndGet, subscribeAndGet, start, and stop). These
+ * permanent domains are the cmsg, rc, and file domains.
  * This routine must be updated to include each new permanent domain
  * accessible from the "C" language.
  */   
 static int registerPermanentDomains() {
   
-  /* for cMsg domain */
+  /* cMsg type */
   dTypeInfo[0].type = (char *)strdup(cmsgDomainTypeInfo.type); 
   dTypeInfo[0].functions = cmsgDomainTypeInfo.functions;
 
-  /* for runcontrol (rc) domain */
+
+  /* runcontrol (rc) domain */
   dTypeInfo[1].type = (char *)strdup(rcDomainTypeInfo.type);
   dTypeInfo[1].functions = rcDomainTypeInfo.functions;
+
 
   /* for file domain */
   dTypeInfo[2].type = (char *)strdup(fileDomainTypeInfo.type);
   dTypeInfo[2].functions = fileDomainTypeInfo.functions;
   
-  /* for emu domain */
+  /* for file domain */
   dTypeInfo[3].type = (char *)strdup(emuDomainTypeInfo.type);
   dTypeInfo[3].functions = emuDomainTypeInfo.functions;
-    
+  
+  
   /* for dummy domain */
   /*
   dTypeInfo[4].type = (char *)strdup(dummyDomainTypeInfo.type);
@@ -2344,7 +2275,7 @@ static int registerPermanentDomains() {
  * The registration includes the name of the domain
  * along with the set of functions that implement all the basic domain
  * functionality (connect, disconnect, send, syncSend, flush, subscribe,
- * unsubscribe, sendAndGet, subscribeAndGet, start, stop, etc.).
+ * unsubscribe, sendAndGet, subscribeAndGet, start, and stop).
  * This routine is used when a connection to a user-written domain
  * is found in a client's UDL.
  */   
@@ -2364,7 +2295,7 @@ static int registerDynamicDomains(char *domainType) {
 #endif
       
   /*
-   * We have already loaded the cmsg, rc, file, and emu domains.
+   * We have already loaded the cmsg, rc, and file domains.
    * Now we need to dynamically load any libraries needed
    * to support other domains. Look for shared libraries
    * with names of cMsgLib<domain>.so where domain is the
@@ -2621,25 +2552,8 @@ static int registerDynamicDomains(char *domainType) {
       return(CMSG_ERROR);
   }
   funcs->getCurrentUDL = (GETUDL_PTR) pValue;
-  
-  /* get "getServerHost" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_getServerHost", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->getServerHost = (GETUDL_PTR) pValue;
-  
-  /* get "getServerPort" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_getServerPort", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->getServerPort = (ISCONNECTED_PTR) pValue;  
-  
+
+
 #else 
   
   /* create name of library to look for */
@@ -2918,28 +2832,7 @@ static int registerDynamicDomains(char *domainType) {
   }
   funcs->getCurrentUDL = (GETUDL_PTR) sym;
 
-  /* get "getServerHost" function */
-  sprintf(functionName, "cmsg_%s_getServerHost", lowerCase);
-  sym = dlsym(libHandle, functionName);
-  if (sym == NULL) {
-      free(funcs);
-      free(lowerCase);
-      dlclose(libHandle);
-      return(CMSG_ERROR);
-  }
-  funcs->getServerHost = (GETUDL_PTR) sym;
-  
-  /* get "getServerPort" function */
-  sprintf(functionName, "cmsg_%s_getServerPort", lowerCase);
-  sym = dlsym(libHandle, functionName);
-  if (sym == NULL) {
-      free(funcs);
-      free(lowerCase);
-      dlclose(libHandle);
-      return(CMSG_ERROR);
-  }
-  funcs->getServerPort = (ISCONNECTED_PTR) sym;  
-  
+
 #endif  
 
    /* for new domain */
