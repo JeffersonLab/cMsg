@@ -1469,6 +1469,10 @@ System.out.println("disconnect: IO error");
 
                 try {
 //System.out.println("send: writing " + size + " bytes in send msg");
+if (subject.equalsIgnoreCase("ControlDesigner")) {
+  System.out.println("cMsgClient: got TCP SEND msg w/ subject = " + subject);
+}
+
                     // total length of msg (not including this int) is 1st item
                     domainOut.writeInt(size);
                     domainOut.writeInt(cMsgConstants.msgSendRequest);
@@ -1619,6 +1623,9 @@ System.out.println("disconnect: IO error");
             notConnectLock.lock();
 
             try {
+if (subject.equalsIgnoreCase("ControlDesigner")) {
+  System.out.println("cMsgClient: got UDP SEND msg w/ subject = " + subject);
+}
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]); // cMsg
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]); // is
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]); // cool
@@ -1773,6 +1780,9 @@ System.out.println("disconnect: IO error");
 
                 socketLock.lock();
                 try {
+if (subject.equalsIgnoreCase("ControlDesigner")) {
+    System.out.println("cMsgClient: got SyncSend msg w/ subject = " + subject);
+}
                     // total length of msg (not including this int) is 1st item
                     domainOut.writeInt(4 * 15 + subject.length() + type.length() + payloadLen +
                                        textLen + binaryLength);
@@ -2480,6 +2490,11 @@ System.out.println("disconnect: IO error");
 
             socketLock.lock();
             try {
+
+                if (subject.equalsIgnoreCase("ControlDesigner")) {
+                    System.out.println("cMsgClient: got SENDandGet msg w/ subject = " + subject);
+                }
+
                 // total length of msg (not including this int) is 1st item
                 domainOut.writeInt(4*15 + subject.length() + type.length() + payloadLen +
                                    textLen + binaryLength);
