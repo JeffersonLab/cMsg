@@ -287,7 +287,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 msgCopy = message.copy();
                 msgCopy.setContext(context);
                 try {
-System.out.println("cMsgCallbackThread: RUN callback: sub=" + subject + ",type=" + type);
+System.out.println("cMsgCbThd: RUN cb, sub=" + subject + ", type=" + type);
                     callback.callback(msgCopy, arg);
                 }
                 catch (Exception e) {
@@ -371,9 +371,9 @@ System.out.println("cMsgCallbackThread: Q FULL");
 //System.out.println("QUEUE DRAINED");
             }
         }
-        else {
-            System.out.println("cMsgCallbackThread: msg placed on callback's Q");
-        }
+//        else {
+//            System.out.println("cMsgCallbackThread: msg placed on callback's Q");
+//        }
 //            try {Thread.sleep(1);}
 //            catch (InterruptedException e) {}
 
