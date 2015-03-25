@@ -287,7 +287,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 msgCopy = message.copy();
                 msgCopy.setContext(context);
                 try {
-System.out.println("cMsgCbThd: RUN cb, sub=" + subject + ", type=" + type);
+//System.out.println("cMsgCbThd: RUN cb, sub=" + subject + ", type=" + type);
                     callback.callback(msgCopy, arg);
                 }
                 catch (Exception e) {
