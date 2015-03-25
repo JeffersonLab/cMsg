@@ -287,7 +287,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 msgCopy = message.copy();
                 msgCopy.setContext(context);
                 try {
-//System.out.println("cMsgCbThd: RUN cb, sub=" + subject + ", type=" + type);
+System.out.println("cMsgCallbackThread: RUN cb("+ callback +"), sub=" + subject + ", type=" + type);
                     callback.callback(msgCopy, arg);
                 }
                 catch (Exception e) {
@@ -356,7 +356,7 @@ System.out.println("cMsgCallbackThread: Q FULL");
                     // Block trying to put msg on queue. That will propagate
                     // back pressure through the whole cmsg system.
                     while (!messageQueue.offer(message, 10, TimeUnit.SECONDS)) {
-                        System.out.println("Cannot place incoming message on full callback Q, wait 10 seconds,");
+                        System.out.println("cMsgCallbackThread: can't place msg on full cb Q, wait 10 sec,");
                         System.out.println("Q size = " + messageQueue.size() +
                                            "subject = " + subject + ", type = " + type);
                     }
@@ -368,7 +368,7 @@ System.out.println("cMsgCallbackThread: Q FULL");
                 messageQueue.drainTo(dumpList, callback.getSkipSize());
                 dumpList.clear();
                 messageQueue.offer(message);
-//System.out.println("QUEUE DRAINED");
+System.out.println("cMsgCallbackThread: Q DRAINED & new msg placed on Q");
             }
         }
 //        else {
