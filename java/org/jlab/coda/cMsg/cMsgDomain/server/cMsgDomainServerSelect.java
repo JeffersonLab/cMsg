@@ -1461,7 +1461,9 @@ class cMsgDomainServerSelect extends Thread {
 
             // read subject
             msg.setSubject(new String(array, index, lengthSubject, "US-ASCII"));
-            //System.out.println("subject = " + msg.getSubject());
+if (msg.getSubject().equalsIgnoreCase("ControlDesigner")) {
+    System.out.println("got msg w/ subject = " + msg.getSubject());
+}
             index += lengthSubject;
 
             // read type
