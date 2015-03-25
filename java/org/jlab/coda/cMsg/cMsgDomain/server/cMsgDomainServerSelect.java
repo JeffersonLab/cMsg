@@ -1044,6 +1044,9 @@ class cMsgDomainServerSelect extends Thread {
                         case cMsgConstants.msgSyncSendRequest:
                             info.monData.syncSends++;
                             holder = readSendInfo(array, info);
+if (holder.message.getSubject().equalsIgnoreCase("ControlDesigner")) {
+    System.out.println("cMsgServer: got SEND msg w/ subject = " + holder.message.getSubject());
+}
                             // this will need to be modified to act like subAndGet
                             int i = info.subdomainHandler.handleSyncSendRequest(holder.message);
                             info.getDeliverer().deliverMessage(i, holder.ssid, cMsgConstants.msgSyncSendResponse);
@@ -1077,6 +1080,9 @@ class cMsgDomainServerSelect extends Thread {
 
                         case cMsgConstants.msgSendAndGetRequest: // sending msg & expecting response msg
                             holder = readGetInfo(array, info);
+if (holder.message.getSubject().equalsIgnoreCase("ControlDesigner")) {
+   System.out.println("cMsgServer: got SENDandGET msg w/ subject = " + holder.message.getSubject());
+}
                             info.monData.sendAndGets++;
 //System.out.println("Domain Server: got msgSendAndGetRequest from client, ns = " + holder.namespace);
                             // If not cMsg subdomain just call subdomain handler.
@@ -1461,9 +1467,7 @@ class cMsgDomainServerSelect extends Thread {
 
             // read subject
             msg.setSubject(new String(array, index, lengthSubject, "US-ASCII"));
-if (msg.getSubject().equalsIgnoreCase("ControlDesigner")) {
-    System.out.println("got msg w/ subject = " + msg.getSubject());
-}
+            //System.out.println("subject = " + msg.getSubject());
             index += lengthSubject;
 
             // read type
