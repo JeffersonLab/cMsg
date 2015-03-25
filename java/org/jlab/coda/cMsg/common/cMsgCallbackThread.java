@@ -287,7 +287,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 msgCopy = message.copy();
                 msgCopy.setContext(context);
                 try {
-System.out.println("cMsgCallbackThread: RUN cb("+ callback +"), sub=" + subject + ", type=" + type);
+System.out.println("cMsgCbThd: RUN cb("+ callback +"), sub=" + subject + ", type=" + type);
                     callback.callback(msgCopy, arg);
                 }
                 catch (Exception e) {
@@ -349,14 +349,14 @@ System.out.println("Error in callback: sub=" + subject + ",type=" + type + ",msg
             // If we're being terminated, return. This way, we won't block.
             if (dieNow) return;
 
-System.out.println("cMsgCallbackThread: Q FULL");
+System.out.println("cMsgCbThd: Q FULL");
             // if messages may not be skipped ...
             if (!callback.maySkipMessages()) {
                 try {
                     // Block trying to put msg on queue. That will propagate
                     // back pressure through the whole cmsg system.
                     while (!messageQueue.offer(message, 10, TimeUnit.SECONDS)) {
-                        System.out.println("cMsgCallbackThread: can't place msg on full cb Q, wait 10 sec,");
+                        System.out.println("cMsgCbThd: can't place msg on full cb Q, wait 10 sec,");
                         System.out.println("Q size = " + messageQueue.size() +
                                            "subject = " + subject + ", type = " + type);
                     }
@@ -368,7 +368,7 @@ System.out.println("cMsgCallbackThread: Q FULL");
                 messageQueue.drainTo(dumpList, callback.getSkipSize());
                 dumpList.clear();
                 messageQueue.offer(message);
-System.out.println("cMsgCallbackThread: Q DRAINED & new msg placed on Q");
+System.out.println("cMsgCbThd: Q DRAINED & new msg placed on Q");
             }
         }
 //        else {
