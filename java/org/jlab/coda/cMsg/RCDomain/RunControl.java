@@ -383,6 +383,12 @@ System.out.println("RC connect: waiting for a response to final connection (with
             boolean gotTcpConnection = false;
             IOException ioex = null;
 
+//            try {
+//System.out.println("RC connect: wait before making last connection to RC server");
+//                Thread.sleep(5000);
+//            }
+//            catch (InterruptedException e) {}
+
             if (rcServerAddresses.size() > 0) {
                 for (InetAddress rcServerAddr : rcServerAddresses) {
                     try {

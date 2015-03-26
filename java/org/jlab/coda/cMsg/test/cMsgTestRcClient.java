@@ -146,7 +146,7 @@ public class cMsgTestRcClient {
         *       timeout while waiting for the rc server to send a special (tcp)
         *       concluding connect message
         */
-        if (UDL == null) UDL = "cMsg:rc://multicast/testExpid&multicastTO=5&connectTO=5";
+        if (UDL == null) UDL = "cMsg:rc://multicast/testExpid?connectTO=0";
 
         cmsg = new cMsg(UDL, "java rc client", "rc trial");
 

@@ -347,7 +347,7 @@ class rcListeningThread extends Thread {
 
                     // Read in packet number
                     packetNumber = cMsgUtilities.bytesToInt(buf, pos);
-System.out.println("Server got client packet #" + packetNumber);
+//System.out.println("Server got client packet #" + packetNumber);
 
                     // We must have an active subscription waiting on
                     // this end to process the client's request.
