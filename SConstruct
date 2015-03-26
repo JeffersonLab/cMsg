@@ -25,8 +25,8 @@ import coda
 os.umask(002)
 
 # Software version
-versionMajor = '3'
-versionMinor = '6'
+versionMajor = '4'
+versionMinor = '0'
 
 # Determine the os and machine names
 uname    = os.uname();
@@ -167,7 +167,7 @@ else:
 
     elif platform == 'Darwin':
         execLibs = ['pthread', 'dl']
-        env.Append(CPPDEFINES = ['Darwin'], SHLINKFLAGS = ['-multiply_defined', '-undefined', '-flat_namespace', 'suppress'])
+        env.Append(CPPDEFINES = ['Darwin'], SHLINKFLAGS = ['-multiply_define2', '-flat_namespace', 'suppress'])
         env.Append(CCFLAGS = ['-fmessage-length=0'])
 
 
