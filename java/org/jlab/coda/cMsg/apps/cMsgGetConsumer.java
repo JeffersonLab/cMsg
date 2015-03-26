@@ -204,7 +204,7 @@ public class cMsgGetConsumer {
         coda.start();
 
         // create a message to send to a responder (for sendAndGet only)
-        cMsgMessage msg = null;
+        cMsgMessage msg;
         cMsgMessage sendMsg = new cMsgMessage();
         sendMsg.setSubject(subject);
         sendMsg.setType(type);
