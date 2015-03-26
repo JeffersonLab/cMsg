@@ -183,7 +183,7 @@ public class RunControl extends cMsgDomainAdapter {
 
         try {
             if (connected) return;
-//System.out.println("RC connect: connecting");
+System.out.println("RC connect: connecting");
 
             // set the latches
             multicastResponse = new CountDownLatch(1);
@@ -243,7 +243,7 @@ public class RunControl extends cMsgDomainAdapter {
                 }
             }
 
-//System.out.println("RC connect: start listening thread on port " + port);
+System.out.println("RC connect: start listening thread on port " + port);
             // launch thread and start listening on receive socket
             listeningThread = new rcListeningThread(this, serverChannel);
             listeningThread.start();
@@ -264,7 +264,7 @@ public class RunControl extends cMsgDomainAdapter {
                 }
             }
 
-//System.out.println("RC connect: create multicast packet");
+System.out.println("RC connect: create multicast packet");
             //--------------------------------------------------------------
             // multicast on local subnets to find RunControl Multicast server
             //--------------------------------------------------------------
@@ -293,17 +293,18 @@ public class RunControl extends cMsgDomainAdapter {
                 // List of our IP addresses (starting w/ canonical)
                 Collection<String> ipAddrs = cMsgUtilities.getAllIpAddresses();
                 out.writeInt(ipAddrs.size());
-//System.out.println("RC connect to rcm server: ip list size = " + ipAddrs.size());
+System.out.println("RC connect to rcm server: ip list size = " + ipAddrs.size());
                 for (String s : ipAddrs) {
                     try {
                         out.writeInt(s.length());
-//System.out.println("RC connect to rcm server: ip size = " + s.length());
+System.out.println("RC connect to rcm server: ip size = " + s.length());
                         out.write(s.getBytes("US-ASCII"));
-//System.out.println("RC connect to rcm server: ip = " + s);
+System.out.println("RC connect to rcm server: ip = " + s);
                     }
                     catch (UnsupportedEncodingException e) {/* never happen*/}
                 }
-
+                // Packet #
+                out.writeInt(1);
                 out.flush();
                 out.close();
 
@@ -329,10 +330,10 @@ public class RunControl extends cMsgDomainAdapter {
                 }
                 throw new cMsgException(e.getMessage(), e);
             }
-//System.out.println("RC connect: start receiver & sender threads");
+System.out.println("RC connect: start receiver & sender threads");
 
             // create a thread which will send our multicast
-//System.out.println("RC connect: RC client " + name + ": will start multicast sender thread");
+System.out.println("RC connect: RC client " + name + ": will start multicast sender thread");
             Multicaster sender = new Multicaster(udpPacket);
             sender.start();
 
@@ -345,7 +346,7 @@ public class RunControl extends cMsgDomainAdapter {
             boolean completed = false;
             if (connectTimeout > 0) {
                 try {
-//System.out.println("RC connect: waiting for a response to final connection (with timeout)");
+System.out.println("RC connect: waiting for a response to final connection (with timeout)");
                     if (connectCompletion.await(connectTimeout, TimeUnit.MILLISECONDS)) {
                         completed = true;
                     }
@@ -382,7 +383,7 @@ public class RunControl extends cMsgDomainAdapter {
             boolean gotTcpConnection = false;
             IOException ioex = null;
 
-            if (!gotTcpConnection && rcServerAddresses.size() > 0) {
+            if (rcServerAddresses.size() > 0) {
                 for (InetAddress rcServerAddr : rcServerAddresses) {
                     try {
 //System.out.println("RC connect: Try making tcp connection to RC server (host = " + rcServerAddr.getHostName() + ", " +
@@ -1348,6 +1349,7 @@ System.out.println("RC connect: SUCCESSFUL");
                                           (0xff & data[3+off]);
                                 // Add 1
                                 num++;
+//System.out.println("RC client: set num = " + num);
 
                                 // Write it into packet data
                                 data[off  ] = (byte)(num >> 24);
