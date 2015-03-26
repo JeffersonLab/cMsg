@@ -287,9 +287,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
                 msgCopy = message.copy();
                 msgCopy.setContext(context);
                 try {
-                    if (subject.equalsIgnoreCase("ControlDesigner")) {
-                        System.out.println("cMsgCbThd: RUN cb(" + callback + "), sub=" + subject + ", type=" + type);
-                    }
+//System.out.println("cMsgCbThd: RUN cb(" + callback + "), sub=" + subject + ", type=" + type);
                     callback.callback(msgCopy, arg);
                 }
                 catch (Exception e) {
@@ -370,7 +368,7 @@ System.out.println("cMsgCbThd: Q FULL");
                 messageQueue.drainTo(dumpList, callback.getSkipSize());
                 dumpList.clear();
                 messageQueue.offer(message);
-System.out.println("cMsgCbThd: Q DRAINED & new msg placed on Q");
+//System.out.println("cMsgCbThd: Q DRAINED & new msg placed on Q");
             }
         }
 //        else {
