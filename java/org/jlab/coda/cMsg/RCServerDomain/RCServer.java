@@ -20,6 +20,7 @@ import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.cMsgGetHelper;
 import org.jlab.coda.cMsg.common.*;
 
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -410,6 +411,16 @@ localUdpPort);
                 msg.setText(localUdpPort+":"+localTcpPort);
                 deliverMessage(msg, cMsgConstants.msgRcConnect);
 
+                // Wait until the client establishes a TCP connection back to this
+                // object's TCP listening thread.
+                try {
+                    // If time elapsed before client responds ...
+                    if (!listenerThread.startLatch.await(30L, TimeUnit.SECONDS)) {
+                        throw new cMsgException("rc client taking longer than 30 sec to connect back");
+                    }
+                }
+                catch (InterruptedException e) {}
+
                 connected = true;
             }
             catch (IOException e) {
@@ -417,7 +428,6 @@ localUdpPort);
                 //if (udpListener != null) udpListener.killThread();
                 throw new cMsgException("cannot connect, IO error", e);
             }
-
         }
         finally {
             connectLock.unlock();
