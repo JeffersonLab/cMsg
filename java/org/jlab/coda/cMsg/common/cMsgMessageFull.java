@@ -925,6 +925,28 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
     
     /**
      * {@inheritDoc}<p/>
+     * This method makes the protected method {@link cMsgMessage#isNullGetServerResponse}
+     * available to others.
+     * @return {@inheritDoc}
+     */
+    public boolean isNullGetServerResponse() {
+        return ((info & nullGetServerResponse) == nullGetServerResponse);
+    }
+
+
+    /**
+     * {@inheritDoc}<p/>
+     * This method makes the protected method {@link cMsgMessage#setNullGetServerResponse}
+     * available to others.
+     * @return {@inheritDoc}
+     */
+    public void setNullGetServerResponse(boolean ngsr) {
+        super.setNullGetServerResponse(ngsr);
+    }
+
+
+    /**
+     * {@inheritDoc}<p/>
      * This method makes the protected method {@link cMsgMessage#isExpandedPayload}
      * available to others.
      * @return {@inheritDoc}
@@ -942,9 +964,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
      * available to others.
      */
     @Override
-    public void setExpandedPayload(boolean ep) {
-        super.setExpandedPayload(ep);
-    }
+    public void setExpandedPayload(boolean ep) { super.setExpandedPayload(ep); }
 
 
     /**

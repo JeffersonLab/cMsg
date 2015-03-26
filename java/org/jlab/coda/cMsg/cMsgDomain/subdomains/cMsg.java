@@ -663,9 +663,7 @@ public class cMsg extends cMsgSubdomainAdapter {
 //System.out.println(" handle send msg for send&get to " + info.getName());
                         info.getDeliverer().deliverMessage(message, flag);
                     }
-                    catch (IOException e) {
-                        return;
-                    }
+                    catch (IOException e) {}
                     return;
                 }
                 // If we're here, treat it like it's a normal message.
@@ -722,6 +720,35 @@ public class cMsg extends cMsgSubdomainAdapter {
                     if (sub.numberOfSubscribers() < 1) {
 //System.out.println("handleSendRequest(subdh): remove subscription");
                         it.remove();
+                    }
+                }
+
+                // A send&Get is only SENT in this method iff there are no bridges or
+                // this server is standalone (i.e. everything is local).
+                // Thus, if the send part of the send&Get has no one to send to,
+                // we can quickly return a result that says "no responder"
+                // (msg returned == null).
+                if (message.isGetRequest() && sendToSet.isEmpty()) {
+                    int id = message.getSysMsgId();
+                    // Recall the client who originally sent the get request
+                    // and remove the item from the hashtable
+//System.out.println(" Reg subdh handleSendRequest, get rid of send&Get id = " + id);
+                    deleteGets.remove(id);
+                    GetInfo gi = sendAndGets.remove(id);
+                    if (gi != null) {
+//System.out.println("                          , got a specific Gets object");
+                        cMsgClientInfo info = gi.info;
+                        if (gi.notifier != null) {
+                            gi.notifier.latch.countDown();
+                        }
+
+                        try {
+//System.out.println(" handle send msg for send&get to " + info.getName());
+                            message.setNullGetServerResponse(true);
+                            info.getDeliverer().deliverMessage(message, cMsgConstants.msgGetResponse);
+                        }
+                        catch (IOException e) {}
+                        return;
                     }
                 }
             }
@@ -999,7 +1026,7 @@ public class cMsg extends cMsgSubdomainAdapter {
             // Store this client's info with the number as the key so any response to it
             // can retrieve this associated client
             sendAndGets.put(id, new GetInfo(myInfo));
-            // Allow for cancelation of this sendAndGet
+            // Allow for cancellation of this sendAndGet
             DeleteGetInfo dgi = new DeleteGetInfo(name, message.getSenderToken(), id);
             deleteGets.put(id, dgi);
 //System.out.println("handleS&GRequest: msg id = " + message.getSenderToken() +

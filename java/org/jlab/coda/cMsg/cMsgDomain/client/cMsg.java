@@ -2567,6 +2567,9 @@ System.out.println("disconnect: IO error");
         // If msg arrived (may be null), server has removed subscription from his records.
         // Client listening thread has also removed subscription from client's
         // records (subscribeAndGets HashSet).
+        if (helper.getMessage().isNullGetServerResponse()) {
+            return null;
+        }
         return helper.getMessage();
     }
 

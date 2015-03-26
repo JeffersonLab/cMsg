@@ -119,7 +119,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      */
     public static final int isGetResponse = 0x2;
     /**
-     * Is message null response to a sendAndGet? -- stored in 3rd bit of info.
+     * Is message null response to a sendAndGet from a responder? -- stored in 3rd bit of info.
      * This is only for internal use.
      */
     public static final int isNullGetResponse = 0x4;
@@ -146,6 +146,13 @@ public class cMsgMessage implements Cloneable, Serializable {
      * This is only for internal use.
      */
     public static final int expandedPayload = 0x40;
+
+    /**
+     * Does local server have no subscriber to send from sendAndGet?
+     * Is stored in 8rd bit of info.
+     * This is only for internal use.
+     */
+    public static final int nullGetServerResponse = 0x80;
 
    /** When converting text to message fields, only convert system fields. */
     public static final int systemFieldsOnly = 0;
@@ -217,6 +224,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * Was it sent over the wire? -- stored in 5th bit.
      * Does it have a compound payload? -- stored in 6th bit.
      * Is the payload expanded? -- stored in 7th bit.
+     * Does local server have no subscriber for send of send&Get? -- stored in 8th bit.
      *
      * @see #isGetRequest
      * @see #isGetResponse
@@ -225,6 +233,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @see #wasSent
      * @see #hasPayload()
      * @see #isExpandedPayload()
+     * @see #isNullGetServerResponse()
      */
     protected int info;
     /** Version number of cMsg. */
@@ -1886,6 +1895,27 @@ public class cMsgMessage implements Cloneable, Serializable {
             return i;
         }
     }
+
+    /**
+     * Is this message a result of the local server having no subscribers
+     * to the send part of a sendAndGet?
+     * @return true if message result of the local server having no subscribers
+     *         to the send part of a sendAndGet, else false.
+     */
+    protected boolean isNullGetServerResponse() {
+        return ((info & nullGetServerResponse) == nullGetServerResponse);
+    }
+
+
+    /**
+     * Set the "nullGetServerResponse" bit of a message.
+     * @param ngsr boolean which is true if msg is result of the local server
+     *             having no subscribers to the send part of a sendAndGet, else false.
+     */
+    protected void setNullGetServerResponse(boolean ngsr) {
+        info = ngsr ? info | nullGetServerResponse  :  info & ~nullGetServerResponse;
+    }
+
 
     /**
      * Copy only the payload of the given message, overwriting
