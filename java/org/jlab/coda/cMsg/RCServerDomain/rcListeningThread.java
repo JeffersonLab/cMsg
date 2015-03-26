@@ -33,6 +33,7 @@ import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -68,6 +69,9 @@ class rcListeningThread extends Thread {
 
     /** Setting this to true will kill this thread. */
     private boolean killThread;
+
+    /** Let a single waiter know that the main thread has been started. */
+    final CountDownLatch startLatch = new CountDownLatch(1);
 
 
 
@@ -429,6 +433,9 @@ class rcListeningThread extends Thread {
                                         tcpBuffer.flip();
                                         dataBuffer = tcpBuffer;
                                         okToParseMsg = true;
+                                        // TCP connection established from RC client,
+                                        // RC server connect() can now return.
+                                        startLatch.countDown();
                                     }
                                 }
                             }
