@@ -391,7 +391,7 @@ class rcListeningThread extends Thread {
                     System.out.println("Client " + multicasterName + " is now connected");
                 }
 
-                // If expid's match, pass on messgage to subscribes and/or subscribeAndGets
+                // If expid's match, pass on message to subscribes and/or subscribeAndGets
                 cMsgMessageFull msg = new cMsgMessageFull();
                 msg.setSenderHost(multicasterHost);
                 msg.setUserInt(multicasterTcpPort);
