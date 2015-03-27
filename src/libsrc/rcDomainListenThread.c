@@ -364,7 +364,9 @@ static void *clientThread(void *arg)
   domain  = info->domain;
   origArg = info->arg;
   free(arg);
-
+  
+  cMsgDebug == CMSG_DEBUG_INFO;
+  
   /* increase concurrency for this thread */
   sun_setconcurrency(sun_getconcurrency() + 1);
   
@@ -455,14 +457,14 @@ static void *clientThread(void *arg)
     /* extract command */
     msgId = ntohl(inComing[1]);
 
-fprintf(stderr, "clientThread %d: size = %d bytes, msgId = %d\n", localCount, size, msgId);
+fprintf(stdout, "clientThread %d: size = %d bytes, msgId = %d\n", localCount, size, msgId);
 
     if (msgId != CMSG_SUBSCRIBE_RESPONSE &&
         msgId != CMSG_SYNC_SEND_REQUEST &&
         msgId != CMSG_RC_CONNECT_ABORT &&
         msgId != CMSG_RC_CONNECT) {
     
-fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCount, msgId);
+fprintf(stdout, "clientThread %d: bad command (%d), quitting thread\n", localCount, msgId);
           goto end;
     }
     
@@ -485,7 +487,7 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
       pfreeMem->buffer = buffer;
       if (buffer == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-          fprintf(stderr, "clientThread %d: cannot allocate %d amount of memory\n",
+          fprintf(stdout, "clientThread %d: cannot allocate %d amount of memory\n",
                   localCount, bufSize);
         }
         exit(1);
@@ -507,7 +509,7 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
           void *msg;
           cMsgMessage_t *message;
           
-fprintf(stderr, "clientThread %d: got message\n", localCount);
+fprintf(stdout, "clientThread %d: got message\n", localCount);
           /* disable pthread cancellation until message memory is released or
            * we'll get a mem leak */
           status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
@@ -519,13 +521,13 @@ fprintf(stderr, "clientThread %d: got message\n", localCount);
           message = (cMsgMessage_t *) msg;
           if (message == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-              fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
+              fprintf(stdout, "clientThread %d: cannot allocate memory\n", localCount);
             }
             exit(1);
           }
 
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "clientThread %d: subscribe response received\n", localCount);
+            fprintf(stdout, "clientThread %d: subscribe response received\n", localCount);
           }
           
           /* fill in known message fields */
@@ -542,37 +544,37 @@ fprintf(stderr, "clientThread %d: got message\n", localCount);
           /* read the message */
           if ( cMsgReadMessage(connfd, buffer, message) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
+              fprintf(stdout, "clientThread %d: error reading message\n", localCount);
             }
             cMsgFreeMessage(&msg);
             goto end;
           }
           
-fprintf(stderr, "clientThread %d: read message\n", localCount);
+fprintf(stdout, "clientThread %d: read message\n", localCount);
           /* run callbacks for this message */
           err = cMsgRunCallbacks(domain, msg);
           if (err != CMSG_OK) {
             if (err == CMSG_OUT_OF_MEMORY) {
               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
+                fprintf(stdout, "clientThread %d: cannot allocate memory\n", localCount);
               }
             }
             else if (err == CMSG_LIMIT_EXCEEDED) {
               if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                fprintf(stderr, "clientThread %d: too many messages cued up\n", localCount);
+                fprintf(stdout, "clientThread %d: too many messages cued up\n", localCount);
               }
             }
             cMsgFreeMessage(&msg);
             goto end;
           }
           
-fprintf(stderr, "clientThread %d: ran callbacks\n", localCount);
+fprintf(stdout, "clientThread %d: ran callbacks\n", localCount);
           /* re-enable pthread cancellation */
           status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
           if (status != 0) {
             cmsg_err_abort(status, "Reenabling client cancelability");
           }
-fprintf(stderr, "clientThread %d: done w/ message\n", localCount);
+fprintf(stdout, "clientThread %d: done w/ message\n", localCount);
       }
       break;
 
@@ -580,15 +582,15 @@ fprintf(stderr, "clientThread %d: done w/ message\n", localCount);
       /* RC server pinging this client */
       case  CMSG_SYNC_SEND_REQUEST:
       { 
-fprintf(stderr, "clientThread %d: got sync send\n", localCount);
+fprintf(stdout, "clientThread %d: got sync send\n", localCount);
           int32_t answer = htonl(1);          
       		if (cMsgNetTcpWrite(connfd, &answer, sizeof(int32_t)) != sizeof(int32_t)) {
           		if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-            		fprintf(stderr, "clientThread %d: write failure\n", localCount);
+            		fprintf(stdout, "clientThread %d: write failure\n", localCount);
 				}
           		goto end;
           	}
-fprintf(stderr, "clientThread %d: done w/ sync send\n", localCount);
+fprintf(stdout, "clientThread %d: done w/ sync send\n", localCount);
       }
       break;
       
@@ -598,7 +600,7 @@ fprintf(stderr, "clientThread %d: done w/ sync send\n", localCount);
       {
             domain->rcConnectAbort = 1;
 
-fprintf(stderr, "clientThread %d: TOLD TO ABORT!!!\n", localCount);
+fprintf(stdout, "clientThread %d: TOLD TO ABORT!!!\n", localCount);
             /* disable pthread cancellation to protect mutexes */
             status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);
             if (status != 0) {
@@ -637,19 +639,19 @@ printf("rc clientThread %d: Got connect message\n", localCount);
           message = (cMsgMessage_t *) msg;
           if (message == NULL) {
             if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-              fprintf(stderr, "clientThread %d: cannot allocate memory\n", localCount);
+              fprintf(stdout, "clientThread %d: cannot allocate memory\n", localCount);
             }
             exit(1);
           }
 
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            fprintf(stderr, "clientThread %d: RC Server connect received\n", localCount);
+            fprintf(stdout, "clientThread %d: RC Server connect received\n", localCount);
           }
                     
           /* read the message */
           if ( cMsgReadMessage(connfd, buffer, message) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-              fprintf(stderr, "clientThread %d: error reading message\n", localCount);
+              fprintf(stdout, "clientThread %d: error reading message\n", localCount);
             }
             cMsgFreeMessage(&msg);
             goto end;
@@ -743,7 +745,7 @@ printf("rc clientThread %d: udp socket = %d, port = %d\n", localCount,
             if (domain->sendUdpSocket < 0) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                  fprintf(stdout, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
                 }
                 goto end;
             }
@@ -753,7 +755,7 @@ printf("rc clientThread %d: udp socket = %d, port = %d\n", localCount,
             if (err < 0) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                  fprintf(stdout, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
                 }
                 goto end;
             }
@@ -761,7 +763,7 @@ printf("rc clientThread %d: udp socket = %d, port = %d\n", localCount,
             if ( (err = cMsgNetStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                  fprintf(stdout, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
                 }
                 goto end;
             }
@@ -771,7 +773,7 @@ printf("try UDP connection to port = %hu\n", ntohs(addr.sin_port));
             if (err < 0) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                  fprintf(stdout, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
                 }
                 goto end;
             }
@@ -784,7 +786,7 @@ printf("rc clientThread %d: tcp socket = %d, port = %d\n", localCount,
                                        CMSG_BIGSOCKBUFSIZE, 0, 1, &domain->sendSocket, NULL)) != CMSG_OK) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                  fprintf(stderr, "clientThread %d: error recreating rc client's TCP send socket\n", localCount);
+                  fprintf(stdout, "clientThread %d: error recreating rc client's TCP send socket\n", localCount);
                 }
                 goto end;
             }
@@ -806,7 +808,7 @@ printf("rc clientThread %d: tcp socket = %d, port = %d\n", localCount,
         returnBuf  = (char *)malloc(len+lenName); /* create buffer */
         if (returnBuf == NULL) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "clientThread %d: out of memory\n", localCount);
+            fprintf(stdout, "clientThread %d: out of memory\n", localCount);
           }
           goto end;
         }
@@ -817,7 +819,7 @@ printf("rc clientThread %d: tcp socket = %d, port = %d\n", localCount,
 printf("rc clientThread %d: send return value to rc server\n");
         if (cMsgNetTcpWrite(connfd, returnBuf, len) != len) {
           if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "clientThread %d: write failure\n", localCount);
+            fprintf(stdout, "clientThread %d: write failure\n", localCount);
           }
           free(returnBuf);
           goto end;
@@ -829,7 +831,7 @@ printf("rc clientThread %d: Done w/ connect\n", localCount);
 
       default:
         if (cMsgDebug >= CMSG_DEBUG_INFO) {
-          fprintf(stderr, "clientThread %d: given unknown message (%d)\n", localCount, msgId);
+          fprintf(stdout, "clientThread %d: given unknown message (%d)\n", localCount, msgId);
         }
      
     } /* switch */
