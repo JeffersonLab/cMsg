@@ -306,7 +306,7 @@ class rcListeningThread extends Thread {
                     continue;
                 }
 
-                LinkedList<String> ipList = null;
+                LinkedList<String> ipList;
 
                 // if multicast probe from client ...
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe) {
@@ -402,7 +402,7 @@ class rcListeningThread extends Thread {
                 msg.setReceiverTime(new Date()); // current time
 
                 // Add list of IP addrs for client connections, if any
-                if (ipList != null && ipList.size() > 0) {
+                if (ipList.size() > 0) {
                     try {
                         String[] ips = new String[ipList.size()];
                         ipList.toArray(ips);
