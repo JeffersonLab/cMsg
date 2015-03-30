@@ -623,8 +623,9 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
      * @param message {@inheritDoc}
      * @param timeout ignored
      * @return 0 if no valid TCP connection to client, 1 if there is a connection.
+     * @throws cMsgException if there is a timeout
      */
-    synchronized public int syncSend(cMsgMessage message, int timeout) {
+    synchronized public int syncSend(cMsgMessage message, int timeout) throws cMsgException{
 
         int val = 0;
 
@@ -634,19 +635,28 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
             if (!connected) {
                 return val;
             }
+            // Set timeout on socket read
+            socket.setSoTimeout(timeout);
             out.writeInt(4);
             out.writeInt(cMsgConstants.msgSyncSendRequest);
             out.flush();
             val = in.readInt();
         }
+        catch (SocketTimeoutException e) {
+            throw new cMsgException("timeout", e);
+        }
         catch (IOException e) {
-            return val;
+            return 0;
         }
         finally {
+            // Remove socket read timeout
+            try { socket.setSoTimeout(0); }
+            catch (SocketException e) {}
+
             notConnectLock.unlock();
         }
 
-        return val;
+        return val == -1 ? 1 : 0;
     }
 
 
@@ -724,6 +734,14 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
 
         if (msgType == cMsgConstants.msgRcConnect) {
             int lengthClientName = in.readInt();
+
+            // This a probably a left-over from a syncSend which
+            // did not answer (with 0 or 1) within its timeout.
+            // Discard it and read the next value.
+            while (lengthClientName < 0) {
+System.out.println("RC Server: warning, deliverMessage() read \"" + lengthClientName + "\" as name len, read again");
+                lengthClientName = in.readInt();
+            }
 
             // read all string bytes
             byte[] bytes = new byte[lengthClientName];
