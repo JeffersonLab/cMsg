@@ -583,7 +583,8 @@ fprintf(stdout, "clientThread %d: done w/ message\n", localCount);
       case  CMSG_SYNC_SEND_REQUEST:
       { 
 fprintf(stdout, "clientThread %d: got sync send\n", localCount);
-          int32_t answer = htonl(1);          
+// send -1
+          int32_t answer = htonl(0xffffffff);          
       		if (cMsgNetTcpWrite(connfd, &answer, sizeof(int32_t)) != sizeof(int32_t)) {
           		if (cMsgDebug >= CMSG_DEBUG_ERROR) {
             		fprintf(stdout, "clientThread %d: write failure\n", localCount);
