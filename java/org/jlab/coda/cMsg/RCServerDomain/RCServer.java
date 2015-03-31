@@ -625,9 +625,10 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
      * @return 0 if no valid TCP connection to client, 1 if there is a connection.
      * @throws cMsgException if there is a timeout
      */
-    synchronized public int syncSend(cMsgMessage message, int timeout) throws cMsgException{
+    synchronized public int syncSend(cMsgMessage message, int timeout)
+            throws cMsgException {
 
-        int val = 0;
+        int origTimeout=0, val=0;
 
         notConnectLock.lock();
 
@@ -636,6 +637,7 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
                 return val;
             }
             // Set timeout on socket read
+            origTimeout = socket.getSoTimeout();
             socket.setSoTimeout(timeout);
             out.writeInt(4);
             out.writeInt(cMsgConstants.msgSyncSendRequest);
@@ -649,13 +651,14 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
             return 0;
         }
         finally {
-            // Remove socket read timeout
-            try { socket.setSoTimeout(0); }
+            // Reset socket read timeout
+            try { socket.setSoTimeout(origTimeout); }
             catch (SocketException e) {}
 
             notConnectLock.unlock();
         }
 
+        //return val;
         return val == -1 ? 1 : 0;
     }
 
@@ -735,10 +738,10 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
         if (msgType == cMsgConstants.msgRcConnect) {
             int lengthClientName = in.readInt();
 
-            // This a probably a left-over from a syncSend which
-            // did not answer (with 0 or 1) within its timeout.
+            // This a probably(?) a left-over from a syncSend which
+            // the client did not answer (with 1) within its timeout.
             // Discard it and read the next value.
-            while (lengthClientName < 0) {
+            while (lengthClientName < 1) {
 System.out.println("RC Server: warning, deliverMessage() read \"" + lengthClientName + "\" as name len, read again");
                 lengthClientName = in.readInt();
             }
