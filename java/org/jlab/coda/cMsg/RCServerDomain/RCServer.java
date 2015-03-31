@@ -20,6 +20,7 @@ import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.cMsgGetHelper;
 import org.jlab.coda.cMsg.common.*;
 
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -409,6 +410,15 @@ localUdpPort);
                 msg.addPayloadItem(pItem);
                 msg.setText(localUdpPort+":"+localTcpPort);
                 deliverMessage(msg, cMsgConstants.msgRcConnect);
+
+                // Wait until the client establishes a TCP connection back to this
+                // object's TCP listening thread.
+                try {
+//System.out.println("rc server connect: wait for client TCP return connection");
+                    listenerThread.startLatch.await();
+                }
+                catch (InterruptedException e) {}
+//System.out.println("rc server connect: complete");
 
                 connected = true;
             }
