@@ -47,9 +47,6 @@ public class RCServer extends cMsgDomainAdapter {
     /** Runcontrol client's host obtained from UDL. */
     private String rcClientHost;
 
-    /** Runcontrol client's name returned from the connect message. */
-    private String rcClientName;
-
     /** UDP port on which to receive messages from the rc client. */
     int localUdpPort;
 
@@ -635,10 +632,12 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
      * @param message {@inheritDoc}
      * @param timeout ignored
      * @return 0 if no valid TCP connection to client, 1 if there is a connection.
+     * @throws cMsgException if there is a timeout
      */
-    synchronized public int syncSend(cMsgMessage message, int timeout) {
+    synchronized public int syncSend(cMsgMessage message, int timeout)
+            throws cMsgException{
 
-        int val = 0;
+        int origTimeout=0, val=0;
 
         notConnectLock.lock();
 
@@ -646,21 +645,30 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
             if (!connected) {
                 return val;
             }
+            // Set timeout on socket read
+            origTimeout = socket.getSoTimeout();
+            socket.setSoTimeout(timeout);
             out.writeInt(4);
             out.writeInt(cMsgConstants.msgSyncSendRequest);
             out.flush();
             val = in.readInt();
         }
+        catch (SocketTimeoutException e) {
+            throw new cMsgException("timeout", e);
+        }
         catch (IOException e) {
-            return val;
+            return 0;
         }
         finally {
+            // Reset socket read timeout
+            try { socket.setSoTimeout(origTimeout); }
+            catch (SocketException e) {}
+
             notConnectLock.unlock();
         }
 
         return val;
     }
-
 
 
     /**
@@ -733,17 +741,6 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
             e.printStackTrace();
         }
         out.flush();
-
-        if (msgType == cMsgConstants.msgRcConnect) {
-            int lengthClientName = in.readInt();
-
-            // read all string bytes
-            byte[] bytes = new byte[lengthClientName];
-            in.readFully(bytes, 0, lengthClientName);
-
-            // read subject
-            rcClientName = new String(bytes, 0, lengthClientName, "US-ASCII");
-        }
 
         return;
     }
