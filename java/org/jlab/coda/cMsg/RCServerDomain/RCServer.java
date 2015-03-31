@@ -413,9 +413,10 @@ localUdpPort);
                 try {
                     // If time elapsed before client responds ...
 //System.out.println("rc server connect: wait for client TCP return connection");
-                    if (!listenerThread.startLatch.await(30L, TimeUnit.SECONDS)) {
-                        throw new cMsgException("rc client taking longer than 30 sec to connect back");
-                    }
+                    listenerThread.startLatch.await();
+//                    if (!listenerThread.startLatch.await(30L, TimeUnit.SECONDS)) {
+//                        throw new cMsgException("rc client taking longer than 30 sec to connect back");
+//                    }
                 }
                 catch (InterruptedException e) {}
 //System.out.println("rc server connect: complete");
