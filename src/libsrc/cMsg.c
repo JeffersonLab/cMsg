@@ -1104,6 +1104,71 @@ int cMsgGetCurrentUDL(void *domainId, const char **udl) {
 
 
 /**
+* This routine gets the IP address (in dotted-decimal form) that the
+* client used to make the network connection to itsserver.
+* Do NOT write into or free the returned char pointer.
+*
+* @param domainId id of the domain connection
+* @param ipAddress pointer filled in with server IP address
+*
+* @returns CMSG_OK if successful
+* @returns CMSG_NOT_IMPLEMENTED if not implemented in the given domain
+* @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
+*/
+int cMsgGetServerHost(void *domainId, const char **ipAddress) {
+    int err;
+    intptr_t    index; /* int the size of a ptr */
+    cMsgDomain *domain;
+    
+    /* check args */
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+    
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    /* dispatch to function registered for this domain type */
+    err = domain->functions->getServerHost(domain->implId, ipAddress);
+    cleanupAfterFunc(index);
+    
+    return(err);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine gets the port that the client used to make the
+* network connection to its server.
+*
+* @param domainId id of the domain connection
+* @param udl pointer filled in with server TCP port
+*
+* @returns CMSG_OK if successful
+* @returns CMSG_NOT_IMPLEMENTED if not implemented in the given domain
+* @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
+*/
+int cMsgGetServerPort(void *domainId, int *port) {
+    int err;
+    intptr_t    index; /* int the size of a ptr */
+    cMsgDomain *domain;
+    
+    /* check args */
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+    
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    /* dispatch to function registered for this domain type */
+    err = domain->functions->getServerPort(domain->implId, port);
+    cleanupAfterFunc(index);
+    
+    return(err);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine is called once to connect to a domain.
  * The argument "myUDL" is the Universal Domain Locator used to uniquely
  * identify the cMsg server to connect to. It has the form:<p>

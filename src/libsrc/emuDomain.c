@@ -144,6 +144,8 @@ int   cmsg_emu_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, 
 int   cmsg_emu_isConnected       (void *domainId, int *connected);
 int   cmsg_emu_setUDL            (void *domainId, const char *udl, const char *remainder);
 int   cmsg_emu_getCurrentUDL     (void *domainId, const char **udl);
+int   cmsg_emu_getServerHost     (void *domainId, const char **ipAddress);
+int   cmsg_emu_getServerPort     (void *domainId, int *port);
 
 /** List of the functions which implement the standard cMsg tasks in this domain. */
 static domainFunctions functions = {cmsg_emu_connect, cmsg_emu_reconnect,
@@ -157,13 +159,38 @@ static domainFunctions functions = {cmsg_emu_connect, cmsg_emu_reconnect,
                                     cmsg_emu_stop, cmsg_emu_disconnect,
                                     cmsg_emu_shutdownClients, cmsg_emu_shutdownServers,
                                     cmsg_emu_setShutdownHandler, cmsg_emu_isConnected,
-                                    cmsg_emu_setUDL, cmsg_emu_getCurrentUDL};
-
+                                    cmsg_emu_setUDL, cmsg_emu_getCurrentUDL,
+                                    cmsg_emu_getServerHost, cmsg_emu_getServerPort};
+                                    
 /* emu domain type */
 domainTypeInfo emuDomainTypeInfo = {
   "emu",
   &functions
 };
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine resets the server host anme, but is <b>NOT</b> implemented in this domain.
+* @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+*/
+int cmsg_emu_getServerHost(void *domainId, const char **ipAddress) {
+    return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine resets server socket port, but is <b>NOT</b> implemented in this domain.
+* @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+*/
+int cmsg_emu_getServerPort(void *domainId, int *port) {
+    return(CMSG_NOT_IMPLEMENTED);
+}
 
 
 /*-------------------------------------------------------------------*/

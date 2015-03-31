@@ -283,6 +283,12 @@ typedef struct domainFunctions_t {
   /** This function gets the UDL currently used. */
   GETUDL_PTR getCurrentUDL;
   
+  /** This function gets the server host currently used. */
+  GETUDL_PTR getServerHost;
+  
+  /** This function gets the server port currently used. */
+  ISCONNECTED_PTR getServerPort;
+  
 } domainFunctions;
 
 

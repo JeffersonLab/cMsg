@@ -44,6 +44,9 @@
 #else
 #include <strings.h>
 #include <sys/time.h>    /* struct timeval */
+ #ifdef linux
+  #include <sys/types.h>   /* getpid() */
+ #endif
 #endif
 
 #include <stdio.h>
@@ -358,7 +361,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     char  *serverHost, *expid=NULL, buffer[1024];
     int    err, status, len;
     int    i, index=0, connectTO=0;
-    int32_t outGoing[7], packetNumber=1, expidLen, nameLen;
+    int32_t outGoing[7], senderId, expidLen, nameLen;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
     unsigned char ttl = 32;
@@ -651,10 +654,23 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
             free(ipAddrs);
         }
     }
-    
-    packetNumber = htonl(packetNumber);
-    memcpy(buffer+len, (void *)&packetNumber, sizeof(packetNumber));
-    len += sizeof(packetNumber);
+
+#ifdef VXWORKS
+{
+    time_t *t = time();
+    if (t != NULL) {
+        senderId = (int32_t)(&t);
+    }
+    else {
+        senderId = 0;
+    }
+}
+#else
+    senderId = (int32_t)getpid();
+#endif
+    senderId = htonl(senderId);
+    memcpy(buffer+len, (void *)&senderId, sizeof(senderId));
+    len += sizeof(senderId);
     
     free(serverHost);
     free(expid);

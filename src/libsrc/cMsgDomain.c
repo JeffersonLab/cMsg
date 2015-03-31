@@ -162,6 +162,8 @@ int   cmsg_cmsg_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
 int   cmsg_cmsg_isConnected       (void *domainId, int *connected);
 int   cmsg_cmsg_setUDL            (void *domainId, const char *udl, const char *remainder);
 int   cmsg_cmsg_getCurrentUDL     (void *domainId, const char **udl);
+int   cmsg_cmsg_getServerHost     (void *domainId, const char **ipAddress);
+int   cmsg_cmsg_getServerPort     (void *domainId, int *port);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
@@ -176,8 +178,9 @@ static domainFunctions functions = {cmsg_cmsg_connect, cmsg_cmsg_reconnect,
                                     cmsg_cmsg_stop, cmsg_cmsg_disconnect,
                                     cmsg_cmsg_shutdownClients, cmsg_cmsg_shutdownServers,
                                     cmsg_cmsg_setShutdownHandler, cmsg_cmsg_isConnected,
-                                    cmsg_cmsg_setUDL, cmsg_cmsg_getCurrentUDL};
-
+                                    cmsg_cmsg_setUDL, cmsg_cmsg_getCurrentUDL,
+                                    cmsg_cmsg_getServerHost, cmsg_cmsg_getServerPort};
+                                    
 /* cMsg domain type */
 domainTypeInfo cmsgDomainTypeInfo = {
   "cmsg",
@@ -228,6 +231,30 @@ static int   connectWithMulticast(cMsgDomainInfo *domain,
 /*-------------------------------------------------------------------*/
 
 
+/**
+* This routine resets the server host anme, but is <b>NOT</b> implemented in this domain.
+* @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+*/
+int cmsg_cmsg_getServerHost(void *domainId, const char **ipAddress) {
+    return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine resets server socket port, but is <b>NOT</b> implemented in this domain.
+* @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+*/
+int cmsg_cmsg_getServerPort(void *domainId, int *port) {
+    return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+                                  
 /**
  * This routine locks the pthread mutex used when freeing memory. */
 void cMsgMemoryMutexLock(void) {
