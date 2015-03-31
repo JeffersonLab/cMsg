@@ -133,6 +133,8 @@ class rcListeningThread extends Thread {
     /** This method is executed as a thread. */
     public void run() {
 
+        int counter = 0;
+
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("Running RC Multicast Listening Thread");
         }
@@ -248,7 +250,7 @@ class rcListeningThread extends Thread {
                 int nameLen            = cMsgUtilities.bytesToInt(buf, 20); // length of sender's name (# chars)
                 int expidLen           = cMsgUtilities.bytesToInt(buf, 24); // length of expid (# chars)
                 int pos = 28;
-                int packetNumber = 1;
+                int senderId;
 
                 // sender's name
                 String multicasterName = null;
@@ -345,9 +347,10 @@ class rcListeningThread extends Thread {
                         catch (UnsupportedEncodingException e) {/*never happen */}
                     }
 
-                    // Read in packet number
-                    packetNumber = cMsgUtilities.bytesToInt(buf, pos);
-//System.out.println("Server got client packet #" + packetNumber);
+                    // Read in sender id number (pid or time)
+                    senderId = cMsgUtilities.bytesToInt(buf, pos);
+System.out.println("Server got client id #" + senderId);
+                    if (counter++ < 20) continue;
 
                     // We must have an active subscription waiting on
                     // this end to process the client's request.
@@ -413,7 +416,7 @@ class rcListeningThread extends Thread {
                 }
 
                 try {
-                    cMsgPayloadItem pItem = new cMsgPayloadItem("packetNumber", packetNumber);
+                    cMsgPayloadItem pItem = new cMsgPayloadItem("senderId", senderId);
                     msg.addPayloadItem(pItem);
                 }
                 catch (cMsgException e) {/* never happen */}
@@ -421,7 +424,6 @@ class rcListeningThread extends Thread {
                 // run callbacks for this message
                 runCallbacks(msg);
             }
-
         }
         catch (IOException e) {
             if (debug >= cMsgConstants.debugError) {

@@ -303,8 +303,8 @@ System.out.println("RC connect to rcm server: ip = " + s);
                     }
                     catch (UnsupportedEncodingException e) {/* never happen*/}
                 }
-                // Packet #
-                out.writeInt(1);
+                // Uniquely identifying #, can't reliably get pid so use time
+                out.writeInt((int)System.currentTimeMillis());
                 out.flush();
                 out.close();
 
@@ -1339,32 +1339,32 @@ System.out.println("RC connect: SUCCESSFUL");
 //System.out.println("RC client: sending mcast packet over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
-
-                                //-------------------------------------------------
-                                // Increment packet number (last 4 bytes in array)
-                                // for the next time the packet is sent out.
-                                //-------------------------------------------------
-                                // Get packet data
-                                byte[] data = packet.getData();
-
-                                // Read existing packet #
-                                int off = data.length - 4;
-                                int num = (0xff & data[  off]) << 24 |
-                                          (0xff & data[1+off]) << 16 |
-                                          (0xff & data[2+off]) <<  8 |
-                                          (0xff & data[3+off]);
-                                // Add 1
-                                num++;
-//System.out.println("RC client: set num = " + num);
-
-                                // Write it into packet data
-                                data[off  ] = (byte)(num >> 24);
-                                data[off+1] = (byte)(num >> 16);
-                                data[off+2] = (byte)(num >>  8);
-                                data[off+3] = (byte)(num      );
-
-                                // Update packet with new data
-                                packet.setData(data);
+//
+//                                //-------------------------------------------------
+//                                // Increment packet number (last 4 bytes in array)
+//                                // for the next time the packet is sent out.
+//                                //-------------------------------------------------
+//                                // Get packet data
+//                                byte[] data = packet.getData();
+//
+//                                // Read existing packet #
+//                                int off = data.length - 4;
+//                                int num = (0xff & data[  off]) << 24 |
+//                                          (0xff & data[1+off]) << 16 |
+//                                          (0xff & data[2+off]) <<  8 |
+//                                          (0xff & data[3+off]);
+//                                // Add 1
+//                                num++;
+////System.out.println("RC client: set num = " + num);
+//
+//                                // Write it into packet data
+//                                data[off  ] = (byte)(num >> 24);
+//                                data[off+1] = (byte)(num >> 16);
+//                                data[off+2] = (byte)(num >>  8);
+//                                data[off+3] = (byte)(num      );
+//
+//                                // Update packet with new data
+//                                packet.setData(data);
 
                                 Thread.sleep(500);
                                 sleepCount++;
