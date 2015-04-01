@@ -70,7 +70,7 @@ class rcListeningThread extends Thread {
     /** Setting this to true will kill this thread. */
     private boolean killThread;
 
-    /** Let a single waiter know that the main thread has been started. */
+    /** Let connect() know that the client has established a connection to this server. */
     final CountDownLatch startLatch = new CountDownLatch(1);
 
 
@@ -356,6 +356,11 @@ class rcListeningThread extends Thread {
                             tcpBuffer.clear();
                             tcpBuffer.limit(8);
                             readingSize = true;
+
+                            // TCP connection established from RC client,
+                            // RC server connect() can now return.
+System.out.println("rcListeningThread: established TCP connection from client");
+                            startLatch.countDown();
                         }
 
                         // read input from rc client, tcp or udp
@@ -433,9 +438,6 @@ class rcListeningThread extends Thread {
                                         tcpBuffer.flip();
                                         dataBuffer = tcpBuffer;
                                         okToParseMsg = true;
-                                        // TCP connection established from RC client,
-                                        // RC server connect() can now return.
-                                        startLatch.countDown();
                                     }
                                 }
                             }
