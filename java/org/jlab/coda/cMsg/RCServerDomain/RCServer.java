@@ -1047,6 +1047,7 @@ System.out.println("RC Server: warning, deliverMessage() read \"" + lengthClient
             deliverMessage(fullMsg, cMsgConstants.msgSubscribeResponse);
         }
         catch (IOException e) {
+            System.out.println("IOException in send&Get, msg = " + e.getMessage());
             throw new cMsgException(e.getMessage(),e);
         }
         // release lock 'cause we can't block connect/disconnect forever
