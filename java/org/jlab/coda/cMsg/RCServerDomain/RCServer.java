@@ -367,7 +367,7 @@ public class RCServer extends cMsgDomainAdapter {
                 if (failed) {
                     throw new cMsgException("Failed to create socket to rc client");
                 }
-System.out.println("RC server: connected to RC client!");
+System.out.println("RC server: created socket to RC client");
 
                 // Start listening for tcp connections if not already
                 if (listenerThread == null) {
@@ -414,11 +414,11 @@ localUdpPort);
                 // Wait until the client establishes a TCP connection back to this
                 // object's TCP listening thread.
                 try {
-//System.out.println("rc server connect: wait for client TCP return connection");
+System.out.println("RC server connect: wait for client TCP return connection");
                     listenerThread.startLatch.await();
                 }
                 catch (InterruptedException e) {}
-//System.out.println("rc server connect: complete");
+System.out.println("RC server connect: complete");
 
                 connected = true;
             }
