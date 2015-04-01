@@ -558,8 +558,9 @@ int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
     tmp[lengths[2]] = 0;
     msg->subject = tmp;
     pchar += lengths[2];
-/*
+
 printf("*****   got subject = %s, len = %d\n", tmp, lengths[2]);
+/*
 if (strcmp(tmp, " ") == 0) printf("subject is one space\n");
 if (strcmp(tmp, "") == 0) printf("subject is blank\n");
 */
@@ -586,9 +587,9 @@ if (strcmp(tmp, "") == 0) printf("subject is blank\n");
     tmp[lengths[3]] = 0;
     msg->type = tmp;
     pchar += lengths[3];
-/*
+
 printf("*****   got type = %s, len = %d\n", tmp, lengths[3]);
-if (strcmp(tmp, " ") == 0) printf("type is one space\n");
+/*if (strcmp(tmp, " ") == 0) printf("type is one space\n");
 if (strcmp(tmp, "") == 0) printf("type is blank\n");
 */
   }
