@@ -1253,7 +1253,7 @@ System.out.println("RC connect: SUCCESSFUL");
 
             int id;
 
-            // client listening thread may be interating thru subscriptions concurrently
+            // client listening thread may be iterating thru subscriptions concurrently
             // and we may change set structure
             synchronized (subscriptions) {
 
@@ -1283,7 +1283,7 @@ System.out.println("RC connect: SUCCESSFUL");
                 newSub = new cMsgSubscription(subject, type, id, cbThread);
                 unsubscriptions.put(cbThread, newSub);
 
-                // client listening thread may be interating thru subscriptions concurrently
+                // client listening thread may be iterating thru subscriptions concurrently
                 // and we're changing the set structure
                 subscriptions.add(newSub);
             }
