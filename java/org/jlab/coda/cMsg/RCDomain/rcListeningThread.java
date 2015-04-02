@@ -44,6 +44,9 @@ class rcListeningThread extends Thread {
      */
     private ArrayList<ClientHandler> handlerThreads;
 
+    /** Has an rc server already connected? */
+    private volatile boolean connected;
+
     /** Setting this to true will kill this thread. */
     private boolean killThread;
 
@@ -138,6 +141,13 @@ class rcListeningThread extends Thread {
 
                     // is this a new connection coming in?
                     if (key.isValid() && key.isAcceptable()) {
+System.out.println("rcListening thd: connection to rc client being attempted");
+
+                        if (connected) {
+System.out.println("rcListening thd: connection to rc client already established, ignoring attempt");
+                            it.remove();
+                            continue;
+                        }
 
                         ServerSocketChannel server = (ServerSocketChannel) key.channel();
                         // accept the connection from the client
@@ -153,8 +163,8 @@ class rcListeningThread extends Thread {
 
                         // read magic numbers
                         while (bytesRead < BYTES_TO_READ) {
-//System.out.println("  try reading rest of Buffer");
-//System.out.println("  Buffer capacity = " + buffer.capacity() + ", limit = " + buffer.limit()
+//System.out.println("rcListening thd: try reading rest of Buffer");
+//System.out.println("rcListening thd: Buffer capacity = " + buffer.capacity() + ", limit = " + buffer.limit()
 //                    + ", position = " + buffer.position() );
                             bytes = channel.read(buffer);
                             // for End-of-stream ...
@@ -163,7 +173,7 @@ class rcListeningThread extends Thread {
                                 continue keyLoop;
                             }
                             bytesRead += bytes;
-//System.out.println("  bytes read = " + bytesRead);
+//System.out.println("rcListening thd: bytes read = " + bytesRead);
 
                             // if we've read everything, look to see if it's sent the magic #s
                             if (bytesRead >= BYTES_TO_READ) {
@@ -204,7 +214,8 @@ class rcListeningThread extends Thread {
 
                         // start up client handling thread & store reference
                         handlerThreads.add(new ClientHandler(channel));
-//System.out.println("handlerThd size = " + handlerThreads.size());
+//System.out.println("rcListening thd: handlerThd size = " + handlerThreads.size());
+                        connected = true;
 
                         if (debug >= cMsgConstants.debugInfo) {
                              System.out.println("rcClientListeningThread: new connection");
@@ -399,6 +410,7 @@ System.out.println("Got PING message!!!");
                 try {in.close();}      catch (IOException e1) {}
                 try {out.close();}     catch (IOException e1) {}
                 try {channel.close();} catch (IOException e1) {}                
+                connected = true;
             }
 
             return;
