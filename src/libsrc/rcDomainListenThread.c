@@ -43,6 +43,8 @@
 /* for debugging threaded code */
 static int counter = 1;
 
+/* for only allowing 1 rc server to connect at one time */
+static int connected = 0;
 
 /* prototypes */
 static void *clientThread(void *arg);
@@ -226,6 +228,14 @@ void *rcClientListeningThread(void *arg)
       }
     }
     
+    /* only allow one rc server connection at one time */
+    cMsgMutexLock(&domain->syncSendMutex);
+    if (connected) {
+        cMsgMutexUnlock(&domain->syncSendMutex);
+        continue;
+    }
+    cMsgMutexUnlock(&domain->syncSendMutex);
+    
     /* get things ready for accept call */
     len = addrlen;
 
@@ -329,6 +339,11 @@ void *rcClientListeningThread(void *arg)
      * only be 1 running at a time.
      */
     threadArg->thdstarted = 1;
+    
+    /* only allow one rc server connection at one time */
+    cMsgMutexLock(&domain->syncSendMutex);
+    connected = 1;
+    cMsgMutexUnlock(&domain->syncSendMutex);
     
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "rcClientListeningThread: started thread\n");
@@ -849,6 +864,11 @@ printf("rc clientThread %d: Done w/ connect\n", localCount);
     
     /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
     pthread_cleanup_pop(1);
+    
+    /* only allow one rc server connection at one time */
+    cMsgMutexLock(&domain->syncSendMutex);
+    connected = 0;
+    cMsgMutexUnlock(&domain->syncSendMutex);
     
     return NULL;
 }
