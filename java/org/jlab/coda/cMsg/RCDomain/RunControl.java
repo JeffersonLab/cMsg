@@ -50,9 +50,9 @@ public class RunControl extends cMsgDomainAdapter {
 
     /**
      * Timeout in seconds to wait for RC server to finish connection
-     * once RC multicast server responds. Defaults to 5 seconds.
+     * once RC multicast server responds. Defaults to 30 seconds.
      */
-    private int connectTimeout = 5000;
+    private int connectTimeout = 30000;
 
     /** Quit a connection in progress if true. */
     volatile boolean abandonConnection;
