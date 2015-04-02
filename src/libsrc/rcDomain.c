@@ -2591,7 +2591,7 @@ int cmsg_rc_shutdownServers(void *domainId, const char *server, int flag) {
  *       timeout when a rc multicast server does not answer. Defaults to no timeout.<p>
  *<li>5) connectTO is the time to wait in seconds before connect returns a
  *       timeout while waiting for the rc server to send a special (tcp)
- *       concluding connect message. Defaults to 5 seconds.<p>
+ *       concluding connect message. Defaults to 30 seconds.<p>
  *</ul><p>
  *
  * 
@@ -2828,11 +2828,11 @@ static int parseUDL(const char *UDLR,
 /*printf("parseUDL: connection timeout = %d\n", t);*/
             }
             else if (connectTO != NULL) {
-                *connectTO = 5;
+                *connectTO = 30;
             }
         }
         else if (connectTO != NULL) {
-            *connectTO = 5;
+            *connectTO = 30;
         }
 
         /* free up memory */
