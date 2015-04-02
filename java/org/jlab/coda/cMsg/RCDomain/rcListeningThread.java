@@ -180,8 +180,8 @@ class rcListeningThread extends Thread {
                                 }
                             }
                             else {
-                                // give client 10 loops (.1 sec) to send its stuff, else no deal
-                                if (++loops > 10) {
+                                // give client 20 loops (.2 sec) to send its stuff, else no deal
+                                if (++loops > 20) {
 //System.out.println("rcListening thd: too long to send 3 ints, terminate");
                                     it.remove();
                                     continue keyLoop;
