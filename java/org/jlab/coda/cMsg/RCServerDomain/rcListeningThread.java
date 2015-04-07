@@ -64,6 +64,12 @@ class rcListeningThread extends Thread {
     /** Channel to receive UDP sends from the clients. */
     private DatagramChannel udpChannel;
 
+    /** rRC client channel */
+    private SocketChannel myChannel;
+
+    /** Socket input stream associated with RC client channel */
+    private DataInputStream in;
+
     /** Level of debug output for this class. */
     private int debug;
 
@@ -72,6 +78,42 @@ class rcListeningThread extends Thread {
 
     /** Let connect() know that the client has established a connection to this server. */
     final CountDownLatch startLatch = new CountDownLatch(1);
+
+
+    /** Exit handler for listening thread. */
+    private Thread.UncaughtExceptionHandler exitHandler;
+
+
+    /** Define exit handler for listening thread. */
+    private class MyExitHandler implements Thread.UncaughtExceptionHandler {
+        /**
+         * Method invoked when the given thread terminates due to the
+         * given uncaught exception.
+         * <p>Any exception thrown by this method will be ignored by the
+         * Java Virtual Machine.
+         * @param t the thread
+         * @param e the exception
+         */
+        public void uncaughtException(Thread t, Throwable e) {
+            // Close all streams & sockets before exiting thread
+System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to close sockets");
+            try {
+                if (rcListeningThread.this.in != null) rcListeningThread.this.in.close();
+            } catch (Exception ex) {}
+
+            try {
+                if (rcListeningThread.this.myChannel != null) rcListeningThread.this.myChannel.close();
+            } catch (Exception ex) {}
+
+            try {
+                if (rcListeningThread.this.udpChannel != null) rcListeningThread.this.udpChannel.close();
+            } catch (Exception ex) {}
+
+            try {
+                rcListeningThread.this.serverChannel.close();
+            } catch (Exception ex) {}
+        }
+    }
 
 
 
@@ -115,8 +157,12 @@ class rcListeningThread extends Thread {
         createTCPServerChannel();
         createUDPServerChannel();
 
-        // die if no more non-daemon thds running
+        // Die if no more non-daemon threads running
         setDaemon(true);
+
+        // Create exit handler for listening thread
+        exitHandler = new MyExitHandler();
+        setUncaughtExceptionHandler(exitHandler);
     }
 
 
@@ -260,12 +306,6 @@ class rcListeningThread extends Thread {
 
         // Direct byte Buffer for UDP IO use
         ByteBuffer udpBuffer = ByteBuffer.allocateDirect(cMsgNetworkConstants.biggestUdpBufferSize);
-
-        // rc client channel
-        SocketChannel myChannel = null;
-
-        // Socket input stream associated with channel
-        DataInputStream in = null;
 
         String channelType;
         cMsgMessageFull msg;
@@ -544,7 +584,8 @@ System.out.println("rcListeningThread: established TCP connection from client");
         }
         finally {
             try {if (in != null) in.close();}               catch (IOException ex) {}
-            try {if (myChannel != null) myChannel.close();} catch (IOException ex) {}
+            try {if (myChannel  != null)  myChannel.close();} catch (IOException ex) {}
+            try {if (udpChannel != null) udpChannel.close();} catch (IOException ex) {}
             try {serverChannel.close();} catch (IOException ex) {}
             try {selector.close();}      catch (IOException ex) {}
         }
