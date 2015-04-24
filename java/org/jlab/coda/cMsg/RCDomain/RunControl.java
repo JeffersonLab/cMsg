@@ -1003,7 +1003,7 @@ System.out.println("RC connect: SUCCESSFUL");
 
         // cannot run this simultaneously with connect, reconnect, or disconnect
         notConnectLock.lock();
-        // protect communicatons over socket
+        // protect communications over socket
         socketLock.lock();
         try {
             if (!connected) {
