@@ -344,21 +344,58 @@ public class RunControl extends cMsgDomainAdapter {
             Multicaster sender = new Multicaster(udpPacket);
             sender.start();
 
-            // wait up to multicast timeout seconds
+            // Wait up to multicast timeout seconds for return UDP packet from
+            // rc multicast server.
+            //
+            // There is a potential problem if UDP packets coming back from the rc multicast
+            // server are all dropped (we've seen it happen). In that case, we are stuck in
+            // the wait just below, even though the rc server has finished the last of
+            // the 3-part connection. In that case, the rc server cannot finish its
+            // connection because this method cannot progress further and make a TCP
+            // connection back to the rc server.
+            //
+            // To avoid this scenario, break up the wait just below into 1/2 second
+            // increments in order to check and see if rc server has already made its
+            // connection.
+
             boolean response = false;
             if (multicastTimeout > 0) {
+                int halfSecChunks = multicastTimeout*2/1000;
                 try {
 //System.out.println("RC connect: wait response");
-                    if (multicastResponse.await(multicastTimeout, TimeUnit.MILLISECONDS)) {
-                        response = true;
+                    for (int i=0; i < halfSecChunks; i++) {
+                        if (!multicastResponse.await(500, TimeUnit.MILLISECONDS)) {
+                            // Check after timeout to see if connection was completed by rc server
+//System.out.println("CONNECT TIMEOUT, TRY AGAIN");
+                            if (connectCompletion.getCount() < 1) {
+                                break;
+                            }
+                        }
+                        else {
+                            response = true;
+                            break;
+                        }
                     }
                 }
                 catch (InterruptedException e) {}
             }
-            // wait forever
+            // Wait forever
             else {
-                try { multicastResponse.await(); response = true;}
+                try {
+                    // Returning false after 1/2 sec means timeout
+                    while (!multicastResponse.await(500, TimeUnit.MILLISECONDS)) {
+                        // Check after timeout to see if connection was completed by rc server
+//System.out.println("CONNECT TIMEOUT, TRY AGAIN");
+                        if (connectCompletion.getCount() < 1) {
+                            break;
+                        }
+                    }
+                    response = true;
+                }
                 catch (InterruptedException e) {}
+
+//                try { multicastResponse.await(); response = true;}
+//                catch (InterruptedException e) {}
             }
 
             multicastUdpSocket.close();
