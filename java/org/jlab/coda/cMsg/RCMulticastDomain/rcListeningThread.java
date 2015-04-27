@@ -274,8 +274,10 @@ class rcListeningThread extends Thread {
                         ", expid = " + multicasterExpid);
                 }
 
-                // Check for conflicting expids
-                if (!server.expid.equalsIgnoreCase(multicasterExpid)) {
+                // Check for conflicting expids and ignore, except if a probe command
+                if (!server.expid.equalsIgnoreCase(multicasterExpid) &&
+                    msgType != cMsgNetworkConstants.rcDomainMulticastProbe) {
+
                     if (debug >= cMsgConstants.debugInfo) {
                         System.out.println("Conflicting EXPID's, ignoring");
                     }
