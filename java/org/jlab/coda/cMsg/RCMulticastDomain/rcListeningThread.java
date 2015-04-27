@@ -229,10 +229,11 @@ class rcListeningThread extends Thread {
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
-//System.out.println("RC multicast server : I was told to kill myself by another multicast server - killing listening thread");
-                        server.respondingHost = multicasterHost;
-                        server.multicastResponse.countDown();
-                        return;
+System.out.println("RC multicast server : I was told to kill myself by another multicast server, ignore for now");
+//                        server.respondingHost = multicasterHost;
+//                        server.multicastResponse.countDown();
+//                        return;
+                        continue;
                     // Packet from client just trying to locate rc multicast servers.
                     // Send back a normal response but don't do anything else.
                     case cMsgNetworkConstants.rcDomainMulticastProbe:
