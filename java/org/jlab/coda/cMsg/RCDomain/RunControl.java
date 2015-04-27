@@ -669,7 +669,7 @@ System.out.println("RC connect: SUCCESSFUL");
 //System.out.println("expid = " + serverExpid);
                         if (!expid.equals(serverExpid)) {
                             if (debug >= cMsgConstants.debugWarn) {
-                                System.out.println("rc Multicast receiver: got bad expid response to multicast (" + serverExpid + ")");
+                                System.out.println("rc Multicast receiver: ignore response from expid = " + serverExpid);
                             }
                             continue;
                         }
