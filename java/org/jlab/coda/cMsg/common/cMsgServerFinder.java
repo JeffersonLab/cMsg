@@ -897,12 +897,12 @@ public class cMsgServerFinder {
                     if (expidLen > 0) {
                         serverExpid = new String(buf, index, expidLen, "US-ASCII");
 //System.out.println("expid = " + serverExpid);
-                        if (!expid.equals(serverExpid)) {
-                            if (debug >= cMsgConstants.debugWarn) {
-                                System.out.println("rc Multicast receiver: got bad expid response to multicast (" + serverExpid + ")");
-                            }
-                            continue;
-                        }
+//                        if (!expid.equals(serverExpid)) {
+//                            if (debug >= cMsgConstants.debugWarn) {
+//                                System.out.println("rc Multicast receiver: got bad expid response to multicast (" + serverExpid + ")");
+//                            }
+//                            continue;
+//                        }
                     }
 
                     // put in a unique item: "host:udpPort"
@@ -923,7 +923,6 @@ public class cMsgServerFinder {
 //System.out.println("  IO exception in receiving thread so return");
                     return;
                 }
-                break;
             }
         }
     }
