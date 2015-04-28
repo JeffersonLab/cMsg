@@ -568,10 +568,12 @@ System.out.println("RC connect: SUCCESSFUL");
 
             // wait up to multicast timeout seconds for a response
             int waitTime = 0;
+
+            // send packet
+            try { socket.send(packet); } catch (IOException e) {}
+
             while (receiver.getMsg() == null && waitTime < sleepTime) {
-                // send packet
-                try { socket.send(packet); } catch (IOException e) {}
-                // wait 1/2 second
+                // wait 1/2 second & check for response
                 try { Thread.sleep(500); }
                 catch (InterruptedException e) { }
                 waitTime += 500;
