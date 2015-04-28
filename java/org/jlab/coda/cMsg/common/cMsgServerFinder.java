@@ -56,7 +56,7 @@ public class cMsgServerFinder {
     private HashMap<String, String> rcResponders;
 
     /** Time in milliseconds waiting for a response to the multicasts. */
-    private final int sleepTime = 1000;
+    private int sleepTime = 3000;
 
     /** Do changes to the expid or added ports necessitate finding rc multicast servers again? */
     private volatile boolean needToUpdateRc = true;
@@ -93,7 +93,27 @@ public class cMsgServerFinder {
             defaultRcPorts[i]   = cMsgNetworkConstants.rcMulticastPort   + i;
             defaultCmsgPorts[i] = cMsgNetworkConstants.nameServerUdpPort + i;
         }
-    }                                                                           
+    }
+
+
+    /**
+     * Get the time to wait for server responses in milliseconds.
+     * Defaults to 3 seconds.
+     * @return time to wait for server responses in milliseconds.
+     */
+    public int getSleepTime() {
+        return sleepTime;
+    }
+
+
+    /**
+     * Set the time to wait for server responses in milliseconds.
+     * @param sleepTime time to wait for server responses in milliseconds.
+     */
+    public void setSleepTime(int sleepTime) {
+        if (sleepTime > -1) this.sleepTime = sleepTime;
+    }
+
 
     /**
      * Set level of debug output.
