@@ -499,12 +499,12 @@ System.out.println("     bytes: sender " + lengthSender +
 
             // read subject
             msg.setSubject(new String(bytes, offset, lengthSubject, "US-ASCII"));
-System.out.println("subject = " + msg.getSubject());
+//System.out.println("subject = " + msg.getSubject());
             offset += lengthSubject;
 
             // read type
             msg.setType(new String(bytes, offset, lengthType, "US-ASCII"));
-System.out.println("type = " + msg.getType());
+//System.out.println("type = " + msg.getType());
             offset += lengthType;
 
             // read payload text
