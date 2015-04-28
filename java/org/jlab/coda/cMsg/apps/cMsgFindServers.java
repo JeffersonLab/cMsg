@@ -48,6 +48,10 @@ public class cMsgFindServers {
     /** Level of debug output for this class. */
     private int debug = cMsgConstants.debugInfo;
 
+    /** Time in seconds to wait for server responses.
+     *  Negative values mean use the default (3 sec). */
+    private int waitTime = -1;
+
     /** Level of debug output for this class. */
     private boolean inXML;
 
@@ -69,6 +73,7 @@ public class cMsgFindServers {
                 "        [-rc   <UDP ports list>]   list of rc domain UDP ports to probe\n" +
                 "        [-pswd <password>]         password for connecting to cMsg domain server\n" +
                 "        [-xml]                     output in XML\n" +
+                "        [-t]                       time to wait for server response in seconds\n" +
                 "        [-h]                       print this help\n");
         System.out.println("        A port list is a single string with ports separated by");
         System.out.println("        white space or punctuation with the exception of dashes.");
@@ -156,9 +161,24 @@ public class cMsgFindServers {
                 i++;
             }
             else if (args[i].equalsIgnoreCase("-rc")) {
-                parsePortList(args[i+1], "rc", rcPorts);
+                parsePortList(args[i + 1], "rc", rcPorts);
                 if (rcPorts.size() > 0) {
                     finder.addRcPort(rcPorts);
+                }
+                i++;
+            }
+            else if (args[i].equalsIgnoreCase("-t")) {
+                try {
+                    // seconds
+                    waitTime = Integer.parseInt(args[i + 1]);
+                    // milliseconds
+                    finder.setSleepTime(1000*waitTime);
+                }
+                catch (NumberFormatException e) {
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("bad wait time, ignore");
+                    }
+                    continue;
                 }
                 i++;
             }

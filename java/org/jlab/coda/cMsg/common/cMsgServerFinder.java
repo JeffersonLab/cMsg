@@ -109,9 +109,15 @@ public class cMsgServerFinder {
     /**
      * Set the time to wait for server responses in milliseconds.
      * @param sleepTime time to wait for server responses in milliseconds.
+     *                  Negative value resets to default (3 sec).
      */
     public void setSleepTime(int sleepTime) {
-        if (sleepTime > -1) this.sleepTime = sleepTime;
+        if (sleepTime < 0) {
+            this.sleepTime = 3000;
+        }
+        else {
+            this.sleepTime = sleepTime;
+        }
     }
 
 
