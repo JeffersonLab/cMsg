@@ -48,9 +48,6 @@ public class cMsgServerFinder {
     /** Optional password included in UDL for connection to server requiring one. */
     private String password = "";
 
-    /** Expid value for rc multicast domain. */
-    private String expid;
-
     /** Set of all cMsg domain responders' hosts and ports in a "host:tcpPort:udpPort" string format. */
     private HashSet<String> cMsgResponders;
 
@@ -149,35 +146,6 @@ public class cMsgServerFinder {
         }
         this.password = password;
         needToUpdateCmsg = true;
-    }
-
-
-    /**
-     * Get the experimental ID for finding rc multicast servers.
-     * @return value for experimental ID
-     */
-    public String getExpid() {
-        return expid;
-    }
-
-
-    /**
-     * Set the experimental ID for finding rc multicast servers.
-     * Using a null string as the arg will cause no servers to be found.
-     *
-     * @param expid value to set experimental ID with
-     */
-    synchronized public void setExpid(String expid) {
-        if (expid == null) {
-            if (this.expid == null) return;
-        }
-        else if (this.expid == null) {
-        }
-        else if (this.expid.equals(expid)) {
-            return;
-        }
-        this.expid = expid;
-        needToUpdateRc = true;
     }
 
 
@@ -293,12 +261,6 @@ public class cMsgServerFinder {
     synchronized public void findRcServers() {
         rcResponders.clear();
 
-        // there can be nothing out there with no or blank expid so return nothing
-        if (expid == null || expid.length() < 1) {
-            needToUpdateRc = false;
-            return;
-        }
-
         // start thread to find rc multicast servers
         rcFinder rFinder = new rcFinder();
         rFinder.start();
@@ -325,10 +287,8 @@ public class cMsgServerFinder {
 
         // start thread to find rc multicast servers
         rcResponders.clear();
-        if (!(expid == null || expid.length() < 1)) {
-            rcFinder rFinder = new rcFinder();
-            rFinder.start();
-        }
+        rcFinder rFinder = new rcFinder();
+        rFinder.start();
 
         // give receiving threads some time to get responses
         try { Thread.sleep(sleepTime + 200); }
@@ -766,6 +726,7 @@ public class cMsgServerFinder {
             //--------------------------------------------------------------
             byte[] buffer;
             String name = "serverFinder";
+            String myExpid = "expid";
             DatagramSocket socket = null;
 
             // create byte array for multicast
@@ -779,12 +740,12 @@ public class cMsgServerFinder {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 out.writeInt(cMsgNetworkConstants.rcDomainMulticastProbe); // multicast is from rc domain prober
-                out.writeInt(44444);          // use any port number just to get a response
-                out.writeInt(name.length());  // use any client name just to get a response
-                out.writeInt(expid.length());
+                out.writeInt(44444);            // use any port number just to get a response
+                out.writeInt(name.length());    // use any client name just to get a response
+                out.writeInt(myExpid.length()); // use any expid name just to get a response
                 try {
                     out.write(name.getBytes("US-ASCII"));
-                    out.write(expid.getBytes("US-ASCII"));
+                    out.write(myExpid.getBytes("US-ASCII"));
                 }
                 catch (UnsupportedEncodingException e) {
                 }

@@ -68,7 +68,6 @@ public class cMsgFindServers {
                 "        [-cmsg <UDP ports list>]   list of cMsg domain UDP ports to probe\n" +
                 "        [-rc   <UDP ports list>]   list of rc domain UDP ports to probe\n" +
                 "        [-pswd <password>]         password for connecting to cMsg domain server\n" +
-                "        [-expid <experimental ID>] expid for connecting to rc multicast server\n" +
                 "        [-xml]                     output in XML\n" +
                 "        [-h]                       print this help\n");
         System.out.println("        A port list is a single string with ports separated by");
@@ -153,14 +152,6 @@ public class cMsgFindServers {
                 finder.setPassword(password);
                 if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("Setting password to " + password);
-                }
-                i++;
-            }
-            else if (args[i].equalsIgnoreCase("-expid")) {
-                String expid = args[i + 1];
-                finder.setExpid(expid);
-                if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("Setting expid to " + expid);
                 }
                 i++;
             }
