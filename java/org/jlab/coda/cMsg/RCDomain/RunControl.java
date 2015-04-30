@@ -549,14 +549,18 @@ System.out.println("RC connect: SUCCESSFUL");
                             index += hostLen;
                         }
 
-                        // get expid
+                        if (cMsgUtilities.isHostLocal(host)) {
+                            System.out.println("monitor: probe response from same host, ignoring");
+                            continue;
+                        }
+
                         String serverExpid;
                         if (expidLen > 0) {
                             serverExpid = new String(buf, index, expidLen, "US-ASCII");
                             //System.out.println("monitor: got return expid = " + serverExpid);
                             if (!expid.equals(serverExpid)) {
                                 if (debug >= cMsgConstants.debugWarn) {
-                                    System.out.println("rc Multicast receiver: ignore response from expid = " + serverExpid);
+                                    System.out.println("monitor: ignore response from expid = " + serverExpid);
                                 }
                                 continue;
                             }
