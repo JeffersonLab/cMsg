@@ -634,6 +634,11 @@ System.out.println("RC connect: SUCCESSFUL");
                             index += hostLen;
                         }
 
+                        if (cMsgUtilities.isHostLocal(host)) {
+                            System.out.println("monitor: probe response from same host, ignoring");
+                            continue;
+                        }
+
                         // get expid
                         String serverExpid;
                         if (expidLen > 0) {
