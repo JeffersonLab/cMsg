@@ -472,7 +472,7 @@ static void *clientThread(void *arg)
     /* extract command */
     msgId = ntohl(inComing[1]);
 
-fprintf(stdout, "clientThread %d: size = %d bytes, msgId = %d\n", localCount, size, msgId);
+/*fprintf(stdout, "clientThread %d: size = %d bytes, msgId = %d\n", localCount, size, msgId);*/
 
     if (msgId != CMSG_SUBSCRIBE_RESPONSE &&
         msgId != CMSG_SYNC_SEND_REQUEST &&
