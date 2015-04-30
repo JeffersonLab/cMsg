@@ -284,6 +284,15 @@ class rcListeningThread extends Thread {
                     continue;
                 }
 
+                // Reject probes from same host (same platform)
+                if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe &&
+                        cMsgUtilities.isHostLocal(multicasterHost)) {
+                    if (debug >= cMsgConstants.debugInfo) {
+                        System.out.println("rc multicast listener: probe from same host, ignoring");
+                    }
+                    continue;
+                }
+
                 // Before sending a reply, check to see if we simply got a packet
                 // from our self when first connecting. Just ignore our own probing
                 // multicast.
@@ -316,7 +325,8 @@ class rcListeningThread extends Thread {
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe) {
                     try {
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
-//System.out.println("Send response-to-probe packet to client");
+//System.out.println("Send probe response to " + multicasterName + " on " + multicasterHost +
+//", expid = " + server.expid);
                         multicastSocket.send(sendPacket);
                     }
                     catch (IOException e) {
