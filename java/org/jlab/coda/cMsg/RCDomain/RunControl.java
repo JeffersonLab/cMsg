@@ -555,6 +555,114 @@ System.out.println("RC connect: SUCCESSFUL");
      */
     public cMsgMessage monitor(String command) throws cMsgException {
 
+        /** Tell us receiver thread has started. */
+        final CountDownLatch startLatch = new CountDownLatch(1);
+
+        /** This class gets the response to our UDP multicast to an rc multicast server. */
+        class rcMulticastReceiver extends Thread {
+
+            String host;
+            DatagramSocket socket;
+            volatile cMsgMessageFull msg;
+
+            rcMulticastReceiver(DatagramSocket socket) {this.socket = socket;}
+
+            public cMsgMessage getMsg() {return msg;}
+
+            public String getMsgHost() {
+                String name = null;
+                try {
+                    name = Inet4Address.getByName(host).getCanonicalHostName();
+                }
+                catch (UnknownHostException e) {}
+                return name;
+            }
+
+
+            public void run() {
+
+                int index;
+                byte[] buf = new byte[1024];
+                DatagramPacket packet = new DatagramPacket(buf, 1024);
+
+                // Thread has started ...
+                startLatch.countDown();
+
+                while (true) {
+                    // Reset for each round
+                    packet.setLength(1024);
+
+                    try {
+                        socket.receive(packet);
+                        //System.out.println("received UDP packet");
+                        // if we get too small of a packet, reject it
+                        if (packet.getLength() < 6*4) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("monitor: got packet that's too small");
+                            }
+                            continue;
+                        }
+                        int magic1 = cMsgUtilities.bytesToInt(buf, 0);
+                        int magic2 = cMsgUtilities.bytesToInt(buf, 4);
+                        int magic3 = cMsgUtilities.bytesToInt(buf, 8);
+                        if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
+                                magic2 != cMsgNetworkConstants.magicNumbers[1] ||
+                                magic3 != cMsgNetworkConstants.magicNumbers[2])  {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("monitor: got bad magic # response to multicast");
+                            }
+                            continue;
+                        }
+
+                        int port     = cMsgUtilities.bytesToInt(buf, 12);
+                        int hostLen  = cMsgUtilities.bytesToInt(buf, 16);
+                        int expidLen = cMsgUtilities.bytesToInt(buf, 20);
+
+                        if (packet.getLength() < 4*6 + hostLen + expidLen) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("monitor: got packet that's too small");
+                            }
+                            continue;
+                        }
+
+                        // get host
+                        index = 24;
+                        host = "";
+                        if (hostLen > 0) {
+                            host = new String(buf, index, hostLen, "US-ASCII");
+                            //System.out.println("host = " + host);
+                            index += hostLen;
+                        }
+
+                        // get expid
+                        String serverExpid;
+                        if (expidLen > 0) {
+                            serverExpid = new String(buf, index, expidLen, "US-ASCII");
+                            //System.out.println("monitor: got return expid = " + serverExpid);
+                            if (!expid.equals(serverExpid)) {
+                                if (debug >= cMsgConstants.debugWarn) {
+                                    System.out.println("rc Multicast receiver: ignore response from expid = " + serverExpid);
+                                }
+                                continue;
+                            }
+                        }
+
+                        // store in message
+                        msg = new cMsgMessageFull();
+                        msg.setSenderHost(host);
+                    }
+                    catch (InterruptedIOException e) {
+                        //System.out.println("  Interrupted receiving thread so return");
+                        return;
+                    }
+                    catch (IOException e) {
+                        //System.out.println("  IO exception in receiving thread so return");
+                        return;
+                    }
+                    break;
+                }
+            }
+        }
         // cannot run this simultaneously with any other public method
         connectLock.lock();
 
@@ -578,8 +686,6 @@ System.out.println("RC connect: SUCCESSFUL");
         }
 
         try {
-//System.out.println("Monitoring ...");
-
             //--------------------------------------------------------------
             // multicast on local subnet to find RunControl Multicast server
             //--------------------------------------------------------------
@@ -631,21 +737,16 @@ System.out.println("RC connect: SUCCESSFUL");
             // create a thread which will receive any responses to our multicast
             rcMulticastReceiver receiver = new rcMulticastReceiver(socket);
             receiver.start();
-            // make sure it's started before we start sending stuff
-            int count = 0;
-            try {
-                while (!receiver.threadStarted() && count++ < 10) {
-                    Thread.sleep(200);
-                }
-            }
-            catch (InterruptedException e) {
-            }
 
-            // send our multicast packet                        
+            // make sure it's started before we start sending stuff
+            try {startLatch.await();}
+            catch (InterruptedException e) {}
+
+            // send our multicast packet
             DatagramPacket packet = null;
             try {
                 InetAddress addr = InetAddress.getByName(cMsgNetworkConstants.rcMulticast);
-//System.out.println("Send multicast packet on port " + rcMulticastServerPort);
+//System.out.println("monitor: send probe packet on port " + rcMulticastServerPort);
                 packet = new DatagramPacket(buffer, buffer.length, addr, rcMulticastServerPort);
             }
             catch (UnknownHostException e) { /* never thrown */ }
@@ -665,117 +766,12 @@ System.out.println("RC connect: SUCCESSFUL");
             }
 
             // return the first legitimate response or null if none
+//            cMsgMessage msg = receiver.getMsg();
+//if (msg != null) System.out.println("monitor: received msg from " + receiver.getMsgHost() + "\n");
             return receiver.getMsg();
         }
         finally {
             connectLock.unlock();
-        }
-    }
-
-
-
-    /** This class gets the response to our UDP multicast to an rc multicast server. */
-    class rcMulticastReceiver extends Thread {
-
-        volatile cMsgMessageFull msg;
-        DatagramSocket socket;
-        AtomicBoolean threadStarted = new AtomicBoolean(false);
-
-        rcMulticastReceiver(DatagramSocket socket) {
-            this.socket = socket;
-        }
-
-        public cMsgMessage getMsg() {
-            return msg;
-        }
-
-        public boolean threadStarted() {
-            return threadStarted.get();
-        }
-
-
-         public void run() {
-
-            int index;
-            byte[] buf = new byte[1024];
-            DatagramPacket packet = new DatagramPacket(buf, 1024);
-            StringBuffer id = new StringBuffer(1024);
-
-            while (true) {
-                // reset for each round
-                packet.setLength(1024);
-
-                threadStarted.set(true);
-
-                try {
-                    socket.receive(packet);
-//System.out.println("received UDP packet");
-                    // if we get too small of a packet, reject it
-                    if (packet.getLength() < 6*4) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("monitor: got packet that's too small");
-                        }
-                        continue;
-                    }
-                    int magic1 = cMsgUtilities.bytesToInt(buf, 0);
-                    int magic2 = cMsgUtilities.bytesToInt(buf, 4);
-                    int magic3 = cMsgUtilities.bytesToInt(buf, 8);
-                    if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
-                        magic2 != cMsgNetworkConstants.magicNumbers[1] ||
-                        magic3 != cMsgNetworkConstants.magicNumbers[2])  {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("monitor: got bad magic # response to multicast");
-                        }
-                        continue;
-                    }
-
-                    int port     = cMsgUtilities.bytesToInt(buf, 12);
-                    int hostLen  = cMsgUtilities.bytesToInt(buf, 16);
-                    int expidLen = cMsgUtilities.bytesToInt(buf, 20);
-
-                    if (packet.getLength() < 4*6 + hostLen + expidLen) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("monitor: got packet that's too small");
-                        }
-                        continue;
-                    }
-
-                    // get host
-                    index = 24;
-                    String host = "";
-                    if (hostLen > 0) {
-                        host = new String(buf, index, hostLen, "US-ASCII");
-//System.out.println("host = " + host);
-                        index += hostLen;
-                    }
-
-                    // get expid
-                    String serverExpid;
-                    if (expidLen > 0) {
-                        serverExpid = new String(buf, index, expidLen, "US-ASCII");
-//System.out.println("expid = " + serverExpid);
-                        if (!expid.equals(serverExpid)) {
-                            if (debug >= cMsgConstants.debugWarn) {
-                                System.out.println("rc Multicast receiver: ignore response from expid = " + serverExpid);
-                            }
-                            continue;
-                        }
-                    }
-
-                    // store in message
-                    msg = new cMsgMessageFull();
-                    msg.setSenderHost(host);
-                }
-                catch (InterruptedIOException e) {
-//System.out.println("  Interrupted receiving thread so return");
-                    return;
-                }
-                catch (IOException e) {
-//System.out.println("  IO exception in receiving thread so return");
-                    return;
-                }
-                break;
-            }
         }
     }
 
