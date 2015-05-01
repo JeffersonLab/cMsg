@@ -305,7 +305,6 @@ public class cMsgServerFinder {
      * results of the search.
      */
     synchronized public void find() {
-
         // start thread to find cMsg name servers
         cMsgResponders.clear();
         cMsgFinder cFinder = new cMsgFinder();
@@ -766,7 +765,7 @@ public class cMsgServerFinder {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 out.writeInt(cMsgNetworkConstants.rcDomainMulticastProbe); // multicast is from rc domain prober
-                out.writeInt(44444);            // use any port number just to get a response
+                out.writeInt(1);                // port = 1 identifies us as being from cMsgServerFinder
                 out.writeInt(name.length());    // use any client name just to get a response
                 out.writeInt(myExpid.length()); // use any expid name just to get a response
                 try {

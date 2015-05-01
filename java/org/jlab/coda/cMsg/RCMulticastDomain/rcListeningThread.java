@@ -199,7 +199,7 @@ class rcListeningThread extends Thread {
 
                 if (packet.getLength() < 4*4) {
                     if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("got multicast packet that's too small");
+                        System.out.println("RC multicast listener: got multicast packet that's too small");
                     }
                     continue;
                 }
@@ -211,7 +211,7 @@ class rcListeningThread extends Thread {
                     magic2 != cMsgNetworkConstants.magicNumbers[1] ||
                     magic3 != cMsgNetworkConstants.magicNumbers[2])  {
                     if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("got multicast packet with bad magic #s");
+                        System.out.println("RC multicast listener: got multicast packet with bad magic #s");
                     }
                     continue;
                 }
@@ -229,7 +229,7 @@ class rcListeningThread extends Thread {
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
-System.out.println("RC multicast server : I was told to kill myself by another multicast server, ignore for now");
+System.out.println("RC multicast listener: told to kill myself by another multicast server, ignore for now");
 //                        server.respondingHost = multicasterHost;
 //                        server.multicastResponse.countDown();
 //                        return;
@@ -267,33 +267,34 @@ System.out.println("RC multicast server : I was told to kill myself by another m
                 catch (UnsupportedEncodingException e) {}
 
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("multicaster's host = " + multicasterHost + ", UDP port = " + multicasterUdpPort +
+                    System.out.println("RC multicast listener: multicaster's host = " +
+                        multicasterHost + ", UDP port = " + multicasterUdpPort +
                         ", TCP port = " + multicasterTcpPort + ", name = " + multicasterName +
-                        ", expid = " + multicasterExpid);
+                        ", expid = " + multicasterExpid + ", this server udp = " + server.udpPort +
+                        ", is local host = " + cMsgUtilities.isHostLocal(multicasterHost) );
                 }
 
-                // Check for conflicting expids and ignore, except if a probe command
+                // If not a probe, ignore conflicting expids
                 if (!server.expid.equalsIgnoreCase(multicasterExpid) &&
                     msgType != cMsgNetworkConstants.rcDomainMulticastProbe) {
-
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("Conflicting EXPID's, ignoring");
+                        System.out.println("RC multicast listener: conflicting EXPID's, ignoring");
                     }
                     continue;
                 }
 
-                // Reject probes from same host (same platform)
-//                if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe &&
-//                        cMsgUtilities.isHostLocal(multicasterHost)) {
-//                    if (debug >= cMsgConstants.debugInfo) {
-//                        System.out.println("rc multicast listener: probe from same host, ignoring");
-//                    }
-//                    continue;
-//                }
-
-                // Before sending a reply, check to see if we simply got a packet
-                // from our self when first connecting. Just ignore our own probing
-                // multicast.
+                // Probes from cMsgServerFinder have port = 1.
+                // Probes from rcClient.monitor() have port = 0.
+                // Reject monitor if from same host and port.
+                if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe &&
+                        cMsgUtilities.isHostLocal(multicasterHost) &&
+                        multicasterTcpPort == 0) {
+                    if (debug >= cMsgConstants.debugInfo) {
+                        System.out.println("RC multicast listener: reject monitor probe from same host(" +
+                        multicasterHost + ") to port(" + server.udpPort + ")");
+                    }
+                    continue;
+                }
 
 //                System.out.println("RC multicast server: accepting Clients = " + server.acceptingClients);
 //                System.out.println("                   : local host = " + InetAddress.getLocalHost().getCanonicalHostName());
@@ -304,16 +305,15 @@ System.out.println("RC multicast server : I was told to kill myself by another m
 //                System.out.println("                   : multicaster's expid = " + multicasterExpid);
 //                System.out.println("                   : our port = " + server.localTempPort);
 
-                // Previously the following if() contained the following:
-                //    !server.acceptingClients &&
-                //    InetAddress.getLocalHost().getCanonicalHostName().equals(multicasterHost) &&
-                // However, it doesn't matter if we're accepting clients or not and there may be a race
-                //    condition where server.acceptingClients is true, so exclude that one.
-                // And the host name returned by InetAddress.getLocalHost().getCanonicalHostName() is
-                //    often different from the host obtained from the multicast packet since it may go
-                //    out a different interface than expected, so exclude that one too.
-                if (multicasterUdpPort == server.localTempPort) {
-//System.out.println("RC multicast server : ignore my own udp messages");
+                // Before sending a reply, check to see if we simply got a packet
+                // from our self when first connecting. Just ignore our own probing
+                // multicast.
+                // If the emphemeral port this server uses to send multicasts to other servers
+                // when starting up == the packet's udp port, then we can be fairly sure that
+                // this packet comes from this very server.
+                if (msgType == cMsgNetworkConstants.rcDomainMulticastServer &&
+                    multicasterUdpPort == server.localTempPort) {
+//System.out.println("RC multicast server : ignore own start-up udp messages");
                     continue;
                 }
 
@@ -323,7 +323,7 @@ System.out.println("RC multicast server : I was told to kill myself by another m
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe) {
                     try {
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
-//System.out.println("Send probe response to " + multicasterName + " on " + multicasterHost +
+//System.out.println("RC multicast listener: send probe response to " + multicasterName + " on " + multicasterHost +
 //", expid = " + server.expid);
                         multicastSocket.send(sendPacket);
                     }
@@ -366,29 +366,30 @@ System.out.println("RC multicast server : I was told to kill myself by another m
                     // this end to process the client's request. So before we accept a client, make
                     // sure we are able to process the connection.
                     if (!server.acceptingClients || !server.hasSubscription || !server.isReceiving()) {
-//System.out.println("Server is not accepting clients right now, ignore multicast");
+//System.out.println("RC multicast listener: server not accepting clients, ignore multicast");
                         continue;
                     }
 
                     try {
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
-//System.out.println("Send response packet to client");
+//System.out.println("RC multicast listener: send response packet to client");
                         multicastSocket.send(sendPacket);
                     }
                     catch (IOException e) {
                         System.out.println("I/O Error: " + e);
                     }
                 }
-                // else if multicast from server ...
+                // Else if multicast from another server at same expid & port
+                // just starting up and signaling everyone ...
                 else {
                     // Other RCMulticast servers send "feelers" just trying see if another
                     // RCMulticast server is on the same port with the same EXPID. Don't
                     // send this on as a message to subscriptions.
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("Another RCMulticast server probing this one");
+                        System.out.println("RC multicast listener: another RC multicast server probing this one");
                     }
 
-                    // if this server was properly started, tell the one probing us to kill itself
+                    // If this server was already started, tell the other one to kill itself
                     if (server.acceptingClients) {
                         // create packet to respond to multicast
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[0], buf, 0);
@@ -396,20 +397,22 @@ System.out.println("RC multicast server : I was told to kill myself by another m
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[2], buf, 8);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainMulticastKillSelf, buf, 12);
                         DatagramPacket pkt = new DatagramPacket(buf, 16, multicasterAddress, server.udpPort);
-//System.out.println("Send response packet (kill yourself) to server");
+//System.out.println("RC multicast listener: send response packet (kill yourself) to server");
                         multicastSocket.send(pkt);
                     }
+                    // Else if this server is being started at the same time, quit
                     else {
-//System.out.println("Still starting up but have been probed by starting server. So quit");
+System.out.println("RC multicast listener: starting up but was probed by another starting server. So quit");
                         server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
                         return;
                     }
                     continue;
                 }
-//System.out.println("Pass msg on to subscriptions");
+
+//System.out.println("RC multicast listener: pass msg on to subscriptions");
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("Client " + multicasterName + " is now connected");
+                    System.out.println("RC multicast listener: client " + multicasterName + " is now connected");
                 }
 
                 // If expid's match, pass on messgage to subscribes and/or subscribeAndGets

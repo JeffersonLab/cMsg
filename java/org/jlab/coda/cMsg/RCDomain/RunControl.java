@@ -646,7 +646,7 @@ System.out.println("RC connect: SUCCESSFUL");
                             //System.out.println("monitor: got return expid = " + serverExpid);
                             if (!expid.equals(serverExpid)) {
                                 if (debug >= cMsgConstants.debugWarn) {
-                                    System.out.println("rc Multicast receiver: ignore response from expid = " + serverExpid);
+                                    System.out.println("monitor: ignore response from expid = " + serverExpid);
                                 }
                                 continue;
                             }
@@ -709,7 +709,8 @@ System.out.println("RC connect: SUCCESSFUL");
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 // multicast is from rc domain prober
                 out.writeInt(cMsgNetworkConstants.rcDomainMulticastProbe);
-                out.writeInt(44444);          // use any port number just to get a response
+                // use port number = 0 to indicate monitor probe
+                out.writeInt(0);
                 out.writeInt(name.length());
                 out.writeInt(expid.length());
                 try {
@@ -728,8 +729,8 @@ System.out.println("RC connect: SUCCESSFUL");
                 socket.setTimeToLive(32);
 
                 // create multicast packet from the byte array
-                buffer = baos.toByteArray();
                 baos.close();
+                buffer = baos.toByteArray();
             }
             catch (IOException e) {
                 try { out.close();} catch (IOException e1) {}
