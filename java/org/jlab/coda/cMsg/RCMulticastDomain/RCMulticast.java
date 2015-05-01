@@ -68,7 +68,7 @@ public class RCMulticast extends cMsgDomainAdapter {
     /** Socket over which to UDP multicast to and check for other rc multicast servers. */
     private MulticastSocket multicastSocket;
 
-    /** Timeout in milliseconds to wait for server to respond to multicasts. Default is 3 sec. */
+    /** Timeout in milliseconds to wait for server to respond to multicasts. Default is 2 sec. */
     private int multicastTimeout = 2000;
 
     /** Thread that listens for UDP multicasts to this server and then responds. */
@@ -196,8 +196,8 @@ public class RCMulticast extends cMsgDomainAdapter {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 out.writeInt(cMsgNetworkConstants.rcDomainMulticastServer);
-                // port is irrelevant
-                out.writeInt(0);
+                // port helps identifies who is probing (this multicast server)
+                out.writeInt(udpPort);
                 out.writeInt(name.length());
                 out.writeInt(expid.length());
                 try {
@@ -219,9 +219,9 @@ public class RCMulticast extends cMsgDomainAdapter {
                 catch (UnknownHostException e) {}
 
                 // create packet to multicast from the byte array
+                baos.close();
                 byte[] buf = baos.toByteArray();
                 udpPacket = new DatagramPacket(buf, buf.length, rcServerMulticastAddress, udpPort);
-                baos.close();
             }
             catch (IOException e) {
                 listener.killThread();
@@ -243,7 +243,7 @@ public class RCMulticast extends cMsgDomainAdapter {
             boolean response = false;
             try {
                 if (multicastResponse.await(multicastTimeout, TimeUnit.MILLISECONDS)) {
-//System.out.println("Got a response!");
+//System.out.println("Told to quit!");
                     response = true;
                 }
             }
@@ -661,7 +661,7 @@ public class RCMulticast extends cMsgDomainAdapter {
                         return;
                     }
 
-                    Thread.sleep(300);
+                    Thread.sleep(500);
                 }
             }
             catch (InterruptedException e) {

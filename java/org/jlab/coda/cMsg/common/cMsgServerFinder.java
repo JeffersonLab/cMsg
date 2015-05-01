@@ -48,6 +48,9 @@ public class cMsgServerFinder {
     /** Optional password included in UDL for connection to server requiring one. */
     private String password = "";
 
+    /** Expid value for rc multicast domain. */
+    private String expid;
+
     /** Set of all cMsg domain responders' hosts and ports in a "host:tcpPort:udpPort" string format. */
     private HashSet<String> cMsgResponders;
 
@@ -93,7 +96,7 @@ public class cMsgServerFinder {
             defaultRcPorts[i]   = cMsgNetworkConstants.rcMulticastPort   + i;
             defaultCmsgPorts[i] = cMsgNetworkConstants.nameServerUdpPort + i;
         }
-    }
+    }                                                                           
 
 
     /**
@@ -305,8 +308,7 @@ public class cMsgServerFinder {
      * results of the search.
      */
     synchronized public void find() {
-
-        // start thread to find cMsg name servers
+         // start thread to find cMsg name servers
         cMsgResponders.clear();
         cMsgFinder cFinder = new cMsgFinder();
         cFinder.start();
@@ -766,7 +768,7 @@ public class cMsgServerFinder {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
                 out.writeInt(cMsgNetworkConstants.rcDomainMulticastProbe); // multicast is from rc domain prober
-                out.writeInt(44444);            // use any port number just to get a response
+                out.writeInt(1);                // port = 1 identifies us as being from cMsgServerFinder
                 out.writeInt(name.length());    // use any client name just to get a response
                 out.writeInt(myExpid.length()); // use any expid name just to get a response
                 try {
@@ -784,8 +786,8 @@ public class cMsgServerFinder {
                 socket.setSoTimeout(sleepTime);
 
                 // create multicast packet from the byte array
-                buffer = baos.toByteArray();
                 baos.close();
+                buffer = baos.toByteArray();
             }
             catch (IOException e) {
                 try { out.close();} catch (IOException e1) {}
@@ -898,7 +900,7 @@ public class cMsgServerFinder {
                         id.append(host);
                         id.append(":");
                         id.append(port);
-                        rcResponders.put(id.toString(), serverExpid);
+                        rcResponders.put(id.toString(), expid);
                     }
 
                 }
