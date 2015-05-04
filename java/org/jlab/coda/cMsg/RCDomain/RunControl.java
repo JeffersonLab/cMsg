@@ -550,7 +550,8 @@ System.out.println("RC connect: SUCCESSFUL");
      * of a particular AFECS (runcontrol) platform.
      *
      * @param  command time in milliseconds to wait for a response to multicasts (1000 default)
-     * @return response message containing the host running the rc multicast server contacted
+     * @return response message containing the host running the rc multicast server contacted;
+     *         null if no response is found
      * @throws cMsgException
      */
     public cMsgMessage monitor(String command) throws cMsgException {
@@ -634,10 +635,10 @@ System.out.println("RC connect: SUCCESSFUL");
                             index += hostLen;
                         }
 
-                        if (cMsgUtilities.isHostLocal(host)) {
-                            System.out.println("monitor: probe response from same host, ignoring");
-                            continue;
-                        }
+//                        if (cMsgUtilities.isHostLocal(host)) {
+//                            System.out.println("monitor: probe response from same host, ignoring");
+//                            continue;
+//                        }
 
                         // get expid
                         String serverExpid;
@@ -676,12 +677,26 @@ System.out.println("RC connect: SUCCESSFUL");
             parseUDL(UDLremainder);
         }
 
+        // Parse argument. It's of the form:
+        // <time>:<cmd> with time being the time in milliseconds to sleep
+        // and cmd specifying whether we're looking for servers on other hosts,
+        // or looking for all servers - even local.
+        String cmdString = null;
+        String sleepString = null;
+        if (command != null) {
+            String[] ss = command.split(":");
+            sleepString = ss[0];
+            if (ss.length > 1) {
+                cmdString = ss[1];
+            }
+        }
+
         // Time in milliseconds waiting for a response to the multicasts.
         // 1 second default.
         int sleepTime = 1000;
-        if (command != null) {
+        if (sleepString != null) {
             try {
-                int t = Integer.parseInt(command);
+                int t = Integer.parseInt(sleepString);
                 if (t > -1) {
                     sleepTime = t;
                 }
