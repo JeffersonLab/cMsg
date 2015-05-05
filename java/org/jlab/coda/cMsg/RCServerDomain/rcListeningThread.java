@@ -492,7 +492,7 @@ System.out.println("rcListeningThread: tcp size = " + size + ", msgId = " + msgI
                                     udpChannel.receive(udpBuffer);
                                 }
                                 catch (IOException e) {
-//System.out.println("  IO error reading packet");
+System.out.println("rcListeningThread: IO error reading udp packet");
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -500,7 +500,7 @@ System.out.println("rcListeningThread: tcp size = " + size + ", msgId = " + msgI
 
                                 udpBuffer.flip();
                                 if (udpBuffer.limit() < 20) {
-//System.out.println("rcListeningThread: udp packet is too small, " + udpBuffer.limit());
+System.out.println("rcListeningThread: udp packet is too small, " + udpBuffer.limit());
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -509,9 +509,9 @@ System.out.println("rcListeningThread: tcp size = " + size + ", msgId = " + msgI
                                 if (udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[0] ||
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[1] ||
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[2]) {
-                                    if (debug >= cMsgConstants.debugWarn) {
-                                        System.out.println(" received bogus udp packet");
-                                    }
+                                    //if (debug >= cMsgConstants.debugWarn) {
+System.out.println("rcListeningThread: received bogus udp packet (bad magic ints)");
+                                    //}
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -527,7 +527,8 @@ System.out.println("rcListeningThread: udp size = " + size + ", msgId = " + msgI
                                 if (4 + size > udpBuffer.capacity()) {
                                     key.cancel();
                                     it.remove();
-System.out.println("rcListeningThread: packet is too big, ignore it");
+System.out.println("rcListeningThread: packet bigger than receiving buffer (" +
+                           udpBuffer.capacity() + "), ignore it");
                                     continue;
                                 }
 
@@ -557,9 +558,9 @@ System.out.println("rcListeningThread: packet is too big, ignore it");
                                         break;
 
                                     default:
-                                        if (debug >= cMsgConstants.debugWarn) {
-                                            System.out.println("rcListeningThread: can't understand rc client message = " + msgId);
-                                        }
+                                        //if (debug >= cMsgConstants.debugWarn) {
+System.out.println("rcListeningThread: bad client msg cmd, " + msgId);
+                                        //}
                                         break;
                                 }
 
@@ -594,7 +595,7 @@ System.out.println("rcListeningThread: packet is too big, ignore it");
         }
 
 //        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("Quitting TCP/UDP Listening Thread");
+            System.out.println("rcListeningThread: quit TCP/UDP listening thread");
 //        }
 
         return;
@@ -705,6 +706,7 @@ System.out.println("rcListeningThread: packet is too big, ignore it");
      * @param msg incoming message
      */
     private void runCallbacks(cMsgMessageFull msg) {
+        boolean delivered = false;
 
         if (server.subscribeAndGets.size() > 0) {
             // for each subscribeAndGet called by this server ...
@@ -720,6 +722,7 @@ System.out.println("rcListeningThread: packet is too big, ignore it");
                     synchronized (sub) {
                         sub.notify();
                     }
+                    delivered = true;
                 }
                 i.remove();
             }
@@ -748,10 +751,14 @@ System.out.println("rcListeningThread: packet is too big, ignore it");
                             // The callback thread copies the message given
                             // to it before it runs the callback method on it.
                             cbThread.sendMessage(msg);
+                            delivered = true;
                         }
                     }
                 }
             }
+        }
+        if (!delivered) {
+            System.out.println("runCallbacks: no callbacks to deliver msg to");
         }
     }
 
@@ -766,6 +773,7 @@ System.out.println("rcListeningThread: packet is too big, ignore it");
 
         cMsgGetHelper helper = server.sendAndGets.remove(msg.getSenderToken());
         if (helper == null) {
+System.out.println("wakeGets: originating sendAndGet not in table, discard response");
             return;
         }
         helper.setTimedOut(false);
