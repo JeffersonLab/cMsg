@@ -433,7 +433,9 @@ System.out.println("rcListeningThread: established TCP connection from client");
                                         tcpBuffer.flip();
                                         size  = tcpBuffer.getInt();
                                         msgId = tcpBuffer.getInt();
-//System.out.println("  read size = " + size + ", msgId = " + msgId);
+                                        if (size > 1500) {
+System.out.println("rcListeningThread: tcp size = " + size + ", msgId = " + msgId);
+                                        }
                                         if (size-4 > tcpBuffer.capacity()) {
 //System.out.println("  create new, large direct bytebuffer from " + clientData.buffer.capacity() + " to " + clientData.size);
                                             tcpBuffer = ByteBuffer.allocateDirect(size-4);
@@ -498,7 +500,7 @@ System.out.println("rcListeningThread: established TCP connection from client");
 
                                 udpBuffer.flip();
                                 if (udpBuffer.limit() < 20) {
-//System.out.println("  packet is too small, limit = " + udpBuffer.limit());
+//System.out.println("rcListeningThread: udp packet is too small, " + udpBuffer.limit());
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -518,11 +520,14 @@ System.out.println("rcListeningThread: established TCP connection from client");
                                 // Find size & msgId of data to come.
                                 size  = udpBuffer.getInt();
                                 msgId = udpBuffer.getInt();
+                                if (size > 1500) {
+System.out.println("rcListeningThread: udp size = " + size + ", msgId = " + msgId);
+                                }
 //System.out.println("  UDP read size = " + size + ", msgId = " + msgId);
                                 if (4 + size > udpBuffer.capacity()) {
                                     key.cancel();
                                     it.remove();
-//System.out.println("  packet is too big, ignore it");
+System.out.println("rcListeningThread: packet is too big, ignore it");
                                     continue;
                                 }
 
