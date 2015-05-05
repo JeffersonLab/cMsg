@@ -465,7 +465,8 @@ System.out.println("RC connect: SUCCESSFUL");
      * of a particular AFECS (runcontrol) platform.
      *
      * @param  command time in milliseconds to wait for a response to multicasts (1000 default)
-     * @return response message containing the host running the rc multicast server contacted
+     * @return response message containing the host running the rc multicast server contacted;
+     *         null if no response is found
      * @throws cMsgException
      */
     public cMsgMessage monitor(String command) throws cMsgException {
@@ -549,10 +550,10 @@ System.out.println("RC connect: SUCCESSFUL");
                             index += hostLen;
                         }
 
-                        if (cMsgUtilities.isHostLocal(host)) {
-                            System.out.println("monitor: probe response from same host, ignoring");
-                            continue;
-                        }
+//                        if (cMsgUtilities.isHostLocal(host)) {
+//                            System.out.println("monitor: probe response from same host, ignoring");
+//                            continue;
+//                        }
 
                         // get expid
                         String serverExpid;
