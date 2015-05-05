@@ -242,12 +242,10 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
 
             // If starting rc server port # is running into starting rc client port #'s,
             // it means that there are more clients than the difference between to 2
-            // starting port #s. So try hopping 3x the difference to a group of (hopefully)
+            // starting port #s. So try hopping 1500 to a group of (hopefully)
             // unused ports.
-            int diff = cMsgNetworkConstants.rcClientPort - cMsgNetworkConstants.rcServerPort;
-            if ((diff > 0) && (startingTcpPort.get() == cMsgNetworkConstants.rcClientPort)) {
-                if (diff < 500) diff = 500;
-                startingTcpPort.set(cMsgNetworkConstants.rcClientPort + 3*diff);
+            if (startingTcpPort.get() == cMsgNetworkConstants.rcClientPort) {
+                startingTcpPort.set(cMsgNetworkConstants.rcClientPort + 1500);
             }
 
             tcpPort = startingTcpPort.get();
@@ -575,12 +573,12 @@ System.out.println("rcListeningThread: established TCP connection from client");
             }
         }
         catch (IOException ex) {
-            if (debug >= cMsgConstants.debugError) {
+//            if (debug >= cMsgConstants.debugError) {
                 System.out.println("rcListenThread: I/O ERROR in rc server");
                 System.out.println("rcListenThread: close TCP server socket, port = " +
                         myChannel.socket().getLocalPort());
                 ex.printStackTrace();
-            }
+//            }
         }
         finally {
             try {if (in != null) in.close();}               catch (IOException ex) {}
@@ -590,9 +588,9 @@ System.out.println("rcListeningThread: established TCP connection from client");
             try {selector.close();}      catch (IOException ex) {}
         }
 
-        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("Quitting TCP Listening Thread");
-        }
+//        if (debug >= cMsgConstants.debugInfo) {
+            System.out.println("Quitting TCP/UDP Listening Thread");
+//        }
 
         return;
     }
