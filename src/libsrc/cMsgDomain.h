@@ -215,7 +215,7 @@ typedef struct cMsgDomainInfo_t {
   int hasShutdown;        /**< Does this subdomain implement a shutdowm function? (1-y, 0-n) */
 
   char *myHost;       /**< This hostname. */
-  char *sendHost;     /**< Host to send messages to. */
+  char *sendHost;     /**< Host to send messages to. In rc, rc server ip used for connect. */
   char *serverHost;   /**< Host cMsg name server lives on. */
 
   char *name;         /**< Name of this user. */

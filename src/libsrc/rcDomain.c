@@ -782,6 +782,7 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
             if ((err = cMsgNetTcpConnectTimeout(rcServerHost, (unsigned short) domain->sendPort,
                  CMSG_BIGSOCKBUFSIZE, 0, 1, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
                 gotValidRcServerHost = 1;
+                domain->sendHost = strdup(rcServerHost);
                 printf("rc connect: SUCCESS connecting to %s\n", rcServerHost);
                 break;
             }
@@ -2254,10 +2255,40 @@ int cmsg_rc_subscriptionMessagesTotal(void *domainId, void *handle, int *total) 
 
 
 /**
- * The monitor function is not implemented in the rc domain.
+ * The monitor function returns the ip address of the rc server in the
+ * "receiverHost" field in the replyMsg message.
+ *
+ * @param domainId id of the domain connection
+ * @param command  command string which is ignored in this domain
+ * @param replyMsg messsage for caller to supply. "receiverHost" field
+ *                 is filled in with rc server IP address.
+ *
+ * @returns CMSG_OK    if successful
+ * @returns CMSG_BAD_ARGUMENT if either the id or replyMsg arg is NULL
+ * @returns CMSG_ERROR if rc server IP address is not available
  */   
 int cmsg_rc_monitor(void *domainId, const char *command, void **replyMsg) {
-  return(CMSG_NOT_IMPLEMENTED);
+    cMsgMessage_t *msg;
+    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+    
+    /* check args */
+    if (domain == NULL || replyMsg == NULL) {
+        return(CMSG_BAD_ARGUMENT);
+    }
+        
+    msg = (cMsgMessage_t *)(*replyMsg);
+    
+    if (domain->sendHost == NULL) {
+        return CMSG_ERROR;
+    }
+    
+    /* Free existing allocated memory. */
+    if (msg->receiverHost != NULL) {
+        free(msg->receiverHost);
+    }
+    
+    msg->receiverHost = strdup(domain->sendHost);
+    return CMSG_OK;
 }
 
 
