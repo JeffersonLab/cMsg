@@ -288,15 +288,15 @@ class rcListeningThread extends Thread {
                 // Probes from cMsgServerFinder have port = 1.
                 // Probes from rcClient.monitor() have port = 0.
                 // Reject monitor if from same host and port.
-                if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe &&
-                        cMsgUtilities.isHostLocal(multicasterHost) &&
-                        multicasterTcpPort == 0) {
-                    if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("RC multicast listener: reject monitor probe from same host(" +
-                        multicasterHost + ") to port(" + server.udpPort + ")");
-                    }
-                    continue;
-                }
+//                if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe &&
+//                        cMsgUtilities.isHostLocal(multicasterHost) &&
+//                        multicasterTcpPort == 0) {
+//                    if (debug >= cMsgConstants.debugInfo) {
+//                        System.out.println("RC multicast listener: reject monitor probe from same host(" +
+//                        multicasterHost + ") to port(" + server.udpPort + ")");
+//                    }
+//                    continue;
+//                }
 
 //                System.out.println("RC multicast server: accepting Clients = " + server.acceptingClients);
 //                System.out.println("                   : local host = " + InetAddress.getLocalHost().getCanonicalHostName());
