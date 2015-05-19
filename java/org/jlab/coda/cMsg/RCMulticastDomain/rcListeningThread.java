@@ -108,11 +108,11 @@ class rcListeningThread extends Thread {
             // Be sure to join the multicast address group of all network interfaces
             // (something not mentioned in any javadocs or books!).
             Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
-//System.out.println("Join multicast address group of these interfaces:");
+System.out.println("Join multicast address group of these interfaces:");
             while (enumer.hasMoreElements()) {
                 NetworkInterface ni = enumer.nextElement();
                 if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
-//printNI(ni);
+printNI(ni);
                     multicastSocket.joinGroup(sa, ni);
                 }
             }
