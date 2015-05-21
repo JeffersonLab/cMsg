@@ -1565,8 +1565,13 @@ System.out.println("RC connect: SUCCESSFUL");
 //                   ", has multicast = " + ni.supportsMulticast());
                             if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
 System.out.println("RC client: sending mcast packet over " + ni.getName());
-                                multicastUdpSocket.setNetworkInterface(ni);
-                                multicastUdpSocket.send(packet);
+                                try {
+                                    multicastUdpSocket.setNetworkInterface(ni);
+                                    multicastUdpSocket.send(packet);
+                                }
+                                catch (IOException e) {
+                                    System.out.println("Error sending packet over " + ni.getName());
+                                }
                                 Thread.sleep(500);
                                 sleepCount++;
                             }
