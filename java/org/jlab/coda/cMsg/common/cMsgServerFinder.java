@@ -48,9 +48,6 @@ public class cMsgServerFinder {
     /** Optional password included in UDL for connection to server requiring one. */
     private String password = "";
 
-    /** Expid value for rc multicast domain. */
-    private String expid;
-
     /** Set of all cMsg domain responders' hosts and ports in a "host:tcpPort:udpPort" string format. */
     private HashSet<String> cMsgResponders;
 
@@ -900,7 +897,7 @@ public class cMsgServerFinder {
                         id.append(host);
                         id.append(":");
                         id.append(port);
-                        rcResponders.put(id.toString(), expid);
+                        rcResponders.put(id.toString(), serverExpid);
                     }
 
                 }
