@@ -219,7 +219,7 @@ System.out.println("rcListening thd: connection to rc client already established
 
                         if (debug >= cMsgConstants.debugInfo) {
                              System.out.println("rcClientListeningThread: new connection");
-                         }
+                        }
                    }
                     // remove key from selected set since it's been handled
                     it.remove();
@@ -410,7 +410,7 @@ System.out.println("Got PING message!!!");
                 try {in.close();}      catch (IOException e1) {}
                 try {out.close();}     catch (IOException e1) {}
                 try {channel.close();} catch (IOException e1) {}                
-                connected = true;
+                connected = false;
             }
 
             return;
