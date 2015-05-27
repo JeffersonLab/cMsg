@@ -668,8 +668,7 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
             notConnectLock.unlock();
         }
 
-        //return val;
-        return val == -1 ? 1 : 0;
+        return val;
     }
 
 
