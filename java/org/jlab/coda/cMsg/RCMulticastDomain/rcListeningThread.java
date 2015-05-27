@@ -319,7 +319,7 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                 // this packet comes from this very server.
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastServer &&
                     multicasterUdpPort == server.localTempPort) {
-//System.out.println("RC multicast server : ignore own start-up udp messages");
+//System.out.println("RC multicast listener : ignore own start-up udp messages");
                     continue;
                 }
 
@@ -382,7 +382,7 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                     // RCMulticast server is on the same port with the same EXPID. Don't
                     // send this on as a message to subscriptions.
                     if (debug >= cMsgConstants.debugInfo) {
-                        System.out.println("Another RCMulticast server probing this one");
+                        System.out.println("RC multicast listener: another RC multicast server probing this one");
                     }
 
                     // if this server was properly started, tell the one probing us to kill itself
