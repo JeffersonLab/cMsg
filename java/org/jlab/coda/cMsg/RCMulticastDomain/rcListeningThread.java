@@ -138,8 +138,6 @@ class rcListeningThread extends Thread {
     /** This method is executed as a thread. */
     public void run() {
 
-        int counter = 0;
-
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("Running RC Multicast Listening Thread");
         }
@@ -206,7 +204,7 @@ class rcListeningThread extends Thread {
 
                 if (packet.getLength() < 4*4) {
                     if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("got multicast packet that's too small");
+                        System.out.println("RC multicast listener: got multicast packet that's too small");
                     }
                     continue;
                 }
@@ -218,7 +216,7 @@ class rcListeningThread extends Thread {
                     magic2 != cMsgNetworkConstants.magicNumbers[1] ||
                     magic3 != cMsgNetworkConstants.magicNumbers[2])  {
                     if (debug >= cMsgConstants.debugWarn) {
-                        System.out.println("got multicast packet with bad magic #s");
+                        System.out.println("RC multicast listener: got multicast packet with bad magic #s");
                     }
                     continue;
                 }
@@ -236,10 +234,11 @@ class rcListeningThread extends Thread {
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
-//System.out.println("RC multicast server : I was told to kill myself by another multicast server - killing listening thread");
-                        server.respondingHost = multicasterHost;
-                        server.multicastResponse.countDown();
-                        return;
+System.out.println("RC multicast listener: told to kill myself by another multicast server, ignore for now");
+//                        server.respondingHost = multicasterHost;
+//                        server.multicastResponse.countDown();
+//                        return;
+                        continue;
                     // Packet from client just trying to locate rc multicast servers.
                     // Send back a normal response but don't do anything else.
                     case cMsgNetworkConstants.rcDomainMulticastProbe:
@@ -367,8 +366,6 @@ class rcListeningThread extends Thread {
                     // Read in sender id number (pid or time)
                     senderId = cMsgUtilities.bytesToInt(buf, pos);
 //System.out.println("RC multicast listener: got client id #" + senderId);
-                    // Use following line only for debugging
-                    //if (counter++ < 20) continue;
 
                     // We must have an active subscription waiting on
                     // this end to process the client's request.
