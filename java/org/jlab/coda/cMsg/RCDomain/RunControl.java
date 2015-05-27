@@ -449,30 +449,6 @@ public class RunControl extends cMsgDomainAdapter {
             boolean gotTcpConnection = false;
             IOException ioex = null;
 
-            // First try to connect to IP address associated with host name sent by rc server
-            if (false) {
-                //if (rcServerAddress != null) {
-                try {
-//System.out.println("RC connect: Try making tcp connection to RC server (msg senderHost = " + rcServerAddress.getHostName() + ", " +
-//                    rcServerAddress.getHostAddress() + "; port = " + rcTcpServerPort + ")");
-
-                    tcpSocket = new Socket();
-                    // Don't waste time if a connection cannot be made, timeout = 0.2 seconds
-                    tcpSocket.connect(new InetSocketAddress(rcServerAddress,rcTcpServerPort), 200);
-                    tcpSocket.setTcpNoDelay(true);
-                    tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
-                    domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
-                                                                              cMsgNetworkConstants.bigBufferSize));
-//System.out.println("RC connect: Made tcp connection to RC server");
-                    gotTcpConnection = true;
-                }
-                catch (IOException e) {
-//System.out.println("RC connect: connection failed");
-                    ioex = e;
-                }
-            }
-
-
             if (!gotTcpConnection && rcServerAddresses.size() > 0) {
                 for (InetAddress rcServerAddr : rcServerAddresses) {
                     try {
@@ -676,26 +652,12 @@ System.out.println("RC connect: SUCCESSFUL");
             parseUDL(UDLremainder);
         }
 
-        // Parse argument. It's of the form:
-        // <time>:<cmd> with time being the time in milliseconds to sleep
-        // and cmd specifying whether we're looking for servers on other hosts,
-        // or looking for all servers - even local.
-        String cmdString = null;
-        String sleepString = null;
-        if (command != null) {
-            String[] ss = command.split(":");
-            sleepString = ss[0];
-            if (ss.length > 1) {
-                cmdString = ss[1];
-            }
-        }
-
         // Time in milliseconds waiting for a response to the multicasts.
         // 1 second default.
         int sleepTime = 1000;
-        if (sleepString != null) {
+        if (command != null) {
             try {
-                int t = Integer.parseInt(sleepString);
+                int t = Integer.parseInt(command);
                 if (t > -1) {
                     sleepTime = t;
                 }
