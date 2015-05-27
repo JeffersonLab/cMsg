@@ -112,8 +112,13 @@ class rcListeningThread extends Thread {
             while (enumer.hasMoreElements()) {
                 NetworkInterface ni = enumer.nextElement();
                 if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
+                    try {
+                        multicastSocket.joinGroup(sa, ni);
 //printNI(ni);
-                    multicastSocket.joinGroup(sa, ni);
+                    }
+                    catch (IOException e) {
+                        System.out.println("Error joining multicast group over " + ni.getName());
+                    }
                 }
             }
             multicastSocket.setReceiveBufferSize(65535);
