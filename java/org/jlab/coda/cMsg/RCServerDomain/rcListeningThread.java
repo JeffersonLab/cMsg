@@ -64,7 +64,7 @@ class rcListeningThread extends Thread {
     /** Channel to receive UDP sends from the clients. */
     private DatagramChannel udpChannel;
 
-    /** rRC client channel */
+    /** RC client channel */
     private SocketChannel myChannel;
 
     /** Socket input stream associated with RC client channel */
@@ -78,7 +78,6 @@ class rcListeningThread extends Thread {
 
     /** Let connect() know that the client has established a connection to this server. */
     final CountDownLatch startLatch = new CountDownLatch(1);
-
 
     /** Exit handler for listening thread. */
     private Thread.UncaughtExceptionHandler exitHandler;
@@ -509,9 +508,7 @@ System.out.println("rcListeningThread: udp packet is too small, " + udpBuffer.li
                                 if (udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[0] ||
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[1] ||
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[2]) {
-                                    //if (debug >= cMsgConstants.debugWarn) {
 System.out.println("rcListeningThread: received bogus udp packet (bad magic ints)");
-                                    //}
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -523,7 +520,6 @@ System.out.println("rcListeningThread: received bogus udp packet (bad magic ints
                                 if (size > 1500) {
 System.out.println("rcListeningThread: udp size = " + size + ", msgId = " + msgId);
                                 }
-//System.out.println("  UDP read size = " + size + ", msgId = " + msgId);
                                 if (4 + size > udpBuffer.capacity()) {
                                     key.cancel();
                                     it.remove();
@@ -558,9 +554,7 @@ System.out.println("rcListeningThread: packet bigger than receiving buffer (" +
                                         break;
 
                                     default:
-                                        //if (debug >= cMsgConstants.debugWarn) {
 System.out.println("rcListeningThread: bad client msg cmd, " + msgId);
-                                        //}
                                         break;
                                 }
 
@@ -594,9 +588,9 @@ System.out.println("rcListeningThread: bad client msg cmd, " + msgId);
             try {selector.close();}      catch (IOException ex) {}
         }
 
-//        if (debug >= cMsgConstants.debugInfo) {
+        if (debug >= cMsgConstants.debugInfo) {
             System.out.println("rcListeningThread: quit TCP/UDP listening thread");
-//        }
+        }
 
         return;
     }
