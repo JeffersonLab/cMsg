@@ -364,7 +364,7 @@ public class RCServer extends cMsgDomainAdapter {
                 if (failed) {
                     throw new cMsgException("Failed to create socket to rc client");
                 }
-System.out.println("RC server: connected to RC client!");
+System.out.println("RC server: created socket to RC client");
 
                 // Start listening for tcp connections if not already
                 if (listenerThread == null) {
@@ -411,15 +411,11 @@ localUdpPort);
                 // Wait until the client establishes a TCP connection back to this
                 // object's TCP listening thread.
                 try {
-                    // If time elapsed before client responds ...
-//System.out.println("rc server connect: wait for client TCP return connection");
+System.out.println("RC server connect: wait for client TCP return connection");
                     listenerThread.startLatch.await();
-//                    if (!listenerThread.startLatch.await(30L, TimeUnit.SECONDS)) {
-//                        throw new cMsgException("rc client taking longer than 30 sec to connect back");
-//                    }
                 }
                 catch (InterruptedException e) {}
-//System.out.println("rc server connect: complete");
+System.out.println("RC server connect: complete");
 
                 connected = true;
             }
@@ -636,7 +632,7 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
      * @throws cMsgException if there is a timeout
      */
     synchronized public int syncSend(cMsgMessage message, int timeout)
-            throws cMsgException{
+            throws cMsgException {
 
         int origTimeout=0, val=0;
 
@@ -1026,6 +1022,7 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
             deliverMessage(fullMsg, cMsgConstants.msgSubscribeResponse);
         }
         catch (IOException e) {
+System.out.println("IOException in send&Get, msg = " + e.getMessage());
             throw new cMsgException(e.getMessage(),e);
         }
         // release lock 'cause we can't block connect/disconnect forever
