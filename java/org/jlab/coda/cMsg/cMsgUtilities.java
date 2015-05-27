@@ -177,7 +177,7 @@ public class cMsgUtilities {
                             // probably IPv6 so ignore
                             continue;
                         }
-
+                        if (bAddr == null) continue;
                         set.add(bAddr.getHostAddress());
                     }
                 }
