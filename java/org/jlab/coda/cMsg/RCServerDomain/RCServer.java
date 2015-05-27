@@ -47,9 +47,6 @@ public class RCServer extends cMsgDomainAdapter {
     /** Runcontrol client's host obtained from UDL. */
     private String rcClientHost;
 
-    /** Runcontrol client's name returned from the connect message. */
-    private String rcClientName;
-
     /** UDP port on which to receive messages from the rc client. */
     int localUdpPort;
 
@@ -427,7 +424,6 @@ System.out.println("RC server connect: complete");
                 //if (udpListener != null) udpListener.killThread();
                 throw new cMsgException("cannot connect, IO error", e);
             }
-
         }
         finally {
             connectLock.unlock();
@@ -670,7 +666,6 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
 
         return val;
     }
-
 
 
     /**
@@ -1027,7 +1022,7 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
             deliverMessage(fullMsg, cMsgConstants.msgSubscribeResponse);
         }
         catch (IOException e) {
-            System.out.println("IOException in send&Get, msg = " + e.getMessage());
+System.out.println("IOException in send&Get, msg = " + e.getMessage());
             throw new cMsgException(e.getMessage(),e);
         }
         // release lock 'cause we can't block connect/disconnect forever
