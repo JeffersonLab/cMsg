@@ -388,15 +388,6 @@ System.out.println("Got PING message!!!");
                                 client.connectCompletion.countDown();
                             }
 
-                            // Send back a response - the name of this client
-//System.out.println("write back response to rc server");
-                            out.writeInt(client.getName().length());
-                            try {
-                                out.write(client.getName().getBytes("US-ASCII"));
-                            }
-                            catch (UnsupportedEncodingException e) { }
-                            out.flush();
-
                             break;
 
                         default:
