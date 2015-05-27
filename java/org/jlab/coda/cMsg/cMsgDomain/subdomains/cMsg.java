@@ -415,7 +415,7 @@ public class cMsg extends cMsgSubdomainAdapter {
                     // There already is a client by this name.
                     // Check to see if the namespace is the same as well.
                     if (namespace.equals(ci.getNamespace())) {
-                        cMsgException e = new cMsgException("client already exists");
+                        cMsgException e = new cMsgException("client " + info.getName() + " already exists");
                         e.setReturnCode(cMsgConstants.errorAlreadyExists);
                         throw e;
                     }
