@@ -64,6 +64,12 @@ class rcListeningThread extends Thread {
     /** Channel to receive UDP sends from the clients. */
     private DatagramChannel udpChannel;
 
+    /** RC client channel */
+    private SocketChannel myChannel;
+
+    /** Socket input stream associated with RC client channel */
+    private DataInputStream in;
+
     /** Level of debug output for this class. */
     private int debug;
 
@@ -72,6 +78,41 @@ class rcListeningThread extends Thread {
 
     /** Let connect() know that the client has established a connection to this server. */
     final CountDownLatch startLatch = new CountDownLatch(1);
+
+    /** Exit handler for listening thread. */
+    private Thread.UncaughtExceptionHandler exitHandler;
+
+
+    /** Define exit handler for listening thread. */
+    private class MyExitHandler implements Thread.UncaughtExceptionHandler {
+        /**
+         * Method invoked when the given thread terminates due to the
+         * given uncaught exception.
+         * <p>Any exception thrown by this method will be ignored by the
+         * Java Virtual Machine.
+         * @param t the thread
+         * @param e the exception
+         */
+        public void uncaughtException(Thread t, Throwable e) {
+            // Close all streams & sockets before exiting thread
+System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to close sockets");
+            try {
+                if (rcListeningThread.this.in != null) rcListeningThread.this.in.close();
+            } catch (Exception ex) {}
+
+            try {
+                if (rcListeningThread.this.myChannel != null) rcListeningThread.this.myChannel.close();
+            } catch (Exception ex) {}
+
+            try {
+                if (rcListeningThread.this.udpChannel != null) rcListeningThread.this.udpChannel.close();
+            } catch (Exception ex) {}
+
+            try {
+                rcListeningThread.this.serverChannel.close();
+            } catch (Exception ex) {}
+        }
+    }
 
 
 
@@ -115,8 +156,12 @@ class rcListeningThread extends Thread {
         createTCPServerChannel();
         createUDPServerChannel();
 
-        // die if no more non-daemon thds running
+        // Die if no more non-daemon threads running
         setDaemon(true);
+
+        // Create exit handler for listening thread
+        exitHandler = new MyExitHandler();
+        setUncaughtExceptionHandler(exitHandler);
     }
 
 
@@ -196,12 +241,10 @@ class rcListeningThread extends Thread {
 
             // If starting rc server port # is running into starting rc client port #'s,
             // it means that there are more clients than the difference between to 2
-            // starting port #s. So try hopping 3x the difference to a group of (hopefully)
+            // starting port #s. So try hopping 1500 to a group of (hopefully)
             // unused ports.
-            int diff = cMsgNetworkConstants.rcClientPort - cMsgNetworkConstants.rcServerPort;
-            if ((diff > 0) && (startingTcpPort.get() == cMsgNetworkConstants.rcClientPort)) {
-                if (diff < 500) diff = 500;
-                startingTcpPort.set(cMsgNetworkConstants.rcClientPort + 3*diff);
+            if (startingTcpPort.get() == cMsgNetworkConstants.rcClientPort) {
+                startingTcpPort.set(cMsgNetworkConstants.rcClientPort + 1500);
             }
 
             tcpPort = startingTcpPort.get();
@@ -260,12 +303,6 @@ class rcListeningThread extends Thread {
 
         // Direct byte Buffer for UDP IO use
         ByteBuffer udpBuffer = ByteBuffer.allocateDirect(cMsgNetworkConstants.biggestUdpBufferSize);
-
-        // rc client channel
-        SocketChannel myChannel = null;
-
-        // Socket input stream associated with channel
-        DataInputStream in = null;
 
         String channelType;
         cMsgMessageFull msg;
@@ -395,7 +432,9 @@ System.out.println("rcListeningThread: established TCP connection from client");
                                         tcpBuffer.flip();
                                         size  = tcpBuffer.getInt();
                                         msgId = tcpBuffer.getInt();
-//System.out.println("  read size = " + size + ", msgId = " + msgId);
+                                        if (size > 1500) {
+System.out.println("rcListeningThread: tcp size = " + size + ", msgId = " + msgId);
+                                        }
                                         if (size-4 > tcpBuffer.capacity()) {
 //System.out.println("  create new, large direct bytebuffer from " + clientData.buffer.capacity() + " to " + clientData.size);
                                             tcpBuffer = ByteBuffer.allocateDirect(size-4);
@@ -452,7 +491,7 @@ System.out.println("rcListeningThread: established TCP connection from client");
                                     udpChannel.receive(udpBuffer);
                                 }
                                 catch (IOException e) {
-//System.out.println("  IO error reading packet");
+System.out.println("rcListeningThread: IO error reading udp packet");
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -460,7 +499,7 @@ System.out.println("rcListeningThread: established TCP connection from client");
 
                                 udpBuffer.flip();
                                 if (udpBuffer.limit() < 20) {
-//System.out.println("  packet is too small, limit = " + udpBuffer.limit());
+System.out.println("rcListeningThread: udp packet is too small, " + udpBuffer.limit());
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -469,9 +508,7 @@ System.out.println("rcListeningThread: established TCP connection from client");
                                 if (udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[0] ||
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[1] ||
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[2]) {
-                                    if (debug >= cMsgConstants.debugWarn) {
-                                        System.out.println(" received bogus udp packet");
-                                    }
+System.out.println("rcListeningThread: received bogus udp packet (bad magic ints)");
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -480,11 +517,14 @@ System.out.println("rcListeningThread: established TCP connection from client");
                                 // Find size & msgId of data to come.
                                 size  = udpBuffer.getInt();
                                 msgId = udpBuffer.getInt();
-//System.out.println("  UDP read size = " + size + ", msgId = " + msgId);
+                                if (size > 1500) {
+System.out.println("rcListeningThread: udp size = " + size + ", msgId = " + msgId);
+                                }
                                 if (4 + size > udpBuffer.capacity()) {
                                     key.cancel();
                                     it.remove();
-//System.out.println("  packet is too big, ignore it");
+System.out.println("rcListeningThread: packet bigger than receiving buffer (" +
+                           udpBuffer.capacity() + "), ignore it");
                                     continue;
                                 }
 
@@ -514,9 +554,7 @@ System.out.println("rcListeningThread: established TCP connection from client");
                                         break;
 
                                     default:
-                                        if (debug >= cMsgConstants.debugWarn) {
-                                            System.out.println("rcListeningThread: can't understand rc client message = " + msgId);
-                                        }
+System.out.println("rcListeningThread: bad client msg cmd, " + msgId);
                                         break;
                                 }
 
@@ -535,22 +573,23 @@ System.out.println("rcListeningThread: established TCP connection from client");
             }
         }
         catch (IOException ex) {
-            if (debug >= cMsgConstants.debugError) {
+//            if (debug >= cMsgConstants.debugError) {
                 System.out.println("rcListenThread: I/O ERROR in rc server");
                 System.out.println("rcListenThread: close TCP server socket, port = " +
                         myChannel.socket().getLocalPort());
                 ex.printStackTrace();
-            }
+//            }
         }
         finally {
             try {if (in != null) in.close();}               catch (IOException ex) {}
-            try {if (myChannel != null) myChannel.close();} catch (IOException ex) {}
+            try {if (myChannel  != null)  myChannel.close();} catch (IOException ex) {}
+            try {if (udpChannel != null) udpChannel.close();} catch (IOException ex) {}
             try {serverChannel.close();} catch (IOException ex) {}
             try {selector.close();}      catch (IOException ex) {}
         }
 
         if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("Quitting TCP Listening Thread");
+            System.out.println("rcListeningThread: quit TCP/UDP listening thread");
         }
 
         return;
@@ -661,6 +700,7 @@ System.out.println("rcListeningThread: established TCP connection from client");
      * @param msg incoming message
      */
     private void runCallbacks(cMsgMessageFull msg) {
+        boolean delivered = false;
 
         if (server.subscribeAndGets.size() > 0) {
             // for each subscribeAndGet called by this server ...
@@ -676,6 +716,7 @@ System.out.println("rcListeningThread: established TCP connection from client");
                     synchronized (sub) {
                         sub.notify();
                     }
+                    delivered = true;
                 }
                 i.remove();
             }
@@ -704,10 +745,14 @@ System.out.println("rcListeningThread: established TCP connection from client");
                             // The callback thread copies the message given
                             // to it before it runs the callback method on it.
                             cbThread.sendMessage(msg);
+                            delivered = true;
                         }
                     }
                 }
             }
+        }
+        if (!delivered) {
+            System.out.println("runCallbacks: no callbacks to deliver msg to");
         }
     }
 
@@ -722,6 +767,7 @@ System.out.println("rcListeningThread: established TCP connection from client");
 
         cMsgGetHelper helper = server.sendAndGets.remove(msg.getSenderToken());
         if (helper == null) {
+System.out.println("wakeGets: originating sendAndGet not in table, discard response");
             return;
         }
         helper.setTimedOut(false);
