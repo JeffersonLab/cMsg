@@ -21,7 +21,6 @@ import org.jlab.coda.cMsg.common.cMsgCallbackThread;
 import org.jlab.coda.cMsg.common.*;
 
 import java.io.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -183,7 +182,7 @@ public class RunControl extends cMsgDomainAdapter {
 
         try {
             if (connected) return;
-System.out.println("RC connect: connecting");
+//System.out.println("RC connect: connecting");
 
             // set the latches
             multicastResponse = new CountDownLatch(1);
@@ -243,7 +242,7 @@ System.out.println("RC connect: connecting");
                 }
             }
 
-System.out.println("RC connect: start listening thread on port " + port);
+//System.out.println("RC connect: start listening thread on port " + port);
             // launch thread and start listening on receive socket
             listeningThread = new rcListeningThread(this, serverChannel);
             listeningThread.start();
@@ -264,7 +263,7 @@ System.out.println("RC connect: start listening thread on port " + port);
                 }
             }
 
-System.out.println("RC connect: create multicast packet");
+//System.out.println("RC connect: create multicast packet");
             //--------------------------------------------------------------
             // multicast on local subnets to find RunControl Multicast server
             //--------------------------------------------------------------
@@ -293,13 +292,13 @@ System.out.println("RC connect: create multicast packet");
                 // List of our IP addresses (starting w/ canonical)
                 Collection<String> ipAddrs = cMsgUtilities.getAllIpAddresses();
                 out.writeInt(ipAddrs.size());
-System.out.println("RC connect to rcm server: ip list size = " + ipAddrs.size());
+//System.out.println("RC connect to rcm server: ip list size = " + ipAddrs.size());
                 for (String s : ipAddrs) {
                     try {
                         out.writeInt(s.length());
-System.out.println("RC connect to rcm server: ip size = " + s.length());
+//System.out.println("RC connect to rcm server: ip size = " + s.length());
                         out.write(s.getBytes("US-ASCII"));
-System.out.println("RC connect to rcm server: ip = " + s);
+//System.out.println("RC connect to rcm server: ip = " + s);
                     }
                     catch (UnsupportedEncodingException e) {/* never happen*/}
                 }
@@ -330,7 +329,7 @@ System.out.println("RC connect to rcm server: ip = " + s);
                 }
                 throw new cMsgException(e.getMessage(), e);
             }
-System.out.println("RC connect: start receiver & sender threads");
+//System.out.println("RC connect: start receiver & sender threads");
 
             // create a thread which will send our multicast
 System.out.println("RC connect: RC client " + name + ": will start multicast sender thread");
@@ -346,7 +345,7 @@ System.out.println("RC connect: RC client " + name + ": will start multicast sen
             boolean completed = false;
             if (connectTimeout > 0) {
                 try {
-System.out.println("RC connect: waiting for a response to final connection (with timeout)");
+//System.out.println("RC connect: waiting for a response to final connection (with timeout)");
                     if (connectCompletion.await(connectTimeout, TimeUnit.MILLISECONDS)) {
                         completed = true;
                     }
@@ -382,12 +381,6 @@ System.out.println("RC connect: waiting for a response to final connection (with
             // create a TCP connection to the RC Server
             boolean gotTcpConnection = false;
             IOException ioex = null;
-
-//            try {
-//System.out.println("RC connect: wait before making last connection to RC server");
-//                Thread.sleep(5000);
-//            }
-//            catch (InterruptedException e) {}
 
             if (rcServerAddresses.size() > 0) {
                 for (InetAddress rcServerAddr : rcServerAddresses) {
@@ -946,7 +939,7 @@ System.out.println("RC connect: SUCCESSFUL");
 
         // cannot run this simultaneously with connect, reconnect, or disconnect
         notConnectLock.lock();
-        // protect communicatons over socket
+        // protect communications over socket
         socketLock.lock();
         try {
             if (!connected) {
@@ -1196,7 +1189,7 @@ System.out.println("RC connect: SUCCESSFUL");
 
             int id;
 
-            // client listening thread may be interating thru subscriptions concurrently
+            // client listening thread may be iterating thru subscriptions concurrently
             // and we may change set structure
             synchronized (subscriptions) {
 
@@ -1226,7 +1219,7 @@ System.out.println("RC connect: SUCCESSFUL");
                 newSub = new cMsgSubscription(subject, type, id, cbThread);
                 unsubscriptions.put(cbThread, newSub);
 
-                // client listening thread may be interating thru subscriptions concurrently
+                // client listening thread may be iterating thru subscriptions concurrently
                 // and we're changing the set structure
                 subscriptions.add(newSub);
             }
@@ -1343,35 +1336,13 @@ System.out.println("RC connect: SUCCESSFUL");
 //                   ", has multicast = " + ni.supportsMulticast());
                             if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
 //System.out.println("RC client: sending mcast packet over " + ni.getName());
-                                multicastUdpSocket.setNetworkInterface(ni);
-                                multicastUdpSocket.send(packet);
-//
-//                                //-------------------------------------------------
-//                                // Increment packet number (last 4 bytes in array)
-//                                // for the next time the packet is sent out.
-//                                //-------------------------------------------------
-//                                // Get packet data
-//                                byte[] data = packet.getData();
-//
-//                                // Read existing packet #
-//                                int off = data.length - 4;
-//                                int num = (0xff & data[  off]) << 24 |
-//                                          (0xff & data[1+off]) << 16 |
-//                                          (0xff & data[2+off]) <<  8 |
-//                                          (0xff & data[3+off]);
-//                                // Add 1
-//                                num++;
-////System.out.println("RC client: set num = " + num);
-//
-//                                // Write it into packet data
-//                                data[off  ] = (byte)(num >> 24);
-//                                data[off+1] = (byte)(num >> 16);
-//                                data[off+2] = (byte)(num >>  8);
-//                                data[off+3] = (byte)(num      );
-//
-//                                // Update packet with new data
-//                                packet.setData(data);
-
+                                try {
+                                    multicastUdpSocket.setNetworkInterface(ni);
+                                    multicastUdpSocket.send(packet);
+                                }
+                                catch (IOException e) {
+                                    System.out.println("Error sending packet over " + ni.getName());
+                                }
                                 Thread.sleep(500);
                                 sleepCount++;
                             }
