@@ -744,25 +744,6 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
         }
         out.flush();
 
-        if (msgType == cMsgConstants.msgRcConnect) {
-            int lengthClientName = in.readInt();
-
-            // This a probably(?) a left-over from a syncSend which
-            // the client did not answer (with 1) within its timeout.
-            // Discard it and read the next value.
-            while (lengthClientName < 1) {
-System.out.println("RC Server: warning, deliverMessage() read \"" + lengthClientName + "\" as name len, read again");
-                lengthClientName = in.readInt();
-            }
-
-            // read all string bytes
-            byte[] bytes = new byte[lengthClientName];
-            in.readFully(bytes, 0, lengthClientName);
-
-            // read subject
-            rcClientName = new String(bytes, 0, lengthClientName, "US-ASCII");
-        }
-
         return;
     }
 
