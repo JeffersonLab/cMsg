@@ -409,7 +409,7 @@ System.out.println("Got PING message!!!");
                 handlerThreads.remove(this);
                 try {in.close();}      catch (IOException e1) {}
                 try {out.close();}     catch (IOException e1) {}
-                try {channel.close();} catch (IOException e1) {}                
+                try {channel.close();} catch (IOException e1) {}
                 connected = false;
             }
 
