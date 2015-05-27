@@ -16,7 +16,6 @@ import java.util.Date;
 import java.util.Set;
 import java.io.*;
 import java.net.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * This class implements a runcontrol client's thread which listens for
