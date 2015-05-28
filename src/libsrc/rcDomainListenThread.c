@@ -631,7 +631,7 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
       {
           void *msg;
           cMsgMessage_t *message;
-          int len, netLenName, lenName;
+          int len;
           char *pchar;
           char **ipAddrStrings;
           
@@ -801,39 +801,14 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             
             /* Allow socket communications to resume. */
             cMsgSocketMutexUnlock(domain);
-        }
+          }
           
-        /* re-enable pthread cancellation */
-        status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
-        if (status != 0) {
-          cmsg_err_abort(status, "Reenabling client cancelability");
-        }
-
-        /* Send back a response - the name of this client */
-        lenName    = strlen(domain->name);        /* length of client's name */
-        netLenName = htonl(lenName);              /* length of client's name in net byte order */
-        len        = sizeof(netLenName);          /* length of int */
-        returnBuf  = (char *)malloc(len+lenName); /* create buffer */
-        if (returnBuf == NULL) {
-          if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "clientThread %d: out of memory\n", localCount);
+          /* re-enable pthread cancellation */
+          status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
+          if (status != 0) {
+               cmsg_err_abort(status, "Reenabling client cancelability");
           }
-          goto end;
-        }
-        memcpy(returnBuf,     (void *)(&netLenName), len);     /* write name len into buffer */
-        memcpy(returnBuf+len, (void *)domain->name,  lenName); /* write name into buffer */
-        len += lenName;
-
-/*printf("rc clientThread %d: send return value to rc server\n");*/
-        if (cMsgNetTcpWrite(connfd, returnBuf, len) != len) {
-          if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-            fprintf(stderr, "clientThread %d: write failure\n", localCount);
-          }
-          free(returnBuf);
-          goto end;
-        }
-        free(returnBuf);
-     }
+      }
       break;
 
       default:
