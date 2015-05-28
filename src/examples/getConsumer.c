@@ -151,6 +151,10 @@ int main(int argc,char **argv) {
               goto end;
           }
           
+          else if (replyMsg == NULL) {
+              printf(" GOT A NULL MESSAGE: no subscribers to sub = %s, typ = %s\n", subject, type);
+          }
+          
           else {
               if (debug-1) {
                   char *subject, *type;

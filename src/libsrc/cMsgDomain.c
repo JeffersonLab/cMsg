@@ -3421,7 +3421,9 @@ static int unSubscribeAndGet(cMsgDomainInfo *domain, const char *subject,
  * can be thought of as a peer-to-peer exchange of messages.
  * One message is sent to all listeners. The first responder
  * to the initial message will have its single response message sent back
- * to the original sender. This routine is called by the user through
+ * to the original sender. If there are no subscribers to get the sent message,
+ * this routine returns CMSG_OK, but with a NULL message.
+ * This routine is called by the user through
  * cMsgSendAndGet() given the appropriate UDL. In this domain cMsgFlush()
  * does nothing and does not need to be called for the mesage to be
  * sent immediately.
@@ -3430,7 +3432,8 @@ static int unSubscribeAndGet(cMsgDomainInfo *domain, const char *subject,
  * @param sendMsg messages to send to all listeners
  * @param timeout amount of time to wait for the response message; if NULL,
  *                wait forever
- * @param replyMsg message received from the responder
+ * @param replyMsg message received from the responder; if null and return is CMSG_OK,
+                   then the local server has no subsriber for the sent message.
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if the id, sendMsg or replyMsg arguments or the
@@ -3750,14 +3753,24 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg,
   }
   /* If we did not timeout and everything's OK */
   else {
+    /*
+     * Return null (with CMSG_OK) if local server has no subscriber
+     * to send the sendAndGet-message to.
+     */
+    if ( (info->msg->info & CMSG_NULL_GET_SERVER_RESPONSE) > 0) {
+      if (replyMsg != NULL) *replyMsg = NULL;
+    }
+    else {
       /*
        * Don't need to make a copy of message as only 1 recipient.
        * Message was allocated in client's listening thread and user
        * must free it.
        */
-    if (replyMsg != NULL) *replyMsg = info->msg;
-    /* May not free this down below in cMsgGetInfoFree. */
-    info->msg = NULL;
+      if (replyMsg != NULL) *replyMsg = info->msg;
+      /* May not free this down below in cMsgGetInfoFree. */
+      info->msg = NULL;
+    }
+    
     err = CMSG_OK;
   }
   

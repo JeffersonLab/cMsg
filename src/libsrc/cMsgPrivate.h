@@ -107,6 +107,12 @@ extern "C" {
  * Stored in the 7th bit of info.
  */
 #define CMSG_EXPANDED_PAYLOAD 0x40
+/**
+ * Does local server have no subscriber to send from sendAndGet?
+ * Stored in 8rd bit of info.
+ * This is only for internal use.
+ */
+#define CMSG_NULL_GET_SERVER_RESPONSE 0x80
 
 /** Time format in XML. */
 #define CMSG_TIME_FORMAT "%a %b %d %H:%M:%S %Z %Y"
@@ -391,6 +397,7 @@ typedef struct cMsg_t {
                           * - has message been sent over the wire? 5th bit
                           * - message has compound payload? 6th bit
                           * - payload is expanded (from only text into structures)? 7th bit
+                          * - local server has no subscriber for send part of sendAndGet? 8th bit
                           */
   int     reserved;      /**< Reserved for future use. */
   int     bits;          /**< Stores info in bit form about internal state (true = 1).

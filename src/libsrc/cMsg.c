@@ -1799,12 +1799,13 @@ int cMsgSubscriptionMessagesTotal(void *domainId, void *handle, int *total) {
  * can be thought of as a peer-to-peer exchange of messages.
  * One message is sent to all listeners. The first responder
  * to the initial message will have its single response message sent back
- * to the original sender.
+ * to the original sender. In the cMsg domain, if there are no subscribers
+ * to get the sent message, this routine returns CMSG_OK, but with a NULL message.
  *
  * @param domainId domain connection id
  * @param sendMsg messages to send to all listeners
  * @param timeout amount of time to wait for the response message
- * @param replyMsg message received from the responder
+ * @param replyMsg message received from the responder; may be NULL
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if bad domainId or cMsgDisconnect() already called
