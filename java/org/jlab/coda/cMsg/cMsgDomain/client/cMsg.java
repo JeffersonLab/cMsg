@@ -2564,12 +2564,16 @@ System.out.println("disconnect: IO error");
             throw new cMsgException("server died", helper.getErrorCode());
         }
 
-        // If msg arrived (may be null), server has removed subscription from his records.
+        // If msg arrived, server has removed subscription from his records.
         // Client listening thread has also removed subscription from client's
         // records (subscribeAndGets HashSet).
+
+        // Return null (without an  exception) if local server has no subscriber
+        // to send the sendAndGet-message to.
         if (helper.getMessage().isNullGetServerResponse()) {
             return null;
         }
+
         return helper.getMessage();
     }
 
