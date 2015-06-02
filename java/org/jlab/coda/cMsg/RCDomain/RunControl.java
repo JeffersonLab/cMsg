@@ -212,7 +212,7 @@ public class RunControl extends cMsgDomainAdapter {
 
             // At this point, find a port to bind to. If that isn't possible, throw
             // an exception.
-            /** Server channel (contains socket). */
+            // Server channel (contains socket)
             ServerSocketChannel serverChannel;
             try {
                 serverChannel = ServerSocketChannel.open();
@@ -312,9 +312,6 @@ public class RunControl extends cMsgDomainAdapter {
                 if (specifiedLocalIp != null && specifiedLocalSubnet != null) {
                     ipAddrs        = new String[] {specifiedLocalIp};
                     broadcastAddrs = new String[] {specifiedLocalSubnet};
-
-//                    // Let rc server know it's this 1 address or nothing (fixedIp = true)
-//                    out.writeInt(1);
                 }
                 else {
                     // List of all IP data (no IPv6, no loopback, no down interfaces)
@@ -333,25 +330,22 @@ public class RunControl extends cMsgDomainAdapter {
                         broadcastAddrs[i] = bAddr.getHostAddress();
                         ipAddrs[i++] = ifAddr.getAddress().getHostAddress();
                     }
-
-//                    // Let rc server know it's any address that works
-//                    out.writeInt(0);
                 }
 
                 // Let folks know address pairs are coming
                 out.writeInt(addrCount);
 
-System.out.println("RC connect: ip list items = " + addrCount);
+//System.out.println("RC connect: ip list items = " + addrCount);
                 for (int j=0; j < addrCount; j++) {
                     try {
                         out.writeInt(ipAddrs[j].length());
-System.out.println("RC connect: ip size = " + ipAddrs[j].length());
+//System.out.println("RC connect: ip size = " + ipAddrs[j].length());
                         out.write(ipAddrs[j].getBytes("US-ASCII"));
-System.out.println("RC connect: ip = " + ipAddrs);
+//System.out.println("RC connect: ip = " + ipAddrs[j]);
                         out.writeInt(broadcastAddrs[j].length());
-System.out.println("RC connect: broad size = " + broadcastAddrs[j].length());
+//System.out.println("RC connect: broad size = " + broadcastAddrs[j].length());
                         out.write(broadcastAddrs[j].getBytes("US-ASCII"));
-System.out.println("RC connect: broad = " + broadcastAddrs);
+//System.out.println("RC connect: broad = " + broadcastAddrs[j]);
                     }
                     catch (UnsupportedEncodingException e) {/* never happen*/}
                 }
@@ -384,7 +378,7 @@ System.out.println("RC connect: broad = " + broadcastAddrs);
 //System.out.println("RC connect: start receiver & sender threads");
 
             // create a thread which will send our multicast
-System.out.println("RC connect: RC client " + name + ": will start multicast sender thread");
+//System.out.println("RC connect: RC client " + name + ": will start multicast sender thread");
             Multicaster sender = new Multicaster(udpPacket);
             sender.start();
 
