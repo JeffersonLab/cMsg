@@ -233,7 +233,7 @@ System.out.println("rcListening thd: connection to rc client already established
         }
         finally {
             try {serverChannel.close();} catch (IOException ex) {}
-            try {selector.close();} catch (IOException ex) {}
+            try {if (selector != null) selector.close();} catch (IOException ex) {}
             killClientHandlerThreads();
         }
 
