@@ -337,10 +337,6 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                 else if (msgType == cMsgNetworkConstants.rcDomainMulticastClient) {
                     // Read additional data now sent - list of all IP & broadcast addrs
 
-//                    // Is the one address to follow the only one rc server may connect with?
-//                    fixedIp = cMsgUtilities.bytesToInt(buf, pos);
-//                    pos += 4;
-
                     // # of address pairs to follow
                     int listLen = cMsgUtilities.bytesToInt(buf, pos);
                     pos += 4;
@@ -356,16 +352,16 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                     for (int i=0; i < listLen; i++) {
                         try {
                             stringLen = cMsgUtilities.bytesToInt(buf, pos); pos += 4;
-//System.out.println("     string len = " + listLen);
+//System.out.println("     ip len = " + listLen);
                             ss = new String(buf, pos, stringLen, "US-ASCII");
-//System.out.println("     string = " + ss);
+//System.out.println("     ip = " + ss);
                             ipList.add(ss);
                             pos += stringLen;
 
                             stringLen = cMsgUtilities.bytesToInt(buf, pos); pos += 4;
-//System.out.println("     string len = " + listLen);
+//System.out.println("     broad len = " + listLen);
                             ss = new String(buf, pos, stringLen, "US-ASCII");
-//System.out.println("     string = " + ss);
+//System.out.println("     broad = " + ss);
                             broadList.add(ss);
                             pos += stringLen;
                         }
