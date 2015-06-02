@@ -284,7 +284,7 @@ public class RCServer extends cMsgDomainAdapter {
 
         // Order both client and server IP lists so
         // that those on the same subnet come first.
-        String clientBroad, localBroad;
+        String localBroad;
         while (lit.hasNext()) {
             iAddr = lit.next();
             // Get the local broadcast address
@@ -292,9 +292,8 @@ public class RCServer extends cMsgDomainAdapter {
 
             // For each client broadcast address ...
             for (int i=0; i < clientIps.size(); i++) {
-                clientBroad = clientBroadcasts.get(i);
-                // Compare local and client addresses
-                if (localBroad.equals(clientBroad)) {
+                // Compare local and client broadcast addresses
+                if (localBroad.equals(clientBroadcasts.get(i))) {
                     // On same subnet, so add to head of lists
                     clientIpOrderedSet.add(0, clientIps.get(i));
                     serverIpOrderedSet.add(0, iAddr.getAddress().getHostAddress());
@@ -329,6 +328,11 @@ public class RCServer extends cMsgDomainAdapter {
             try {
                 // Iterate through client ip addresses
                 boolean failed = true;
+System.out.println("RC server: ordered RC client IP address list:");
+                for (String clientHost : clientIpOrderedSet) {
+System.out.println("     ip = " + clientHost +
+                   ", port = " + rcClientPort);
+                }
 
                 for (String clientHost : clientIpOrderedSet) {
                     try {
@@ -351,7 +355,7 @@ public class RCServer extends cMsgDomainAdapter {
                 if (failed) {
                     throw new cMsgException("Failed to create socket to rc client");
                 }
-System.out.println("RC server: created socket to RC client");
+//System.out.println("RC server: created socket to RC client");
 
                 // Start listening for tcp connections if not already
                 if (listenerThread == null) {
@@ -387,9 +391,9 @@ localUdpPort);
                 msg.setSenderHost(InetAddress.getByName(InetAddress.getLocalHost().
                                                         getCanonicalHostName()).getHostAddress());
 
-                // Send list of our IP addresses
-                String[] ips = new String[serverIpOrderedSet.size()];
-                serverIpOrderedSet.toArray(ips);
+//                // Send list of our IP addresses
+//                String[] ips = new String[serverIpOrderedSet.size()];
+//                serverIpOrderedSet.toArray(ips);
 
                 // Have client use the same IP addresses that the server just
                 // used to connect to the client
@@ -545,13 +549,13 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
             // fixedIP if it exists
             remainder = matcher.group(4);
 
-           //if (debug >= cMsgConstants.debugInfo) {
+           if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("\nparseUDL: " +
                                    "\n  host = " + udlHost +
                                    "\n  port = " + udlPort +
                                    "\n  broadcast = " + bcastAddr +
                                    "\n  remainder = " + remainder);
-           //}
+           }
         }
         else {
             throw new cMsgException("invalid UDL");
