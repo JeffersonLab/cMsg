@@ -163,7 +163,7 @@ public class cMsgFindServers {
             else if (args[i].equalsIgnoreCase("-rc")) {
                 parsePortList(args[i + 1], "rc", rcPorts);
                 if (rcPorts.size() > 0) {
-                    finder.addRcPort(rcPorts);
+                    finder.addRcPorts(rcPorts);
                 }
                 i++;
             }
@@ -185,7 +185,7 @@ public class cMsgFindServers {
             else if (args[i].equalsIgnoreCase("-cmsg")) {
                 parsePortList(args[i+1], "cmsg", cmsgPorts);
                 if (cmsgPorts.size() > 0) {
-                    finder.addCmsgPort(cmsgPorts);
+                    finder.addCmsgPorts(cmsgPorts);
                 }
                 i++;
             }
