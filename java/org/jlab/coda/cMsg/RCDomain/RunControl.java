@@ -596,11 +596,6 @@ System.out.println("RC connect: SUCCESSFUL");
                             index += hostLen;
                         }
 
-//                        if (cMsgUtilities.isHostLocal(host)) {
-//                            System.out.println("monitor: probe response from same host, ignoring");
-//                            continue;
-//                        }
-
                         // get expid
                         String serverExpid;
                         if (expidLen > 0) {
@@ -726,8 +721,23 @@ System.out.println("RC connect: SUCCESSFUL");
             // wait up to multicast timeout seconds for a response
             int waitTime = 0;
 
-            // send packet
-            try { socket.send(packet); } catch (IOException e) {}
+            // send a packet over each network interface.
+            try {
+                Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+
+                while (enumer.hasMoreElements()) {
+                    NetworkInterface ni = enumer.nextElement();
+                    if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
+                        socket.setNetworkInterface(ni);
+                        socket.send(packet);
+
+                        // place a delay between each
+                        try { Thread.sleep(250); }
+                        catch (InterruptedException e) {}
+                    }
+                }
+            }
+            catch (IOException e) {}
 
             while (receiver.getMsg() == null && waitTime < sleepTime) {
                 // wait 1/2 second & check for response
@@ -737,8 +747,6 @@ System.out.println("RC connect: SUCCESSFUL");
             }
 
             // return the first legitimate response or null if none
-//            cMsgMessage msg = receiver.getMsg();
-//if (msg != null) System.out.println("monitor: received msg from " + receiver.getMsgHost() + "\n");
             return receiver.getMsg();
         }
         finally {
