@@ -141,7 +141,7 @@ class rcListeningThread extends Thread {
 
                     // is this a new connection coming in?
                     if (key.isValid() && key.isAcceptable()) {
-System.out.println("rcListening thd: connection to rc client being attempted");
+//System.out.println("rcListening thd: connection to rc client being attempted");
 
                         if (connected) {
 System.out.println("rcListening thd: connection to rc client already established, ignoring attempt");
@@ -357,7 +357,7 @@ System.out.println("Got PING message!!!");
                                     client.rcServerAddress = InetAddress.getByName(serverIp);
                                     // TODO: don't really need this list, remove it once things are working
                                     client.rcServerAddresses.add(client.rcServerAddress);
-//System.out.println("rcClient server handler: server's ip addr = " + serverIp);
+//System.out.println("rcClient server handler: server's ip addr from payload = " + serverIp);
                                 }
                                 catch (cMsgException e) {/* never happen*/}
                             }
@@ -366,6 +366,7 @@ System.out.println("Got PING message!!!");
                             if (pItem != null) {
                                 try {
                                     String clientIp = pItem.getString();
+//System.out.println("rcClient server handler: this client's ip addr from payload = " + clientIp);
                                     // TODO: use this to bind local end of socket?
                                     // TODO: not necessary I think
                                 }
