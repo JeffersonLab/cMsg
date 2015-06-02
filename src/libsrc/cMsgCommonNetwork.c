@@ -3027,13 +3027,10 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
     char              vxhost[CODA_MAXHOSTNAMELEN];
 #endif
     int               i, debug=0;
-    char              **pptr, *pChar, host[CODA_MAXHOSTNAMELEN];
+    char              **pptr, *pChar;
     codaIpAddr         *ipaddr=NULL, *prev=NULL, *first=NULL;
   
   
-    /* get fully qualified canonical hostname of this host */
-    codanetLocalHost(host, CODA_MAXHOSTNAMELEN);
-
     /* look through IPv4 interfaces */
     ifihead = ifi = codanetGetInterfaceInfo(AF_INET, 1);
     if (ifi == NULL) {

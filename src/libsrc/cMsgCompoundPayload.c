@@ -1403,7 +1403,7 @@ int cMsgAddHistoryToPayloadText(void *vmsg, char *name, char *host,
     const char *names[]   = { name };
     const char *hosts[]   = { host };
     int64_t *newTimes=NULL;
-    char **newNames=NULL, **newHosts=NULL;
+    const char **newNames=NULL, **newHosts=NULL;
 
     *pTxt = NULL;
         
@@ -1479,13 +1479,13 @@ int cMsgAddHistoryToPayloadText(void *vmsg, char *name, char *host,
         }
 
         /* create space for list of names */
-        newNames = (char **) calloc(1, (len+1)*sizeof(char *));
+        newNames = (const char **) calloc(1, (len+1)*sizeof(char *));
         if (newNames == NULL) {
             return(CMSG_OUT_OF_MEMORY);
         }
 
         /* create space for list of hosts */
-        newHosts = (char **) calloc(1, (len+1)*sizeof(char *));
+        newHosts = (const char **) calloc(1, (len+1)*sizeof(char *));
         if (newHosts == NULL) {
             free(newNames);
             return(CMSG_OUT_OF_MEMORY);

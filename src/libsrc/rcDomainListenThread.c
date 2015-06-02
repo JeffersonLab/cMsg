@@ -633,7 +633,7 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
           cMsgMessage_t *message;
           int len;
           char *pchar;
-          char **ipAddrStrings;
+          const char *serverIp = NULL;
           
 /*printf("rc clientThread %d: Got CMSG_RC_CONNECT message!!!\n", localCount);*/
           /* disable pthread cancellation until message memory is released or
@@ -670,15 +670,9 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
            * IP addresses of server's host. These are in the message
            * and must be recorded in the domain structure for future use.
            */
-          pchar = strtok(message->text, ":");
-          if (pchar != NULL) {
-            domain->sendUdpPort = atoi(pchar);
-          }
-          
-          pchar = strtok('\0', ":"); 
-          if (pchar != NULL) {
-            domain->sendPort = atoi(pchar);
-          }
+         
+          domain->sendUdpPort = atoi(message->text);
+          domain->sendPort = message->userInt;
           
           if (message->senderHost != NULL) {
               if (domain->sendHost != NULL) free(domain->sendHost);
@@ -688,7 +682,17 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
           /* clear table containing all ip addresses of rc server */
           hashClear(&domain->rcIpAddrTable, NULL, NULL);
 
+          /* add in IP from which this connection was made */
+          err = cMsgGetString(msg, "serverIp", &serverIp);
+          if (err == CMSG_OK) {
+              hashInsert(&domain->rcIpAddrTable, serverIp, NULL, NULL);
+          }
+          if (serverIp == NULL) {
+              serverIp = domain->sendHost;
+          }
+          
           /* add in new ones sent as a payload array of strings */
+          /*
           err = cMsgGetStringArray(msg, "IpAddresses", &ipAddrStrings, &len);
           if (err == CMSG_OK) {
               int i;
@@ -696,7 +700,8 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
                   hashInsert(&domain->rcIpAddrTable, ipAddrStrings[i], NULL, NULL);
               }
           }
-
+          */
+          
           /* now free message */
           cMsgFreeMessage(&msg);
 
@@ -768,7 +773,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
                 goto end;
             }
 
-            if ( (err = cMsgNetStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
+            if ( (err = cMsgNetStringToNumericIPaddr(serverIp, &addr)) != CMSG_OK ) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                   fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
@@ -789,9 +794,10 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             /* create TCP sending socket and store */
 /*printf("rc clientThread %d: tcp socket = %d, port = %d\n", localCount,
                    domain->sendSocket, domain->sendPort);*/
-            if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
-                                       (unsigned short) domain->sendPort,
-                                       CMSG_BIGSOCKBUFSIZE, 0, 1, &domain->sendSocket, NULL)) != CMSG_OK) {
+            if ( (err = cMsgNetTcpConnect(serverIp, NULL,
+                                          (unsigned short) domain->sendPort,
+                                          CMSG_BIGSOCKBUFSIZE, 0, 1,
+                                          &domain->sendSocket, NULL)) != CMSG_OK) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
                   fprintf(stderr, "clientThread %d: error recreating rc client's TCP send socket\n", localCount);

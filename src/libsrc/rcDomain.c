@@ -361,7 +361,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     char  *serverHost, *expid=NULL, buffer[1024];
     int    err, status, len;
     int    i, index=0, connectTO=0;
-    int32_t outGoing[7], senderId, expidLen, nameLen;
+    int32_t outGoing[9], senderId, expidLen, nameLen;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
     unsigned char ttl = 32;
@@ -581,13 +581,16 @@ printf("rc connect: start pend thread\n");
     }
     
     /*
-     * We send 4 items explicitly:
-     *   1) Type of multicast (rc or cMsg domain),
-     *   1) TCP listening port of this client,
-     *   2) name of this client, &
-     *   2) EXPID (experiment id string)
-     * The host we're sending from gets sent for free
-     * as does the UDP port we're sending from.
+     * We send some items explicitly:
+     *   1) 3 magic integers,
+     *   2) cMsg version,
+     *   3) Type of multicast (rc or cMsg domain),
+     *   4) TCP listening port of this client,
+     *   5) unique sender id integer,
+     *   6) name of this client, &
+     *   7) EXPID (experiment id string)
+     *   8) list of IP and broadcast addresses
+     * The UDP port we're sending from is aleady part of the UDP packet
      */
 
 printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
@@ -600,14 +603,36 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
     outGoing[0] = htonl(CMSG_MAGIC_INT1);
     outGoing[1] = htonl(CMSG_MAGIC_INT2);
     outGoing[2] = htonl(CMSG_MAGIC_INT3);
+    /* cMsg version */
+    outGoing[3] = htonl(CMSG_VERSION_MAJOR);
     /* type of multicast */
-    outGoing[3] = htonl(RC_DOMAIN_MULTICAST);
+    outGoing[4] = htonl(RC_DOMAIN_MULTICAST);
     /* tcp port */
-    outGoing[4] = htonl((int) domain->listenPort);
+    outGoing[5] = htonl((int) domain->listenPort);
+    
+    /* use current time as unique indentifier */
+#ifdef Darwin
+    {
+        struct timeval now;
+        int64_t millisec;
+        gettimeofday(&now, NULL);
+        millisec =  now.tv_sec * 1000 + now.tv_usec / 1000;
+        outGoing[6] = htonl((int32_t) millisec);
+    }
+#else
+    {
+        struct timespec now;
+        int64_t millisec;
+        clock_gettime(CLOCK_REALTIME, &now);
+        millisec =  now.tv_sec * 1000 + now.tv_nsec / 1000000;
+        outGoing[6] = htonl((int32_t) millisec);
+    }
+#endif
+
     /* length of "myName" string */
-    outGoing[5] = htonl(nameLen);
+    outGoing[7] = htonl(nameLen);
     /* length of "expid" string */
-    outGoing[6] = htonl(expidLen);
+    outGoing[8] = htonl(expidLen);
 
     /* copy data into a single buffer */
     memcpy(buffer, (void *)outGoing, sizeof(outGoing));
@@ -619,11 +644,13 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
 
     /* send our list of presentation (dotted-decimal) IP addrs */
     {
-        char **ipAddrs = NULL;
-        int32_t  strLen, netOrderInt, addrCount;
+        void *pAddrCount;
+        codaIpAddr *ipAddrs, *ipAddrNext;
+        int32_t  strLen, netOrderInt, addrCount=0;
         
-        err = codanetGetIpAddrs(&ipAddrs, &addrCount, NULL);
-
+        err = codanetGetNetworkInfo(&ipAddrs, NULL);
+        ipAddrNext = ipAddrs;
+        
         /* If error getting address data, send nothing */
         if (err != CMSG_OK) {
             /* send 0 */
@@ -631,46 +658,45 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
             len += sizeof(int32_t);
         }
         else {
-            /* send how many addrs are coming next */
-            netOrderInt = htonl(addrCount);
-            memcpy(buffer+len, (const void *)&netOrderInt, sizeof(int32_t));
+            /* keep pointer to place to write # of IP addresses */
+            pAddrCount = (void *) (buffer+len);
             len += sizeof(int32_t);
-
-            for (i=0; i < addrCount; i++) {
+            
+            while (ipAddrNext != NULL) {
                 /* send len of IP addr */
-                strLen = strlen(ipAddrs[i]);
+                strLen = strlen(ipAddrNext->addr);
                 netOrderInt = htonl(strLen);
                 memcpy(buffer+len, (const void *)&netOrderInt, sizeof(int32_t));
                 len += sizeof(int32_t);
-
+                
                 /* send IP addr */
-                memcpy(buffer+len, (const void *)ipAddrs[i], strLen);
+                memcpy(buffer+len, (const void *)ipAddrNext->addr, strLen);
                 len += strLen;               
-/*printf("rcClient sending IP addr %s to rc multicast server\n", ipAddrs[i]);*/
-
-                /* free up mem */
-                free(ipAddrs[i]);
+/*printf("rcClient sending IP addr %s to rc multicast server\n", ipAddrNext->addr);*/
+                
+                /* send len of broadcast addr */
+                strLen = strlen(ipAddrNext->broadcast);
+                netOrderInt = htonl(strLen);
+                memcpy(buffer+len, (const void *)&netOrderInt, sizeof(int32_t));
+                len += sizeof(int32_t);
+                
+                /* send broadcast addr */
+                memcpy(buffer+len, (const void *)ipAddrNext->broadcast, strLen);
+                len += strLen;               
+/*printf("rcClient sending broadcast addr %s to rc multicast server\n", ipAddrNext->broadcast);*/
+                
+                addrCount++;
+                ipAddrNext = ipAddrNext->next;
             }
-            free(ipAddrs);
+            
+            /* now write out how many addrs are coming next */
+            netOrderInt = htonl(addrCount);
+            memcpy(pAddrCount, (const void *)&netOrderInt, sizeof(int32_t));
+            
+            /* free up mem */
+            codanetFreeIpAddrs(ipAddrs);
         }
     }
-
-#ifdef VXWORKS
-{
-    time_t *t = time();
-    if (t != NULL) {
-        senderId = (int32_t)(&t);
-    }
-    else {
-        senderId = 0;
-    }
-}
-#else
-    senderId = (int32_t)getpid();
-#endif
-    senderId = htonl(senderId);
-    memcpy(buffer+len, (void *)&senderId, sizeof(senderId));
-    len += sizeof(senderId);
     
     free(serverHost);
     free(expid);
