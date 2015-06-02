@@ -16,6 +16,8 @@
 
 package org.jlab.coda.cMsg;
 
+import org.jlab.coda.et.exception.EtException;
+
 import java.net.*;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.ByteChannel;
@@ -196,6 +198,73 @@ public class cMsgUtilities {
     }
 
 
+    /**
+     * Given a local IP address as an argument, this method will return its
+     * broadcast or subnet address. If it already is a broadcast address,
+     * that is returned. If address is not local or none can be found,
+     * null is returned.
+     *
+     * @param ip IP or subnet address in dot-decimal format
+     * @return ip's subnet address; null if it's not local or cannot be found
+     * @throws cMsgException if arg is null or not in dot-decimal format
+     */
+    public static String getBroadcastAddress(String ip) throws cMsgException {
+        if (ip == null) {
+            throw new cMsgException("arg is null");
+        }
+
+        byte[] ipBytes = isDottedDecimal(ip);
+        if (ipBytes == null) {
+            throw new cMsgException("arg is not in dot-decimal (textual presentation) format");
+        }
+
+        // Iterate through list of local addresses
+        try {
+            Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+
+            // For each network interface ...
+            while (enumer.hasMoreElements()) {
+                NetworkInterface ni = enumer.nextElement();
+                if (!ni.isUp() || ni.isLoopback()) {
+                    continue;
+                }
+
+                // List of IPs associated with this interface
+                List<InterfaceAddress> ifAddrs = ni.getInterfaceAddresses();
+
+                for (InterfaceAddress ifAddr : ifAddrs) {
+                    Inet4Address addrv4;
+                    try { addrv4 = (Inet4Address)ifAddr.getAddress(); }
+                    catch (ClassCastException e) {
+                        // probably IPv6 so ignore
+                        continue;
+                    }
+//System.out.println("getMatchingLocalIpAddress: ip (" + ip + ") =? local addr(" +
+//addrv4.getHostAddress() + ")");
+
+                    // If this matches an actual local IP address,
+                    // return its broadcast address
+                    if (ip.equals(addrv4.getHostAddress()))  {
+//System.out.println("getMatchingLocalIpAddress: ==== this is a local address");
+                        return ifAddr.getBroadcast().getHostAddress();
+                    }
+
+//System.out.println("getMatchingLocalIpAddress: ip (" + ip + ") =? broad addr(" +
+//                    ifAddr.getBroadcast().getHostAddress() + ")");
+                    // If this matches a broadcast/subnet address, return it as is.
+                    if (ip.equals(ifAddr.getBroadcast().getHostAddress())) {
+//System.out.println("getMatchingLocalIpAddress: ==== broadcast addr: " + ip);
+                        return ip;
+                    }
+                }
+            }
+        }
+        catch (SocketException e) {}
+
+        // no match
+        return null;
+    }
+
 
     /**
      * Get all local IP addresses, broadcast addresses and subnet masks in a
@@ -345,6 +414,42 @@ public class cMsgUtilities {
 
         return null;
     }
+
+
+    /**
+     * This method tells whether the given IPv4 address is in dot-decimal notation or not.
+     * If it is, then the returned bytes are the address in numeric form, else null
+     * is returned. This only works for IPv4.
+     *
+     * @param ipAddress IPV4 address
+     * @returns IPV4 address in numeric form if arg is valid dot-decimal address, else null
+     *          (in network byte order with highest order byte in element 0).
+     */
+    public static byte[] isDottedDecimal(String ipAddress)
+    {
+        if (ipAddress == null) return null;
+
+        String IP_ADDRESS = "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})";
+        Pattern pattern = Pattern.compile(IP_ADDRESS);
+        Matcher matcher = pattern.matcher(ipAddress);
+        if (!matcher.matches()) return null;
+
+        int[] hostInts = new int[4];
+        for (int i = 1; i <= 4; ++i) {
+//System.out.println("   group(" + i + ") = " + matcher.group(i));
+            hostInts[i-1] = Integer.parseInt(matcher.group(i));
+            if (hostInts[i-1] > 255 || hostInts[i-1] < 0) return null;
+        }
+
+        // Change ints to bytes
+        byte[] hostBytes = new byte[4];
+        hostBytes[0] = (byte) hostInts[0];
+        hostBytes[1] = (byte) hostInts[1];
+        hostBytes[2] = (byte) hostInts[2];
+        hostBytes[3] = (byte) hostInts[3];
+
+        return hostBytes;
+     }
 
 
     /**
