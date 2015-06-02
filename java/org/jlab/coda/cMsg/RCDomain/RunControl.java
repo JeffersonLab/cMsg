@@ -53,6 +53,12 @@ public class RunControl extends cMsgDomainAdapter {
      */
     private int connectTimeout = 30000;
 
+    /** Local IP address for rc server to connect to. */
+    private String specifiedLocalIp;
+
+    /** Subnet corresponding to local IP address for rc server to connect to. */
+    private String specifiedLocalSubnet;
+
     /** Quit a connection in progress if true. */
     volatile boolean abandonConnection;
 
@@ -279,8 +285,13 @@ public class RunControl extends cMsgDomainAdapter {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                // Add this in version 4.0 for future protocol checking
+                out.writeInt(cMsgConstants.version);
                 out.writeInt(cMsgNetworkConstants.rcDomainMulticastClient); // multicast is from rc domain client
                 out.writeInt(port);
+                // Add this in version 4.0 for uniquely identifying id number
+                // (can't reliably get pid so use time).
+                out.writeInt((int)System.currentTimeMillis());
                 out.writeInt(name.length());
                 out.writeInt(expid.length());
                 try {
@@ -289,21 +300,62 @@ public class RunControl extends cMsgDomainAdapter {
                 }
                 catch (UnsupportedEncodingException e) {/* never happen*/}
 
-                // List of our IP addresses (starting w/ canonical)
-                Collection<String> ipAddrs = cMsgUtilities.getAllIpAddresses();
-                out.writeInt(ipAddrs.size());
-//System.out.println("RC connect to rcm server: ip list size = " + ipAddrs.size());
-                for (String s : ipAddrs) {
+                //-------------------------------------
+                // Now send IP and broadcast addresses
+                //-------------------------------------
+                int i=0, addrCount = 1;
+                String[] ipAddrs;
+                String[] broadcastAddrs;
+
+                // If we have a single, specified, local IP for rc server to connect to,
+                // use that to the exclusion of all else.
+                if (specifiedLocalIp != null && specifiedLocalSubnet != null) {
+                    ipAddrs        = new String[] {specifiedLocalIp};
+                    broadcastAddrs = new String[] {specifiedLocalSubnet};
+
+//                    // Let rc server know it's this 1 address or nothing (fixedIp = true)
+//                    out.writeInt(1);
+                }
+                else {
+                    // List of all IP data (no IPv6, no loopback, no down interfaces)
+                    List<InterfaceAddress> ifAddrs = cMsgUtilities.getAllIpInfo();
+                    addrCount      = ifAddrs.size();
+                    ipAddrs        = new String[addrCount];
+                    broadcastAddrs = new String[addrCount];
+
+                    for (InterfaceAddress ifAddr : ifAddrs) {
+                        Inet4Address bAddr;
+                        try { bAddr = (Inet4Address)ifAddr.getBroadcast(); }
+                        catch (ClassCastException e) {
+                            // should never happen since IPv6 already removed
+                            continue;
+                        }
+                        broadcastAddrs[i] = bAddr.getHostAddress();
+                        ipAddrs[i++] = ifAddr.getAddress().getHostAddress();
+                    }
+
+//                    // Let rc server know it's any address that works
+//                    out.writeInt(0);
+                }
+
+                // Let folks know address pairs are coming
+                out.writeInt(addrCount);
+
+System.out.println("RC connect: ip list items = " + addrCount);
+                for (int j=0; j < addrCount; j++) {
                     try {
-                        out.writeInt(s.length());
-//System.out.println("RC connect to rcm server: ip size = " + s.length());
-                        out.write(s.getBytes("US-ASCII"));
-//System.out.println("RC connect to rcm server: ip = " + s);
+                        out.writeInt(ipAddrs[j].length());
+System.out.println("RC connect: ip size = " + ipAddrs[j].length());
+                        out.write(ipAddrs[j].getBytes("US-ASCII"));
+System.out.println("RC connect: ip = " + ipAddrs);
+                        out.writeInt(broadcastAddrs[j].length());
+System.out.println("RC connect: broad size = " + broadcastAddrs[j].length());
+                        out.write(broadcastAddrs[j].getBytes("US-ASCII"));
+System.out.println("RC connect: broad = " + broadcastAddrs);
                     }
                     catch (UnsupportedEncodingException e) {/* never happen*/}
                 }
-                // Uniquely identifying #, can't reliably get pid so use time
-                out.writeInt((int)System.currentTimeMillis());
+
                 out.flush();
                 out.close();
 
@@ -389,8 +441,8 @@ System.out.println("RC connect: RC client " + name + ": will start multicast sen
 //                   rcServerAddr.getHostAddress() + "; port = " + rcTcpServerPort + ")");
 
                         tcpSocket = new Socket();
-                        // don't waste time if a connection cannot be made, timeout = 0.2 seconds
-                        tcpSocket.connect(new InetSocketAddress(rcServerAddr,rcTcpServerPort), 200);
+                        // don't waste time if a connection cannot be made, timeout = 2 seconds
+                        tcpSocket.connect(new InetSocketAddress(rcServerAddr, rcTcpServerPort), 2000);
                         tcpSocket.setTcpNoDelay(true);
                         tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
                         domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
@@ -523,9 +575,10 @@ System.out.println("RC connect: SUCCESSFUL");
                             continue;
                         }
 
-                        int port     = cMsgUtilities.bytesToInt(buf, 12);
-                        int hostLen  = cMsgUtilities.bytesToInt(buf, 16);
-                        int expidLen = cMsgUtilities.bytesToInt(buf, 20);
+                        int version  = cMsgUtilities.bytesToInt(buf, 12);
+                        int port     = cMsgUtilities.bytesToInt(buf, 16);
+                        int hostLen  = cMsgUtilities.bytesToInt(buf, 20);
+                        int expidLen = cMsgUtilities.bytesToInt(buf, 24);
 
                         if (packet.getLength() < 4*6 + hostLen + expidLen) {
                             if (debug >= cMsgConstants.debugWarn) {
@@ -535,7 +588,7 @@ System.out.println("RC connect: SUCCESSFUL");
                         }
 
                         // get host
-                        index = 24;
+                        index = 28;
                         host = "";
                         if (hostLen > 0) {
                             host = new String(buf, index, hostLen, "US-ASCII");
@@ -616,9 +669,12 @@ System.out.println("RC connect: SUCCESSFUL");
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                out.writeInt(cMsgConstants.version);
                 // multicast is from rc domain prober
                 out.writeInt(cMsgNetworkConstants.rcDomainMulticastProbe);
                 // use port number = 0 to indicate monitor probe
+                out.writeInt(0);
+                // id not used in probe, set to 0
                 out.writeInt(0);
                 out.writeInt(name.length());
                 out.writeInt(expid.length());
@@ -696,19 +752,18 @@ System.out.println("RC connect: SUCCESSFUL");
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      *
      * Runcontrol domain UDL is of the form:<p>
-     *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;?connectTO=&lt;timeout&gt;</b><p>
-     *
-     * For the cMsg domain the UDL has the more specific form:<p>
-     *   <b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ...</b><p>
+     *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;?connectTO=&lt;timeout&gt;&ip=&lt;address&gt;</b><p>
      *
      * Remember that for this domain:
      *<ul>
      *<li>host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
      *<li>port is optional with a default of {@link cMsgNetworkConstants#rcMulticastPort}<p>
      *<li>the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
-     *<li>connectTO is the time to wait in seconds before connect returns a
+     *<li>connectTO (optional) is the time to wait in seconds before connect returns a
      *    timeout while waiting for the rc server to send a special (tcp)
-     *    concluding connect message. Defaults to 5 seconds.<p>
+     *    concluding connect message. Defaults to 30 seconds.<p>
+     *<li>ip (optional) is ip address in dot-decimal format which the rc server
+     *    or agent must use to connect to this rc client.<p>
      *</ul><p>
      *
      * @param udlRemainder partial UDL to parse
@@ -831,7 +886,7 @@ System.out.println("RC connect: SUCCESSFUL");
             return;
         }
 
-        // now look for ?connectTO=value& or &connectTO=value&
+        // now look for ?connectTO=value or &connectTO=value
         pattern = Pattern.compile("[\\?&]connectTO=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
@@ -842,6 +897,26 @@ System.out.println("RC connect: SUCCESSFUL");
             catch (NumberFormatException e) {
                 // ignore error and keep value of 0
             }
+        }
+
+        // now look for ?ip=value or &ip=value
+        pattern = Pattern.compile("[\\?&]ip=((?:[0-9]{1,3}\\.){3}[0-9]{1,3})", Pattern.CASE_INSENSITIVE);
+        matcher = pattern.matcher(remainder);
+        if (matcher.find()) {
+            specifiedLocalIp = matcher.group(1);
+            try {
+                // Get related broadcast addr. Will also check if in dot-decimal format
+                specifiedLocalSubnet = cMsgUtilities.getBroadcastAddress(specifiedLocalIp);
+                // If not local, forget it ...
+                if (specifiedLocalSubnet == null) {
+                    specifiedLocalIp = null;
+                }
+            }
+            catch (cMsgException e) {
+                // Not dot-decimal format
+                specifiedLocalIp = specifiedLocalSubnet = null;
+            }
+System.out.println("IP = " + specifiedLocalIp + ", subnet IP = " + specifiedLocalSubnet);
         }
 
     }
@@ -1336,13 +1411,9 @@ System.out.println("RC connect: SUCCESSFUL");
 //                   ", has multicast = " + ni.supportsMulticast());
                             if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
 //System.out.println("RC client: sending mcast packet over " + ni.getName());
-                                try {
-                                    multicastUdpSocket.setNetworkInterface(ni);
-                                    multicastUdpSocket.send(packet);
-                                }
-                                catch (IOException e) {
-                                    System.out.println("Error sending packet over " + ni.getName());
-                                }
+                                multicastUdpSocket.setNetworkInterface(ni);
+                                multicastUdpSocket.send(packet);
+
                                 Thread.sleep(500);
                                 sleepCount++;
                             }

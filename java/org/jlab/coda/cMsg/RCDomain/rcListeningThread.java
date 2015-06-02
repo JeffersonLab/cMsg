@@ -348,21 +348,49 @@ System.out.println("Got PING message!!!");
                             // message and must be recorded in the client for future use.
                             client.rcServerAddress = InetAddress.getByName(msg.getSenderHost());
                             client.rcServerAddresses.clear();
-                            cMsgPayloadItem pItem = msg.getPayloadItem("IpAddresses");
+
+                            cMsgPayloadItem pItem = msg.getPayloadItem("serverIp");
+                            String serverIp;
                             if (pItem != null) {
-//System.out.println("rcClient server handler: server's ip addrs->");
                                 try {
-                                    String[] ips = pItem.getStringArray();
-                                    for (String ip : ips) {
-                                        client.rcServerAddresses.add(InetAddress.getByName(ip));
-//System.out.println("      "+ip);
-                                    }
+                                    serverIp = pItem.getString();
+                                    client.rcServerAddress = InetAddress.getByName(serverIp);
+                                    // TODO: don't really need this list, remove it once things are working
+                                    client.rcServerAddresses.add(client.rcServerAddress);
+//System.out.println("rcClient server handler: server's ip addr = " + serverIp);
                                 }
                                 catch (cMsgException e) {/* never happen*/}
                             }
-                            String[] ports = msg.getText().split(":");
-                            client.rcUdpServerPort = Integer.parseInt(ports[0]);
-                            client.rcTcpServerPort = Integer.parseInt(ports[1]);
+
+                            pItem = msg.getPayloadItem("clientIp");
+                            if (pItem != null) {
+                                try {
+                                    String clientIp = pItem.getString();
+                                    // TODO: use this to bind local end of socket?
+                                    // TODO: not necessary I think
+                                }
+                                catch (cMsgException e) {/* never happen*/}
+                            }
+
+                            client.rcUdpServerPort = Integer.parseInt(msg.getText());
+                            client.rcTcpServerPort = msg.getUserInt();
+
+//                            pItem = msg.getPayloadItem("IpAddresses");
+//                            if (pItem != null) {
+////System.out.println("rcClient server handler: server's ip addrs->");
+//                                try {
+//                                    String[] ips = pItem.getStringArray();
+//                                    for (String ip : ips) {
+//                                        client.rcServerAddresses.add(InetAddress.getByName(ip));
+////System.out.println("      "+ip);
+//                                    }
+//                                }
+//                                catch (cMsgException e) {/* never happen*/}
+//                            }
+//
+//                            String[] ports = msg.getText().split(":");
+//                            client.rcUdpServerPort = Integer.parseInt(ports[0]);
+//                            client.rcTcpServerPort = Integer.parseInt(ports[1]);
 
                             if (client.isConnected()) {
 //System.out.println("Reestablish broken socket, do udp connect ...");
@@ -371,7 +399,8 @@ System.out.println("Got PING message!!!");
                                 // and communication with any other host/port is not allowed.
 //                                client.udpSocket.connect(client.rcServerAddress, client.rcUdpServerPort);
 //                                client.sendUdpPacket = new DatagramPacket(new byte[0], 0,
-//                                                                          client.rcServerAddress, client.rcUdpServerPort);
+//                                                                          client.rcServerAddress,
+//                                                                          client.rcUdpServerPort);
 
                                 // create a TCP connection to the RC Server
 //System.out.println("Do tcp connect ...");

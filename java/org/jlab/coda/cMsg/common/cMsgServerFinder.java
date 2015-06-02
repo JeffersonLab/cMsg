@@ -764,8 +764,10 @@ public class cMsgServerFinder {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                out.writeInt(cMsgConstants.version);
                 out.writeInt(cMsgNetworkConstants.rcDomainMulticastProbe); // multicast is from rc domain prober
                 out.writeInt(1);                // port = 1 identifies us as being from cMsgServerFinder
+                out.writeInt(0);                // id # not used
                 out.writeInt(name.length());    // use any client name just to get a response
                 out.writeInt(myExpid.length()); // use any expid name just to get a response
                 try {
@@ -858,9 +860,10 @@ public class cMsgServerFinder {
                         continue;
                     }
 
-                    int port     = cMsgUtilities.bytesToInt(buf, 12);
-                    int hostLen  = cMsgUtilities.bytesToInt(buf, 16);
-                    int expidLen = cMsgUtilities.bytesToInt(buf, 20);
+                    int version  = cMsgUtilities.bytesToInt(buf, 12);
+                    int port     = cMsgUtilities.bytesToInt(buf, 16);
+                    int hostLen  = cMsgUtilities.bytesToInt(buf, 20);
+                    int expidLen = cMsgUtilities.bytesToInt(buf, 24);
 
                     if (packet.getLength() < 4*6 + hostLen + expidLen) {
                         if (debug >= cMsgConstants.debugWarn) {
@@ -870,7 +873,7 @@ public class cMsgServerFinder {
                     }
 
                     // get host
-                    index = 24;
+                    index = 28;
                     String host = "";
                     if (hostLen > 0) {
                         host = new String(buf, index, hostLen, "US-ASCII");

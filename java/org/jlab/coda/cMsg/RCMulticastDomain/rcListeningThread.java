@@ -157,6 +157,7 @@ class rcListeningThread extends Thread {
             out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
             out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+            out.writeInt(cMsgConstants.version);
             out.writeInt(multicastPort);
             out.writeInt(server.getHost().length());
             out.writeInt(server.expid.length());
@@ -221,7 +222,18 @@ class rcListeningThread extends Thread {
                     continue;
                 }
 
-                int msgType = cMsgUtilities.bytesToInt(buf, 12); // what type of message is this ?
+                // what version of cMsg?
+                int version = cMsgUtilities.bytesToInt(buf, 12);
+                if (version != cMsgConstants.version) {
+                    if (debug >= cMsgConstants.debugWarn) {
+System.out.println("RC multicast listener: got packet of version " + version +
+                   " (possibly v3) which does NOT match our version " + cMsgConstants.version + ", so ignore");
+                    }
+                    continue;
+                }
+
+                // what type of message is this ?
+                int msgType = cMsgUtilities.bytesToInt(buf, 16);
 
                 switch (msgType) {
                     // multicasts from rc clients
@@ -250,11 +262,11 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                         continue;
                 }
 
-                int multicasterTcpPort = cMsgUtilities.bytesToInt(buf, 16); // tcp listening port
-                int nameLen            = cMsgUtilities.bytesToInt(buf, 20); // length of sender's name (# chars)
-                int expidLen           = cMsgUtilities.bytesToInt(buf, 24); // length of expid (# chars)
-                int pos = 28;
-                int senderId;
+                int multicasterTcpPort = cMsgUtilities.bytesToInt(buf, 20); // tcp listening port
+                int senderId           = cMsgUtilities.bytesToInt(buf, 24); // unique id #
+                int nameLen            = cMsgUtilities.bytesToInt(buf, 28); // length of sender's name (# chars)
+                int expidLen           = cMsgUtilities.bytesToInt(buf, 32); // length of expid (# chars)
+                int pos = 36;
 
                 // sender's name
                 String multicasterName = null;
@@ -277,10 +289,11 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                         multicasterHost + ", UDP port = " + multicasterUdpPort +
                         ", TCP port = " + multicasterTcpPort + ", name = " + multicasterName +
                         ", expid = " + multicasterExpid + ", this server udp = " + server.udpPort +
-                        ", is local host = " + cMsgUtilities.isHostLocal(multicasterHost) );
+                        ", is local host = " + cMsgUtilities.isHostLocal(multicasterHost) +
+                        ", version = " + version + ", id # = " + senderId);
                 }
 
-                // If not a probe, ignore conflicting expids
+                // If not a probe, ignore packets with conflicting expids
                 if (!server.expid.equalsIgnoreCase(multicasterExpid) &&
                     msgType != cMsgNetworkConstants.rcDomainMulticastProbe) {
                     if (debug >= cMsgConstants.debugInfo) {
@@ -289,32 +302,13 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                     continue;
                 }
 
-                // Probes from cMsgServerFinder have port = 1.
-                // Probes from rcClient.monitor() have port = 0.
-                // Reject monitor if from same host and port.
-//                if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe &&
-//                        cMsgUtilities.isHostLocal(multicasterHost) &&
-//                        multicasterTcpPort == 0) {
-//                    if (debug >= cMsgConstants.debugInfo) {
-//                        System.out.println("RC multicast listener: reject monitor probe from same host(" +
-//                        multicasterHost + ") to port(" + server.udpPort + ")");
-//                    }
-//                    continue;
-//                }
-
-//                System.out.println("RC multicast server: accepting Clients = " + server.acceptingClients);
-//                System.out.println("                   : local host = " + InetAddress.getLocalHost().getCanonicalHostName());
-//                System.out.println("                   : multicaster's packet's host = " + multicasterHost);
-//                System.out.println("                   : multicaster's packet's UDP port = " + multicasterUdpPort);
-//                System.out.println("                   : multicaster's packet's TCP port = " + multicasterTcpPort);
-//                System.out.println("                   : multicaster's name = " + multicasterName);
-//                System.out.println("                   : multicaster's expid = " + multicasterExpid);
-//                System.out.println("                   : our port = " + server.localTempPort);
+                // Probes from cMsgServerFinder   have port = 1
+                // Probes from rcClient.monitor() have port = 0
 
                 // Before sending a reply, check to see if we simply got a packet
                 // from our self when first connecting. Just ignore our own probing
                 // multicast.
-                // If the emphemeral port this server uses to send multicasts to other servers
+                // If the ephemeral port this server uses to send multicasts to other servers
                 // when starting up == the packet's udp port, then we can be fairly sure that
                 // this packet comes from this very server.
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastServer &&
@@ -323,9 +317,10 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                     continue;
                 }
 
-                LinkedList<String> ipList;
+                ArrayList<String> ipList, broadList;
+//                int fixedIp;
 
-                // if multicast probe from client ...
+                // if probe from client ...
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe) {
                     try {
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
@@ -338,34 +333,44 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                     }
                     continue;
                 }
-                // if multicast from client ...
+                // if connect request from client ...
                 else if (msgType == cMsgNetworkConstants.rcDomainMulticastClient) {
-                    // Read additional data now sent - list of all IP addrs
-                    // starting with one associated with canonical host name
-                    int listLen = cMsgUtilities.bytesToInt(buf, pos); // # of addrs to follow
+                    // Read additional data now sent - list of all IP & broadcast addrs
+
+//                    // Is the one address to follow the only one rc server may connect with?
+//                    fixedIp = cMsgUtilities.bytesToInt(buf, pos);
+//                    pos += 4;
+
+                    // # of address pairs to follow
+                    int listLen = cMsgUtilities.bytesToInt(buf, pos);
                     pos += 4;
 //                    System.out.println("   list len = " + listLen);
 //                    System.out.println("   list len = 0x" + Integer.toHexString(listLen));
 //                    System.out.println("   list len swap = 0x" +
 //                            Integer.toHexString(Integer.reverseBytes(listLen)));
-
+                    String ss;
                     int stringLen;
-                    ipList = new LinkedList<String>();
+                    ipList    = new ArrayList<String>(listLen);
+                    broadList = new ArrayList<String>(listLen);
+
                     for (int i=0; i < listLen; i++) {
                         try {
                             stringLen = cMsgUtilities.bytesToInt(buf, pos); pos += 4;
 //System.out.println("     string len = " + listLen);
-                            String ss = new String(buf, pos, stringLen, "US-ASCII");
+                            ss = new String(buf, pos, stringLen, "US-ASCII");
 //System.out.println("     string = " + ss);
-                            ipList.add( ss );
+                            ipList.add(ss);
+                            pos += stringLen;
+
+                            stringLen = cMsgUtilities.bytesToInt(buf, pos); pos += 4;
+//System.out.println("     string len = " + listLen);
+                            ss = new String(buf, pos, stringLen, "US-ASCII");
+//System.out.println("     string = " + ss);
+                            broadList.add(ss);
                             pos += stringLen;
                         }
                         catch (UnsupportedEncodingException e) {/*never happen */}
                     }
-
-                    // Read in sender id number (pid or time)
-                    senderId = cMsgUtilities.bytesToInt(buf, pos);
-//System.out.println("RC multicast listener: got client id #" + senderId);
 
                     // We must have an active subscription waiting on
                     // this end to process the client's request.
@@ -376,7 +381,7 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                         continue;
                     }
                 }
-                // else if multicast from server ...
+                // else if from server ...
                 else {
                     // Other RCMulticast servers send "feelers" just trying see if another
                     // RCMulticast server is on the same port with the same EXPID. Don't
@@ -391,7 +396,8 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[0], buf, 0);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[1], buf, 4);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.magicNumbers[2], buf, 8);
-                        cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainMulticastKillSelf, buf, 12);
+                        cMsgUtilities.intToBytes(cMsgConstants.version, buf, 12);
+                        cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainMulticastKillSelf, buf, 16);
                         DatagramPacket pkt = new DatagramPacket(buf, 16, multicasterAddress, server.udpPort);
 //System.out.println("RC multicast listener: send response packet (kill yourself) to server");
                         multicastSocket.send(pkt);
@@ -431,8 +437,25 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                     catch (cMsgException e) {/* never happen */}
                 }
 
+                // Add list of broadcast addrs for client connections, if any
+                if (broadList.size() > 0) {
+                    try {
+                        String[] ips = new String[broadList.size()];
+                        broadList.toArray(ips);
+                        cMsgPayloadItem pItem = new cMsgPayloadItem("BroadcastAddresses", ips);
+                        msg.addPayloadItem(pItem);
+                    }
+                    catch (cMsgException e) {/* never happen */}
+                }
+
+//                try {
+//                    cMsgPayloadItem pItem = new cMsgPayloadItem("fixedIp", fixedIp);
+//                    msg.addPayloadItem(pItem);
+//                }
+//                catch (cMsgException e) {/* never happen */}
+
                 try {
-                    cMsgPayloadItem pItem = new cMsgPayloadItem("senderId", senderId);
+                    cMsgPayloadItem pItem = new cMsgPayloadItem("SenderId", senderId);
                     msg.addPayloadItem(pItem);
                 }
                 catch (cMsgException e) {/* never happen */}
