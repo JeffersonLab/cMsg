@@ -195,7 +195,7 @@ public class cMsgServerFinder {
      * Add a collection of UDP ports to the list of ports to be probed for rc multicast servers.
      * @param col collection of UDP ports to be probed for rc multicast servers
      */
-    synchronized public void addRcPort(Collection<Integer> col) {
+    synchronized public void addRcPorts(Collection<Integer> col) {
         for (Integer port : col) {
             addRcPort(port);
         }
@@ -206,9 +206,11 @@ public class cMsgServerFinder {
      * Remove a UDP port from the list of ports to be probed for rc multicast servers.
      * @param port UDP port to be removed from probing for rc multicast servers
      */
-    synchronized public void removeRcPort(int port) {
-        rcPorts.remove(port);
-    }
+    synchronized public void removeRcPort(int port) {rcPorts.remove(port);}
+
+
+    /** Remove all UDP ports from list of ports to be probed for rc multicast servers. */
+    synchronized public void removeRcPorts() {rcPorts.clear();}
 
 
     /**
@@ -231,7 +233,7 @@ public class cMsgServerFinder {
      * Add a collection of UDP ports to the list of ports to be probed for cmsg name servers.
      * @param col collection of UDP ports to be probed for cmsg name servers
      */
-    synchronized public void addCmsgPort(Collection<Integer> col) {
+    synchronized public void addCmsgPorts(Collection<Integer> col) {
         for (Integer port : col) {
             addCmsgPort(port);
         }
@@ -245,6 +247,10 @@ public class cMsgServerFinder {
     synchronized public void removeCmsgPort(int port) {
         cmsgPorts.remove(port);
     }
+
+
+    /** Remove all UDP ports from list of ports to be probed for cmsg name servers. */
+    synchronized public void removeCmsgPorts() { cmsgPorts.clear(); }
 
 
     /**
