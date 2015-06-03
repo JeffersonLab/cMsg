@@ -306,6 +306,124 @@ public class cMsgUtilities {
 
 
     /**
+     * Takes a list of dotted-decimal formatted IP address strings and their corresponding
+     * broadcast addresses and orders them so that those on the given local subnet are first,
+     * those on other local subnets are next, and all others come last.
+     * This only works for IPv4.
+     *
+     * @param ipAddresses      list of addresses to order
+     * @param broadAddresses   list of broadcast addresses - each associated w/ corresponding
+     *                         ip address
+     * @param preferredAddress if not null, it is the preferred subnet(broadcast) address
+     *                         used in sorting so that addresses on the given list which
+     *                         exist on the preferred subnet are first on the returned list.
+     *                         If a local, non-subnet ip address is given, it will be
+     *                         converted internally to the subnet it is on.
+     * @return ordered list of given IP addresses in dotted-decimal form with those
+     *         on the given local subnet listed first, those on other local subnets listed
+     *         next, and all others last. Null if ipAddresses arg is null.
+     */
+    public static List<String> orderIPAddresses(List<String> ipAddresses,
+                                                List<String> broadAddresses,
+                                                String preferredAddress) {
+
+        if (ipAddresses == null) {
+            return null;
+        }
+
+        System.out.println("orderIPAddresses: IN");
+
+        // List of all IP addrs, ordered
+        LinkedList<String> ipList = new LinkedList<String>();
+
+        // List of IP addrs on preferred subnet
+        LinkedList<String> preferred = new LinkedList<String>();
+
+        // Convert the preferred address into a local subnet address
+        String prefSubnet = null;
+        try {
+            // Will be null if not local
+            prefSubnet = getBroadcastAddress(preferredAddress);
+        }
+        catch (cMsgException e) {
+            // preferredAddresses is null or not in dotted-decimal format, so ignore
+        }
+
+//System.out.println("orderIPAddresses: preferred subnet: " + prefSubnet);
+//        if (broadAddresses != null) {
+//            System.out.println("broadcastAddress NOT NULL:");
+//            for (String s : broadAddresses)
+//            System.out.println(s);
+//        }
+
+        // Iterate through argument list of addresses
+        outerLoop:
+        for (int i=0; i < ipAddresses.size(); i++) {
+
+            // If the remote IP addresses are accompanied by their subnet addresses ...
+            if (broadAddresses != null && broadAddresses.size() > i) {
+                String ipSubNet = broadAddresses.get(i);
+
+                try {
+                    // Iterate through list of local addresses and see if its
+                    // broadcast address matches the remote broadcast address.
+                    // If so, put it in preferred list.
+                    Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+                    while (enumer.hasMoreElements()) {
+                        NetworkInterface ni = enumer.nextElement();
+                        if (!ni.isUp() || ni.isLoopback()) {
+                            continue;
+                        }
+                        List<InterfaceAddress> ifAddrs = ni.getInterfaceAddresses();
+
+                        for (InterfaceAddress ifAddr : ifAddrs) {
+                            Inet4Address addrv4;
+                            try { addrv4 = (Inet4Address)ifAddr.getAddress(); }
+                            catch (ClassCastException e) {
+                                // probably IPv6 so ignore
+                                continue;
+                            }
+
+                            String localBroadcastAddr = ifAddr.getBroadcast().getHostAddress();
+
+                            // If the 2 are on the same subnet as the preferred address,
+                            // place it on the preferred list.
+                            if (prefSubnet != null &&
+                                prefSubnet.equals(ipSubNet) &&
+                                prefSubnet.equals(localBroadcastAddr)) {
+
+System.out.println("orderIPAddresses: ip " + ipAddresses.get(i) + " on preferred subnet: " + prefSubnet);
+                                preferred.add(ipAddresses.get(i));
+                                continue outerLoop;
+                            }
+                            // If the 2 are on the same subnet but not on the preferred address,
+                            // place it first on the regular list.
+                            else if (localBroadcastAddr.equals(ipSubNet)) {
+System.out.println("orderIPAddresses: ip " + ipAddresses.get(i) + " on local subnet: " + localBroadcastAddr);
+                                ipList.addFirst(ipAddresses.get(i));
+                                continue outerLoop;
+                            }
+                        }
+                    }
+                }
+                catch (SocketException e) {}
+            }
+
+            // This address is not on the preferred or any of the
+            // local subnets, so put it at the end of the list.
+//System.out.println("Add " + ip + " to list bottom");
+            ipList.addLast(ipAddresses.get(i));
+        }
+        System.out.println("\n");
+
+        // Add any preferred addresses to top of list
+        ipList.addAll(0, preferred);
+
+        return ipList;
+    }
+
+
+    /**
      * Get the network or subnet address (32-bit integer format)
      * of the given IP address (byte array format)
      * for the given netmask (# of bits format).
