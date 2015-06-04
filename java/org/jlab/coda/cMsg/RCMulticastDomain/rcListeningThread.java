@@ -323,16 +323,15 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                 // if probe from client ...
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe) {
                     try {
-                        if (multicasterTcpPort == 1) {
-                            System.out.println("RC multicast listener: got probe from cMsgFindServers");
-                        }
-                        else if (multicasterTcpPort == 0) {
-                            System.out.println("RC multicast listener: got probe from client monitor()");
-                        }
-
+//if (multicasterTcpPort == 1) {
+//    System.out.println("RC multicast listener: got probe from cMsgFindServers");
+//}
+//else if (multicasterTcpPort == 0) {
+//    System.out.println("RC multicast listener: got probe from client monitor()");
+//}
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
-System.out.println("RC multicast listener: send probe response to " + multicasterName + " on " + multicasterHost +
-", expid = " + server.expid);
+//System.out.println("RC multicast listener: send probe response to " + multicasterName + " on " + multicasterHost +
+//", expid = " + server.expid);
                         multicastSocket.send(sendPacket);
                     }
                     catch (IOException e) {
