@@ -203,18 +203,23 @@ public class cMsgServerFinder {
 
 
     /**
-     * Remove a UDP port from the list of ports to be probed for rc multicast servers.
+     * Remove a UDP port from the list of user-specified ports to be probed
+     * for rc multicast servers. The list of 100 default ports will still be
+     * probed regardless.
      * @param port UDP port to be removed from probing for rc multicast servers
      */
     synchronized public void removeRcPort(int port) {rcPorts.remove(port);}
 
 
-    /** Remove all UDP ports from list of ports to be probed for rc multicast servers. */
+    /** Remove all user-specified UDP ports from list of ports to be
+     *  probed for rc multicast servers. The list of 100 default ports will
+     *  still be probed regardless. */
     synchronized public void removeRcPorts() {rcPorts.clear();}
 
 
     /**
-     * Add a UDP port to the list of ports to be probed for cmsg name servers.
+     * Add a UDP port to the user-specified list of ports to be probed
+     * for cmsg name servers.
      * @param port UDP port to be probed for cmsg name servers
      */
     synchronized public void addCmsgPort(int port) {
@@ -230,7 +235,8 @@ public class cMsgServerFinder {
 
 
     /**
-     * Add a collection of UDP ports to the list of ports to be probed for cmsg name servers.
+     * Add a collection of UDP ports to the list of user-specified ports to be
+     * probed for cmsg name servers.
      * @param col collection of UDP ports to be probed for cmsg name servers
      */
     synchronized public void addCmsgPorts(Collection<Integer> col) {
@@ -241,7 +247,9 @@ public class cMsgServerFinder {
 
 
     /**
-     * Remove a UDP port from the list of ports to be probed for cmsg name servers.
+     * Remove a user-specified UDP port from the list of ports to be probed
+     * for cmsg name servers. The list of 100 default ports will still be
+     * probed regardless.
      * @param port UDP port to be removed from probing for cmsg name servers
      */
     synchronized public void removeCmsgPort(int port) {
@@ -249,7 +257,9 @@ public class cMsgServerFinder {
     }
 
 
-    /** Remove all UDP ports from list of ports to be probed for cmsg name servers. */
+    /** Remove all user-specified UDP ports from list of ports to be probed
+     * for cmsg name servers. The list of 100 default ports will
+     *  still be probed regardless. */
     synchronized public void removeCmsgPorts() { cmsgPorts.clear(); }
 
 
@@ -758,7 +768,7 @@ public class cMsgServerFinder {
             byte[] buffer;
             String name = "serverFinder";
             String myExpid = "expid";
-            DatagramSocket socket = null;
+            MulticastSocket socket = null;
 
             // create byte array for multicast
             ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
@@ -786,7 +796,7 @@ public class cMsgServerFinder {
                 out.close();
 
                 // create socket to receive at anonymous port & all interfaces
-                socket = new DatagramSocket();
+                socket = new MulticastSocket();
                 socket.setReceiveBufferSize(1024);
                 socket.setSoTimeout(sleepTime);
 
@@ -931,9 +941,9 @@ public class cMsgServerFinder {
     class rcMulticaster extends Thread {
 
         byte[] buffer;
-        DatagramSocket socket;
+        MulticastSocket socket;
 
-        rcMulticaster(byte[] buffer, DatagramSocket socket) {
+        rcMulticaster(byte[] buffer, MulticastSocket socket) {
             this.socket = socket;
             this.buffer = buffer;
         }
@@ -949,17 +959,27 @@ public class cMsgServerFinder {
 
 
             try {
-                for (int port : rcPorts) {
-//System.out.println("Send multicast packets on port " + port);
-                    packet = new DatagramPacket(buffer, buffer.length,
-                                                addr, port);
-                    socket.send(packet);
-                }
-                for (int port : defaultRcPorts) {
-//System.out.println("Send multicast packets on port " + port);
-                    packet = new DatagramPacket(buffer, buffer.length,
-                                                addr, port);
-                    socket.send(packet);
+                // Send a packet over each network interface.
+                Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+
+                while (enumer.hasMoreElements()) {
+                    NetworkInterface ni = enumer.nextElement();
+                    if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
+//System.out.println("cMSgServerFinder: sending mcast packet over " + ni.getName());
+                        for (int port : rcPorts) {
+                            //System.out.println("Send multicast packets on port " + port);
+                            packet = new DatagramPacket(buffer, buffer.length,
+                                                        addr, port);
+                            socket.setNetworkInterface(ni);
+                            socket.send(packet);
+                        }
+                        for (int port : defaultRcPorts) {
+                            //System.out.println("Send multicast packets on port " + port);
+                            packet = new DatagramPacket(buffer, buffer.length,
+                                                        addr, port);
+                            socket.send(packet);
+                        }
+                    }
                 }
             }
             catch (IOException e) {
