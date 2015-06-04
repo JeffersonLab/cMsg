@@ -306,6 +306,72 @@ public class cMsgUtilities {
 
 
     /**
+     * Given an IP address as an argument, this method will return that if it matches
+     * one of the local IP addresses. Given a broadcast or subnet address it will
+     * return a local IP address on that subnet. If there are no matches,
+     * null is returned.
+     *
+     * @param ip IP or subnet address in dotted-decimal format
+     * @return matching local address on the same subnet;
+     *         else null if no match
+     * @throws cMsgException if arg is null or not in dotted-decimal format
+     */
+    public static String getMatchingLocalIpAddress(String ip) throws cMsgException {
+        if (ip == null) {
+            return null;
+        }
+
+        byte[] ipBytes = isDottedDecimal(ip);
+        if (ipBytes == null) {
+            throw new cMsgException("arg is not in dot-decimal (textual presentation) format");
+        }
+
+        // Iterate through list of local addresses
+        try {
+            Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
+
+            // For each network interface ...
+            while (enumer.hasMoreElements()) {
+                NetworkInterface ni = enumer.nextElement();
+                if (!ni.isUp() || ni.isLoopback()) {
+                    continue;
+                }
+
+                // List of IPs associated with this interface
+                List<InterfaceAddress> ifAddrs = ni.getInterfaceAddresses();
+
+                for (InterfaceAddress ifAddr : ifAddrs) {
+                    Inet4Address addrv4;
+                    try { addrv4 = (Inet4Address)ifAddr.getAddress(); }
+                    catch (ClassCastException e) {
+                        // probably IPv6 so ignore
+                        continue;
+                    }
+
+                    // If this matches an actual local IP address, return it
+                    if (ip.equals(addrv4.getHostAddress()))  {
+System.out.println("getMatchingLocalIpAddress: this is a local address");
+                        return ip;
+                    }
+
+                    // If this matches a broadcast/subnet address, return
+                    // an actual local IP address on this subnet.
+                    if (ip.equals(ifAddr.getBroadcast().getHostAddress())) {
+System.out.println("getMatchingLocalIpAddress: broadcast addr, use this IP on that subnet: " +
+                           addrv4.getHostAddress());
+                        return addrv4.getHostAddress();
+                    }
+                }
+            }
+        }
+        catch (SocketException e) {}
+
+        // no match
+        return null;
+    }
+
+
+    /**
      * Takes a list of dotted-decimal formatted IP address strings and their corresponding
      * broadcast addresses and orders them so that those on the given local subnet are first,
      * those on other local subnets are next, and all others come last.
@@ -331,7 +397,7 @@ public class cMsgUtilities {
             return null;
         }
 
-        System.out.println("orderIPAddresses: IN");
+//        System.out.println("orderIPAddresses: IN");
 
         // List of all IP addrs, ordered
         LinkedList<String> ipList = new LinkedList<String>();
