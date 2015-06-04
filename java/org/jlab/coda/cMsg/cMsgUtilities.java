@@ -314,7 +314,7 @@ public class cMsgUtilities {
      * @param ip IP or subnet address in dotted-decimal format
      * @return matching local address on the same subnet;
      *         else null if no match
-     * @throws cMsgException if arg is null or not in dotted-decimal format
+     * @throws cMsgException if arg not in dotted-decimal format
      */
     public static String getMatchingLocalIpAddress(String ip) throws cMsgException {
         if (ip == null) {
