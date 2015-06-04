@@ -23,6 +23,7 @@ import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -39,8 +40,11 @@ public class EmuClient extends cMsgDomainAdapter {
     /** Timeout in milliseconds to wait for emu server to respond to multicasts. */
     private int multicastTimeout = 3000;
 
-    /** All of server's net addresses obtained from multicast response. */
-    private volatile ArrayList<InetAddress> serverAddresses = new ArrayList<InetAddress>(10);
+    /** All of server's IP addresses obtained from multicast response. */
+    private volatile ArrayList<String> ipAddresses = new ArrayList<String>(10);
+
+    /** All of server's broadcast addresses obtained from multicast response. */
+    private volatile ArrayList<String> broadcastAddresses = new ArrayList<String>(10);
 
     /** Server's TCP listening port obtained from {@link #connect}. */
     private volatile int tcpServerPort;
@@ -74,6 +78,9 @@ public class EmuClient extends cMsgDomainAdapter {
 
     /** From UDL, our experiment id. */
     private String expid;
+
+    /** Preferred subnet over which to connect to the server. */
+    private String preferredSubnet;
 
 
 
@@ -193,22 +200,44 @@ System.out.println("Emu connect: got a response to multicast!");
         // Now that we got a response from the Emu server,
         // we have the info to connect to its TCP listening thread.
 
-        // Create a TCP connection to the Emu Server
-        boolean gotTcpConnection = false;
-        IOException ioex = null;
+        // First sort the response into a list of IP addresses in which
+        // the IPs on the preferred subnet are listed first, the IPs on
+        // common subnets are listed next, and all others last.
+        List<String> orderedIps = cMsgUtilities.orderIPAddresses(ipAddresses,
+                                                                 broadcastAddresses,
+                                                                 preferredSubnet);
 
-        if (serverAddresses.size() > 0) {
-            for (InetAddress serverAddr : serverAddresses) {
+        // Find an IP address on this host that matches the preferred subnet,
+        // else return null.
+        String outgoingIp = cMsgUtilities.getMatchingLocalIpAddress(preferredSubnet);
+
+        // Create a TCP connection to the Emu Server
+        IOException ioex = null;
+        boolean gotTcpConnection = false;
+
+        if (orderedIps != null && orderedIps.size() > 0) {
+            for (String serverIp : orderedIps) {
                 try {
 System.out.println("Emu connect: Try making tcp connection to server (host = " +
-                    serverAddr.getHostName() + ", " +
-                    serverAddr.getHostAddress() + "; port = " + tcpServerPort + ")");
+                    serverIp + "; port = " + tcpServerPort + ")");
 
                     tcpSocket = new Socket();
-                    // Don't waste time if a connection can't be made, timeout = 0.2 sec
-                    tcpSocket.connect(new InetSocketAddress(serverAddr, tcpServerPort), 200);
                     tcpSocket.setTcpNoDelay(tcpNoDelay);
                     tcpSocket.setSendBufferSize(tcpSendBufferSize);
+                    // Bind this end of the socket to the preferred subnet
+                    if (outgoingIp != null) {
+                        try {
+                            tcpSocket.bind(new InetSocketAddress(outgoingIp, 0));
+System.out.println("Emu connect: bound outgoing data to " + outgoingIp);
+                        }
+                        catch (IOException e) {
+                            // If we cannot bind to this IP address, forget about it
+System.out.println("Emu connect: tried but FAILED to bind outgoing data to " + outgoingIp);
+                        }
+                    }
+                    // Don't waste time if a connection can't be made, timeout = 0.2 sec
+                    tcpSocket.connect(new InetSocketAddress(serverIp, tcpServerPort), 200);
+
                     domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
                                                                               cMsgNetworkConstants.bigBufferSize));
 System.out.println("Emu connect: Made tcp connection to Emu server");
@@ -271,19 +300,20 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      *
      * Emu domain UDL is of the form:<p>
-     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&noDelay     </b><p>
+     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&noDelay</b><p>
      *
      * Remember that for this domain:
-     *<ul>
-     *<li>1) multicast address is always 239.230.0.0<p>
-     *<li>2) port is required<p>
-     *<li>3) expid is required<p>
-     *<li>4) codaId is required<p>
-     *<li>5) optional timeout for connecting to emu server, defaults to 3 seconds<p>
-     *<li>5) optional bufSize (max size in bytes of a single send) defaults to 2.1MB<p>
-     *<li>6) optional tcpSend is the TCP send buffer size in bytes<p>
-     *<li>7) optional noDelay is the TCP no-delay parameter turned on<p>
-     *</ul><p>
+     *<ol>
+     *<li>multicast address is always 239.230.0.0<p>
+     *<li>port is required<p>
+     *<li>expid is required<p>
+     *<li>codaId is required<p>
+     *<li>optional timeout for connecting to emu server, defaults to 3 seconds<p>
+     *<li>optional bufSize (max size in bytes of a single send) defaults to 2.1MB<p>
+     *<li>optional tcpSend is the TCP send buffer size in bytes<p>
+     *<li>optional subnet is the preferred subnet used to connect to server<p>
+     *<li>optional noDelay is the TCP no-delay parameter turned on<p>
+     *</ol><p>
      *
      * @param udlRemainder partial UDL to parse
      * @throws cMsgException if udlRemainder is null
@@ -343,7 +373,7 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
             throw new cMsgException("parseUDL: must specify the CODA id");
         }
 
-        // Look for ?codaId=value&
+        // Look for ?codaId=value
         pattern = Pattern.compile("[\\?]codaId=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
@@ -359,7 +389,7 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
         }
 //System.out.println("CODA id = " + codaID);
 
-        // Look for ?timeout=value& or &timeout=value&
+        // Look for ?timeout=value or &timeout=value
         pattern = Pattern.compile("[\\?&]timeout=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
@@ -372,7 +402,7 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
             }
         }
 
-        // Look for ?bufSize=value& or &bufSize=value&
+        // Look for ?bufSize=value or &bufSize=value
         pattern = Pattern.compile("[\\?&]bufSize=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
@@ -388,7 +418,7 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
             }
         }
 
-        // now look for ?tcpBuf=value& or &tcpBuf=value&
+        // now look for ?tcpBuf=value or &tcpBuf=value
         pattern = Pattern.compile("[\\?&]tcpBuf=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
@@ -404,7 +434,24 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
             }
         }
 
-        // now look for ?noDelay& or &noDelay&
+        // now look for ?subnet=value or &subnet=value
+        pattern = Pattern.compile("[\\?&]subnet=((?:[0-9]{1,3}\\.){3}[0-9]{1,3})", Pattern.CASE_INSENSITIVE);
+        matcher = pattern.matcher(remainder);
+        if (matcher.find()) {
+            try {
+                preferredSubnet = matcher.group(1);
+                // make sure it's in the proper format
+                if (cMsgUtilities.isDottedDecimal(preferredSubnet) == null) {
+                    preferredSubnet = null;
+                }
+System.out.println("preferred subnet = " + preferredSubnet);
+            }
+            catch (NumberFormatException e) {
+                // ignore error and keep value of 0
+            }
+        }
+
+        // now look for ?noDelay or &noDelay
         pattern = Pattern.compile("[\\?&]noDelay", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
@@ -524,7 +571,7 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
                         }
                         continue;
                     }
-//System.out.println("received multicast packet");
+//System.out.println("Multicast receiver: received multicast packet");
                     int magic1 = cMsgUtilities.bytesToInt(buf, index); index += 4;
                     int magic2 = cMsgUtilities.bytesToInt(buf, index); index += 4;
                     int magic3 = cMsgUtilities.bytesToInt(buf, index); index += 4;
@@ -559,20 +606,28 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
                         continue;
                     }
 
-                    // Bytes of all ints
-                    totalLen = lengthOfInts + 4*addressCount;
+                    // Bytes of all ints just read in
+                    totalLen = lengthOfInts;
 
-                    // Packet have enough data?
-                    if (packet.getLength() < totalLen) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("Multicast receiver: got packet that's too small");
-                        }
-                        continue;
-                    }
-
-                    // Read all server's IP addresses
+                    // Read all server's IP addresses (dot-decimal format)
                     for (int i=0; i < addressCount; i++) {
+
+                        // Packet has enough data?
+                        totalLen += 4;
+                        if (packet.getLength() < totalLen) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("Multicast receiver: got packet that's too small");
+                            }
+                            continue;
+                        }
+
                         len = cMsgUtilities.bytesToInt(buf, index); index += 4;
+                        if (len < 7) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("Multicast receiver: got length that's too small");
+                            }
+                            continue newPacket;
+                        }
 
                         totalLen += len;
                         if (packet.getLength() < totalLen) {
@@ -582,12 +637,39 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
                             continue newPacket;
                         }
 
-                        // Get & store dotted-decimal IP addresses
-                        if (len > 0) {
-                            ip = new String(buf, index, len, "US-ASCII");
-                            serverAddresses.add(InetAddress.getByName(ip));
-//System.out.println("host = " + ip);
+                        // Get & store dotted-decimal IP address
+                        ip = new String(buf, index, len, "US-ASCII");
+                        ipAddresses.add(ip);
+//System.out.println("Multicast receiver: server IP = " + ip);
+
+                        totalLen += 4;
+                        if (packet.getLength() < totalLen) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("Multicast receiver: got packet that's too small");
+                            }
+                            continue;
                         }
+
+                        len = cMsgUtilities.bytesToInt(buf, index); index += 4;
+                        if (len < 7) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("Multicast receiver: got length that's too small");
+                            }
+                            continue newPacket;
+                        }
+
+                        totalLen += len;
+                        if (packet.getLength() < totalLen) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("Multicast receiver: got packet that's too small");
+                            }
+                            continue newPacket;
+                        }
+
+                        // Get & store dotted-decimal broadcast addresses
+                        ip = new String(buf, index, len, "US-ASCII");
+                        broadcastAddresses.add(ip);
+//System.out.println("Multicast receiver: server broadcast = " + ip);
                     }
 
                 }
