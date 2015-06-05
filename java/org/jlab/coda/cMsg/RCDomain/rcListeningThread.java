@@ -296,11 +296,11 @@ System.out.println("rcListening thd: connection to rc client already established
 
                     // read first int -- total size in bytes
                     int size = in.readInt();
-                    //System.out.println(" size = " + size + ", id = " + id);
+//System.out.println(" size = " + size);
 
                     // read client's request
                     int msgId = in.readInt();
-                    //System.out.println(" msgId = " + msgId + ", id = " + id);
+//System.out.println(" msgId = " + msgId);
 
                     cMsgMessageFull msg;
 
@@ -330,7 +330,7 @@ System.out.println("Got PING message!!!");
 
                         // rc (multicast) server bailing out of connect loop
                         case cMsgConstants.msgRcAbortConnect:
-//System.out.println("Got ABORT message!!!");
+System.out.println("Got ABORT message!!!");
                             client.abandonConnection = true;
                             client.connectCompletion.countDown();
                             break;
