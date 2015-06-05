@@ -597,6 +597,7 @@ System.out.println("preferred subnet = " + preferredSubnet);
 
                     // How many addresses are being sent?
                     int addressCount = cMsgUtilities.bytesToInt(buf, index); index += 4;
+//System.out.println("Multicast receiver: addressCount = " + addressCount);
 
                     if (addressCount < 1) {
                         if (debug >= cMsgConstants.debugWarn) {
@@ -638,7 +639,7 @@ System.out.println("preferred subnet = " + preferredSubnet);
                         }
 
                         // Get & store dotted-decimal IP address
-                        ip = new String(buf, index, len, "US-ASCII");
+                        ip = new String(buf, index, len, "US-ASCII"); index += len;
                         ipAddresses.add(ip);
 //System.out.println("Multicast receiver: server IP = " + ip);
 
@@ -667,7 +668,7 @@ System.out.println("preferred subnet = " + preferredSubnet);
                         }
 
                         // Get & store dotted-decimal broadcast addresses
-                        ip = new String(buf, index, len, "US-ASCII");
+                        ip = new String(buf, index, len, "US-ASCII"); index += len;
                         broadcastAddresses.add(ip);
 //System.out.println("Multicast receiver: server broadcast = " + ip);
                     }
@@ -725,7 +726,7 @@ System.out.println("Got IOException in multicast receive, exiting");
 //                   ", loopback = " + ni.isLoopback() +
 //                   ", has multicast = " + ni.supportsMulticast());
                             if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
-//System.out.println("Emu client: sending mcast packet over " + ni.getName());
+System.out.println("Emu client: sending mcast packet over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
                                 Thread.sleep(200);
