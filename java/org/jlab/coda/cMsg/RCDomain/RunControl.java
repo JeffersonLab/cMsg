@@ -332,7 +332,7 @@ public class RunControl extends cMsgDomainAdapter {
                     }
                 }
 
-                // Let folks know address pairs are coming
+                // Let folks know how many address pairs are coming
                 out.writeInt(addrCount);
 
 //System.out.println("RC connect: ip list items = " + addrCount);
@@ -409,7 +409,7 @@ public class RunControl extends cMsgDomainAdapter {
 
             // RC Multicast server told me to abandon the connection attempt
             if (abandonConnection) {
-                throw new cMsgException("RC Multicast server says to quit the connect attempt");
+                throw new cMsgException("RC Multicast server says to abort the connect attempt");
             }
 
             if (!completed) {
@@ -1416,7 +1416,7 @@ System.out.println("IP = " + specifiedLocalIp + ", subnet IP = " + specifiedLoca
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
 
-                                Thread.sleep(500);
+                                Thread.sleep(200);
                                 sleepCount++;
                             }
                         }
