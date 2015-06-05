@@ -1397,12 +1397,9 @@ System.out.println("IP = " + specifiedLocalIp + ", subnet IP = " + specifiedLoca
                 Thread.sleep(100);
 
                 while (true) {
-
-                    int sleepCount = 0;
-
                     try {
                         // Send a packet over each network interface.
-                        // Place a 1/2 second delay between each.
+                        // Place a delay between each.
                         Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
 
                         while (enumer.hasMoreElements()) {
@@ -1417,7 +1414,6 @@ System.out.println("IP = " + specifiedLocalIp + ", subnet IP = " + specifiedLoca
                                 multicastUdpSocket.send(packet);
 
                                 Thread.sleep(200);
-                                sleepCount++;
                             }
                         }
                     }
@@ -1425,7 +1421,8 @@ System.out.println("IP = " + specifiedLocalIp + ", subnet IP = " + specifiedLoca
                         e.printStackTrace();
                     }
 
-                    if (sleepCount < 1) Thread.sleep(1000);
+                    // One second between rounds
+                    Thread.sleep(1000);
                 }
             }
             catch (InterruptedException e) {
