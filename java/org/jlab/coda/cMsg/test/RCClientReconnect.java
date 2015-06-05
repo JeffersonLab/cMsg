@@ -48,22 +48,19 @@ public class RCClientReconnect {
 
          System.out.println("Starting RC Client");
 
-         /* Runcontrol domain UDL is of the form:
-          *        cMsg:rc://<host>:<port>/?expid=<expid>&broadcastTO=<timeout>&connectTO=<timeout>
-          *
-          * Remember that for this domain:
-          * 1) port is optional with a default of 6543 (cMsgNetworkConstants.rcMulticastPort)
-          * 2) host is optional with a default of 255.255.255.255 (broadcast)
-          *    and may be "localhost" or in dotted decimal form
-          * 3) the experiment id or expid is optional, it is taken from the
-          *    environmental variable EXPID
-          * 4) broadcastTO is the time to wait in seconds before connect returns a
-          *    timeout when a rc broadcast server does not answer
-          * 5) connectTO is the time to wait in seconds before connect returns a
-          *    timeout while waiting for the rc server to send a special (tcp)
-          *    concluding connect message
-          */
-         String UDL = "cMsg:rc://?expid=carlExp&broadcastTO=5&connectTO=5";
+        /* Runcontrol domain UDL is of the form:<p>
+         *   rc://host:port/expid?connectTO=<timeout>
+         *
+         * Remember that for this domain:
+         *
+         *host is required and may also be "multicast", "localhost", or in dotted decimal form
+         *port is optional with a default of 45200
+         *the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
+         *connectTO is the time to wait in seconds before connect returns a
+         *       timeout while waiting for the rc server to send a special (tcp)
+         *       concluding connect message. Defaults to 5 seconds
+         */
+         String UDL = "rc://multicast/emutest?connectTO=5";
 
          cMsg cmsg = new cMsg(UDL, "java rc client", "rc trial");
          cmsg.connect();
