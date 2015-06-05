@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------*
-*  Copyright (c) 2014        Jefferson Science Associates,                   *
+*  Copyright (c) 2015        Jefferson Science Associates,                   *
 *                            Thomas Jefferson National Accelerator Facility  *
 *                                                                            *
 *    This software was developed under a United States Government license    *
