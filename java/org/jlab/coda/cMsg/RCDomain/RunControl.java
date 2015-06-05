@@ -434,7 +434,7 @@ public class RunControl extends cMsgDomainAdapter {
 
             // RC Multicast server told me to abandon the connection attempt
             if (abandonConnection) {
-                throw new cMsgException("RC Multicast server says to quit the connect attempt");
+                throw new cMsgException("RC Multicast server says to abort the connect attempt");
             }
 
             if (!completed) {
