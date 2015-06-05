@@ -311,7 +311,7 @@ public class RCMulticast extends cMsgDomainAdapter {
      */
     public void send(cMsgMessage message) throws cMsgException {
 
-        // cannot run this simultaneously with connect or disconnect
+        // Cannot run this simultaneously with connect or disconnect
         notConnectLock.lock();
 
         Socket socket = null;
@@ -321,11 +321,41 @@ public class RCMulticast extends cMsgDomainAdapter {
             if (!connected) {
                 throw new cMsgException("not connected to server");
             }
-            socket = new Socket(message.getSenderHost(), message.getUserInt());
+
+            // To create a TCP socket to connecting client, first try using
+            // the given IP addresses if any, then try the msg's senderHost.
+            String[] ipAddrs;
+            cMsgPayloadItem item = message.getPayloadItem("IpAddresses");
+            if (item != null) {
+                ipAddrs = item.getStringArray();
+            }
+            else {
+               ipAddrs = new String[] {message.getSenderHost()};
+            }
+
+            IOException ioex = null;
+            boolean connectedSocket = false;
+
+            for (String ip : ipAddrs) {
+                try {
+                    socket = new Socket(ip, message.getUserInt());
+                    connectedSocket = true;
+                    break;
+                }
+                catch (IOException e) {ioex = e;}
+            }
+
+            if (!connectedSocket) {
+                throw new cMsgException("cannot create socket to rc client", ioex);
+            }
+
             // Set tcpNoDelay so packet not delayed
             socket.setTcpNoDelay(true);
 
             out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+            out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
+            out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
+            out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
             out.writeInt(4);
             out.writeInt(cMsgConstants.msgRcAbortConnect);
             out.flush();
