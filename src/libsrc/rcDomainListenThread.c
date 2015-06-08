@@ -380,7 +380,6 @@ static void *clientThread(void *arg)
   origArg = info->arg;
   free(arg);
   
-  cMsgDebug == CMSG_DEBUG_INFO;
   
   /* increase concurrency for this thread */
   sun_setconcurrency(sun_getconcurrency() + 1);
