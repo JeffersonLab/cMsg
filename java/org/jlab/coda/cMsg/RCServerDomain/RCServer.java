@@ -591,14 +591,6 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
             throw new cMsgException("parseUDL: illegal port number");
         }
 
-//        // Now look for ?fixedIp
-//        Boolean fixedIp = false;
-//        pattern = Pattern.compile("[\\?]fixedIp", Pattern.CASE_INSENSITIVE);
-//        matcher = pattern.matcher(remainder);
-//        if (matcher.find()) {
-//            fixedIp = true;
-//        }
-
         return new Object[] {udlHost, clientPort, bcastAddr};
     }
 
