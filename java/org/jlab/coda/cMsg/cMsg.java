@@ -800,10 +800,11 @@ public class cMsg {
 
     /**
      * Get a string that the implementation class wants to return up to the top (this) level API.
+     * @param s string
      * @return a string
      */
-    public String getString() {
-        return connection.getString();
+    public String getString(String s) {
+        return connection.getString(s);
     }
 
     /**
