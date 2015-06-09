@@ -214,7 +214,7 @@ class cMsgServerBridge {
         this.thisNsUdpPort = thisNsUdpPort;
         idStorage = new ConcurrentHashMap<Integer,Integer>(100);
 
-        // Normally a client uses the top level API. That is unecessary
+        // Normally a client uses the top level API. That is unnecessary
         // (and undesirable) here because we already know we're in the
         // cMsg subdomain. We'll use the cMsg domain level object so we'll
         // have access to additional methods not part of the API.
