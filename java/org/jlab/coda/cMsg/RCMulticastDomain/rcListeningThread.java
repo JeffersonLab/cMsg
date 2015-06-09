@@ -193,7 +193,7 @@ class rcListeningThread extends Thread {
                 packet.setLength(2048);
                 multicastSocket.receive(packet);   // blocks
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("     ***** RECEIVED RC DOMAIN MULTICAST PACKET !!!");
+                    System.out.println("     ***** RECEIVED RC DOMAIN MULTICAST PACKET from " + packet.getAddress().getHostName());
                 }
 
                 if (killThread) { return; }
