@@ -48,7 +48,8 @@ class rcListeningThread extends Thread {
     private volatile boolean connected;
 
     /** Setting this to true will kill this thread. */
-    private boolean killThread;
+    private volatile boolean killThread;
+
 
     /** Kills this thread. */
     public void killThread() {
@@ -145,12 +146,18 @@ class rcListeningThread extends Thread {
 
                         if (connected) {
 System.out.println("rcListening thd: connection to rc client already established, ignoring attempt");
+                            ServerSocketChannel server = (ServerSocketChannel) key.channel();
+                            // Deal with this unwanted connection request from the client
+                            // by accepting the connection, and closing the socket. If we
+                            // don't do this, the select will immediately be active again.
+                            SocketChannel channel = server.accept();
+                            channel.close();
                             it.remove();
                             continue;
                         }
 
                         ServerSocketChannel server = (ServerSocketChannel) key.channel();
-                        // accept the connection from the client
+                        // Accept the connection from the client
                         SocketChannel channel = server.accept();
 
                         // Check to see if this is a legitimate rc server client or some imposter.
@@ -394,7 +401,7 @@ System.out.println("Got PING message!!!");
 //                            client.rcTcpServerPort = Integer.parseInt(ports[1]);
 
                             if (client.isConnected()) {
-//System.out.println("Reestablish broken socket, do udp connect ...");
+//System.out.println("Reestablish broken socket, do new tcp connect ...");
                                 // Reestablish the broken socket.
                                 // Create a UDP "connection". This means security check is done only once
                                 // and communication with any other host/port is not allowed.
@@ -494,7 +501,7 @@ System.out.println("Got PING message!!!");
             if (stringBytesToRead > bytes.length) {
                 //if (debug >= cMsgConstants.debugInfo) {
                 // Print warning if strings + payload > 20MB
-                if (stringBytesToRead > 20000000) {
+                if (stringBytesToRead > 20000000 || stringBytesToRead < 1) {
 System.out.println("readIncomingMessage: WARNING: attempt reading strings+payload of msg = " +
                     stringBytesToRead + " bytes");
 System.out.println("     bytes: sender " + lengthSender +
