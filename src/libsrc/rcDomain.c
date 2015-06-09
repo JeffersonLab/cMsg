@@ -384,6 +384,8 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     char *rcServerHost = NULL;
     struct timeval tv = {0, 300000}; /* 0.3 sec wait for rc Server to respond */
     
+    cMsgDebug = CMSG_DEBUG_INFO;
+    
     /* clear array */
     memset((void *)buffer, 0, 1024);
     
@@ -593,8 +595,8 @@ printf("rc connect: start pend thread\n");
      * The UDP port we're sending from is aleady part of the UDP packet
      */
 
-printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
-        ((int) domain->listenPort), expid, serverPort, serverHost);
+/*printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
+        ((int) domain->listenPort), expid, serverPort, serverHost);*/
     
     nameLen  = strlen(myName);
     expidLen = strlen(expid);
@@ -672,7 +674,7 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
                 /* send IP addr */
                 memcpy(buffer+len, (const void *)ipAddrNext->addr, strLen);
                 len += strLen;               
-/*printf("rcClient sending IP addr %s to rc multicast server\n", ipAddrNext->addr);*/
+/*printf("rc connect: sending IP addr %s to rc multicast server\n", ipAddrNext->addr);*/
                 
                 /* send len of broadcast addr */
                 strLen = strlen(ipAddrNext->broadcast);
@@ -683,7 +685,7 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
                 /* send broadcast addr */
                 memcpy(buffer+len, (const void *)ipAddrNext->broadcast, strLen);
                 len += strLen;               
-/*printf("rcClient sending broadcast addr %s to rc multicast server\n", ipAddrNext->broadcast);*/
+/*printf("rc connect: sending broadcast addr %s to rc multicast server\n", ipAddrNext->broadcast);*/
                 
                 addrCount++;
                 ipAddrNext = ipAddrNext->next;
@@ -737,7 +739,6 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
 /*printf("rc connect: wait on latch FOREVER for connect to finish\n");*/
         status = cMsgLatchAwait(&domain->syncLatch, NULL);
     }
-/*printf("rc connect: got a response from rc server, 3-way connect finished, now make 2 connections to rc server\n");*/
 
     /* Told by multicast server to stop waiting for the
      * rc Server to finish the connection. */
@@ -753,7 +754,7 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
     }
     
     if (status < 1 || !domain->rcConnectComplete) {
-/*printf("rc connect: wait timeout or rcConnectComplete is not 1\n");*/
+printf("rc connect: wait timeout or rcConnectComplete is not 1\n");
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(bThread);
@@ -762,6 +763,8 @@ printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server
         free(domain);
         return(CMSG_TIMEOUT);
     }
+    
+/*printf("rc connect: got a response from rc server, 3-way connect finished, now make 2 connections to rc server\n");*/
     
     /* stop multicasting thread */
     pthread_cancel(bThread);
@@ -793,7 +796,7 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
                 domain->sendHost = strdup(rcServerHost);
                 break;
             }
-/*printf("rc connect: failed to connect to %s\n", rcServerHost);*/
+printf("rc connect: failed to connect to %s\n", rcServerHost);
         }
 
         if (!gotValidRcServerHost) {
@@ -2631,7 +2634,7 @@ static int parseUDL(const char *UDLR,
     if (port != NULL) {
       *port = Port;
     }
-/*printf("parseUDL: port = %hu\n", Port);*/
+printf("parseUDL: port = %hu\n", Port);
 
     /* find expid */
     index++;
