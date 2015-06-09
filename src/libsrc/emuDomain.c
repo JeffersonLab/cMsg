@@ -109,7 +109,8 @@ static int   udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static void  defaultShutdownHandler(void *userArg);
 static int parseUDL(const char *UDLR, unsigned short *port,
                     char **expid, int  *codaId, int  *timeout,
-                    int  *bufSize, int  *tcpSend, int  *noDelay, char **remainder);
+                    int  *bufSize, int  *tcpSend, int  *noDelay,
+                    char** subnet, char **remainder);
                       
 /* Prototypes of the 17 functions which implement the standard tasks in cMsg. */
 int   cmsg_emu_connect           (const char *myUDL, const char *myName,
@@ -273,19 +274,20 @@ int cmsg_emu_isConnected(void *domainId, int *connected) {
  * The argument "myUDL" is the Universal Domain Locator used to uniquely
  * identify the emu server to connect to.
  * Emu domain UDL is of the form:<p>
- *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&noDelay</b><p>
+ *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&noDelay</b><p>
  *
  * Remember that for this domain:
- *<ul>
- *<li>1) multicast address is always 239.230.0.0<p>
- *<li>2) port (of emu domain server) is required<p>
- *<li>3) expid is required<p>
- *<li>4) codaId (coda id of data sender) is required<p>
- *<li>5) optional timeout (sec) to connect to emu server, default = 0 (wait forever)<p>
- *<li>6) optional bufSize (max size in bytes of a single send), min = 1KB, default = 2.1MB<p>
- *<li>7) optional tcpSend is the TCP send buffer size in bytes, min = 1KB<p>
- *<li>8) optional noDelay is the TCP no-delay parameter turned on<p>
- *</ul><p>
+ *<ol>
+ *<li>multicast address is always 239.230.0.0<p>
+ *<li>port (of emu domain server) is required<p>
+ *<li>expid is required<p>
+ *<li>codaId (coda id of data sender) is required<p>
+ *<li>optional timeout (sec) to connect to emu server, default = 0 (wait forever)<p>
+ *<li>optional bufSize (max size in bytes of a single send), min = 1KB, default = 2.1MB<p>
+ *<li>optional tcpSend is the TCP send buffer size in bytes, min = 1KB<p>
+ *<li>optional subnet is the preferred subnet used to connect to server<p>
+ *<li>optional noDelay is the TCP no-delay parameter turned on<p>
+ *</ol><p>
  *
  * If successful, this routine fills the argument "domainId", which identifies
  * the connection uniquely and is required as an argument by many other routines.
@@ -325,7 +327,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
                      const char *UDLremainder, void **domainId) {
   
     unsigned short serverPort;
-    char   *expid=NULL, buffer[1024];
+    char   *expid=NULL,*subnet=NULL, buffer[1024];
     int     err, status, len, expidLen, nameLen, i, index=0;
     int32_t outGoing[7];
     int     myCodaId, multicastTO, dataBufSize, tcpSendBufSize=0, tcpNoDelay=0;
@@ -353,9 +355,9 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     memset((void *)buffer, 0, 1024);
     
     /* parse the UDLRemainder to get the port, expid, codaId,
-       timeout, dataBufSize, TCP sendBufSize, TCP noDelay */
+       timeout, dataBufSize, TCP sendBufSize, TCP noDelay, and preferred subnet */
     err = parseUDL(UDLremainder, &serverPort, &expid, &myCodaId, &multicastTO,
-                   &dataBufSize, &tcpSendBufSize, &tcpNoDelay, NULL);
+                   &dataBufSize, &tcpSendBufSize, &tcpNoDelay, &subnet, NULL);
     if (err != CMSG_OK) {
         return(err);
     }
@@ -688,6 +690,8 @@ static void *receiverThd(void *arg) {
          *         -> in a loop:
          *           -> len of server's IP address string
          *           -> server's IP address in dotted-decimal format
+         *           -> len of server's broadcast address string
+         *           -> server's broadcast address in dotted-decimal format
          */
         if (len < minMsgSize) {
           /*printf("receiverThd: got packet that's too small\n");*/
@@ -727,8 +731,9 @@ printf("receiverThd: packet from host %s on port %hu\n",
         /* clear table containing all ip addresses of server */
         hashClear(&domain->rcIpAddrTable, NULL, NULL);
 
-        /* get IP addresses and store in hash table */
         for (i=0; i < addressCount; i++) {
+            
+            /* get IP address and store in hash table */
             
             /* # of chars in string stored in 32 bit int */
             length = *((int32_t *) pbuf);
@@ -743,10 +748,33 @@ printf("receiverThd: packet from host %s on port %hu\n",
                 memcpy(tmp, pbuf, length);
                 tmp[length] = 0;
                 pbuf += length;
-/*printf("receiverThd: emu server on host = %s, TCP port = %d\n", tmp, port);*/
+/*printf("receiverThd: emu server ip addr = %s\n", tmp);*/
                 hashInsert(&domain->rcIpAddrTable, tmp, NULL, NULL);
                 free(tmp);
             }
+            
+            /* get broadcast address and store in hash table */
+            
+            length = *((int32_t *) pbuf);
+            length = ntohl(length);
+            pbuf += sizeof(int32_t);
+            
+            if (length > 0) {
+                if ( (tmp = (char *) malloc(length + 1)) == NULL) {
+                    pthread_exit(NULL);
+                    return NULL;
+                }
+                memcpy(tmp, pbuf, length);
+                tmp[length] = 0;
+                pbuf += length;
+/*printf("receiverThd: emu server broadcast addr = %s\n", tmp);*/
+                hashInsert(&domain->rcIpAddrTable, tmp, NULL, NULL);
+                free(tmp);
+            }
+            
+            
+            
+            
         }              
                         
         /* Tell main thread we are done. */
@@ -1273,19 +1301,20 @@ int cmsg_emu_shutdownServers(void *domainId, const char *server, int flag) {
  * portion of the UDL sent from the next level up" in the API.
  *
  * Emu domain UDL is of the form:<p>
- *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&noDelay</b><p>
+ *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&noDelay</b><p>
  *
  * Remember that for this domain:
- *<ul>
- *<li>1) multicast address is always 239.230.0.0<p>
- *<li>2) port (of emu domain server) is required<p>
- *<li>3) expid is required<p>
- *<li>4) codaId (coda id of data sender) is required<p>
- *<li>5) optional timeout (sec) to connect to emu server, default = 0 (wait forever)<p>
- *<li>6) optional bufSize (max size in bytes of a single send), min = 1KB, default = 2.1MB<p>
- *<li>7) optional tcpSend is the TCP send buffer size in bytes, min = 1KB<p>
- *<li>8) optional noDelay is the TCP no-delay parameter turned on<p>
- *</ul><p>
+ *<ol>
+ *<li>multicast address is always 239.230.0.0<p>
+ *<li>port (of emu domain server) is required<p>
+ *<li>expid is required<p>
+ *<li>codaId (coda id of data sender) is required<p>
+ *<li>optional timeout (sec) to connect to emu server, default = 0 (wait forever)<p>
+ *<li>optional bufSize (max size in bytes of a single send), min = 1KB, default = 2.1MB<p>
+ *<li>optional tcpSend is the TCP send buffer size in bytes, min = 1KB<p>
+ *<li>optional subnet is the preferred subnet used to connect to server<p>
+ *<li>optional noDelay is the TCP no-delay parameter turned on<p>
+ *</ol><p>
  *
  * @param UDLR       partial UDL to be parsed
  * @param port       pointer filled in with port
@@ -1295,6 +1324,7 @@ int cmsg_emu_shutdownServers(void *domainId, const char *server, int flag) {
  * @param bufSize    pointer filled in with bufSize value if it exists
  * @param tcpSend    pointer filled in with tcpSend value if it exists
  * @param noDelay    pointer filled in with 1 if noDelay exists, else 0
+ * @param subnet     pointer filled in with preferred subnet value, allocates mem and must be freed by caller
  * @param remainder  pointer filled in with the part of the udl after host:port/expid if it exists,
  *                   else it is set to NULL; allocates mem and must be freed by caller if not NULL
  *
@@ -1312,6 +1342,7 @@ static int parseUDL(const char *UDLR,
                     int  *bufSize,
                     int  *tcpSend,
                     int  *noDelay,
+                    char **subnet,
                     char **remainder) {
 
     int        err, Port, index;
@@ -1583,8 +1614,30 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
     /* free up memory */
     cMsgRegfree(&compiled);
      
-   
-	/************************/        
+    /*****************************/        
+    /* now look for subnet=value */
+    /*****************************/
+    pattern = "[?&]subnet=((?:[0-9]{1,3}.){3}[0-9]{1,3})";
+    
+    cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
+    err = cMsgRegexec(&compiled, val, 2, matches, 0);
+    if (err == 0) {
+        /* find subnet */
+        if (matches[1].rm_so >= 0) {
+            buffer[0] = 0;
+            len = matches[1].rm_eo - matches[1].rm_so;
+            strncat(buffer, val+matches[1].rm_so, len);
+            if (subnet != NULL) {
+                *subnet = (char *) strdup(buffer);
+            }        
+printf("parseUDL: preferred subnet = %s\n", buffer);
+        }
+    }
+    
+    /* free up memory */
+    cMsgRegfree(&compiled);
+        
+    /************************/        
     /* now look for noDelay */
  	/************************/        
     pattern = "[?&]noDelay";
