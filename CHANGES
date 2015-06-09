@@ -30,9 +30,15 @@ Version 3.6
     - add emu domain in C language for communication between Rocs and EBs
     - fix flags for Mac OSX compilation 9/22/4104
 
-For the future:
 Version 4.0
+    - fix bug in rc client listening thread that does not properly
+      handle multiple attempts to connect.
+    - fix bug in rc client connect that leaves thread running even when it fails.
+    - fix bug in rc client that does not reconnect back to rc server.
+    - emu domain allows use of a preferred subnet
+    -  rc domain allows use of a preferred subnet
+
+For the future:
 	- change the cMsg domain communication protocol allowing the handling
       of multiple server IP addresses
 	- enable the cMsg domain server to be identified by a unique name
-
