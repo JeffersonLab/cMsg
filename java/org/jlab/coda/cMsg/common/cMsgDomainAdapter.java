@@ -295,7 +295,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @param handler {@inheritDoc}
      */
     public void setShutdownHandler(cMsgShutdownHandlerInterface handler) {
         shutdownHandler = handler;
@@ -307,7 +306,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @return shutdown {@inheritDoc}
      */
     public cMsgShutdownHandlerInterface getShutdownHandler() {
         return shutdownHandler;
@@ -319,7 +317,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @return {@inheritDoc}
      */
     public String getDomain() {return(domain);}
 
@@ -329,7 +326,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @return {@inheritDoc}
      */
     public String getName() {return(name);}
 
@@ -339,7 +335,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @param name {@inheritDoc}
      */
     public void setName(String name) {this.name = name;}
 
@@ -349,7 +344,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @return {@inheritDoc}
      */
     public String getDescription() {return(description);}
 
@@ -359,7 +353,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @param description {@inheritDoc}
      */
     public void setDescription(String description) {this.description = description;}
 
@@ -369,7 +362,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @return {@inheritDoc}
      */
     public String getUDLRemainder() {return(UDLremainder);}
 
@@ -379,7 +371,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
    /**
      * {@inheritDoc}
-     * @param UDLremainder {@inheritDoc}
      */
     public void setUDLRemainder(String UDLremainder) {this.UDLremainder = UDLremainder;}
 
@@ -389,7 +380,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @return {@inheritDoc}
      */
     public String getUDL() {return(UDL);}
 
@@ -410,7 +400,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @return {@inheritDoc}
      */
     public String getCurrentUDL() {return(UDL);}
 
@@ -420,7 +409,6 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @return {@inheritDoc}
      */
     public String getHost() {return(host);}
 
@@ -430,16 +418,14 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
 
     /**
      * {@inheritDoc}
-     * @return {@inheritDoc}
      */
-    public String getString() {return null;}
+    public String getString(String s) {return null;}
 
 //-----------------------------------------------------------------------------
 
 
     /**
      * {@inheritDoc}
-     * @return {@inheritDoc}
      */
     public boolean isReceiving() {return receiving;}
 
@@ -449,14 +435,12 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     
     /**
      * {@inheritDoc}
-     * @param debug {@inheritDoc}
      */
     public void setDebug(int debug) {this.debug = debug;}
 
 
     /**
      * {@inheritDoc}
-     * @return {@inheritDoc}
      */
     public int getDebug() {return debug;}
 

@@ -268,9 +268,11 @@ public interface cMsgDomainInterface {
 
     /**
      * Get a string that the implementing class wants to send back to the user.
-     * @return a string
+     * Poor man's general I/O method.
+     * @param s input string
+     * @return  output string
      */
-    public String getString();
+    public String getString(String s);
 
     /**
      * Method telling whether callbacks are activated or not. The
