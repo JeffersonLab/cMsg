@@ -922,7 +922,7 @@ System.out.println("RC connect: SUCCESSFUL");
                 // Not dot-decimal format
                 specifiedLocalIp = specifiedLocalSubnet = null;
             }
-System.out.println("IP = " + specifiedLocalIp + ", subnet IP = " + specifiedLocalSubnet);
+//System.out.println("IP = " + specifiedLocalIp + ", subnet IP = " + specifiedLocalSubnet);
         }
 
     }
