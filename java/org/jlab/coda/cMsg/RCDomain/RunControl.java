@@ -375,7 +375,7 @@ public class RunControl extends cMsgDomainAdapter {
                 }
                 throw new cMsgException(e.getMessage(), e);
             }
-//System.out.println("RC connect: start receiver & sender threads");
+//System.out.println("RC connect: start sender thread");
 
             // create a thread which will send our multicast
 //System.out.println("RC connect: RC client " + name + ": will start multicast sender thread");
@@ -409,11 +409,15 @@ public class RunControl extends cMsgDomainAdapter {
 
             // RC Multicast server told me to abandon the connection attempt
             if (abandonConnection) {
+                sender.interrupt();
+                listeningThread.killThread();
                 throw new cMsgException("RC Multicast server says to abort the connect attempt");
             }
 
             if (!completed) {
 //System.out.println("RC connect: Did NOT complete the connection");
+                sender.interrupt();
+                listeningThread.killThread();
                 throw new cMsgException("No connect from the RC server received");
             }
             else {
