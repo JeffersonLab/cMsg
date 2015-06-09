@@ -60,7 +60,7 @@ public class RCClientReconnect {
          *       timeout while waiting for the rc server to send a special (tcp)
          *       concluding connect message. Defaults to 5 seconds
          */
-         String UDL = "rc://multicast/emutest?connectTO=5";
+         String UDL = "rc://multicast:45333/emutest?connectTO=5";
 
          cMsg cmsg = new cMsg(UDL, "java rc client", "rc trial");
          cmsg.connect();

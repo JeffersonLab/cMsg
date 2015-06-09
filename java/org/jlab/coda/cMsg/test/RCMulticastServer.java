@@ -31,17 +31,35 @@ public class RCMulticastServer {
              String host = msg.getSenderHost();
              int    port = msg.getUserInt();
              String name = msg.getSender();
-             
+             String broadcast = "255.255.255.255";
+
+             cMsgPayloadItem item = msg.getPayloadItem("IpAddresses");
+             if (item != null) {
+                 try {
+                     host = (item.getStringArray())[0];
+                 }
+                 catch (cMsgException e) { }
+             }
+
+             item = msg.getPayloadItem("BroadcastAddresses");
+             if (item != null) {
+                 try {
+                     broadcast = (item.getStringArray())[0];
+                 }
+                 catch (cMsgException e) { }
+             }
+
              System.out.println("Running RC Multicast domain callback, host = " + host +
-                                ", port = " + port +
-                                ", name = " + name);
+                                        ", bcast = " + broadcast +
+                                        ", port = " + port +
+                                        ", name = " + name);
 
              // Now that we have the message, we know what TCP host and port
              // to connect to in the RC Server domain.
              System.out.println("Starting RC Server domain server");
 
-             RcServerReconnectThread rcserver  = new RcServerReconnectThread(host, port);
-             //ConnectDisconnectThread rcserver = new ConnectDisconnectThread(host, port);
+             RcServerReconnectThread rcserver  = new RcServerReconnectThread(host, broadcast, port);
+             //ConnectDisconnectThread rcserver = new ConnectDisconnectThread(host, broadcast, port);
              rcserver.start();
         }
     }
@@ -79,9 +97,9 @@ public class RCMulticastServer {
         System.out.println("Starting RC Multicast domain server");
 
         // RC Multicast domain UDL is of the form:
-        //       cMsg:rcm://<udpPort>/<expid>?multicastTO=<timeout>
+        //       [cMsg:]rcm://<udpPort>/<expid>?multicastTO=<timeout>
         //
-        // The intial cMsg:rcm:// is stripped off by the top layer API
+        // The initial cMsg:rcm:// is stripped off by the top layer API
         //
         // Remember that for this domain:
         // 1) udp listening port is optional and defaults to MsgNetworkConstants.rcMulticastPort
@@ -90,7 +108,7 @@ public class RCMulticastServer {
         //    trying to locate other rc multicast servers already running on its port. Default
         //    is 2 seconds.
 
-        String UDL = "cMsg:rcm:///carlExp";
+        String UDL = "cMsg:rcm://45333/emutest";
 
         cMsg cmsg = new cMsg(UDL, "multicast listener", "udp trial");
         try {cmsg.connect();}
@@ -106,6 +124,13 @@ public class RCMulticastServer {
         // subject and type are ignored in this domain
         cmsg.subscribe("sub", "type", cb, null);
 
+
+        try {
+            Thread.sleep(120000);
+        }
+        catch (InterruptedException e) {
+        }
+
     }
 
 
@@ -115,16 +140,19 @@ public class RCMulticastServer {
     class ConnectDisconnectThread extends Thread {
 
         String rcClientHost;
+        String rcClientBroadcast;
         int rcClientTcpPort;
 
-        ConnectDisconnectThread(String host, int port) {
-            rcClientHost = host;
+        ConnectDisconnectThread(String ip, String bcast, int port) {
+            rcClientHost = ip;
+            rcClientBroadcast = bcast;
             rcClientTcpPort = port;
         }
 
         public void run() {
             try {
-                String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort;
+                String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort +
+                                "/" + rcClientBroadcast;
 
                 cMsg server = new cMsg(rcsUDL, "rc server", "connect/disconnect trial");
 //System.out.println("connect");
@@ -146,10 +174,12 @@ public class RCMulticastServer {
     class RcServerReconnectThread extends Thread {
 
         String rcClientHost;
+        String rcClientBroadcast;
         int rcClientTcpPort;
 
-        RcServerReconnectThread(String host, int port) {
+        RcServerReconnectThread(String host, String bcast, int port) {
             rcClientHost = host;
+            rcClientBroadcast = bcast;
             rcClientTcpPort = port;
         }
 
@@ -169,7 +199,8 @@ public class RCMulticastServer {
                 // 4) the udp port to listen on may be given by the optional port parameter.
                 //    if it's not given, the system assigns one
 
-                String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort;
+                String rcsUDL = "cMsg:rcs://" + rcClientHost + ":" + rcClientTcpPort +
+                                 "/" + rcClientBroadcast;
 
                 cMsg server = new cMsg(rcsUDL, "rc server", "udp trial");
                 server.connect();
@@ -199,7 +230,7 @@ public class RCMulticastServer {
                 server.disconnect();
 
                 // test reconnect feature
-                System.out.println("Now wait 2 seconds and connect again");
+                System.out.println("\n\n\nNow wait 2 seconds and connect again\n\n\n");
                 try {Thread.sleep(2000);}
                 catch (InterruptedException e) {}
 
