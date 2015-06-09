@@ -752,8 +752,10 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
                         Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
                         while (enumer.hasMoreElements()) {
                             NetworkInterface ni = enumer.nextElement();
-                            udpSocket.setNetworkInterface(ni);
-                            udpSocket.send(packet);
+                            if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
+                                udpSocket.setNetworkInterface(ni);
+                                udpSocket.send(packet);
+                            }
                         }
                     }
                     catch (IOException e) {
@@ -958,7 +960,7 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
         // The strategy here is to test the following options:
         //      option 1) use host originally specified in UDL since that's the one that found
         //                the server and pair that with a domain port specified explicitly in the UDL, or
-        //      option 2) use original host and name server port + 1, or
+        //      option 2) use original host and name server port + 1 (default domain port), or
         //      option 3) use host & port returned by name server (no SSH tunnels used)
         // in that order.
         //--------------------------------------------------------------------------------------------
