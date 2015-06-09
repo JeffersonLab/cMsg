@@ -519,8 +519,9 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
      *
      * Remember that for this domain:<p>
      * <ul>
-     * <li>host is NOT optional, must be in dotted form (129.57.35.21)<p>
+     * <li>host is NOT optional, must be in dot-decimal form<p>
      * <li>tcp port is optional and defaults to cMsgNetworkConstants.rcClientPort<p>
+     * <li>bcastAddr is NOT optional, must be the broadcast address in dot-decimal form <p>
      * </ul>
      *
      * @param udlRemainder partial UDL to parse
