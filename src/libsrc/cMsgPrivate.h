@@ -78,9 +78,9 @@ extern "C" {
     } while (0)
 
 /** Major version number. */
-#define CMSG_VERSION_MAJOR 3
+#define CMSG_VERSION_MAJOR 4
 /** Minor version number. */
-#define CMSG_VERSION_MINOR 6
+#define CMSG_VERSION_MINOR 0
 
 /** Default vxworks stack size for subscription threads. */
 #define CMSG_VX_DEFAULT_STACK_SIZE 40000
