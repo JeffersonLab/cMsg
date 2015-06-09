@@ -97,6 +97,9 @@ public class cMsg extends cMsgDomainAdapter {
     /** Domain server's host. */
     String domainServerHost;
 
+    /** Name server's TCP port. */
+    int nameServerPort;
+
     /** Domain server's TCP port. */
     int domainServerPort;
 
@@ -428,6 +431,19 @@ public class cMsg extends cMsgDomainAdapter {
         return currentParsedUDL.UDL;
     }
 
+
+    /**
+     * Get a string of information dependent upon the argument.
+     * In this domain, a cmd arg of "serverName" returns the name of the cMsg name
+     * server this client is connected to in the form "IPaddress:port".
+     * @return string dependent on argument's value
+     */
+    public String getString(String cmd) {
+        if (cmd.equals("serverName")) {
+            return domainServerHost + ":" + nameServerPort;
+        }
+        return null;
+    }
 
 
     /**
