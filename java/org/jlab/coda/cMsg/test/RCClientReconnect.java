@@ -49,7 +49,7 @@ public class RCClientReconnect {
          System.out.println("Starting RC Client");
 
         /* Runcontrol domain UDL is of the form:<p>
-         *   rc://host:port/expid?connectTO=<timeout>
+         *   rc://host:port/expid?connectTO=<timeout>&ip=<address>
          *
          * Remember that for this domain:
          *
@@ -59,6 +59,8 @@ public class RCClientReconnect {
          *connectTO is the time to wait in seconds before connect returns a
          *       timeout while waiting for the rc server to send a special (tcp)
          *       concluding connect message. Defaults to 5 seconds
+         *ip is the optional dot-decimal IP address which the rc server must use
+         *       to connect to this rc client.
          */
          String UDL = "rc://multicast:45333/emutest?connectTO=5";
 
