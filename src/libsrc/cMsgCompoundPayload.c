@@ -2308,7 +2308,6 @@ static void payloadPrintout(const void *msg, int level) {
   /* get all name & type info */
   ok = cMsgPayloadGetInfo(msg, &names, &types, &namesLen);
   if (ok != CMSG_OK) {
-    printf("PROBLEM getting payload info\n");
     if (level > 0) free(indent); return;
   }
   
