@@ -382,6 +382,7 @@ static void *clientThread(void *arg)
   origArg = info->arg;
   free(arg);
 
+  
   /* increase concurrency for this thread */
   sun_setconcurrency(sun_getconcurrency() + 1);
   
@@ -635,7 +636,7 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
           char *pchar;
           const char *serverIp = NULL;
           
-/*printf("rc clientThread %d: Got CMSG_RC_CONNECT message!!!\n", localCount);*/
+/*printf("rc clientThread %d: Got CMSG_RC_CONNECT message\n", localCount);*/
           /* disable pthread cancellation until message memory is released or
            * we'll get a mem leak */
           status = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &state);  
@@ -655,7 +656,7 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
             fprintf(stderr, "clientThread %d: RC Server connect received\n", localCount);
           }
-                    
+          
           /* read the message */
           if ( cMsgReadMessage(connfd, buffer, message) != CMSG_OK) {
             if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -674,21 +675,24 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
           domain->sendUdpPort = atoi(message->text);
           domain->sendPort = message->userInt;
           
-          if (message->senderHost != NULL) {
-              if (domain->sendHost != NULL) free(domain->sendHost);
-              domain->sendHost = (char *) strdup(message->senderHost);
-          }
-
           /* clear table containing all ip addresses of rc server */
           hashClear(&domain->rcIpAddrTable, NULL, NULL);
 
-          /* add in IP from which this connection was made */
+          /* store IP from which this connection was made */
           err = cMsgGetString(msg, "serverIp", &serverIp);
           if (err == CMSG_OK) {
+              if (domain->sendHost != NULL) {
+                  free(domain->sendHost);
+                  domain->sendHost = (char *) strdup(serverIp);
+              }
               hashInsert(&domain->rcIpAddrTable, serverIp, NULL, NULL);
           }
-          if (serverIp == NULL) {
-              serverIp = domain->sendHost;
+          else if (message->senderHost != NULL) {
+              if (domain->sendHost != NULL) free(domain->sendHost);
+              domain->sendHost = (char *) strdup(message->senderHost);
+          }
+          else {
+              domain->sendHost = (char *) strdup("unknownHost");
           }
           
           /* add in new ones sent as a payload array of strings */
@@ -758,7 +762,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             if (domain->sendUdpSocket < 0) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                  fprintf(stderr, "clientThread %d: error 1 recreating rc client's UDP send socket\n", localCount);
                 }
                 goto end;
             }
@@ -768,15 +772,15 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             if (err < 0) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                  fprintf(stderr, "clientThread %d: error 2 recreating rc client's UDP send socket\n", localCount);
                 }
                 goto end;
             }
 
-            if ( (err = cMsgNetStringToNumericIPaddr(serverIp, &addr)) != CMSG_OK ) {
+            if ( (err = cMsgNetStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                  fprintf(stderr, "clientThread %d: error 3 recreating rc client's UDP send socket\n", localCount);
                 }
                 goto end;
             }
@@ -786,15 +790,15 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             if (err < 0) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                  fprintf(stderr, "clientThread %d: error recreating rc client's UDP send socket\n", localCount);
+                  fprintf(stderr, "clientThread %d: error 4 recreating rc client's UDP send socket\n", localCount);
                 }
                 goto end;
             }
 
             /* create TCP sending socket and store */
 /*printf("rc clientThread %d: tcp socket = %d, port = %d\n", localCount,
-                   domain->sendSocket, domain->sendPort);*/
-            if ( (err = cMsgNetTcpConnect(serverIp, NULL,
+            domain->sendSocket, domain->sendPort);*/
+            if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
                                           (unsigned short) domain->sendPort,
                                           CMSG_BIGSOCKBUFSIZE, 0, 1,
                                           &domain->sendSocket, NULL)) != CMSG_OK) {
@@ -829,7 +833,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
   /* we only end up down here if there's an error or a shutdown */
   end:
     /* client has quit or crashed, therefore clean up */
-    /* fprintf(stderr, "clientThread %d: error, client's receiving connection to server broken\n", localCount);*/
+/*fprintf(stderr, "clientThread %d: error, client's receiving connection to server BROKEN\n", localCount);*/
     
     /* record the fact that this thread is disappearing */
     origArg->thdstarted = 0;
