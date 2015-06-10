@@ -438,7 +438,7 @@ public class cMsg extends cMsgDomainAdapter {
      * server this client is connected to in the form "IPaddress:port".
      * @return string dependent on argument's value
      */
-    public String getString(String cmd) {
+    public String getInfo(String cmd) {
         if (cmd.equals("serverName")) {
             return domainServerHost + ":" + nameServerPort;
         }

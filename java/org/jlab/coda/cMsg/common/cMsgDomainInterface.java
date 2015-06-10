@@ -267,12 +267,12 @@ public interface cMsgDomainInterface {
     public String getHost();
 
     /**
-     * Get a string that the implementing class wants to send back to the user.
-     * Poor man's general I/O method.
+     * General purpose I/O method which gets a string that the implementation
+     * class wants to return up to the top (this) level API.
      * @param s input string
      * @return  output string
      */
-    public String getString(String s);
+    public String getInfo(String s);
 
     /**
      * Method telling whether callbacks are activated or not. The

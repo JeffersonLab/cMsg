@@ -799,13 +799,12 @@ public class cMsg {
     }
 
     /**
-     * Get a string that the implementation class wants to return up to the top (this) level API.
+     * General purpose I/O method which gets a string that the implementation
+     * class wants to return up to the top (this) level API.
      * @param s string
      * @return a string
      */
-    public String getString(String s) {
-        return connection.getString(s);
-    }
+    public String getInfo(String s) { return connection.getInfo(s); }
 
     /**
      * Method telling whether callbacks are activated or not. The

@@ -419,7 +419,7 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     /**
      * {@inheritDoc}
      */
-    public String getString(String s) {return null;}
+    public String getInfo(String s) {return null;}
 
 //-----------------------------------------------------------------------------
 
