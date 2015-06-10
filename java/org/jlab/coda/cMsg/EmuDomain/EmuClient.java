@@ -46,7 +46,10 @@ public class EmuClient extends cMsgDomainAdapter {
     /** All of server's broadcast addresses obtained from multicast response. */
     private volatile ArrayList<String> broadcastAddresses = new ArrayList<String>(10);
 
-    /** Server's TCP listening port obtained from {@link #connect}. */
+    /** Server's IP address used to connect. */
+    private String serverIp;
+
+    /** Server's TCP listening port used to connect. */
     private volatile int tcpServerPort;
 
     /** Server's multicast listening port obtained from UDL. */
@@ -89,6 +92,24 @@ public class EmuClient extends cMsgDomainAdapter {
         domain = "emu";
     }
 
+
+
+    /**
+     * Get the host of the emu server that this client is connected to.
+     * @return emu server's host; null if unknown
+     */
+    public String getServerHost() {
+        return serverIp;
+    }
+
+
+    /**
+     * Get the TCP port of the emu server that this client is connected to.
+     * @return emu server's port; 0 if unknown
+     */
+    public int getServerPort() {
+        return tcpServerPort;
+    }
 
 
     /**
@@ -216,10 +237,10 @@ System.out.println("Emu connect: got a response to multicast!");
         boolean gotTcpConnection = false;
 
         if (orderedIps != null && orderedIps.size() > 0) {
-            for (String serverIp : orderedIps) {
+            for (String ip : orderedIps) {
                 try {
 System.out.println("Emu connect: Try making tcp connection to server (host = " +
-                    serverIp + "; port = " + tcpServerPort + ")");
+                    ip + "; port = " + tcpServerPort + ")");
 
                     tcpSocket = new Socket();
                     tcpSocket.setTcpNoDelay(tcpNoDelay);
@@ -236,11 +257,12 @@ System.out.println("Emu connect: tried but FAILED to bind outgoing data to " + o
                         }
                     }
                     // Don't waste time if a connection can't be made, timeout = 0.2 sec
-                    tcpSocket.connect(new InetSocketAddress(serverIp, tcpServerPort), 200);
+                    tcpSocket.connect(new InetSocketAddress(ip, tcpServerPort), 200);
 
                     domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
                                                                               cMsgNetworkConstants.bigBufferSize));
 System.out.println("Emu connect: Made tcp connection to Emu server");
+                    serverIp = ip;
                     gotTcpConnection = true;
                     break;
                 }
