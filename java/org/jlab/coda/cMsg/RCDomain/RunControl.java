@@ -162,14 +162,14 @@ public class RunControl extends cMsgDomainAdapter {
 
 
     /**
-     * Get the host of the server (if any) that this client is connected to.
+     * Get the host of the RC server that this client is connected to.
      * @return server's host; null if unknown
      */
     public String getServerHost() {return rcServerAddress.getHostAddress();}
 
 
     /**
-     * Get the port of the server (if any) that this client is connected to.
+     * Get the TCP port of the RC server that this client is connected to.
      * @return server's port; 0 if unknown
      */
     public int getServerPort() {return rcTcpServerPort;}
