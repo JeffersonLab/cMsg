@@ -419,6 +419,24 @@ public class cMsgDomainAdapter implements cMsgDomainInterface {
     /**
      * {@inheritDoc}
      */
+    public String getServerHost() {return null;}
+
+
+ //-----------------------------------------------------------------------------
+
+
+    /**
+     * {@inheritDoc}
+     */
+    public int getServerPort() {return 0;}
+
+
+//-----------------------------------------------------------------------------
+
+
+    /**
+     * {@inheritDoc}
+     */
     public String getInfo(String s) {return null;}
 
 //-----------------------------------------------------------------------------

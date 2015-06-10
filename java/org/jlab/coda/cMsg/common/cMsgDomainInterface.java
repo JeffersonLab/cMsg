@@ -267,6 +267,18 @@ public interface cMsgDomainInterface {
     public String getHost();
 
     /**
+     * Get the host of the server (if any) that this client is connected to.
+     * @return server's host
+     */
+    public String getServerHost();
+
+    /**
+     * Get the port of the server (if any) that this client is connected to.
+     * @return server's port
+     */
+    public int getServerPort();
+
+    /**
      * General purpose I/O method which gets a string that the implementation
      * class wants to return up to the top (this) level API.
      * @param s input string

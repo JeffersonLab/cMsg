@@ -799,6 +799,18 @@ public class cMsg {
     }
 
     /**
+     * Get the host of the server (if any) that this client is connected to.
+     * @return server's host; null if unknown
+     */
+    public String getServerHost() { return connection.getServerHost(); }
+
+    /**
+     * Get the port of the server (if any) that this client is connected to.
+     * @return server's port; 0 if unknown
+     */
+    public int getServerPort() { return connection.getServerPort(); }
+
+    /**
      * General purpose I/O method which gets a string that the implementation
      * class wants to return up to the top (this) level API.
      * @param s string
