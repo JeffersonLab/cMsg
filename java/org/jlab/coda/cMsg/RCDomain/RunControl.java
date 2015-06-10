@@ -162,15 +162,26 @@ public class RunControl extends cMsgDomainAdapter {
 
 
     /**
+     * Get the host of the server (if any) that this client is connected to.
+     * @return server's host; null if unknown
+     */
+    public String getServerHost() {return rcServerAddress.getHostAddress();}
+
+
+    /**
+     * Get the port of the server (if any) that this client is connected to.
+     * @return server's port; 0 if unknown
+     */
+    public int getServerPort() {return rcTcpServerPort;}
+
+
+    /**
      * Does nothing in this domain.
      *
      * @param timeout {@inheritDoc}
      * @throws cMsgException never thrown
      */
-    public void flush(int timeout) throws cMsgException {
-        return;
-    }
-
+    public void flush(int timeout) throws cMsgException {return;}
 
 
     /**
