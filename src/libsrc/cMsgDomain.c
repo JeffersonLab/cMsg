@@ -164,6 +164,7 @@ int   cmsg_cmsg_setUDL            (void *domainId, const char *udl, const char *
 int   cmsg_cmsg_getCurrentUDL     (void *domainId, const char **udl);
 int   cmsg_cmsg_getServerHost     (void *domainId, const char **ipAddress);
 int   cmsg_cmsg_getServerPort     (void *domainId, int *port);
+int   cmsg_cmsg_getInfo           (void *domainId, const char *command, char **string);
 
 
 /** List of the functions which implement the standard cMsg tasks in the cMsg domain. */
@@ -179,7 +180,8 @@ static domainFunctions functions = {cmsg_cmsg_connect, cmsg_cmsg_reconnect,
                                     cmsg_cmsg_shutdownClients, cmsg_cmsg_shutdownServers,
                                     cmsg_cmsg_setShutdownHandler, cmsg_cmsg_isConnected,
                                     cmsg_cmsg_setUDL, cmsg_cmsg_getCurrentUDL,
-                                    cmsg_cmsg_getServerHost, cmsg_cmsg_getServerPort};
+                                    cmsg_cmsg_getServerHost, cmsg_cmsg_getServerPort,
+                                    cmsg_cmsg_getInfo};
                                     
 /* cMsg domain type */
 domainTypeInfo cmsgDomainTypeInfo = {
@@ -442,6 +444,23 @@ static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes) {
     }
     
     return 0;
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+ * This routine does general I/O and returns a string for each string argument.
+ *
+ * @param domain id of the domain connection
+ * @param command command whose value determines what is returned in string arg
+ * @param string  pointer which gets filled in with a return string
+ *
+ * @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+ */
+int cmsg_cmsg_getInfo(void *domainId, const char *command, char **string) {
+    return(CMSG_NOT_IMPLEMENTED);
 }
 
 

@@ -150,6 +150,7 @@ int   cmsg_rc_setUDL            (void *domainId, const char *udl, const char *re
 int   cmsg_rc_getCurrentUDL     (void *domainId, const char **udl);
 int   cmsg_rc_getServerHost     (void *domainId, const char **ipAddress);
 int   cmsg_rc_getServerPort     (void *domainId, int *port);
+int   cmsg_rc_getInfo           (void *domainId, const char *command, char **string);
 
 /** List of the functions which implement the standard cMsg tasks in this domain. */
 static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_reconnect,
@@ -164,13 +165,31 @@ static domainFunctions functions = {cmsg_rc_connect, cmsg_rc_reconnect,
                                     cmsg_rc_shutdownClients, cmsg_rc_shutdownServers,
                                     cmsg_rc_setShutdownHandler, cmsg_rc_isConnected,
                                     cmsg_rc_setUDL, cmsg_rc_getCurrentUDL,
-                                    cmsg_rc_getServerHost, cmsg_rc_getServerPort};
+                                    cmsg_rc_getServerHost, cmsg_rc_getServerPort,
+                                    cmsg_rc_getInfo};
                                     
 /* rc domain type */
 domainTypeInfo rcDomainTypeInfo = {
   "rc",
   &functions
 };
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine does general I/O and returns a string for each string argument.
+*
+* @param domain id of the domain connection
+* @param command command whose value determines what is returned in string arg
+* @param string  pointer which gets filled in with a return string
+*
+* @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+*/
+int cmsg_rc_getInfo(void *domainId, const char *command, char **string) {
+    return(CMSG_NOT_IMPLEMENTED);
+}
+
 
 /*-------------------------------------------------------------------*/
 

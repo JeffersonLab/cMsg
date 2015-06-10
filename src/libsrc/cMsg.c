@@ -1169,6 +1169,37 @@ int cMsgGetServerPort(void *domainId, int *port) {
 
 
 /**
+* This routine does general I/O and returns a string for each string argument.
+*
+* @param domain id of the domain connection
+* @param command command whose value determines what is returned in string arg
+* @param string  pointer which gets filled in with a return string (may be NULL)
+*
+* @returns CMSG_OK if successful
+* @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+*/
+int cMsgGetInfo(void *domainId, const char *command, char **string) {
+    int err;
+    intptr_t    index;
+    cMsgDomain *domain;
+    
+    /* check args */
+    index = (intptr_t) domainId;
+    if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
+    
+    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    /* dispatch to function registered for this domain type */
+    err = domain->functions->getInfo(domain->implId, command, string);
+    cleanupAfterFunc(index);
+    
+    return(err);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
  * This routine is called once to connect to a domain.
  * The argument "myUDL" is the Universal Domain Locator used to uniquely
  * identify the cMsg server to connect to. It has the form:<p>

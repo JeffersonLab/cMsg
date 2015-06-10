@@ -199,6 +199,9 @@ typedef int (*SETUDL_PTR)               (void *domainId, const char *udl, const 
 /** Typedef for a domain's getCurrentUDL function */
 typedef int (*GETUDL_PTR)               (void *domainId, const char **udl);
 
+/** Typedef for a domain's getString function */
+typedef int (*GETINFO_PTR)              (void *domainId, const char *command, char **string);
+
 
 
 
@@ -294,6 +297,9 @@ typedef struct domainFunctions_t {
   
   /** This function gets the server port currently used. */
   ISCONNECTED_PTR getServerPort;
+  
+  /** This function gets a string given a string (general I/O function). */
+  GETINFO_PTR getInfo;
   
 } domainFunctions;
 

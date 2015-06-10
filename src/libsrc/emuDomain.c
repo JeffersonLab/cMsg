@@ -112,7 +112,7 @@ static int parseUDL(const char *UDLR, unsigned short *port,
                     int  *bufSize, int  *tcpSend, int  *noDelay,
                     char** subnet, char **remainder);
                       
-/* Prototypes of the 17 functions which implement the standard tasks in cMsg. */
+/* Prototypes of the 28 functions which implement the standard tasks in cMsg. */
 int   cmsg_emu_connect           (const char *myUDL, const char *myName,
                                   const char *myDescription,
                                   const char *UDLremainder, void **domainId);
@@ -147,6 +147,7 @@ int   cmsg_emu_setUDL            (void *domainId, const char *udl, const char *r
 int   cmsg_emu_getCurrentUDL     (void *domainId, const char **udl);
 int   cmsg_emu_getServerHost     (void *domainId, const char **ipAddress);
 int   cmsg_emu_getServerPort     (void *domainId, int *port);
+int   cmsg_emu_getInfo           (void *domainId, const char *command, char **string);
 
 /** List of the functions which implement the standard cMsg tasks in this domain. */
 static domainFunctions functions = {cmsg_emu_connect, cmsg_emu_reconnect,
@@ -161,13 +162,31 @@ static domainFunctions functions = {cmsg_emu_connect, cmsg_emu_reconnect,
                                     cmsg_emu_shutdownClients, cmsg_emu_shutdownServers,
                                     cmsg_emu_setShutdownHandler, cmsg_emu_isConnected,
                                     cmsg_emu_setUDL, cmsg_emu_getCurrentUDL,
-                                    cmsg_emu_getServerHost, cmsg_emu_getServerPort};
+                                    cmsg_emu_getServerHost, cmsg_emu_getServerPort,
+                                    cmsg_emu_getInfo};
                                     
 /* emu domain type */
 domainTypeInfo emuDomainTypeInfo = {
   "emu",
   &functions
 };
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine does general I/O and returns a string for each string argument.
+*
+* @param domain id of the domain connection
+* @param command command whose value determines what is returned in string arg
+* @param string  pointer which gets filled in with a return string
+*
+* @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+*/
+int cmsg_emu_getInfo(void *domainId, const char *command, char **string) {
+    return(CMSG_NOT_IMPLEMENTED);
+}
 
 
 /*-------------------------------------------------------------------*/

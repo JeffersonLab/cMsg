@@ -81,6 +81,9 @@ int   cmsg_file_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler,
 int   cmsg_file_isConnected(void *domainId, int *connected);
 int   cmsg_file_setUDL(void *domainId, const char *udl, const char *remainder);
 int   cmsg_file_getCurrentUDL(void *domainId, char **udl);
+int   cmsg_file_getServerHost(void *domainId, const char **ipAddress);
+int   cmsg_file_getServerPort(void *domainId, int *port);
+int   cmsg_file_getInfo(void *domainId, const char *command, char **string);
 
 
 /** List of the functions which implement the standard cMsg tasks in each domain. */
@@ -95,7 +98,10 @@ static domainFunctions functions = { cmsg_file_connect, cmsg_file_reconnect,
                                      cmsg_file_stop, cmsg_file_disconnect,
                                      cmsg_file_shutdownClients, cmsg_file_shutdownServers,
                                      cmsg_file_setShutdownHandler, cmsg_file_isConnected,
-                                     cmsg_file_setUDL, cmsg_file_getCurrentUDL};
+                                     cmsg_file_setUDL, cmsg_file_getCurrentUDL,
+                                     cmsg_file_getServerHost, cmsg_file_getServerPort,
+                                     cmsg_file_getInfo};
+
 
 
 /* for registering the domain */
@@ -136,6 +142,47 @@ static void mutexUnlock(pthread_mutex_t *mutex) {
   if (status != 0) {
     cmsg_err_abort(status, "Failed mutex unlock");
   }
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine does general I/O and returns a string for each string argument.
+*
+* @param domain id of the domain connection
+* @param command command whose value determines what is returned in string arg
+* @param string  pointer which gets filled in with a return string
+*
+* @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+*/
+int cmsg_file_getInfo(void *domainId, const char *command, char **string) {
+    return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine resets the server host anme, but is <b>NOT</b> implemented in this domain.
+* @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+*/
+int cmsg_file_getServerHost(void *domainId, const char **ipAddress) {
+    return(CMSG_NOT_IMPLEMENTED);
+}
+
+
+/*-------------------------------------------------------------------*/
+
+
+/**
+* This routine resets server socket port, but is <b>NOT</b> implemented in this domain.
+* @returns CMSG_NOT_IMPLEMENTED this routine is not implemented
+*/
+int cmsg_file_getServerPort(void *domainId, int *port) {
+    return(CMSG_NOT_IMPLEMENTED);
 }
 
 
