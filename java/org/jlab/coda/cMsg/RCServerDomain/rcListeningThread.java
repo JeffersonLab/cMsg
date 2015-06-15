@@ -308,6 +308,7 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
         cMsgMessageFull msg;
         boolean readingSize = true, okToParseMsg = false;
         int bytes, bytesRead=0, size=0, msgId=0;
+        int prescalePrintOut = 0;
 
         Selector selector = null;
 
@@ -530,6 +531,10 @@ System.out.println("rcListeningThread: packet bigger than receiving buffer (" +
 
                                 dataBuffer = udpBuffer;
                                 okToParseMsg = true;
+
+                                if (prescalePrintOut++ % 300 == 0) {
+System.out.println("rcListeningThread: received udp msg #" + prescalePrintOut);
+                                }
                             }
 
                             if (okToParseMsg) {
@@ -588,9 +593,9 @@ System.out.println("rcListeningThread: bad client msg cmd, " + msgId);
             try {selector.close();}      catch (IOException ex) {}
         }
 
-        if (debug >= cMsgConstants.debugInfo) {
+//        if (debug >= cMsgConstants.debugInfo) {
             System.out.println("rcListeningThread: quit TCP/UDP listening thread");
-        }
+//        }
 
         return;
     }
