@@ -309,6 +309,7 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
         boolean readingSize = true, okToParseMsg = false;
         int bytes, bytesRead=0, size=0, msgId=0;
         int prescalePrintOut = 0;
+        SocketAddress senderAddress;
 
         Selector selector = null;
 
@@ -489,7 +490,15 @@ System.out.println("rcListeningThread: tcp size = " + size + ", msgId = " + msgI
 
                                 // receive packet
                                 try {
-                                    udpChannel.receive(udpBuffer);
+                                    senderAddress = udpChannel.receive(udpBuffer);
+                                    if (senderAddress == null) {
+                                        // This should not happen as select() says
+                                        // there is something to read on this channel.
+System.out.println("rcListeningThread: nothing to read in udp channel");
+                                        key.cancel();
+                                        it.remove();
+                                        continue;
+                                    }
                                 }
                                 catch (IOException e) {
 System.out.println("rcListeningThread: IO error reading udp packet");
@@ -521,11 +530,11 @@ System.out.println("rcListeningThread: received bogus udp packet (bad magic ints
                                 if (size > 1500) {
 System.out.println("rcListeningThread: udp size = " + size + ", msgId = " + msgId);
                                 }
-                                if (4 + size > udpBuffer.capacity()) {
+                                if (4 + size > udpBuffer.limit()) {
+System.out.println("rcListeningThread: not enough data in packet (" + udpBuffer.limit() +
+                   ") to read complete msg (" + (4 + size) + "), ignore it");
                                     key.cancel();
                                     it.remove();
-System.out.println("rcListeningThread: packet bigger than receiving buffer (" +
-                           udpBuffer.capacity() + "), ignore it");
                                     continue;
                                 }
 
