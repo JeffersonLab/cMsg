@@ -30,8 +30,8 @@ public class cMsgProducer {
     private String  type = "TYPE";
     private String  name = "producer";
     private String  description = "java producer";
-    private String  UDL = "cMsg://localhost/cMsg/myNameSpace";
-    //private String  UDL = "cMsg://multicast/cMsg/myNameSpace";
+   // private String  UDL = "cMsg://localhost/cMsg/myNameSpace";
+    private String  UDL = "cMsg://multicast/cMsg/myNameSpace";
 
     private String  text;
     private char[]  textChars;
@@ -231,6 +231,9 @@ public class cMsgProducer {
             e.printStackTrace();
             return;
         }
+
+        System.out.println("We are connected to host " + coda.getServerHost() +
+                                   " on port " + coda.getServerPort());
 
         // enable message reception
         //cMsgCallbackInterface cb = new myCallback();
