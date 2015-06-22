@@ -241,7 +241,7 @@ if(methodDebug) System.out.println("    << JR: Skip myself -> server " + s);
                             // connection, quark calls itself "head:45000". Now when the second cMsg
                             // server joins, it first joins quark, so far so good, and quark says that
                             // its also connected to "physics0:45000". But when it joins "physics0:45000",
-                            // that server says I am also connected to "head:45000". It thens tries to
+                            // that server says I am also connected to "head:45000". It then tries to
                             // connect to head but it already is since it connected to quark. Thus this
                             // attempted connection fails.
                             //
