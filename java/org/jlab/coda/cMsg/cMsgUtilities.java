@@ -206,11 +206,11 @@ public class cMsgUtilities {
      *
      * @param ip IP or subnet address in dot-decimal format
      * @return ip's subnet address; null if it's not local or cannot be found
-     * @throws cMsgException if arg is null or not in dot-decimal format
+     * @throws cMsgException if arg is not in dot-decimal format
      */
     public static String getBroadcastAddress(String ip) throws cMsgException {
         if (ip == null) {
-            throw new cMsgException("arg is null");
+            return null;
         }
 
         byte[] ipBytes = isDottedDecimal(ip);
@@ -380,10 +380,10 @@ System.out.println("getMatchingLocalIpAddress: broadcast addr, use this IP on th
      * @param ipAddresses      list of addresses to order
      * @param broadAddresses   list of broadcast addresses - each associated w/ corresponding
      *                         ip address
-     * @param preferredAddress if not null, it is the preferred subnet(broadcast) address
+     * @param preferredAddress if not null, it is the preferred local subnet(broadcast) address
      *                         used in sorting so that addresses on the given list which
      *                         exist on the preferred subnet are first on the returned list.
-     *                         If a local, non-subnet ip address is given, it will be
+     *                         If a valid, local, non-subnet ip address is given, it will be
      *                         converted internally to the subnet it is on.
      * @return ordered list of given IP addresses in dotted-decimal form with those
      *         on the given local subnet listed first, those on other local subnets listed
