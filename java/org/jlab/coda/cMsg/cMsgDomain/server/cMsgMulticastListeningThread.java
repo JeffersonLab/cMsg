@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.UnsupportedEncodingException;
+import java.util.List;
 
 /**
  * This class implements a thread to listen to cMsg clients multicasting
@@ -100,15 +101,13 @@ class cMsgMulticastListeningThread extends Thread {
         DatagramPacket sendPacket  = null;
         ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
         DataOutputStream out       = new DataOutputStream(baos);
-        String myHost              = "";
-        // Send dotted decimal form of local host name.
+
+        // Send dot-decimal from of all local IP & broadcast addresses.
         // The canonical name may be associated with an address that
-        // is not relevant if, for example, host is disconnected from
-        // network. Thus we send a dotted decimal addr which will
-        // default to 127.0.0.1 if /etc/hosts is setup properly.
-        // Then we can still make things work on an isolated machine.
-        try {myHost = InetAddress.getLocalHost().getHostAddress();}
-        catch (UnknownHostException e) { }
+        // is inaccessible from the client.
+        // We can still make things work on an isolated machine as
+        // the address will default to 127.0.0.1 if /etc/hosts
+        // is setup properly.
 
         try {
             // Put our magic ints, TCP listening port, and our host into byte array
@@ -117,9 +116,49 @@ class cMsgMulticastListeningThread extends Thread {
             out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
             out.writeInt(serverTcpPort);
             out.writeInt(serverUdpPort);
-            out.writeInt(myHost.length());
-            try {out.write(myHost.getBytes("US-ASCII"));}
-            catch (UnsupportedEncodingException e) { }
+
+            //-------------------------------------
+            // Now send IP and broadcast addresses
+            //-------------------------------------
+            int i=0, addrCount;
+            String[] ipAddrs;
+            String[] broadcastAddrs;
+
+            // List of all IP data (no IPv6, no loopback, no down interfaces)
+            List<InterfaceAddress> ifAddrs = cMsgUtilities.getAllIpInfo();
+            addrCount      = ifAddrs.size();
+            ipAddrs        = new String[addrCount];
+            broadcastAddrs = new String[addrCount];
+
+            for (InterfaceAddress ifAddr : ifAddrs) {
+                Inet4Address bAddr;
+                try { bAddr = (Inet4Address)ifAddr.getBroadcast(); }
+                catch (ClassCastException e) {
+                    // should never happen since IPv6 already removed
+                    continue;
+                }
+                broadcastAddrs[i] = bAddr.getHostAddress();
+                ipAddrs[i++] = ifAddr.getAddress().getHostAddress();
+            }
+
+            // Let folks know how many address pairs are coming
+            out.writeInt(addrCount);
+
+//System.out.println("RC connect: ip list items = " + addrCount);
+            for (int j=0; j < addrCount; j++) {
+                try {
+                    out.writeInt(ipAddrs[j].length());
+//System.out.println("RC connect: ip size = " + ipAddrs[j].length());
+                    out.write(ipAddrs[j].getBytes("US-ASCII"));
+//System.out.println("RC connect: ip = " + ipAddrs[j]);
+                    out.writeInt(broadcastAddrs[j].length());
+//System.out.println("RC connect: broad size = " + broadcastAddrs[j].length());
+                    out.write(broadcastAddrs[j].getBytes("US-ASCII"));
+//System.out.println("RC connect: broad = " + broadcastAddrs[j]);
+                }
+                catch (UnsupportedEncodingException e) {/* never happen*/}
+            }
+
             out.flush();
             out.close();
 
@@ -174,10 +213,18 @@ class cMsgMulticastListeningThread extends Thread {
                      (magicInt3 != cMsgNetworkConstants.magicNumbers[2]))  {
 //System.out.println("  Bad magic numbers for multicast response packet");
                      continue;
-                 }
+                }
 
-                int msgType     = cMsgUtilities.bytesToInt(buf, 12); // what type of multicast is this ?
-                int passwordLen = cMsgUtilities.bytesToInt(buf, 16); // password length
+                // Check cMsg version
+                int version = cMsgUtilities.bytesToInt(buf, 12); // what cMsg version is this ?
+                if (version != cMsgConstants.version) {
+                    // ignore multicasts from different version
+//System.out.println("bad version");
+                    continue;
+                }
+
+                int msgType     = cMsgUtilities.bytesToInt(buf, 16); // what type of multicast is this ?
+                int passwordLen = cMsgUtilities.bytesToInt(buf, 20); // password length
 
                 // Check to distinguish between this case and sending messages
                 // to the rc broadcast domain.
@@ -195,7 +242,7 @@ class cMsgMulticastListeningThread extends Thread {
                 // password
                 String pswd = null;
                 if (passwordLen > 0) {
-                    try { pswd = new String(buf, 20, passwordLen, "US-ASCII"); }
+                    try { pswd = new String(buf, 24, passwordLen, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
                 }
 
