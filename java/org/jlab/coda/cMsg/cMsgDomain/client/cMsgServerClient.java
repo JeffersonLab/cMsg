@@ -23,8 +23,10 @@ import org.jlab.coda.cMsg.common.cMsgCallbackThread;
 import org.jlab.coda.cMsg.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.cMsgDomain.server.cMsgNameServer;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.*;
 import java.io.*;
 import java.net.Socket;
@@ -186,35 +188,51 @@ public class cMsgServerClient extends cMsg {
             // parse the UDL (Uniform Domain Locator)
             currentParsedUDL = parseUDL(UDL);
             useFailovers = false;
+            List<String> orderedIpList;
 
             // if multicasting ...
             if (multicasting) {
                 connectWithMulticast();
 
-                // correct our name
+                // Order server IP addresses so that those on same
+                // subnet as this client are listed first
+                orderedIpList = cMsgUtilities.orderIPAddresses(ipList, broadList,
+                                                               currentParsedUDL.preferredSubnet);
+            }
+            else {
+                orderedIpList = new ArrayList<String>(1);
+                orderedIpList.add(currentParsedUDL.nameServerHost);
+            }
+
+            // connect & talk to cMsg name server to check if name is unique
+            Socket nsSocket = null;
+            IOException ex  = null;
+
+            for (String ip : orderedIpList) {
                 try {
-                    String canonicalHost =  InetAddress.getByName(currentParsedUDL.nameServerHost).getCanonicalHostName();
+//System.out.println("connect: ip = " + ip + ", port = " + currentParsedUDL.nameServerTcpPort);
+                    nsSocket = new Socket(ip, currentParsedUDL.nameServerTcpPort);
+                    currentParsedUDL.nameServerHost = ip;
+                    nsSocket.setTcpNoDelay(true);
+                    break;
+                }
+                catch (IOException e) {ex = e;}
+            }
+
+            if (nsSocket == null) {
+                throw new cMsgException("connect: cannot create socket to name server", ex);
+            }
+
+            // correct our name from "multicasting" to this host
+            if (multicasting) {
+                try {
+                    String canonicalHost = InetAddress.getByName(currentParsedUDL.nameServerHost).getCanonicalHostName();
                     name = canonicalHost + ":" + currentParsedUDL.nameServerTcpPort;
                 }
                 catch (UnknownHostException e) {
                     name = currentParsedUDL.nameServerHost + ":" + currentParsedUDL.nameServerTcpPort;
                 }
 //System.out.println("\nRESETTING client name to " + name + "\n");
-            }
-
-            // connect & talk to cMsg name server to check if name is unique
-            Socket nsSocket = null;
-            try {
-//System.out.println("        << CL: open socket to  " + currentParsedUDL.nameServerHost + ":"
-//                                                     + currentParsedUDL.nameServerTcpPort);
-                nsSocket = new Socket(currentParsedUDL.nameServerHost, currentParsedUDL.nameServerTcpPort);
-                // Set tcpNoDelay so no packets are delayed
-                nsSocket.setTcpNoDelay(true);
-                // no need to set buffer sizes
-            }
-            catch (IOException e) {
-                try {if (nsSocket != null) nsSocket.close();} catch (IOException e1) {}
-                throw new cMsgException("connect: cannot create socket to name server", e);
             }
 
             // get host & port to send messages & other info from name server
@@ -245,13 +263,16 @@ public class cMsgServerClient extends cMsg {
                 }
             }
 
-            // create request sending (to domain) socket
+            // Create request sending (to domain) socket.
+            // We're assuming that no ssh tunnels are being used to connect servers together.
+            // This would be complicated to implement as tunnels in the opposite direction would
+            // probably need to be used as well.
             try {
                 // Do NOT use SocketChannel objects to establish communications. The socket obtained
-                // from a SocketChannel object has its input and outputstreams synchronized - making
+                // from a SocketChannel object has its input and output streams synchronized - making
                 // simultaneous reads and writes impossible!!
-                // SocketChannel.open(new InetSocketAddress(domainServerHost, domainServerPort));
-                domainOutSocket = new Socket(domainServerHost, domainServerPort);
+                // SocketChannel.open(new InetSocketAddress(currentParsedUDL.nameServerHost, domainServerPort));
+                domainOutSocket = new Socket(currentParsedUDL.nameServerHost, domainServerPort);
                 domainOutSocket.setTcpNoDelay(true);
                 domainOutSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
                 domainOut = new DataOutputStream(new BufferedOutputStream(domainOutSocket.getOutputStream(),
@@ -267,20 +288,20 @@ public class cMsgServerClient extends cMsg {
                 // Expecting one byte in return to confirm connection and make ssh port
                 // forwarding fails in a timely way if no server on the other end.
                 if (domainOutSocket.getInputStream().read() < 1) {
-                    throw new IOException("connectToDomainServer; failed to create message channel to domain server");
+                    throw new IOException("failed to create message channel to domain server");
                 }
             }
             catch (IOException e) {
                 // undo everything we've just done so far
                 try {if (domainOutSocket != null) domainOutSocket.close();} catch (IOException e1) {}
-                throw new cMsgException("connect: cannot create message channel to domain server", e);
+                throw new cMsgException("cannot create message channel to domain server", e);
             }
 
 
             // create keepAlive socket
             DataOutputStream kaOut;
             try {
-                keepAliveSocket = new Socket(domainServerHost, domainServerPort);
+                keepAliveSocket = new Socket(currentParsedUDL.nameServerHost, domainServerPort);
                 keepAliveSocket.setTcpNoDelay(true);
 
                 // send magic #s to foil port-scanning
@@ -296,14 +317,14 @@ public class cMsgServerClient extends cMsg {
                 // Expecting one byte in return to confirm connection and make ssh port
                 // forwarding fails in a timely way if no server on the other end.
                 if (keepAliveSocket.getInputStream().read() < 1) {
-                    throw new IOException("connectToDomainServer; failed to create keepalive channel to domain server");
+                    throw new IOException("failed to create keepalive channel to domain server");
                 }
             }
             catch (IOException e) {
                 // undo everything we've just done so far
                 try { domainOutSocket.close(); } catch (IOException e1) {}
                 try { if (keepAliveSocket != null) keepAliveSocket.close(); } catch (IOException e1) {}
-                throw new cMsgException("connect: cannot create keepAlive channel to domain server", e);
+                throw new cMsgException("cannot create keepAlive channel to domain server", e);
             }
 
 
@@ -325,7 +346,7 @@ public class cMsgServerClient extends cMsg {
                 if (listeningThread != null)    listeningThread.killThread();
                 if (keepAliveThread != null)    keepAliveThread.killThread();
                 if (updateServerThread != null) updateServerThread.killThread();
-                throw new cMsgException("connect: cannot launch threads", e);
+                throw new cMsgException("cannot launch threads", e);
             }
 
             connected = true;
