@@ -65,6 +65,7 @@
 
 
 /* package includes */
+//#include "cMsgCommonNetwork.h"
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
 #include "cMsg.h"
@@ -86,6 +87,7 @@ typedef struct thdArg_t {
     struct sockaddr_in *paddr;
     int   bufferLen;
     char *buffer;
+    codaIpList *ipList;
 } thdArg;
 
 
@@ -206,7 +208,7 @@ static void *updateServerThread(void *arg);
 static int restoreSubscriptions(cMsgDomainInfo *domain) ;
 static int failoverSuccessful(cMsgDomainInfo *domain, int waitForResubscribes);
 static int resubscribe(cMsgDomainInfo *domain, subInfo *sub);
-static int reconnect(void *domainId);
+static int reconnect(void *domainId, codaIpList *ipList);
 static int connectToServer(void *domainId);
 
 /* misc */
@@ -215,7 +217,7 @@ static int  sendMonitorInfo(cMsgDomainInfo *domain, int connfd);
 static int  getMonitorInfo(cMsgDomainInfo *domain);
 static int  partialShutdown(void *domainId, int reconnecting);
 static int  totalShutdown(void *domainId);
-static int  connectDirect(cMsgDomainInfo *domain, void *domainId);
+static int  connectDirect(cMsgDomainInfo *domain, void *domainId, codaIpList *ipList);
 static int  connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
                                   int uniqueClientKey, int reconnecting);
 static int  talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueClientKey);
@@ -223,12 +225,12 @@ static int  parseUDL(const char *UDL,parsedUDL *parsedUdl);
 static int  unSendAndGet(cMsgDomainInfo *domain, int id);
 static int  unSubscribeAndGet(cMsgDomainInfo *domain, const char *subject,
                               const char *type, int id);
-static void  defaultShutdownHandler(void *userArg);
+static void defaultShutdownHandler(void *userArg);
 static void *receiverThd(void *arg);
 static void *multicastThd(void *arg);
-static int   connectWithMulticast(cMsgDomainInfo *domain,
-                                  char **host, int *port);
-
+static int  connectWithMulticast(cMsgDomainInfo *domain,
+                                 codaIpList **hostList, int *port);
+                                      
 
 /*-------------------------------------------------------------------*/
 
@@ -723,6 +725,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   int failoverIndex=0, gotConnection = 0;
   char temp[CMSG_MAXHOSTNAMELEN];
   cMsgDomainInfo *domain;
+  codaIpList *ipList = NULL;
 
 
   /* handle memory, keep track of which functions are being called */
@@ -821,16 +824,18 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
     if (domain->currentUDL.mustMulticast) {
       free(domain->currentUDL.nameServerHost);
 /*printf("Trying to connect with Multicast\n"); */
-      err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
-                                 &domain->currentUDL.nameServerPort);
-      if (err != CMSG_OK) {
+//      err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
+//                           &domain->currentUDL.nameServerPort);
+      err = connectWithMulticast(domain, &ipList, &domain->currentUDL.nameServerPort);
+      if (err != CMSG_OK || ipList == NULL) {
 /*printf("Error trying to connect with Multicast, err = %d\n", err);*/
         cMsgParsedUDLFree(&domain->currentUDL);
         continue;
       }
     }
 
-    err = connectDirect(domain, (void *) index);
+    err = connectDirect(domain, (void *) index, ipList);
+    cMsgNetFreeAddrList(ipList);
     if (err != CMSG_OK) {
         cMsgParsedUDLFree(&domain->currentUDL);
     }
@@ -841,7 +846,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
        * in the form of a server name (host:port) which will
        * be useful later. */
       len = strlen(domain->currentUDL.nameServerHost) +
-            cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 1;
+                   cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 1;
       domain->currentUDL.serverName = (char *)malloc(len+1);
       if (domain->currentUDL.serverName == NULL) {
         cMsgDomainFree(domain);
@@ -915,6 +920,7 @@ int cmsg_cmsg_reconnect(void *domainId) {
     int failoverUDLCount = 0, failoverIndex=0, gotConnection = 0;
     char temp[CMSG_MAXHOSTNAMELEN];
     cMsgDomainInfo *domain;
+    codaIpList *ipList = NULL;
     
     index = (intptr_t) domainId;
     if (index < 0 || index > CMSG_CONNECT_PTRS_ARRAY_SIZE-1) {
@@ -992,16 +998,16 @@ int cmsg_cmsg_reconnect(void *domainId) {
             if (domain->currentUDL.mustMulticast) {
                 free(domain->currentUDL.nameServerHost);
                 /*printf("Trying to connect with Multicast\n"); */
-                err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
+                err = connectWithMulticast(domain, &ipList,
                                            &domain->currentUDL.nameServerPort);
-                if (err != CMSG_OK) {
+                if (err != CMSG_OK || ipList == NULL) {
                     /*printf("Error trying to connect with Multicast, err = %d\n", err);*/
                     continue;
                 }
             }
 
-            //err = connectDirect(domain, domainId);
-            err = reconnect(domainId);
+            err = reconnect(domainId, ipList);
+            cMsgNetFreeAddrList(ipList);
             
             if (err == CMSG_OK) {
                 domain->failoverIndex = failoverIndex;
@@ -1010,7 +1016,7 @@ int cmsg_cmsg_reconnect(void *domainId) {
                  * in the form of a server name (host:port) which will
                  * be useful later. */
                 len = strlen(domain->currentUDL.nameServerHost) +
-                        cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 1;
+                             cMsgNumDigits(domain->currentUDL.nameServerPort, 0) + 1;
                 domain->currentUDL.serverName = (char *)malloc(len+1);
                 if (domain->currentUDL.serverName == NULL) {
                     cMsgConnectWriteUnlock(domain);
@@ -1056,8 +1062,10 @@ int cmsg_cmsg_reconnect(void *domainId) {
  * can be made.
  *
  * @param domainId id of the domain connection
- * @param host pointer to be filled in with cMsg server host found through multicasting
- * @param port pointer to be filled in with cMsg server TCP port found through multicasting
+ * @param hostList pointer to be filled in with ordered list of cMsg server IP addresses
+                   found through multicasting
+ * @param port     pointer to be filled in with cMsg server TCP port
+                   found through multicasting
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_FORMAT if UDLremainder arg is not in the proper format or is NULL
@@ -1065,10 +1073,10 @@ int cmsg_cmsg_reconnect(void *domainId) {
  * @returns CMSG_TIMEOUT if timed out of wait for response to multicast
  * @returns CMSG_SOCKET_ERROR if udp socket for multicasting could not be created
  */
-static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) {
+static int connectWithMulticast(cMsgDomainInfo *domain, codaIpList **hostList, int *port) {
     char   *buffer;
     int    err, status, len, passwordLen, sockfd, isLocal;
-    int    outGoing[5], multicastTO=0, gotResponse=0;
+    int    outGoing[6], multicastTO=0, gotResponse=0;
     unsigned char ttl = 32;
 
     pthread_t rThread, bThread;
@@ -1121,10 +1129,12 @@ static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) 
     outGoing[0] = htonl(CMSG_MAGIC_INT1);
     outGoing[1] = htonl(CMSG_MAGIC_INT2);
     outGoing[2] = htonl(CMSG_MAGIC_INT3);
+    /* cMsg version */
+    outGoing[3] = htonl(CMSG_VERSION_MAJOR);
     /* type of message */
-    outGoing[3] = htonl(CMSG_DOMAIN_MULTICAST);
+    outGoing[4] = htonl(CMSG_DOMAIN_MULTICAST);
     /* length of "password" string */
-    outGoing[4] = htonl(passwordLen);
+    outGoing[5] = htonl(passwordLen);
 
     /* copy data into a single buffer */
     len = sizeof(outGoing);
@@ -1191,13 +1201,13 @@ static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) 
         }
         else {
             gotResponse = 1;
-            if (host != NULL) {
-                *host = rArg.buffer;
+            if (hostList != NULL) {
+                *hostList = rArg.ipList;
             }
             if (port != NULL) {
                 *port = rArg.port;
             }
-/*printf("Response received, host = %s, port = %hu\n", rArg.buffer, rArg.port);*/
+/*printf("Response received w/TO, host = %s, port = %hu\n", rArg.ipList->addr, rArg.port);*/
         }
         
         status = pthread_mutex_unlock(&mutex);
@@ -1218,13 +1228,13 @@ static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) 
         }
         gotResponse = 1;
         
-        if (host != NULL) {
-            *host = rArg.buffer;
+        if (hostList != NULL) {
+            *hostList = rArg.ipList;
         }
         if (port != NULL) {
             *port = rArg.port;
         }
-/*printf("Response received, host = %s, port = %hu\n", rArg.buffer, rArg.port);*/
+/*printf("Response received no TO, host = %s, port = %hu\n", rArg.ipList->addr, rArg.port);*/
 
         status = pthread_mutex_unlock(&mutex);
         if (status != 0) {
@@ -1246,7 +1256,7 @@ static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) 
     }
 
     /* Record whether this server is local or not. */    
-    cMsgNetNodeIsLocal(rArg.buffer, &isLocal);
+    cMsgNetNodeIsLocal(rArg.ipList->addr, &isLocal);
     domain->currentUDL.isLocal = isLocal;
 
     return(CMSG_OK);
@@ -1259,14 +1269,16 @@ static int connectWithMulticast(cMsgDomainInfo *domain, char **host, int *port) 
  * the server due to our initial multicast.
  */
 static void *receiverThd(void *arg) {
-    int tcpPort, udpPort, nameLen, magicInt[3];
+    int i, tcpPort, udpPort, ipLen, ipCount, magicInt[3];
     thdArg *threadArg = (thdArg *) arg;
-    char buf[1024], *pchar;
+    char buf[1024], *pchar, *ipAddr, *bcastAddr;
     ssize_t len;
+    codaIpList *listHead=NULL, *listEnd, *listItem;
     
     /* release resources when done */
     pthread_detach(pthread_self());
     
+    nextPacket:
     while (1) {
         /* zero buffer */
         pchar = memset((void *)buf,0,1024);
@@ -1298,7 +1310,7 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
         if ((magicInt[0] != CMSG_MAGIC_INT1) ||
             (magicInt[1] != CMSG_MAGIC_INT2) ||
             (magicInt[2] != CMSG_MAGIC_INT3))  {
-/*printf("  Multicast response has wrong magic numbers\n");*/
+printf("  Multicast response has wrong magic numbers, ignore packet\n");
           continue;
         }
        
@@ -1310,28 +1322,72 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
         udpPort = ntohl(udpPort);
         pchar += sizeof(int);
         
-        memcpy(&nameLen, pchar, sizeof(int));
-        nameLen = ntohl(nameLen);
+        memcpy(&ipCount, pchar, sizeof(int));
+        ipCount = ntohl(ipCount);
         pchar += sizeof(int);
-/*printf("  TCP port = %d, UDP port = %d, len = %d\n", tcpPort, udpPort, nameLen);*/
+/*printf("  TCP port = %d, UDP port = %d, ip count = %d\n", tcpPort, udpPort, ipCount);*/
         
-        if ((tcpPort < 1024 || tcpPort > 65535) ||
-             (nameLen < 0 || nameLen > 1024-6*sizeof(int))) {
-            /* wrong format so ignore */
-/*printf("  Multicast response has wrong format\n");*/
+        if ( (tcpPort < 1024) || (tcpPort > 65535) || (ipCount < 0) || (ipCount > 50)) {
+            printf("  bad port value, ignore packet\n");
             continue;
         }
         
-        if ((len != 6*sizeof(int) + nameLen) || (nameLen != strlen(pchar))) {
-            /* wrong format so ignore */
-/*printf("  Multicast response has wrong format, bad host name\n");*/
-            continue;
+        for (i=0; i < ipCount; i++) {
+            
+            /* Create address item */
+            listItem = (codaIpList *) calloc(1, sizeof(codaIpList));
+            if (listItem == NULL) {
+                codanetFreeAddrList(listHead);
+                pthread_exit(NULL);
+                return NULL;
+            }
+            
+            /* First read in IP address len */
+            memcpy(&ipLen, pchar, sizeof(int));
+            ipLen = ntohl(ipLen);
+            pchar += sizeof(int);
+            
+            /* IP address is in dot-decimal format */
+            if (ipLen < 7 || ipLen > 20) {
+                printf("  Multicast response has wrong format, ignore packet\n");
+                goto nextPacket;
+            }
+            
+            /* Put address into a list for later sorting */
+            memcpy(listItem->addr , pchar, ipLen);
+            listItem->addr[ipLen] = 0;
+            pchar += ipLen;
+            
+            /* Second read in corresponding broadcast or network address */
+            memcpy(&ipLen, pchar, sizeof(int));
+            ipLen = ntohl(ipLen);
+            pchar += sizeof(int);
+            
+            if (ipLen < 7 || ipLen > 20) {
+                printf("  Multicast response has wrong format, ignore packet\n");
+                goto nextPacket;
+            }
+            
+            memcpy(listItem->bAddr , pchar, ipLen);
+            listItem->bAddr[ipLen] = 0;
+            pchar += ipLen;
+            
+/*printf("Found ip = %s, bcast = %s\n", listItem->addr, listItem->bAddr);*/
+            
+            /* Put address item into a list for later sorting */
+            if (listHead == NULL) {
+                listHead = listEnd = listItem;
+            }
+            else {
+                listEnd->next = listItem;
+                listEnd = listItem;
+            }
         }
         
         /* send info back to calling function */
-        threadArg->buffer = strdup(pchar);
         threadArg->port   = tcpPort;
-/*printf("  Receiver thread: host = %s, port = %d\n", pchar, port);*/
+        threadArg->ipList = listHead;
+        
         /* Tell main thread we are done. */
         pthread_cond_signal(&cond);
         break;
@@ -1382,282 +1438,11 @@ static void *multicastThd(void *arg) {
 /**
  * This routine is called by cmsg_cmsg_connect and does the real work of
  * connecting to the cMsg name server.
- * 
- * @param domain pointer to connection information structure.
- * @param domainId connection id (index into static array)
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
- * @returns CMSG_SOCKET_ERROR if socket (TCP & UDP) to server could not be created or connected (UDP),
- *                            or socket options could not be set
- * @returns CMSG_NETWORK_ERROR if host name could not be resolved or could not connect,
- *                             or a communication error with either server occurs (can't read or write).
- */   
-static int connectDirectOld(cMsgDomainInfo *domain, void *domainId) {
-
-  int err, serverfd, sendLen, status, uniqueClientKey, outGoing[4];
-  const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
-  struct sockaddr_in  servaddr;
-
-  /* Block SIGPIPE for this and all spawned threads. */
-  cMsgBlockSignals(domain);
-  
-  /*---------------------------------------------------------------*/
-  /* connect & talk to cMsg name server to check if name is unique */
-  /*---------------------------------------------------------------*/
-    
-  /* first connect to server host & port (default send & rcv buf sizes) */  
-  if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost, NULL,
-                            (unsigned short) domain->currentUDL.nameServerPort,
-                             0, 0, 1, &serverfd, NULL)) != CMSG_OK) {
-    cMsgRestoreSignals(domain);
-    /* err = CMSG_SOCKET_ERROR if socket could not be created or socket options could not be set.
-             CMSG_NETWORK_ERROR if host name could not be resolved or could not connect */
-    return(err);
-  }
-  
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: connected to name server\n");
-  }
-  
-  /* get host & port (domain->sendHost,sendPort) to send messages to */
-  err = talkToNameServer(domain, serverfd, &uniqueClientKey);
-  if (err != CMSG_OK) {
-    cMsgRestoreSignals(domain);
-    close(serverfd);
-    /*returns CMSG_NETWORK_ERROR if error in communicating with the server (can't read or write) */
-    return(err);
-  }
-  
-  /* BUGBUG free up memory allocated in parseUDL & no longer needed */
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: got host and port from name server\n");
-  }
-  
-  /* done talking to server */
-  close(serverfd);
- 
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: closed name server socket\n");
-    fprintf(stderr, "connectDirect: sendHost = %s, sendPort = %d\n",
-                             domain->sendHost,
-                             domain->sendPort);
-  }
-
-  /*-----------------------------------------------------*/
-  /* Create 2 permanent connections to cMsg server,      */
-  /* and follow that by launching 2 threads to handle    */
-  /* communication on both sockets.                      */
-  /*-----------------------------------------------------*/
-  
-  /* create sending & receiving socket and store (128K rcv buf, 128K send buf) */
-  if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
-                             (unsigned short) domain->sendPort,
-                              CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE, 1,
-                              &domain->sendSocket, &domain->localPort)) != CMSG_OK) {
-    cMsgRestoreSignals(domain);
-    return(err);
-  }  
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "connectDirect: created sending/receiving socket fd = %d\n", domain->sendSocket);
-  }
-
-  /* first send magic #s to server which identifies us as real cMsg client, then our server-given id */
-  outGoing[0] = htonl(CMSG_MAGIC_INT1);
-  outGoing[1] = htonl(CMSG_MAGIC_INT2);
-  outGoing[2] = htonl(CMSG_MAGIC_INT3);
-  outGoing[3] = htonl(uniqueClientKey);
-
-  /* send data over TCP socket */
-  sendLen = cMsgNetTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
-  if (sendLen != sizeof(outGoing)) {
-    cMsgRestoreSignals(domain);
-    close(domain->sendSocket);
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: sent magic numbers over sending/receiving socket fd = %d\n", domain->sendSocket);
-  }  
-
-  /* create keep alive socket and store (default send & rcv buf sizes) */
-  if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
-                             (unsigned short) domain->sendPort,
-                              0, 0, 1, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
-    cMsgRestoreSignals(domain);
-    close(domain->sendSocket);
-    /*pthread_cancel(domain->pendThread);*/
-    /*sched_yield();*/
-    /* Wait until the threads are really dead, cause on return from this function,
-     * domain gets freed immediately and will cause seg fault if cleanup still
-     * going on. */
-    /*pthread_join(domain->pendThread, NULL);*/
-    return(err);
-  }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "connectDirect: created keepalive socket fd = %d\n",domain->keepAliveSocket );
-  }
-  
-  /* send magic #s over TCP socket */
-  sendLen = cMsgNetTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
-  if (sendLen != sizeof(outGoing)) {
-    cMsgRestoreSignals(domain);
-    close(domain->sendSocket);
-    close(domain->keepAliveSocket);
-/*    pthread_cancel(domain->pendThread);
-    sched_yield();
-    pthread_join(domain->pendThread, NULL);*/
-    return(CMSG_NETWORK_ERROR);
-  }
-  
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "connectDirect: sent magic numbers over keepalive socket fd = %d\n",domain->keepAliveSocket );
-  }
-  
-  /* create pend thread and start listening on send socket */
-  status = pthread_create(&domain->pendThread, NULL,
-                           cMsgClientListeningThread, domainId);
-  if (status != 0) {
-      cmsg_err_abort(status, "Creating message listening thread");
-  }
-  
-  /* The following thread DOES NOT NEED to be running before we talk to the name server. */
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "connectDirect: created listening thread\n");
-  }
-
-  /* create thread to read periodic keep alives (monitor data) from server */
-  status = pthread_create(&domain->keepAliveThread, NULL, keepAliveThread, domainId);
-  if (status != 0) {
-    cmsg_err_abort(status, "Creating keep alive thread");
-  }
-     
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: created keep alive thread\n");
-  }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: creating update server thread\n");
-  }
-  
-  /* create thread to send periodic keep alives (monitor data) to server */
-  status = pthread_create(&domain->updateServerThread, NULL, updateServerThread, domainId);
-  if (status != 0) {
-    cmsg_err_abort(status, "Creating update server thread");
-  }
-     
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: created update server thread, will create UDP socket\n");
-  }
-
-
-  /* create sending UDP socket */
-  if ((domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-    cMsgRestoreSignals(domain);
-    close(domain->keepAliveSocket);
-    close(domain->sendSocket);
-    /* get rid of threads we've started up */
-    pthread_cancel(domain->keepAliveThread);
-    sched_yield();
-    pthread_join(domain->keepAliveThread, NULL);
-    pthread_cancel(domain->updateServerThread);
-    sched_yield();
-    pthread_join(domain->updateServerThread, NULL);
-    pthread_cancel(domain->pendThread);
-    sched_yield();
-    pthread_join(domain->pendThread, NULL);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: socket error, %s\n", strerror(errno));
-    return(CMSG_SOCKET_ERROR);
-  }
-
-  /* set send buffer size */
-  err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
-  if (err < 0) {
-    cMsgRestoreSignals(domain);
-    close(domain->keepAliveSocket);
-    close(domain->sendSocket);
-    close(domain->sendUdpSocket);
-    pthread_cancel(domain->keepAliveThread);
-    sched_yield();
-    pthread_join(domain->keepAliveThread, NULL);
-    pthread_cancel(domain->updateServerThread);
-    sched_yield();
-    pthread_join(domain->updateServerThread, NULL);
-    pthread_cancel(domain->pendThread);
-    sched_yield();
-    pthread_join(domain->pendThread, NULL);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: setsockopt error\n");
-    return(CMSG_SOCKET_ERROR);
-  }
-
-  memset((void *)&servaddr, 0, sizeof(servaddr));
-  servaddr.sin_family = AF_INET;
-  servaddr.sin_port   = htons(domain->sendUdpPort);
-
-  if ( (err = cMsgNetStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
-    cMsgRestoreSignals(domain);
-    close(domain->keepAliveSocket);
-    close(domain->sendSocket);
-    close(domain->sendUdpSocket);
-    pthread_cancel(domain->keepAliveThread);
-    sched_yield();
-    pthread_join(domain->keepAliveThread, NULL);
-    pthread_cancel(domain->updateServerThread);
-    sched_yield();
-    pthread_join(domain->updateServerThread, NULL);
-    pthread_cancel(domain->pendThread);
-    sched_yield();
-    pthread_join(domain->pendThread, NULL);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: host name error\n");
-    /* err =  CMSG_BAD_ARGUMENT if domain->sendHost is null
-              CMSG_OUT_OF_MEMORY if out of memory
-              CMSG_NETWORK_ERROR if the numeric address could not be obtained/resolved
-    */
-    return(err);
-  }
-
-#ifndef Darwin
-  /* limits incoming packets to the host and port given - protection against port scanning */
-  err = connect(domain->sendUdpSocket, (SA *) &servaddr, (socklen_t) sizeof(servaddr));
-  if (err < 0) {
-    cMsgRestoreSignals(domain);
-    close(domain->keepAliveSocket);
-    close(domain->sendSocket);
-    close(domain->sendUdpSocket);
-    pthread_cancel(domain->keepAliveThread);
-    sched_yield();
-    pthread_join(domain->keepAliveThread, NULL);
-    pthread_cancel(domain->updateServerThread);
-    sched_yield();
-    pthread_join(domain->updateServerThread, NULL);
-    pthread_cancel(domain->pendThread);
-    sched_yield();
-    pthread_join(domain->pendThread, NULL);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "connectDirect: UDP connect error\n");
-    return(CMSG_SOCKET_ERROR);
-  }
-#endif
-   if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "connectDirect: created UDP socket = %d, done w/connect\n", domain->sendUdpSocket);
-   }
- 
-  return(CMSG_OK);
-}
-
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine is called by cmsg_cmsg_connect and does the real work of
- * connecting to the cMsg name server.
  *
  * @param domain pointer to connection information structure.
  * @param domainId connection id (index into static array)
+ * @param ipList if multicasting, an ordered list of server IP addresses has been returned,
+                 try them one-by-one until a connection is made
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
@@ -1666,7 +1451,7 @@ static int connectDirectOld(cMsgDomainInfo *domain, void *domainId) {
  * @returns CMSG_NETWORK_ERROR if host name could not be resolved or could not connect,
  *                             or a communication error with either server occurs (can't read or write).
  */
-static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
+static int connectDirect(cMsgDomainInfo *domain, void *domainId, codaIpList *ipList) {
 
     int err, serverfd, sendLen, status, uniqueClientKey, outGoing[4];
     const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
@@ -1674,17 +1459,46 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId) {
 
     /* Block SIGPIPE for this and all spawned threads. */
     cMsgBlockSignals(domain);
-  
+
     /*---------------------------------------------------------------*/
     /* connect & talk to cMsg name server to check if name is unique */
     /*---------------------------------------------------------------*/
-    
-    /* first connect to server host & port (default send & rcv buf sizes) */
-    if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost, NULL,
-          (unsigned short) domain->currentUDL.nameServerPort,
-          0, 0, 1, &serverfd, NULL)) != CMSG_OK) {
-              cMsgRestoreSignals(domain);
-              return(err);
+    if (ipList != NULL) {
+        /* try all IP addresses in list until one works */
+        while (ipList != NULL) {
+            /* first connect to server host & port (default send & rcv buf sizes) */
+            err = cMsgNetTcpConnect(ipList->addr, NULL,
+                                    (unsigned short) domain->currentUDL.nameServerPort,
+                                    0, 0, 1, &serverfd, NULL);
+            if (err != CMSG_OK) {
+                /* if there is another address to try, try it */
+                if (ipList->next != NULL) {
+                    ipList = ipList->next;
+                    continue;
+                }
+                /* if we've tried all addresses in the list, return an error */
+                else {
+                    cMsgRestoreSignals(domain);
+                    return(err);
+                }
+            }
+            
+            /* quit loop if we've made a connection to server, store good address */
+            if (domain->currentUDL.nameServerHost != NULL) {
+                free(domain->currentUDL.nameServerHost);
+            }
+            domain->currentUDL.nameServerHost = strdup(ipList->addr);
+            break;
+        }
+    }
+    else {
+        /* first connect to server host & port (default send & rcv buf sizes) */
+        if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost, NULL,
+                                      (unsigned short) domain->currentUDL.nameServerPort,
+                                      0, 0, 1, &serverfd, NULL)) != CMSG_OK) {
+            cMsgRestoreSignals(domain);
+            return(err);
+        }
     }
     
     /* get host & port (domain->sendHost,sendPort) to send messages to */
@@ -2063,6 +1877,8 @@ error:
  * by cMsgConnectWriteLock() when called in keepAlive thread.
  *
  * @param domain pointer to connection info structure
+ * @param ipList if multicasting, an ordered list of server IP addresses has been returned,
+ *               try them one-by-one until a connection is made
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if bad argument
@@ -2071,7 +1887,7 @@ error:
  * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
  *                             or a communication error with either server occurs.
  */
-static int reconnect(void *domainId) {
+static int reconnect(void *domainId, codaIpList *ipList) {
 
     intptr_t index;
     int i, err, serverfd, status, tblSize, sendLen, uniqueClientKey, outGoing[4];
@@ -2092,12 +1908,44 @@ static int reconnect(void *domainId) {
     /*-----------------------------------------------------*/
     /*             talk to cMsg name server                */
     /*-----------------------------------------------------*/
-    if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost, NULL,
-          (unsigned short) domain->currentUDL.nameServerPort,
-          0, 0, 1, &serverfd, NULL)) != CMSG_OK) {
-              return(err);
+    if (ipList != NULL) {
+        /* try all IP addresses in list until one works */
+        while (ipList != NULL) {
+            /* first connect to server host & port (default send & rcv buf sizes) */
+            err = cMsgNetTcpConnect(ipList->addr, NULL,
+                                    (unsigned short) domain->currentUDL.nameServerPort,
+                                    0, 0, 1, &serverfd, NULL);
+            
+            ipList = ipList->next;
+            
+            if (err != CMSG_OK) {
+                /* if there is another address to try, try it */
+                if (ipList != NULL) {
+                    continue;
+                }
+                /* if we've tried all addresses in the list, return an error */
+                else {
+                    return(err);
+                }
+            }
+            
+            /* quit loop if we've made a connection to server, store good address */
+            if (domain->currentUDL.nameServerHost != NULL) {
+                free(domain->currentUDL.nameServerHost);
+            }
+            domain->currentUDL.nameServerHost = strdup(ipList->addr);
+            break;
+        }
     }
-  
+    else {
+        /* first connect to server host & port (default send & rcv buf sizes) */
+        if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost, NULL,
+            (unsigned short) domain->currentUDL.nameServerPort,
+                                      0, 0, 1, &serverfd, NULL)) != CMSG_OK) {
+            return(err);
+        }
+    }
+      
     /* get host & port (domain->sendHost,sendPort) to send messages to */
     err = talkToNameServer(domain, serverfd, &uniqueClientKey);
     if (err != CMSG_OK) {
@@ -2117,172 +1965,6 @@ static int reconnect(void *domainId) {
    domain->gotConnection = 1;
      
    return(CMSG_OK);
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine is called by the keepAlive thread upon the death of the
- * cMsg server in an attempt to failover to another server whose UDL was
- * given in the original call to connect(). It is already protected
- * by cMsgConnectWriteLock() when called in keepAlive thread.
- * 
- * @param domain pointer to connection info structure
- *
- * @returns CMSG_OK if successful
- * @returns CMSG_BAD_ARGUMENT if bad argument
- * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
- * @returns CMSG_SOCKET_ERROR if socket options could not be set
- * @returns CMSG_NETWORK_ERROR if no connection to the name or domain servers can be made,
- *                             or a communication error with either server occurs.
- */   
-static int reconnectOld(void *domainId) {
-
-    intptr_t index;
-    int i, err, serverfd, status, tblSize, sendLen, uniqueClientKey, outGoing[4];
-    getInfo *info;
-    const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
-    struct sockaddr_in  servaddr;
-    hashNode *entries = NULL;
-    cMsgDomainInfo *domain;
-  
-    index = (intptr_t) domainId;
-    if (index < 0 || index > CMSG_CONNECT_PTRS_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
-    domain = connectPointers[index];
-    if (domain == NULL) return(CMSG_BAD_ARGUMENT);
-
-
-    /* Keep all running threads, close sockets, remove syncSends, send&Gets, sub&Gets. */
-    partialShutdown(domainId, 1);
-  
-  /*-----------------------------------------------------*/
-  /*             talk to cMsg name server                */
-  /*-----------------------------------------------------*/
-  if ( (err = cMsgNetTcpConnect(domain->currentUDL.nameServerHost, NULL,
-        (unsigned short) domain->currentUDL.nameServerPort,
-        0, 0, 1, &serverfd, NULL)) != CMSG_OK) {
-            return(err);
-  }
-  
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-      fprintf(stderr, "reconnect: established intial connection to name server again\n");
-  }
-
-  /* get host & port (domain->sendHost,sendPort) to send messages to */
-  err = talkToNameServer(domain, serverfd, &uniqueClientKey);
-  if (err != CMSG_OK) {
-    close(serverfd);
-    return(err);
-  }
-  
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "reconnect: got host and port from name server\n");
-  }
-  
-  /* done talking to server */
-  close(serverfd);
-   
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "reconnect: closed name server socket\n");
-    fprintf(stderr, "reconnect: sendHost = %s, sendPort = %d\n",
-                            domain->sendHost,
-                            domain->sendPort);
-  }
-    
-  /* create sending & receiving socket and store (128K rcv buf, 128K send buf) */
-  if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
-                             (unsigned short) domain->sendPort,
-                              CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE, 1,
-                              &domain->sendSocket, &domain->localPort)) != CMSG_OK) {
-    return(err);
-  }
-
-  /* first send magic #s to server which identifies us as real cMsg client, then our server-given id */
-  outGoing[0] = htonl(CMSG_MAGIC_INT1);
-  outGoing[1] = htonl(CMSG_MAGIC_INT2);
-  outGoing[2] = htonl(CMSG_MAGIC_INT3);
-  outGoing[3] = htonl(uniqueClientKey);
-  /* send data over TCP socket */
-  sendLen = cMsgNetTcpWrite(domain->sendSocket, (void *) outGoing, sizeof(outGoing));
-  if (sendLen != sizeof(outGoing)) {
-    close(domain->sendSocket);
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "reconnect: created sending/receiving socket fd = %d\n", domain->sendSocket);
-  }  
-
-  /* pend thread should already be running */
-
-  /* create keep alive socket and store (default send & rcv buf sizes) */
-  if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
-                             (unsigned short) domain->sendPort,
-                              0, 0, 1, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
-    close(domain->sendSocket);
-    return(err);
-  }
-
-  /* send magic #s over TCP socket */
-  sendLen = cMsgNetTcpWrite(domain->keepAliveSocket, (void *) outGoing, sizeof(outGoing));
-  if (sendLen != sizeof(outGoing)) {
-    close(domain->sendSocket);
-    close(domain->keepAliveSocket);
-    return(CMSG_NETWORK_ERROR);
-  }
-
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "reconnect: created keepalive socket fd = %d\n",domain->keepAliveSocket );
-  }
-  
-  /* keep alive & update server threads are already running */
-
-  /* create sending UDP socket */
-  if ((domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-    close(domain->keepAliveSocket);
-    close(domain->sendSocket);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "reconnect: socket error, %s\n", strerror(errno));
-    return(CMSG_SOCKET_ERROR);
-  }
-
-  /* set send buffer size */
-  err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
-  if (err < 0) {
-    close(domain->keepAliveSocket);
-    close(domain->sendSocket);
-    close(domain->sendUdpSocket);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "reconnect: setsockopt error\n");
-    return(CMSG_SOCKET_ERROR);
-  }
-
-  memset((void *)&servaddr, 0, sizeof(servaddr));
-  servaddr.sin_family = AF_INET;
-  servaddr.sin_port   = htons(domain->sendUdpPort);
-
-  if ( (err = cMsgNetStringToNumericIPaddr(domain->sendHost, &servaddr)) != CMSG_OK ) {
-    close(domain->keepAliveSocket);
-    close(domain->sendSocket);
-    close(domain->sendUdpSocket);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "reconnect: host name error\n");
-    return(CMSG_SOCKET_ERROR);
-  }
-
-#ifndef Darwin
-  err = connect(domain->sendUdpSocket, (SA *) &servaddr, (socklen_t) sizeof(servaddr));
-  if (err < 0) {
-    close(domain->keepAliveSocket);
-    close(domain->sendSocket);
-    close(domain->sendUdpSocket);
-    if (cMsgDebug >= CMSG_DEBUG_ERROR) fprintf(stderr, "reconnect: UDP connect error\n");
-    return(CMSG_SOCKET_ERROR);
-  }
-#endif
-   
-  domain->gotConnection = 1;
-/*printf("reconnect END\n");*/
-  return(CMSG_OK);
 }
 
 
@@ -6187,6 +5869,7 @@ printf("getMonitorInfo: cloud server => tcpPort = %d, udpPort = %d, host = %s, p
  * @param domainId id of the domain connection
  *
  * @returns CMSG_OK if successful
+ * @returns CMSG_ERROR if no server IP addresses found in multicast response
  * @returns CMSG_BAD_ARGUMENT if arg is bad id
  * @returns CMSG_OUT_OF_MEMORY if the allocating memory failed
  * @returns CMSG_TIMEOUT if timed out of wait for response to multicast
@@ -6201,6 +5884,7 @@ static int connectToServer(void *domainId) {
     intptr_t index;
     int err, len;
     cMsgDomainInfo *domain;
+    codaIpList *ipList = NULL;
   
     index = (intptr_t) domainId;
     if (index < 0 || index > CMSG_CONNECT_PTRS_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
@@ -6213,21 +5897,27 @@ static int connectToServer(void *domainId) {
   if (domain->currentUDL.mustMulticast) {
     if (domain->currentUDL.nameServerHost != NULL) free(domain->currentUDL.nameServerHost);
 /*printf("KA: trying to connect with Multicast\n");*/
-    err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
+    err = connectWithMulticast(domain, &ipList,
                                &domain->currentUDL.nameServerPort);
     if (err != CMSG_OK) {
 /*printf("KA: error trying to connect with Multicast, err = %d\n", err);*/
-     /* returns CMSG_OK if successful
+      /* returns CMSG_OK if successful
                 CMSG_BAD_FORMAT if UDLremainder arg is not in the proper format or is NULL
                 CMSG_OUT_OF_MEMORY if the allocating memory failed
                 CMSG_TIMEOUT if timed out of wait for response to multicast
                 CMSG_SOCKET_ERROR if udp socket for multicasting could not be created
-     */
-     return err;
+      */
+      return err;
+    }
+    else if (ipList == NULL) {
+        return CMSG_ERROR;
     }
   }
-
-  if ((err = reconnect(domainId)) != CMSG_OK) {
+  
+  err = reconnect(domainId, ipList);
+  cMsgNetFreeAddrList(ipList);
+  
+  if (err != CMSG_OK) {
     /* @returns CMSG_OK if successful
                 CMSG_OUT_OF_MEMORY if the allocating memory failed
                 CMSG_SOCKET_ERROR if socket options could not be set
@@ -6236,7 +5926,8 @@ static int connectToServer(void *domainId) {
     */
     return err;
   }
-
+  
+  
   /*printf("connectToServer: Connected!!\n");*/
 
   /* restore subscriptions on the new server */
