@@ -31,14 +31,15 @@ Version 3.6
     - fix flags for Mac OSX compilation 9/22/4104
 
 Version 4.0
-    - fix bug in rc client listening thread that does not properly
+    - fix bug in java rc client listening thread that does not properly
       handle multiple attempts to connect.
-    - fix bug in rc client connect that leaves thread running even when it fails.
-    - fix bug in rc client that does not reconnect back to rc server.
-    - emu domain allows use of a preferred subnet
-    -  rc domain allows use of a preferred subnet
+    - fix bug in java rc client connect that leaves thread running even when it fails.
+    - fix bug in C rc client that does not reconnect back to rc server.
 
-For the future:
+    - cMsg, rc, and emu domains implement optional use of a preferred subnet
+
+    - change java API getString() method. It is now getInfo() and takes a String arg.
+    - add getServerHost and getServerPort to API & implement in rc, cMsg, and emu domains
+
 	- change the cMsg domain communication protocol allowing the handling
       of multiple server IP addresses
-	- enable the cMsg domain server to be identified by a unique name
