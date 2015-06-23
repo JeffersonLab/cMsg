@@ -600,7 +600,7 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
         System.out.println("                          none   for no debug output (default)");
         System.out.println("       standalone     means no other servers may connect or vice versa,");
         System.out.println("                      is incompatible with \"server\" option");
-        System.out.println("       monitorOff     means montoring data is NOT sent to client,");
+        System.out.println("       monitorOff     means monitoring data is NOT sent to client,");
         System.out.println("       password       is used to block clients without this password in their UDL's");
         System.out.println("       cloudpassword  is used to join a password-protected cloud or to allow");
         System.out.println("                      servers with this password to join this cloud");
