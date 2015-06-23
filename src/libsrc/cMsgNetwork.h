@@ -120,7 +120,7 @@
 
 
 /** Default TCP port at which a cMsg domain name server listens for client connections. */
-#define CMSG_NAME_SERVER_STARTING_PORT 45000
+#define CMSG_NAME_SERVER_TCP_PORT 45000
 
 /** Default UDP port at which a cMsg name server listens for broadcasts. */
 #define CMSG_NAME_SERVER_MULTICAST_PORT 45000
