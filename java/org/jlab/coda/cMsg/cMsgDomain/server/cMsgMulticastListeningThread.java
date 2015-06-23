@@ -219,7 +219,7 @@ class cMsgMulticastListeningThread extends Thread {
                 int version = cMsgUtilities.bytesToInt(buf, 12); // what cMsg version is this ?
                 if (version != cMsgConstants.version) {
                     // ignore multicasts from different version
-//System.out.println("bad version");
+System.out.println("multicast packet: bad version (" + version + ") != expected (" + cMsgConstants.version + ")");
                     continue;
                 }
 
