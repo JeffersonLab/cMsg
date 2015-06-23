@@ -1515,10 +1515,8 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId, codaIpList *ipL
     close(serverfd);
 
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "connectDirect: closed name server socket\n");
         fprintf(stderr, "connectDirect: sendHost = %s, sendPort = %d\n",
-                domain->sendHost,
-                domain->sendPort);
+                domain->currentUDL.nameServerHost, domain->sendPort);
     }
 
     /* make 2 connections to the domain server */
@@ -1562,21 +1560,74 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
   
     /*--------------------------------------------------------------------------------------------
      * We need to do some tricky things due to the fact that people want to connect to
-     * a cMsg server through SSH tunnels. The original connection to the cMsg name server is
-     * not a big deal as host & port are spelled out in the UDL. However, the connection to
-     * the domain server must also go through an ssh tunnel. Thus, we cannot use the
-     * domain server host and domain server port returned by the nameserver since we need to use
-     * some local host & port specified when creating the tunnels.
-     * The strategy here is to test the following options:
-     *      option 1) use host originally specified in UDL since that's the one that found
-     *                the server and pair that with a domain port specified explicitly in the UDL, or
-     *      option 2) use original host and name server port + 1, or
-     *      option 3) use host & port returned by name server (no SSH tunnels used)
+     * a cMsg server through SSH tunnels. The following cmd is needed to set up tunneling:
+     *
+     *      ssh -fNg -L <local port>:<cMsg-server-host>:<cMsg-server-port> localhost
+     *
+     * If we're using the default ports then the following 2 cmds need to be run:
+     *
+     *      ssh -fNg -L 45000:<remoteHost>:45000 localhost  // for cMsgNameServer
+     *      ssh -fNg -L 45001:<remoteHost>:45001 localhost  // for domainServer
+     *
+     * The original connection to the cMsg name server can
+     * specify its host in 2 different ways: 1) through multicasting and obtaining a list of
+     * all the IP addresses of the responding server, or 2) spelling out the host in the UDL.
+     *
+     * In the first case, tunneling cannot be used in conjunction with multicasting. The
+     * returned IP list from the server's udp listening thread is ordered with addresses
+     * on any preferred local subnet (if any) first, those on local subnets next, and other
+     * addresses last. A direct connection is made by trying these addresses one-by-one
+     * with the successful one stored in currentUDL.nameServerHost.
+     *
+     * In the second case, whether tunneling is used or not, a successful direct connection
+     * also stores the host used in that connection in currentParsedUDL.nameServerHost.
+     *
+     * Thus, in all cases, the host of the cMsg server and consequently its contained domain
+     * server is found in currentUDL.nameServerHost.
+     *
+     * Now a word about ports:
+     *
+     *     The UDP port of the cMsgNameServer, used to accept multicasts, defaults to
+     *     CMSG_NAME_SERVER_MULTICAST_PORT = 45000 but may be set to any valid value.
+     *     The TCP port of the cMsgNameServer defaults to
+     *     CMSG_NAME_SERVER_TCP_PORT = 45000 but may be set to any valid value.
+     *     The TCP port of the contained DomainServer defaults to
+     *     CMSG_NAME_SERVER_TCP_PORT + 1 = 45001 but may be set to any valid value.
+     *
+     *     If ssh tunneling/port-forwarding is used:
+     *         The port used to connect to the name server must be the same as
+     *         the local port specified in one of the tunneling ssh commands.
+     *         And the port used to connect to the domain server must be the same as
+     *         the local port specified in the other tunneling ssh command.
+     *
+     *     However, if tunneling is not used:
+     *         The correct port of the domain server is given to the client by the
+     *         server during the connect() routine (invisible to caller). It may also
+     *         be specified in the UDL.
+     *
+     * The question is, since the cMsg software package does not always know if tunneling
+     * has been used or not, how can it find the correct port for the connection to the
+     * domain server (contained inside the name server)?
+     *
+     *     1) We do know that if we're multicasting then tunneling is not being used.
+     *     2) If tunneling, the connection to the domain server must also go through
+     *        an ssh tunnel. In that case, we cannot use the domainServerHost and
+     *        domainServerPort returned by the name server during connect() since we
+     *        need to use the same host & port specified when creating the tunnels.
+     *
+     * The strategy here is to test the following options for the domain port value:
+     *      option 1) use the domain port specified explicitly in the UDL.
+     *                This will work when not tunneling. It will also work for tunneling if
+     *                the user was clever enough to use the local domain server tunneling port
+     *                in the UDL, or
+     *      option 2) use the name server port + 1 (default domain port), or
+     *      option 3) use port returned by name server (no SSH tunnels used)
      * in that order.
      *--------------------------------------------------------------------------------------------*/
-
+    
+    
     unsigned short ports[3];
-    char *hosts[3], c;
+    char *host, c;
     int   isSshTunneling[3];
 
     lastOption = 2;
@@ -1585,13 +1636,11 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
     ports[1] = domain->currentUDL.nameServerPort + 1;
     ports[2] = domain->sendPort;
     
-    hosts[0] = domain->currentUDL.nameServerHost;
-    hosts[1] = domain->currentUDL.nameServerHost;
-    hosts[2] = domain->sendHost;
+    host = domain->currentUDL.nameServerHost;
 
     /*
     for (i=0; i<3; i++) {
-        printf("connectToDomainServer:  host = %s, and port = %hu\n", hosts[i], ports[i]);
+        printf("connectToDomainServer:  host = %s, and port = %hu\n", host, ports[i]);
     }
     */
     
@@ -1617,7 +1666,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
         }
         else {
             /* is the node returned by the server and the UDL node the same? */
-            err = cMsgNetNodeSame(domain->sendHost, hosts[i], &same);
+            err = cMsgNetNodeSame(domain->sendHost, host, &same);
             /* can't resolve host name(s) so probably tunneling */
             if (err != CMSG_OK) {
                 isSshTunneling[i] = 1;
@@ -1652,7 +1701,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
         /* create the 2 sockets through which all future communication occurs */
         for (i=index; i < 3; i++) {
             /* create sending & receiving socket and store (128K rcv buf, 128K send buf) */
-            if ( (err = cMsgNetTcpConnect(hosts[i], NULL, ports[i],
+            if ( (err = cMsgNetTcpConnect(host, NULL, ports[i],
                   CMSG_BIGSOCKBUFSIZE, CMSG_BIGSOCKBUFSIZE, 1,
                   &domain->sendSocket, &domain->localPort)) != CMSG_OK) {
 
@@ -1662,7 +1711,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
             }
             
             /* create keep alive socket and store (default send & rcv buf sizes) */
-            if ( (err = cMsgNetTcpConnect(hosts[i], NULL, ports[i],
+            if ( (err = cMsgNetTcpConnect(host, NULL, ports[i],
                   0, 0, 1, &domain->keepAliveSocket, NULL)) != CMSG_OK) {
 
                 close(domain->sendSocket);
@@ -1675,7 +1724,7 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
             index = i;
             /*
             printf("connectToDomainServer 2: setting index to %d\n", index);
-            printf("connectToDomainServer 2: using host = %s, and port = %hu\n", hosts[i], ports[i]);
+            printf("connectToDomainServer 2: using host = %s, and port = %hu\n", host, ports[i]);
             */
             break;
         }
@@ -6852,7 +6901,7 @@ if(dbg) printf("parseUDL: mustMulticast = %d\n", mustMulticast);
             Port = CMSG_NAME_SERVER_MULTICAST_PORT;
         }
         else {
-            Port = CMSG_NAME_SERVER_STARTING_PORT;
+            Port = CMSG_NAME_SERVER_TCP_PORT;
         }
         if (cMsgDebug >= CMSG_DEBUG_WARN) {
             fprintf(stderr, "parseUDL: guessing that the name server port is %d\n",
