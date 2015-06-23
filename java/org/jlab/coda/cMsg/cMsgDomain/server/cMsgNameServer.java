@@ -1352,7 +1352,8 @@ System.out.println("Main server IO error");
                     // send error to client
                     out.writeInt(cMsgConstants.errorDifferentVersion);
                     // send error string to client
-                    String s = "version mismatch";
+                    String s = "version mismatch, client(" + version + ") != server(" +
+                                cMsgConstants.version + ")";
                     out.writeInt(s.length());
                     try { out.write(s.getBytes("US-ASCII")); }
                     catch (UnsupportedEncodingException e) {}
