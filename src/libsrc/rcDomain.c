@@ -402,9 +402,8 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     int hashEntryCount=0, haveHashEntries=0, gotValidRcServerHost=0;
     char *rcServerHost = NULL;
     struct timeval tv = {0, 300000}; /* 0.3 sec wait for rc Server to respond */
-    
-    cMsgDebug = CMSG_DEBUG_INFO;
-    
+
+
     /* clear array */
     memset((void *)buffer, 0, 1024);
     
@@ -485,8 +484,6 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         free(expid);
         return(err); /* CMSG_SOCKET_ERROR if cannot find available port */
     }
-    
-printf("rc connect: create listening socket on port %d\n", domain->listenPort );
 
     /* launch pend thread and start listening on receive socket */
     threadArg = (cMsgThreadInfo *) malloc(sizeof(cMsgThreadInfo));
@@ -506,7 +503,6 @@ printf("rc connect: create listening socket on port %d\n", domain->listenPort );
     /* Block SIGPIPE for this and all spawned threads. */
     cMsgBlockSignals(domain);
 
-printf("rc connect: start pend thread\n");
     status = pthread_create(&domain->pendThread, NULL,
                             rcClientListeningThread, (void *) threadArg);
     if (status != 0) {
@@ -2653,7 +2649,7 @@ static int parseUDL(const char *UDLR,
     if (port != NULL) {
       *port = Port;
     }
-printf("parseUDL: port = %hu\n", Port);
+/*printf("parseUDL: port = %hu\n", Port);*/
 
     /* find expid */
     index++;

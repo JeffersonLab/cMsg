@@ -448,8 +448,7 @@ static int connectWithTimeout(int sockfd, struct sockaddr *pAddr, socklen_t addr
     struct timeval timeout;
 
     result = connect(sockfd, pAddr, addrlen);
-    codanetDebug = CODA_DEBUG_INFO;
-    
+
     if (result < 0) {
        if (codanetDebug >= CODA_DEBUG_ERROR) {
            fprintf(stderr, "connectWithTimeout: error in connect(), errno = %d, %s\n", errno, strerror(errno));
