@@ -457,6 +457,7 @@ public class RunControl extends cMsgDomainAdapter {
                         domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
                                                                                   cMsgNetworkConstants.bigBufferSize));
 //System.out.println("RC connect: Made tcp connection to RC server");
+System.out.println("RC connect: made tcp connection to host " + rcServerAddr + ", port " + rcTcpServerPort);
                         rcServerAddress = rcServerAddr;
                         gotTcpConnection = true;
                         break;

@@ -418,6 +418,7 @@ System.out.println("Got PING message!!!");
                                 client.domainOut = new DataOutputStream(
                                         new BufferedOutputStream(client.tcpSocket.getOutputStream(), 65536));
 //System.out.println("Done connecting");
+System.out.println("rcClient listen thd: made tcp reconnect to host " + client.rcServerAddress + ", port " + client.rcTcpServerPort);
                             }
                             else {
 //System.out.println("client not connect yet");
