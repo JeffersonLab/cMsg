@@ -805,7 +805,7 @@ printf("rc connect: from IP list, try making tcp connection to RC server = %s w/
             if ((err = cMsgNetTcpConnectTimeout(rcServerHost, (unsigned short) domain->sendPort,
                  CMSG_BIGSOCKBUFSIZE, 0, 1, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
                 gotValidRcServerHost = 1;
-                printf("rc connect: SUCCESS connecting to %s\n", rcServerHost);
+                printf("rc connect: SUCCESS connecting to %s, port %d\n", rcServerHost, domain->sendPort);
                 // Copy host for getServerHost() function
                 if (domain->sendHost != NULL) free(domain->sendHost);
                 domain->sendHost = strdup(rcServerHost);

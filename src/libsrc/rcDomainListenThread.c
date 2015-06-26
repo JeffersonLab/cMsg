@@ -796,8 +796,6 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             }
 
             /* create TCP sending socket and store */
-/*printf("rc clientThread %d: tcp socket = %d, port = %d\n", localCount,
-            domain->sendSocket, domain->sendPort);*/
             if ( (err = cMsgNetTcpConnect(domain->sendHost, NULL,
                                           (unsigned short) domain->sendPort,
                                           CMSG_BIGSOCKBUFSIZE, 0, 1,
@@ -808,7 +806,9 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
                 }
                 goto end;
             }
-            
+printf("rc clientThread %d: reconnect to host = %s, port = %d\n", localCount,
+       domain->sendHost, domain->sendPort);
+
             /* Allow socket communications to resume. */
             cMsgSocketMutexUnlock(domain);
           }
