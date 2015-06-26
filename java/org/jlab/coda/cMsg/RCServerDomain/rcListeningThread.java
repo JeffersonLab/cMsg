@@ -281,6 +281,8 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
     }
 
 
+    long lastPrintTime = 0L;
+
     /** This method is executed as a thread. */
     public void run() {
 
@@ -348,6 +350,15 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
                     if (killThread) return;
 
                     selector.selectedKeys().clear();
+
+                    // If it's been over 6 minutes since printing out udp msg,
+                    // then print out here instead.
+                    long deltaT = System.currentTimeMillis() - lastPrintTime;
+                    if (deltaT >= 6000) {
+System.out.println("rcListeningThread: woke up from select, time since last print = " + deltaT + " msec");
+                        lastPrintTime = System.currentTimeMillis();
+                    }
+
                     continue;
                 }
 
@@ -527,12 +538,25 @@ System.out.println("rcListeningThread: received bogus udp packet (bad magic ints
                                 // Find size & msgId of data to come.
                                 size  = udpBuffer.getInt();
                                 msgId = udpBuffer.getInt();
+
+                                // Check values
                                 if (size > 1500) {
-System.out.println("rcListeningThread: udp size = " + size + ", msgId = " + msgId);
+System.out.println("rcListeningThread: too big udp size = " + size + ", msgId = " + msgId);
+                                    key.cancel();
+                                    it.remove();
+                                    continue;
                                 }
-                                if (4 + size > udpBuffer.limit()) {
+                                // There are at least 13 int's worth of data in each msg + msgId
+                                else if (size < 4*14) {
+System.out.println("rcListeningThread: too small udp data, size = " + size + ", msgId = " + msgId);
+                                    key.cancel();
+                                    it.remove();
+                                    continue;
+                                }
+
+                                if (4*4 + size > udpBuffer.limit()) {
 System.out.println("rcListeningThread: not enough data in packet (" + udpBuffer.limit() +
-                   ") to read complete msg (" + (4 + size) + "), ignore it");
+                   ") to read complete msg (" + (16 + size) + "), ignore it");
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -543,6 +567,7 @@ System.out.println("rcListeningThread: not enough data in packet (" + udpBuffer.
 
                                 if (prescalePrintOut++ % 300 == 0) {
 System.out.println("rcListeningThread: received udp msg #" + prescalePrintOut);
+                                    lastPrintTime = System.currentTimeMillis();
                                 }
                             }
 
