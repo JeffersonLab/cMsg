@@ -354,7 +354,7 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
                     // If it's been over 6 minutes since printing out udp msg,
                     // then print out here instead.
                     long deltaT = System.currentTimeMillis() - lastPrintTime;
-                    if (deltaT >= 6000) {
+                    if (deltaT >= 360000) {
 System.out.println("rcListeningThread: woke up from select, time since last print = " + deltaT + " msec");
                         lastPrintTime = System.currentTimeMillis();
                     }
