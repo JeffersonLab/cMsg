@@ -355,7 +355,7 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
                     // then print out here instead.
                     long deltaT = System.currentTimeMillis() - lastPrintTime;
                     if (deltaT >= 360000) {
-System.out.println("rcListeningThread: woke up from select, time since last print = " + deltaT + " msec");
+System.out.println("rcListeningThread: " + server.getName() + " woke from select, time since last print = " + (deltaT/1000) + " sec");
                         lastPrintTime = System.currentTimeMillis();
                     }
 
@@ -446,8 +446,9 @@ System.out.println("rcListeningThread: established TCP connection from client");
                                         size  = tcpBuffer.getInt();
                                         msgId = tcpBuffer.getInt();
                                         if (size > 1500) {
-System.out.println("rcListeningThread: tcp size = " + size + ", msgId = " + msgId);
+System.out.println("rcListeningThread: " + server.getName() + " tcp size = " + size + ", msgId = " + msgId);
                                         }
+
                                         if (size-4 > tcpBuffer.capacity()) {
 //System.out.println("  create new, large direct bytebuffer from " + clientData.buffer.capacity() + " to " + clientData.size);
                                             tcpBuffer = ByteBuffer.allocateDirect(size-4);
@@ -505,14 +506,14 @@ System.out.println("rcListeningThread: tcp size = " + size + ", msgId = " + msgI
                                     if (senderAddress == null) {
                                         // This should not happen as select() says
                                         // there is something to read on this channel.
-System.out.println("rcListeningThread: nothing to read in udp channel");
+System.out.println("rcListeningThread: " + server.getName() + " nothing to read in udp channel");
                                         key.cancel();
                                         it.remove();
                                         continue;
                                     }
                                 }
                                 catch (IOException e) {
-System.out.println("rcListeningThread: IO error reading udp packet");
+System.out.println("rcListeningThread: " + server.getName() + " IO error reading udp packet");
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -520,7 +521,7 @@ System.out.println("rcListeningThread: IO error reading udp packet");
 
                                 udpBuffer.flip();
                                 if (udpBuffer.limit() < 20) {
-System.out.println("rcListeningThread: udp packet is too small, " + udpBuffer.limit());
+System.out.println("rcListeningThread: " + server.getName() + " udp packet is too small, " + udpBuffer.limit());
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -529,7 +530,7 @@ System.out.println("rcListeningThread: udp packet is too small, " + udpBuffer.li
                                 if (udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[0] ||
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[1] ||
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[2]) {
-System.out.println("rcListeningThread: received bogus udp packet (bad magic ints)");
+System.out.println("rcListeningThread: " + server.getName() + " received bogus udp packet (bad magic ints)");
                                     key.cancel();
                                     it.remove();
                                     continue;
@@ -541,21 +542,21 @@ System.out.println("rcListeningThread: received bogus udp packet (bad magic ints
 
                                 // Check values
                                 if (size > 1500) {
-System.out.println("rcListeningThread: too big udp size = " + size + ", msgId = " + msgId);
+System.out.println("rcListeningThread: " + server.getName() + " too big udp size = " + size + ", msgId = " + msgId);
                                     key.cancel();
                                     it.remove();
                                     continue;
                                 }
                                 // There are at least 13 int's worth of data in each msg + msgId
                                 else if (size < 4*14) {
-System.out.println("rcListeningThread: too small udp data, size = " + size + ", msgId = " + msgId);
+System.out.println("rcListeningThread: " + server.getName() + " too small udp data, size = " + size + ", msgId = " + msgId);
                                     key.cancel();
                                     it.remove();
                                     continue;
                                 }
 
                                 if (4*4 + size > udpBuffer.limit()) {
-System.out.println("rcListeningThread: not enough data in packet (" + udpBuffer.limit() +
+System.out.println("rcListeningThread: " + server.getName() + " not enough data in packet (" + udpBuffer.limit() +
                    ") to read complete msg (" + (16 + size) + "), ignore it");
                                     key.cancel();
                                     it.remove();
@@ -566,7 +567,7 @@ System.out.println("rcListeningThread: not enough data in packet (" + udpBuffer.
                                 okToParseMsg = true;
 
                                 if (prescalePrintOut++ % 300 == 0) {
-System.out.println("rcListeningThread: received udp msg #" + prescalePrintOut);
+System.out.println("rcListeningThread: " + server.getName() + " received udp msg #" + prescalePrintOut);
                                     lastPrintTime = System.currentTimeMillis();
                                 }
                             }
@@ -593,7 +594,7 @@ System.out.println("rcListeningThread: received udp msg #" + prescalePrintOut);
                                         break;
 
                                     default:
-System.out.println("rcListeningThread: bad client msg cmd, " + msgId);
+System.out.println("rcListeningThread: " + server.getName() + " bad client msg cmd, " + msgId);
                                         break;
                                 }
 
@@ -628,7 +629,7 @@ System.out.println("rcListeningThread: bad client msg cmd, " + msgId);
         }
 
 //        if (debug >= cMsgConstants.debugInfo) {
-            System.out.println("rcListeningThread: quit TCP/UDP listening thread");
+            System.out.println("rcListeningThread: " + server.getName() + " quit TCP/UDP listening thread");
 //        }
 
         return;
