@@ -257,12 +257,11 @@ System.out.println("multicast packet: bad version (" + version + ") != expected 
                         continue;
                     }
                 }
-                else {
-                    if (pswd != null) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("Password given by client but not required by server");
-                        }
+                else if (pswd != null) {
+                    if (debug >= cMsgConstants.debugInfo) {
+                        System.out.println("Client password (" + pswd + ") does not match server's (null), reject packet");
                     }
+                    continue;
                 }
 
                 if (debug >= cMsgConstants.debugInfo) {

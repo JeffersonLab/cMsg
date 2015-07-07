@@ -171,6 +171,9 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
     /**
      * Password that clients need to match before being allowed to connect.
      * This is subdomain independent and applies to the server as a whole.
+     * If this is null and the client supplies a password anyway, that is also
+     * forbidden. In this way, this password acts as a unique name for this
+     * cMsg server.
      */
     String clientPassword;
 
@@ -1976,9 +1979,38 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
                     return;
                 }
             }
+            else {
+                if (debug >= cMsgConstants.debugInfo) {
+                    System.out.println("  local password = <null>");
+                    System.out.println("  given password = " + password);
+                }
+
+                // If this server does NOT specify a password,
+                // but the client does, return an error.
+                if (password.length() > 0) {
+
+                    if (debug >= cMsgConstants.debugError) {
+                        System.out.println("  no password can be used with this server");
+                    }
+
+                    // send error to client
+                    out.writeInt(cMsgConstants.errorWrongPassword);
+                    // send error string to client
+                    String s = "no password can be used with this server";
+                    out.writeInt(s.length());
+                    try {
+                        out.write(s.getBytes("US-ASCII"));
+                    }
+                    catch (UnsupportedEncodingException e) {
+                    }
+
+                    out.flush();
+                    return;
+                }
+            }
 
             // Create unique id number to send to client which it sends back in its
-            // reponse to this server's communication in order to identify itself.
+            // response to this server's communication in order to identify itself.
             int uniqueKey = connectionHandler.getUniqueKey();
 
             // Try to register this client. If the cMsg system already has a
