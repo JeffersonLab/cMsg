@@ -823,6 +823,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
 /*printf("\nTrying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
     if (domain->currentUDL.mustMulticast) {
       free(domain->currentUDL.nameServerHost);
+      domain->currentUDL.nameServerHost = NULL;
 /*printf("Trying to connect with Multicast\n"); */
 //      err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
 //                           &domain->currentUDL.nameServerPort);
@@ -997,6 +998,7 @@ int cmsg_cmsg_reconnect(void *domainId) {
             /*printf("  cmsg_cmsg_reconnect: trying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
             if (domain->currentUDL.mustMulticast) {
                 free(domain->currentUDL.nameServerHost);
+                domain->currentUDL.nameServerHost = NULL;
                 /*printf("Trying to connect with Multicast\n"); */
                 err = connectWithMulticast(domain, &ipList,
                                            &domain->currentUDL.nameServerPort);
@@ -4837,7 +4839,7 @@ int cmsg_cmsg_disconnect(void **domainId) {
     cMsgMemoryMutexUnlock();
     
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "##cmsg_cmsg_disconnect: IN, index = %d, domain = %p, funcRunning = %d\n",
+        fprintf(stderr, "  cmsg_cmsg_disconnect: IN, index = %d, domain = %p, funcRunning = %d\n",
                 index, domain, domain->functionsRunning);
     }
 
@@ -5944,7 +5946,10 @@ static int connectToServer(void *domainId) {
    * since all cloud servers' info contains real host name and
    * TCP port only. */
   if (domain->currentUDL.mustMulticast) {
-    if (domain->currentUDL.nameServerHost != NULL) free(domain->currentUDL.nameServerHost);
+    if (domain->currentUDL.nameServerHost != NULL) {
+        free(domain->currentUDL.nameServerHost);
+        domain->currentUDL.nameServerHost = NULL;
+    }
 /*printf("KA: trying to connect with Multicast\n");*/
     err = connectWithMulticast(domain, &ipList,
                                &domain->currentUDL.nameServerPort);
@@ -6074,7 +6079,7 @@ static void *keepAliveThread(void *arg) {
     
         while(1) {
             if (domain->killKAthread) pthread_exit(NULL);
-            if ( (err = getMonitorInfo(domain)) != CMSG_OK ) {
+            if (getMonitorInfo(domain) != CMSG_OK) {
             break;
           }     
         }
@@ -6101,7 +6106,7 @@ static void *keepAliveThread(void *arg) {
             break;
         }
 
-        /* if we're here, disconnect was NOT called, server died and we're tring to failover */
+        /* if we're here, disconnect was NOT called, server died and we're trying to failover */
         noMoreCloudServers = 0;
         if (hashSize(&domain->cloudServerTable) < 1) {
           noMoreCloudServers = 1;
@@ -6491,6 +6496,9 @@ static void *updateServerThread(void *arg) {
         
         /* This may change if we've failed over to another server */
 /*printf("updateServer: set socket = %d\n", domain->keepAliveSocket);*/
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            fprintf(stderr, "updateServer: set socket = %d\n", domain->keepAliveSocket);
+        }
         socket = domain->keepAliveSocket;
 
         err = sendMonitorInfo(domain, socket);
@@ -6511,7 +6519,7 @@ static void *updateServerThread(void *arg) {
     }
     
     sun_setconcurrency(con);
-    
+
     pthread_exit(NULL);
 }
 
@@ -6734,10 +6742,10 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
  *    if subdomainType is not cMsg, it is required
  * 4) remainder is past on to the subdomain plug-in
  * 5) tag/val of multicastTO=&lt;value&gt; is looked for
- * 6) tag/val of msgpassword=&lt;value&gt; is looked for
+ * 6) tag/val of cmsgpassword=&lt;value&gt; is looked for
  * 7) tag/val of regime=low or regime=high is looked for
  * 8) tag/val of domainPort=&lt;value&gt; is looked for
-
+ *
  *
  * @param UDL  full udl to be parsed
  * @param pUdl pointer to struct that contains all parsed UDL info
@@ -6813,7 +6821,7 @@ if(dbg) printf("parseUDL: udl remainder = %s\n", udlRemainder);
     
     /* compile regular expression */
     err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED);
-    /* wiil never happen */
+    /* will never happen */
     if (err != 0) {
         free(udl);
         free(buffer);
@@ -6849,7 +6857,7 @@ if(dbg) printf("parseUDL: udl remainder = %s\n", udlRemainder);
         if (strcasecmp(buffer, "multicast") == 0 ||
             strcmp(buffer, CMSG_MULTICAST_ADDR) == 0) {
             mustMulticast = 1;
-if(dbg) printf("set mustMulticast to true (locally in parse method)");
+if(dbg) printf("set mustMulticast to true (locally in parse method)\n");
         }
         /* if the host is "localhost", find the actual host name */
         else if (strcasecmp(buffer, "localhost") == 0) {
@@ -6976,7 +6984,7 @@ if(dbg) printf("parseUDL: subdomain remainder = %s, len = %d\n", buffer, len);
         
         /* this is the udl remainder in which we look */
         remain = strdup(buffer);
-        
+
         /* find matches */
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
         /* if match find (first) password */
