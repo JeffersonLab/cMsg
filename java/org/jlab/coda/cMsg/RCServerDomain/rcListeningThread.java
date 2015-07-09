@@ -507,14 +507,14 @@ System.out.println("rcListeningThread: " + server.getName() + " tcp size = " + s
                                         // This should not happen as select() says
                                         // there is something to read on this channel.
 System.out.println("rcListeningThread: " + server.getName() + " nothing to read in udp channel");
-                                        key.cancel();
+                                        //key.cancel();
                                         it.remove();
                                         continue;
                                     }
                                 }
                                 catch (IOException e) {
 System.out.println("rcListeningThread: " + server.getName() + " IO error reading udp packet");
-                                    key.cancel();
+                                    //key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -522,7 +522,7 @@ System.out.println("rcListeningThread: " + server.getName() + " IO error reading
                                 udpBuffer.flip();
                                 if (udpBuffer.limit() < 20) {
 System.out.println("rcListeningThread: " + server.getName() + " udp packet is too small, " + udpBuffer.limit());
-                                    key.cancel();
+                                    //key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -531,7 +531,7 @@ System.out.println("rcListeningThread: " + server.getName() + " udp packet is to
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[1] ||
                                     udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[2]) {
 System.out.println("rcListeningThread: " + server.getName() + " received bogus udp packet (bad magic ints)");
-                                    key.cancel();
+                                    //key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -543,14 +543,14 @@ System.out.println("rcListeningThread: " + server.getName() + " received bogus u
                                 // Check values
                                 if (size > 1500) {
 System.out.println("rcListeningThread: " + server.getName() + " too big udp size = " + size + ", msgId = " + msgId);
-                                    key.cancel();
+                                    //key.cancel();
                                     it.remove();
                                     continue;
                                 }
                                 // There are at least 13 int's worth of data in each msg + msgId
                                 else if (size < 4*14) {
 System.out.println("rcListeningThread: " + server.getName() + " too small udp data, size = " + size + ", msgId = " + msgId);
-                                    key.cancel();
+                                    //key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -558,7 +558,7 @@ System.out.println("rcListeningThread: " + server.getName() + " too small udp da
                                 if (4*4 + size > udpBuffer.limit()) {
 System.out.println("rcListeningThread: " + server.getName() + " not enough data in packet (" + udpBuffer.limit() +
                    ") to read complete msg (" + (16 + size) + "), ignore it");
-                                    key.cancel();
+                                    //key.cancel();
                                     it.remove();
                                     continue;
                                 }
