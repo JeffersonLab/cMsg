@@ -885,6 +885,7 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
   if (domain->udl            != NULL) {free(domain->udl);            domain->udl            = NULL;}
   if (domain->description    != NULL) {free(domain->description);    domain->description    = NULL;}
   if (domain->password       != NULL) {free(domain->password);       domain->password       = NULL;}
+  if (domain->expid          != NULL) {free(domain->expid);          domain->expid          = NULL;}
   if (domain->msgBuffer      != NULL) {free(domain->msgBuffer);      domain->msgBuffer      = NULL;}
   if (domain->userXML        != NULL) {free(domain->userXML);        domain->userXML        = NULL;}
   if (domain->monitorXML     != NULL) {free(domain->monitorXML);     domain->monitorXML     = NULL;}

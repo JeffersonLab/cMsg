@@ -222,7 +222,8 @@ typedef struct cMsgDomainInfo_t {
   char *udl;          /**< semicolon separated list of UDLs of cMsg name servers. */
   char *description;  /**< User description. */
   char *password;     /**< User password. */
-  
+  char *expid;        /**< RC domain experiment id. */
+
   parsedUDL currentUDL;      /**< Store info about current connection to server. */
 
   /* failover stuff */
