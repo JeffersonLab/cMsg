@@ -157,6 +157,9 @@ public class cMsgTestRcClient {
         cmsg.connect();
 System.out.println("CONNECTED");
 
+        cmsg.monitor("3000");
+System.out.println("MONITORED");
+
         // enable message reception
         cmsg.start();
 
