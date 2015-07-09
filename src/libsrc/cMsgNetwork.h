@@ -134,11 +134,13 @@
 #define RC_MULTICAST_PORT 45200
 
 
-/** First int to send in UDP multicast to server if cMsg domain. */
+/** Command to send in UDP multicast to server if cMsg domain. */
 #define CMSG_DOMAIN_MULTICAST 1
-/** First int to send in UDP multicast to server if RC domain. */
+/** Command to send in UDP multicast to server if RC domain. */
 #define RC_DOMAIN_MULTICAST 2
-/** First int to send in UDP multicast to server if emu domain. */
+/** Command to send if probing RC multicast servers if RC domain. */
+#define RC_DOMAIN_MULTICAST_PROBE 16
+/** Command to send in UDP multicast to server if emu domain. */
 #define EMU_DOMAIN_MULTICAST 2
 
 
