@@ -165,7 +165,23 @@ class rcListeningThread extends Thread {
                 out.write(server.getHost().getBytes("US-ASCII"));
                 out.write(server.expid.getBytes("US-ASCII"));
             }
-            catch (UnsupportedEncodingException e) { }
+            catch (UnsupportedEncodingException e) {/*never happen */}
+
+            List<InterfaceAddress> ipInfo = cMsgUtilities.getAllIpInfo();
+            out.writeInt(ipInfo.size());
+
+            try {
+                for (InterfaceAddress ia : ipInfo) {
+                    String ip = ia.getAddress().getHostAddress();
+                    out.writeInt(ip.length());
+                    out.write(ia.getAddress().getHostAddress().getBytes("US-ASCII"));
+                    ip = ia.getBroadcast().getHostAddress();
+                    out.writeInt(ip.length());
+                    out.write(ia.getAddress().getHostAddress().getBytes("US-ASCII"));
+                }
+            }
+            catch (UnsupportedEncodingException e) {/*never happen */}
+
             out.flush();
             out.close();
 
