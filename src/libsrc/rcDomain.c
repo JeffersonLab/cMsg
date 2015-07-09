@@ -72,6 +72,7 @@
  * Allows data to flow back and forth with this thread.
  */
 typedef struct thdArg_t {
+    int count;
     int sockfd;
     socklen_t len;
     int port;
@@ -79,6 +80,7 @@ typedef struct thdArg_t {
     struct sockaddr_in *paddr;
     int   bufferLen;
     char *buffer;
+    char *senderHost;
     codaIpList *ipList;
 } thdArg;
 
@@ -2173,6 +2175,209 @@ int cmsg_rc_subscriptionMessagesTotal(void *domainId, void *handle, int *total) 
 
 /*-------------------------------------------------------------------*/
 
+/**
+ * This routine starts a thread to receive a return UDP packet from
+ * the server due to our initial multicast.
+ */
+static void *receiverThd(void *arg) {
+    int i, status, udpPort, ipLen, ipCount, cMsgVersion, hostLen, expidLen, magicInt[3];
+    thdArg *threadArg = (thdArg *) arg;
+    char buffer[1024], *tmp, *pchar, *host;
+    ssize_t len;
+    codaIpList *listHead=NULL, *listEnd, *listItem;
+    socklen_t sockLen;
+    struct sockaddr_in addr;
+
+    /* release resources when done */
+    pthread_detach(pthread_self());
+
+    /*----------------------------------------*/
+    /* Sync with thread that spawned this one */
+    status = pthread_mutex_lock(&mutex);
+    if (status != 0) {
+        cmsg_err_abort(status, "pthread_mutex_lock");
+    }
+
+    /* Tell main thread we are started. */
+    status = pthread_cond_signal(&cond);
+    if (status != 0) {
+        cmsg_err_abort(status, "pthread_cond_signal");
+    }
+
+    status = pthread_mutex_unlock(&mutex);
+    if (status != 0) {
+        cmsg_err_abort(status, "pthread_mutex_unlock");
+    }
+    /*----------------------------------------*/
+
+    memset((void *)&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+
+    nextPacket:
+    while (1) {
+        /* zero buffer */
+        pchar = memset((void *) buffer, 0, 1024);
+
+        /* ignore error as it will be caught later */
+        len = recvfrom(threadArg->sockfd, (void *) buffer, 1024, 0, (SA *) &addr, &sockLen);
+/*
+printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
+                inet_ntoa(addr.sin_addr),
+                ntohs(addr.sin_port), len);
+
+        /* server is sending 9 ints + string */
+        if (len < 9 * sizeof(int)) continue;
+
+        /* The server is sending back its 1) port, 2) host name length, 3) host name */
+        memcpy(magicInt, pchar, 3 * sizeof(int));
+        magicInt[0] = ntohl(magicInt[0]);
+        magicInt[1] = ntohl(magicInt[1]);
+        magicInt[2] = ntohl(magicInt[2]);
+        pchar += 3 * sizeof(int);
+
+        if ((magicInt[0] != CMSG_MAGIC_INT1) ||
+            (magicInt[1] != CMSG_MAGIC_INT2) ||
+            (magicInt[2] != CMSG_MAGIC_INT3)) {
+            printf("  Multicast response has wrong magic numbers, ignore packet\n");
+            continue;
+        }
+
+        memcpy(&cMsgVersion, pchar, sizeof(int));
+        cMsgVersion = ntohl(cMsgVersion);
+        pchar += sizeof(int);
+
+        memcpy(&udpPort, pchar, sizeof(int));
+        udpPort = ntohl(udpPort);
+        pchar += sizeof(int);
+
+        memcpy(&hostLen, pchar, sizeof(int));
+        hostLen = ntohl(hostLen);
+        pchar += sizeof(int);
+
+        memcpy(&expidLen, pchar, sizeof(int));
+        expidLen = ntohl(expidLen);
+        pchar += sizeof(int);
+
+        if (cMsgVersion != CMSG_VERSION_MAJOR) {
+            printf("  rc multicast server is wrong cmsg version (%d), should be %d, ignore packet\n", cMsgVersion,
+                   CMSG_VERSION_MAJOR);
+            continue;
+        }
+
+        if ((udpPort < 1024) || (udpPort > 65535)) {
+            printf("  bad port value, ignore packet\n");
+            continue;
+        }
+
+        /*  read host string  */
+        if (hostLen > 0) {
+            if ((tmp = (char *) malloc(hostLen + 1)) == NULL) {
+                printf("  out of memory, quit program\n");
+                exit(-1);
+            }
+            /* read sender string into memory */
+            memcpy(tmp, pchar, hostLen);
+            /* add null terminator to string */
+            tmp[hostLen] = 0;
+            /* store string in msg structure */
+            host = tmp;
+            /* go to next string */
+            pchar += hostLen;
+            /* printf("sender = %s\n", tmp); */
+        }
+        else {
+            host = NULL;
+        }
+
+        /*  skip over expid   */
+        if (expidLen > 0) {
+            pchar += expidLen;
+        }
+
+        /*--------------------------*/
+        /*  how many IP addresses?  */
+        /*--------------------------*/
+        memcpy(&ipCount, pchar, sizeof(int));
+        ipCount = ntohl(ipCount);
+        pchar += sizeof(int);
+
+        if ((ipCount < 0) || (ipCount > 50)) {
+            printf("  bad number of IP addresses, ignore packet\n");
+            ipCount = 0;
+            continue;
+        }
+
+        listHead = NULL;
+
+        for (i=0; i < ipCount; i++) {
+            /* Create address item */
+            listItem = (codaIpList *) calloc(1, sizeof(codaIpList));
+            if (listItem == NULL) {
+                printf("  out of memory, quit program\n");
+                exit(-1);
+            }
+
+            /* First read in IP address len */
+            memcpy(&ipLen, pchar, sizeof(int));
+            ipLen = ntohl(ipLen);
+            pchar += sizeof(int);
+
+            /* IP address is in dot-decimal format */
+            if (ipLen < 7 || ipLen > 20) {
+                printf("  Multicast response has wrong format, ignore packet\n");
+                codanetFreeAddrList(listHead);
+                if (host != NULL) free(host);
+                goto nextPacket;
+            }
+
+            /* Put address into a list for later sorting */
+            memcpy(listItem->addr , pchar, ipLen);
+            listItem->addr[ipLen] = 0;
+            pchar += ipLen;
+
+            /* Skip over the corresponding broadcast or network address */
+            memcpy(&ipLen, pchar, sizeof(int));
+            ipLen = ntohl(ipLen);
+            pchar += sizeof(int);
+
+            if (ipLen < 7 || ipLen > 20) {
+                printf("  Multicast response has wrong format, ignore packet\n");
+                codanetFreeAddrList(listHead);
+                if (host != NULL) free(host);
+                goto nextPacket;
+            }
+
+            pchar += ipLen;
+
+/*printf("Found ip = %s\n", listItem->addr);*/
+
+            /* Put address item into a list for later sorting */
+            if (listHead == NULL) {
+                listHead = listEnd = listItem;
+            }
+            else {
+                listEnd->next = listItem;
+                listEnd = listItem;
+            }
+        }
+
+        /* send info back to calling function */
+        threadArg->senderHost = host;
+        threadArg->ipList = listHead;
+        threadArg->count  = ipCount;
+
+        /* Tell main thread we are done. */
+        pthread_cond_signal(&cond);
+        break;
+    }
+
+    pthread_exit(NULL);
+    return NULL;
+}
+
+
+/*-------------------------------------------------------------------*/
+
 
 /**
  * This routine is a synchronous call to receive a message containing monitoring data
@@ -2185,7 +2390,8 @@ int cmsg_rc_subscriptionMessagesTotal(void *domainId, void *handle, int *total) 
  * the location of a particular AFECS (runcontrol) platform.
  *
  * @param  domainId id of the domain connection
- * @param  command time in milliseconds to wait for a response to multicasts (1000 default)
+ * @param  command time in milliseconds to wait for a response to multicasts (1000 default),
+ *         0 means wait forever
  * @param  replyMsg pointer which gets filled in with pointer to message containing the
  *         host running the rc multicast server contacted (in senderHost field);
  *         NULL if no response is found
@@ -2200,16 +2406,16 @@ int cmsg_rc_monitor(void *domainId, const char *command, void **replyMsg) {
 
     cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
 
-    char   *tmp, *pchar, *host=NULL, buffer[1024];
-    int    err, len, sockfd, nameLen, hostLen, expidLen, cMsgVersion;
-    int    i, udpPort, ipLen, ipCount=0, magicInt[3], outGoing[9], timedOut=0;
+    char   *host=NULL, buffer[1024];
+    int    status, err, len, sockfd, nameLen, expidLen;
+    int    ipCount=0, outGoing[9];
+    int    multicastTO, gotResponse = 0;
     unsigned char ttl = 32;
-
-    codaIpList *listHead=NULL, *listEnd, *listItem;
-
+    thdArg    rArg;
+    pthread_t rThread;
+    codaIpList *listHead=NULL, *listItem;
+    struct timespec wait, time;
     struct sockaddr_in servaddr;
-    struct sockaddr_in addr;
-    socklen_t addrlen;
 
 
     if (domain == NULL || replyMsg == NULL) {
@@ -2295,6 +2501,33 @@ int cmsg_rc_monitor(void *domainId, const char *command, void **replyMsg) {
     }
 
     /**************************************/
+    /*   Spawn response-reading thread    */
+    /**************************************/
+    status = pthread_mutex_lock(&mutex);
+    if (status != 0) {
+        cmsg_err_abort(status, "pthread_mutex_lock");
+    }
+
+    rArg.sockfd = sockfd;
+
+    status = pthread_create(&rThread, NULL, receiverThd, (void *)(&rArg));
+    if (status != 0) {
+        cmsg_err_abort(status, "Creating multicast response receiving thread");
+    }
+    sched_yield();
+
+    /* Wait for spawned thread to tell me it has started */
+    status = pthread_cond_wait(&cond, &mutex);
+    if (status != 0) {
+        cmsg_err_abort(status, "pthread_cond_wait");
+    }
+
+    status = pthread_mutex_unlock(&mutex);
+    if (status != 0) {
+        cmsg_err_abort(status, "pthread_mutex_unlock");
+    }
+
+    /**************************************/
     /* Send packet to rc multicast server */
     /**************************************/
 
@@ -2311,200 +2544,60 @@ int cmsg_rc_monitor(void *domainId, const char *command, void **replyMsg) {
         millisecWait = atoi(command);
         if (millisecWait < 0) millisecWait = 1000;
     }
-    int64_t startTime = 0L, nowTime; /* in milliseconds */
+    multicastTO = millisecWait/1000;
 
-    /* Get current time in milliseconds */
-#ifdef Darwin
-    {
-        struct timeval now;
-        gettimeofday(&now, NULL);
-        startTime =  now.tv_sec * 1000 + now.tv_usec / 1000;
-    }
-#else
-    {
-        struct timespec now;
-        clock_gettime(CLOCK_REALTIME, &now);
-        startTime =  now.tv_sec * 1000 + now.tv_nsec / 1000000;
-    }
-#endif
+    if (multicastTO > 0) {
+        wait.tv_sec  = multicastTO;
+        wait.tv_nsec = 0;
+        cMsgGetAbsoluteTime(&wait, &time);
 
-
-    nextPacket:
-    while (1) {
-
-        /* if timeout has occurred, then break */
-#ifdef Darwin
-        {
-            struct timeval now;
-            gettimeofday(&now, NULL);
-            nowTime =  now.tv_sec * 1000 + now.tv_usec / 1000;
-        }
-#else
-        {
-            struct timespec now;
-            clock_gettime(CLOCK_REALTIME, &now);
-            nowTime = now.tv_sec * 1000 + now.tv_nsec / 1000000;
-        }
-#endif
-        if (startTime + millisecWait <= nowTime) {
-            timedOut = 1;
-            break;
+        status = pthread_mutex_lock(&mutex);
+        if (status != 0) {
+            cmsg_err_abort(status, "pthread_mutex_lock");
         }
 
-        /* zero buffer */
-        pchar = memset((void *) buffer, 0, 1024);
-
-        /* ignore error as it will be caught later */
-        len = recvfrom(sockfd, (void *) buffer, 1024, 0, (SA *) &addr, &addrlen);
-/*
-printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
-                inet_ntoa(addr.sin_addr),
-                ntohs(addr.sin_port), len);
-
-        /* server is sending 9 ints + string */
-        if (len < 9 * sizeof(int)) continue;
-
-        /* The server is sending back its 1) port, 2) host name length, 3) host name */
-        memcpy(magicInt, pchar, 3 * sizeof(int));
-        magicInt[0] = ntohl(magicInt[0]);
-        magicInt[1] = ntohl(magicInt[1]);
-        magicInt[2] = ntohl(magicInt[2]);
-        pchar += 3 * sizeof(int);
-
-        if ((magicInt[0] != CMSG_MAGIC_INT1) ||
-            (magicInt[1] != CMSG_MAGIC_INT2) ||
-            (magicInt[2] != CMSG_MAGIC_INT3)) {
-            printf("  Multicast response has wrong magic numbers, ignore packet\n");
-            continue;
+/*printf("Wait %d seconds for multicast to be answered\n", multicastTO);*/
+        status = pthread_cond_timedwait(&cond, &mutex, &time);
+        if (status == ETIMEDOUT) {
+            /* stop receiving thread */
+            pthread_cancel(rThread);
+            sched_yield();
         }
-
-        memcpy(&cMsgVersion, pchar, sizeof(int));
-        cMsgVersion = ntohl(cMsgVersion);
-        pchar += sizeof(int);
-
-        memcpy(&udpPort, pchar, sizeof(int));
-        udpPort = ntohl(udpPort);
-        pchar += sizeof(int);
-
-        memcpy(&hostLen, pchar, sizeof(int));
-        hostLen = ntohl(hostLen);
-        pchar += sizeof(int);
-
-        memcpy(&expidLen, pchar, sizeof(int));
-        expidLen = ntohl(expidLen);
-        pchar += sizeof(int);
-
-/*printf("  TCP port = %d, UDP port = %d, ip count = %d\n", tcpPort, udpPort, ipCount);*/
-
-        if (cMsgVersion != CMSG_VERSION_MAJOR) {
-            printf("  rc multicast server is wrong cmsg version (%d), should be %d, ignore packet\n", cMsgVersion,
-                   CMSG_VERSION_MAJOR);
-            continue;
-        }
-
-        if ((udpPort < 1024) || (udpPort > 65535)) {
-            printf("  bad port value, ignore packet\n");
-            continue;
-        }
-
-        /*  read host string  */
-        if (hostLen > 0) {
-            if ((tmp = (char *) malloc(hostLen + 1)) == NULL) {
-                return (CMSG_OUT_OF_MEMORY);
-            }
-            /* read sender string into memory */
-            memcpy(tmp, pchar, hostLen);
-            /* add null terminator to string */
-            tmp[hostLen] = 0;
-            /* store string in msg structure */
-            host = tmp;
-            /* go to next string */
-            pchar += hostLen;
-            /* printf("sender = %s\n", tmp); */
+        else if (status != 0) {
+            cmsg_err_abort(status, "pthread_cond_timedwait");
         }
         else {
-            host = NULL;
+            gotResponse = 1;
         }
 
-        /*  skip over expid   */
-        if (expidLen > 0) {
-            pchar += expidLen;
+        status = pthread_mutex_unlock(&mutex);
+        if (status != 0) {
+            cmsg_err_abort(status, "pthread_mutex_unlock");
+        }
+    }
+    else {
+        status = pthread_mutex_lock(&mutex);
+        if (status != 0) {
+            cmsg_err_abort(status, "pthread_mutex_lock");
         }
 
-        /*--------------------------*/
-        /*  how many IP addresses?  */
-        /*--------------------------*/
-        memcpy(&ipCount, pchar, sizeof(int));
-        ipCount = ntohl(ipCount);
-        pchar += sizeof(int);
-
-        if ((ipCount < 0) || (ipCount > 50)) {
-            printf("  bad number of IP addresses, ignore packet\n");
-            ipCount = 0;
-            continue;
+/*printf("Wait forever for multicast to be answered\n");*/
+        status = pthread_cond_wait(&cond, &mutex);
+        if (status != 0) {
+            cmsg_err_abort(status, "pthread_cond_wait");
         }
 
-        listHead = NULL;
+        gotResponse = 1;
 
-        for (i=0; i < ipCount; i++) {
-            /* Create address item */
-            listItem = (codaIpList *) calloc(1, sizeof(codaIpList));
-            if (listItem == NULL) {
-                codanetFreeAddrList(listHead);
-                if (host != NULL) free(host);
-                return(CMSG_OUT_OF_MEMORY);
-            }
-
-            /* First read in IP address len */
-            memcpy(&ipLen, pchar, sizeof(int));
-            ipLen = ntohl(ipLen);
-            pchar += sizeof(int);
-
-            /* IP address is in dot-decimal format */
-            if (ipLen < 7 || ipLen > 20) {
-                printf("  Multicast response has wrong format, ignore packet\n");
-                codanetFreeAddrList(listHead);
-                if (host != NULL) free(host);
-                goto nextPacket;
-            }
-
-            /* Put address into a list for later sorting */
-            memcpy(listItem->addr , pchar, ipLen);
-            listItem->addr[ipLen] = 0;
-            pchar += ipLen;
-
-            /* Skip over the corresponding broadcast or network address */
-            memcpy(&ipLen, pchar, sizeof(int));
-            ipLen = ntohl(ipLen);
-            pchar += sizeof(int);
-
-            if (ipLen < 7 || ipLen > 20) {
-                printf("  Multicast response has wrong format, ignore packet\n");
-                codanetFreeAddrList(listHead);
-                if (host != NULL) free(host);
-                goto nextPacket;
-            }
-
-            pchar += ipLen;
-
-/*printf("Found ip = %s\n", listItem->addr);*/
-
-            /* Put address item into a list for later sorting */
-            if (listHead == NULL) {
-                listHead = listEnd = listItem;
-            }
-            else {
-                listEnd->next = listItem;
-                listEnd = listItem;
-            }
+        status = pthread_mutex_unlock(&mutex);
+        if (status != 0) {
+            cmsg_err_abort(status, "pthread_mutex_unlock");
         }
-
-        break;
     }
 
-    if (timedOut) {
+    /* If we timed out ... */
+    if (!gotResponse) {
         codanetFreeAddrList(listHead);
-        if (host != NULL) free(host);
         *replyMsg = NULL;
         return (CMSG_OK);
     }
@@ -2520,15 +2613,16 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
         return (CMSG_OUT_OF_MEMORY);
     }
 
-    msg->senderHost = host;
-
-    /* Keep no history with msg. */
+    /* Keep no history with msg */
     cMsgSetHistoryLengthMax(msg, 0);
+
+    msg->senderHost = rArg.senderHost;
+    listHead = rArg.ipList;
 
     /* Add payload item - array of IP addresses */
     if (listHead != NULL) {
         int count = 0;
-        const char* ipAddrs[ipCount];
+        const char* ipAddrs[rArg.count];
         listItem = listHead;
         while (listItem != NULL) {
             ipAddrs[count++] = listItem->addr;
@@ -2536,7 +2630,7 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
         }
 
         /* Array is copied into msg */
-        cMsgAddStringArray(msg, "IpAddresses", ipAddrs, ipCount);
+        cMsgAddStringArray(msg, "IpAddresses", ipAddrs, rArg.count);
         codanetFreeAddrList(listHead);
     }
 
