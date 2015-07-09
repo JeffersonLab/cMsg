@@ -515,9 +515,10 @@ System.out.println("RC connect: SUCCESSFUL");
      * from the rc multicast server specified in the UDL.
      * In this case, the "monitoring" data is just the host on which the rc multicast
      * server is running. It can be found by calling the
-     * {@link org.jlab.coda.cMsg.cMsgMessage#getSenderHost()}
-     * method of the returned message. This is useful when trying to find the location
-     * of a particular AFECS (runcontrol) platform.
+     * {@link cMsgMessage#getSenderHost()} method of the returned message.
+     * Get the whole list of server IP addresses in the
+     * String array payload item called "IpAddresses". This is useful when trying to find
+     * the location of a particular AFECS (runcontrol) platform.
      *
      * @param  command time in milliseconds to wait for a response to multicasts (1000 default)
      * @return response message containing the host running the rc multicast server contacted;
@@ -610,6 +611,7 @@ System.out.println("RC connect: SUCCESSFUL");
                         String serverExpid;
                         if (expidLen > 0) {
                             serverExpid = new String(buf, index, expidLen, "US-ASCII");
+                            index += expidLen;
                             //System.out.println("monitor: got return expid = " + serverExpid);
                             if (!expid.equals(serverExpid)) {
                                 if (debug >= cMsgConstants.debugWarn) {
@@ -619,9 +621,41 @@ System.out.println("RC connect: SUCCESSFUL");
                             }
                         }
 
+                        int ipCount = cMsgUtilities.bytesToInt(buf, index); index += 4;
+System.out.println("monitor: got ipCount = " + ipCount);
+
+                        if (ipCount < 0 || ipCount > 50) {
+                            if (debug >= cMsgConstants.debugWarn) {
+                                System.out.println("monitor: bad ip address count (" + ipCount + ")");
+                            }
+                            continue;
+                        }
+
+                        int ipLen;
+                        String[] ipAddrs = new String[ipCount];
+                        for (int i=0; i < ipCount; i++) {
+                            // Read in IP address
+                            ipLen = cMsgUtilities.bytesToInt(buf, index); index += 4;
+                            if (ipLen > 0) {
+                                ipAddrs[i] = new String(buf, index, ipLen, "US-ASCII");
+System.out.println("monitor: ip = " + ipAddrs[i]);
+                                index += ipLen;
+                            }
+
+                            // Skip over broadcast address
+                            ipLen = cMsgUtilities.bytesToInt(buf, index);
+                            index += 4 + ipLen;
+                        }
+
                         // store in message
                         msg = new cMsgMessageFull();
                         msg.setSenderHost(host);
+                        if (ipCount > 0) {
+                            try {
+                                msg.addPayloadItem(new cMsgPayloadItem("IpAddresses", ipAddrs));
+                            }
+                            catch (cMsgException e) {/* never happen */}
+                        }
                     }
                     catch (InterruptedIOException e) {
                         //System.out.println("  Interrupted receiving thread so return");
