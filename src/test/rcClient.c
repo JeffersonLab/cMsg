@@ -95,12 +95,13 @@ int main(int argc,char **argv) {
   *       concluding connect message<p>
   *</ul><p>
   */
-  char *UDL = "cMsg:rc://multicast:45333/emutest?connectTO=5";
+  char *UDL = "cMsg:rc://multicast/testExpid?connectTO=0";
 
-  int   err, debug = 1;
+  int   i, err, debug = 1, len;
   cMsgSubscribeConfig *config;
-  void *subHandle1, *subHandle2, *msg;
+  void *subHandle1, *subHandle2, *msg, *returnMsg;
   int  loops = 5;
+  const char **ipArray, *senderHost;
   
 
   if (argc > 1) {
@@ -124,7 +125,16 @@ int main(int argc,char **argv) {
       }
       exit(1);
   }
-  
+    printf("CONNECTED\n");
+
+    err = cMsgMonitor(domainId, "3000", &returnMsg);
+    cMsgGetSenderHost(returnMsg, &senderHost);
+    printf("MONITORED: senderHost = %s\n", senderHost);
+    cMsgGetStringArray(returnMsg, "IpAddresses", &ipArray, &len);
+    for (i=0; i < len; i++) {
+        printf("           payload ip = %s\n", ipArray[i]);
+    }
+
   /* start receiving messages */
   cMsgReceiveStart(domainId);
 
