@@ -47,26 +47,31 @@ public class cMsgTestRcServer {
 
              // Use the ip addresses and port that the client sends over to
              // create the UDL we need for the rc server.
-             cMsgPayloadItem item = msg.getPayloadItem("IpAddresses");
-             if (item != null) {
+             cMsgPayloadItem item1 = msg.getPayloadItem("IpAddresses");
+             cMsgPayloadItem item2 = msg.getPayloadItem("BroadcastAddresses");
+
+             if (item1 != null && item2 != null) {
                  try {
-                     String[] addrs = item.getStringArray();
+                     String[] ipAddrs = item1.getStringArray();
+                     String[] bcAddrs = item2.getStringArray();
+
                      StringBuilder builder = new StringBuilder(512);
-                     for (int i=0; i < addrs.length; i++) {
+
+                     for (int i=0; i < ipAddrs.length; i++) {
                          builder.append("rcs://");
-                         builder.append(addrs[i]);
+                         builder.append(ipAddrs[i]);
                          builder.append(":");
                          builder.append(rcClientTcpPort);
-                         if (i < addrs.length - 1) builder.append(";");
+                         builder.append("/");
+                         builder.append(bcAddrs[i]);
+
+                         if (i < ipAddrs.length - 1) builder.append(";");
                      }
 
                      rcsUDL = builder.toString();
                  }
                  catch (cMsgException e) {
                  }
-             }
-             else {
-                 rcsUDL = "rcs://" + rcClientHost + ":" + rcClientTcpPort;
              }
 
              // finish connection
@@ -163,7 +168,8 @@ public class cMsgTestRcServer {
         // start up rc multicast server
         cMsg cmsg = new cMsg(UDL, "multicast listener", "udp trial");
         try {
-            cmsg.connect();}
+            cmsg.connect();
+        }
         catch (cMsgException e) {
             System.out.println(e.getMessage());
             return;
