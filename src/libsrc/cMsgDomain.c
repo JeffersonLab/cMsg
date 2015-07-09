@@ -774,7 +774,8 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
 /*printf("\nTrying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
     if (domain->currentUDL.mustMulticast) {
       free(domain->currentUDL.nameServerHost);
-/*printf("Trying to connect with Multicast\n"); */
+      domain->currentUDL.nameServerHost = NULL;
+      /*printf("Trying to connect with Multicast\n"); */
       err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
                                  &domain->currentUDL.nameServerPort);
       if (err != CMSG_OK) {
@@ -945,6 +946,7 @@ int cmsg_cmsg_reconnect(void *domainId) {
             /*printf("  cmsg_cmsg_reconnect: trying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
             if (domain->currentUDL.mustMulticast) {
                 free(domain->currentUDL.nameServerHost);
+                domain->currentUDL.nameServerHost = NULL;
                 /*printf("Trying to connect with Multicast\n"); */
                 err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
                                            &domain->currentUDL.nameServerPort);
@@ -6152,7 +6154,10 @@ static int connectToServer(void *domainId) {
    * since all cloud servers' info contains real host name and
    * TCP port only. */
   if (domain->currentUDL.mustMulticast) {
-    if (domain->currentUDL.nameServerHost != NULL) free(domain->currentUDL.nameServerHost);
+    if (domain->currentUDL.nameServerHost != NULL) {
+        free(domain->currentUDL.nameServerHost);
+        domain->currentUDL.nameServerHost = NULL;
+    }
 /*printf("KA: trying to connect with Multicast\n");*/
     err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
                                &domain->currentUDL.nameServerPort);
