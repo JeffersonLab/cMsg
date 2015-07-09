@@ -150,15 +150,20 @@ public class cMsgTestRcClient {
 
         cmsg = new cMsg(UDL, "java rc client", "rc trial");
 
-        // can find host of rc multicast server without connecting ...
+        // can find host of rc multicast server msg.getSenderHost()without connecting ...
         // cMsgMessage rcmMsg = cmsg.monitor(null);
         // System.out.println("Got msg with senderHost = " + rcmMsg.getSenderHost());
 
         cmsg.connect();
 System.out.println("CONNECTED");
 
-        cmsg.monitor("3000");
-System.out.println("MONITORED");
+        cMsgMessage returnMsg = cmsg.monitor("3000");
+        cMsgPayloadItem ipItem = returnMsg.getPayloadItem("IpAddresses");
+System.out.println("MONITORED: senderHost = " + returnMsg.getSenderHost());
+        String[] ips = ipItem.getStringArray();
+        for (String ip : ips) {
+            System.out.println("           payload ip = " + ip);
+        }
 
         // enable message reception
         cmsg.start();
