@@ -32,14 +32,36 @@ Version 3.6
 
 Version 4.0
     - fix bug in java rc client listening thread that does not properly
-      handle multiple attempts to connect.
+              handle multiple attempts to connect.
     - fix bug in java rc client connect that leaves thread running even when it fails.
     - fix bug in C rc client that does not reconnect back to rc server.
+    - fix bug in C, cmsg domain client, freeing memory already freed
+    - fix bug in rc server listening thread which unregisters the udp socket from select
 
     - cMsg, rc, and emu domains implement optional use of a preferred subnet
 
     - change java API getString() method. It is now getInfo() and takes a String arg.
+
     - add getServerHost and getServerPort to API & implement in rc, cMsg, and emu domains
 
 	- change the cMsg domain communication protocol allowing the handling
       of multiple server IP addresses
+
+	- change the C rc client so that the cMsgMonitor() call is now implemented.
+	  It returns a msg in which cMsgGetSenderHost will return the rc multicast server's host.
+
+	- change the rc multicast domain communication protocol so that the rc client monitor()
+	  call in both C and Java returns a cMsg message with a String array payload item
+	  named "IpAddresses" which contains all the server's dot-decimal IP addresses.
+
+    - internal change: don't poll channels, transports, and modules for errors to determine
+      state. Have them report and error when it occurs. Eliminate unnecessary locks when
+      finding state and reporting errors/stats.
+      Have reset shut down ability for chan, trans, mods to change state.
+
+    - if a client uses a password, but the cMsg server has none, cMsg now rejects the connection.
+      In previous versions it allowed the connection. This change was made so that
+      a cMsg server's password can act as a name. Clients can now multicast while specifying
+      that password and will get a response from that server only (if it is unique).
+
+
