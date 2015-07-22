@@ -711,7 +711,7 @@ System.out.println("Got IOException in multicast receive, exiting");
 
     /**
      * This class defines a thread to multicast a UDP packet to the
-     * RC Multicast server every second.
+     * Emu server every second.
      */
     class Multicaster extends Thread {
 
@@ -747,7 +747,7 @@ System.out.println("Got IOException in multicast receive, exiting");
 //                   ", up = " + ni.isUp() +
 //                   ", loopback = " + ni.isLoopback() +
 //                   ", has multicast = " + ni.supportsMulticast());
-                            if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
+                            if (ni.isUp() && ni.supportsMulticast()) {
 System.out.println("Emu client: sending mcast packet over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);

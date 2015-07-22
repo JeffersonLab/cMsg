@@ -857,7 +857,7 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
                         Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
                         while (enumer.hasMoreElements()) {
                             NetworkInterface ni = enumer.nextElement();
-                            if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
+                            if (ni.isUp() && ni.supportsMulticast()) {
                                 udpSocket.setNetworkInterface(ni);
                                 udpSocket.send(packet);
                             }

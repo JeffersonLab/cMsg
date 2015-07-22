@@ -93,7 +93,7 @@ int main(int argc,char **argv) {
   char *UDL           = "cMsg://localhost/cMsg/myNameSpace";
   char *p;
   char *jj[] = {"k","j","l"};
-  int   i, j, err, udp=0, payload=0, receives=0, debug=0, msgSize=0, mainloops=2000;
+  int   i, j, err, udp=0, payload=0, receives=0, debug=0, msgSize=0, mainloops=2;
   int8_t    i1vals[3];
   int16_t   i2vals[3];
   int32_t   i3vals[3];
@@ -111,7 +111,7 @@ int main(int argc,char **argv) {
   void *unSubHandle;
 
   /* msg rate measuring variables */
-  int             dostring=1, loops=200000, ignore=0;
+  int             dostring=1, loops=2, ignore=0;
   struct timespec t1, t2, sleeep = {0,0};
   double          freq, freqAvg=0., deltaT, totalT=0.;
   long long       totalC=0;
@@ -449,13 +449,19 @@ int main(int argc,char **argv) {
           
   /*printf("producer: will free msg, msg = %p, &msg = %p\n", msg, &msg);*/
   cMsgFreeMessage(&msg);
-  /*printf("producer: will disconnect\n");*/  
+
+    printf("SLEEPING before disconnect\n");
+    sleep(40);
+
+    /*printf("producer: will disconnect\n");*/
   err = cMsgDisconnect(&domainId);
   if (err != CMSG_OK) {
       if (debug) {
           printf("err = %d, %s\n",err, cMsgPerror(err));
       }
   }
-    
+    printf("SLEEPING after disconnect\n");
+    sleep(40);
+
   return(0);
 }
