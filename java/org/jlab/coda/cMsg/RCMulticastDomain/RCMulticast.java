@@ -679,7 +679,7 @@ public class RCMulticast extends cMsgDomainAdapter {
 //                           ", loopback = " + ni.isLoopback() +
 //                           ", has multicast = " + ni.supportsMulticast());
 
-                            if (ni.isUp() && ni.supportsMulticast()) {
+                            if (ni.isUp()) {
 //System.out.println("RC Multicast server: sending mcast packet over " + ni.getName());
                                 multicastSocket.setNetworkInterface(ni);
                                 multicastSocket.send(packet);
