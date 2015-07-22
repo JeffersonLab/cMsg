@@ -747,7 +747,7 @@ System.out.println("Got IOException in multicast receive, exiting");
 //                   ", up = " + ni.isUp() +
 //                   ", loopback = " + ni.isLoopback() +
 //                   ", has multicast = " + ni.supportsMulticast());
-                            if (ni.isUp() && ni.supportsMulticast()) {
+                            if (ni.isUp()) {
 System.out.println("Emu client: sending mcast packet over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
