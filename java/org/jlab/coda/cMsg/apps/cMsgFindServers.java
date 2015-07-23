@@ -110,9 +110,15 @@ public class cMsgFindServers {
                 System.out.println("    server #" + (i+1));
                 try {
                     System.out.println("        host    = " + msg.getPayloadItem("host").getString());
-                    System.out.println("        address = " + msg.getPayloadItem("address").getString());
                     System.out.println("        udpPort = " + msg.getPayloadItem("udpPort").getInt());
                     System.out.println("        expid   = " + msg.getPayloadItem("expid").getString());
+                    System.out.println("        addresses:");
+                    String[] ip = msg.getPayloadItem("addresses").getStringArray();
+                    String[] bcast = msg.getPayloadItem("bcastAddresses").getStringArray();
+                    for (int j=0; j < ip.length; j++) {
+                        System.out.println("           ip = " + ip[j] + ", bcast = " + bcast[j]);
+                    }
+                    System.out.println();
                 }
                 catch (cMsgException e) { /* never happen */ }
 
@@ -126,10 +132,16 @@ public class cMsgFindServers {
             for (cMsgMessage msg : cmsgServers) {
                 System.out.println("    server #" + (i+1));
                 try {
-                    System.out.println("        host    = " + msg.getPayloadItem("host").getString());
-                    System.out.println("        address = " + msg.getPayloadItem("address").getString());
-                    System.out.println("        udpPort = " + msg.getPayloadItem("udpPort").getInt());
-                    System.out.println("        tcpPort = " + msg.getPayloadItem("tcpPort").getInt());
+                    System.out.println("        host      = " + msg.getPayloadItem("host").getString());
+                    System.out.println("        udpPort   = " + msg.getPayloadItem("udpPort").getInt());
+                    System.out.println("        tcpPort   = " + msg.getPayloadItem("tcpPort").getInt());
+                    System.out.println("        addresses:");
+                    String[] ip = msg.getPayloadItem("addresses").getStringArray();
+                    String[] bcast = msg.getPayloadItem("bcastAddresses").getStringArray();
+                    for (int j=0; j < ip.length; j++) {
+                        System.out.println("           ip = " + ip[j] + ", bcast = " + bcast[j]);
+                    }
+                    System.out.println();
                 }
                 catch (cMsgException e) { /* never happen */ }
 

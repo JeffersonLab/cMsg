@@ -49,11 +49,10 @@ public class cMsgServerFinder {
     private String password = "";
 
     /** Set of all cMsg domain responders' hosts and ports in a "host:tcpPort:udpPort" string format. */
-    private HashSet<String> cMsgResponders;
+    private HashSet<ResponderInfo> cMsgResponders;
 
-    /** Map of all rc domain responders' hosts, ports, and expids
-     *  with key = "host:udpPort" and value = expid. */
-    private HashMap<String, String> rcResponders;
+    /** Set of all rc domain responders' hosts, ports, and expids. */
+    private HashSet<ResponderInfo> rcResponders;
 
     /** Time in milliseconds waiting for a response to the multicasts. */
     private int sleepTime = 3000;
@@ -68,6 +67,18 @@ public class cMsgServerFinder {
     private int debug;
 
 
+    /** Class to store info from a multicast responder. */
+    class ResponderInfo {
+        int version;
+        int tcpPort;
+        int udpPort;
+        String expid;
+        String host;
+        String[] ipAddrs;
+        String[] broadcastAddrs;
+    }
+
+
 
 
     /** Constructor. */
@@ -79,11 +90,11 @@ public class cMsgServerFinder {
     public cMsgServerFinder(int debug) {
         this.debug = debug;
 
-        rcResponders   = new HashMap<String, String>(100);
-        cMsgResponders = new HashSet<String>(100);
+        rcResponders   = new HashSet<ResponderInfo>();
+        cMsgResponders = new HashSet<ResponderInfo>();
 
-        rcPorts   = new HashSet<Integer>(100);
-        cmsgPorts = new HashSet<Integer>(100);
+        rcPorts   = new HashSet<Integer>();
+        cmsgPorts = new HashSet<Integer>();
 
         defaultRcPorts   = new int[100];
         defaultCmsgPorts = new int[100];
@@ -350,27 +361,30 @@ public class cMsgServerFinder {
             System.out.println("\ncMsg name servers:");
         }
 
-        for (String s : cMsgResponders) {
-            String host = "unknown";
-            parts = s.split(":");
-            try { host = InetAddress.getByName(parts[0]).getHostName(); }
-            catch (UnknownHostException e) { }
-            System.out.println("host = " + host + ",  addr = " + parts[0] +
-                    ",  UDP port = " + parts[2] +
-                    ",  TCP port = " + parts[1]);
+        for (ResponderInfo info : cMsgResponders) {
+            if (info.host == null) info.host = "<unknown>";
+            System.out.println("host = " + info.host +
+                               ",  UDP port = " + info.udpPort +
+                               ",  TCP port = " + info.tcpPort +
+                               "\n  IP addresses:");
+            for (String s : info.ipAddrs) {
+                System.out.println("    " + s);
+            }
         }
 
         if (rcResponders.size() > 0) {
             System.out.println("\nrc multicast servers:");
         }
 
-        for (Map.Entry<String,String> entry :  rcResponders.entrySet()) {
-            String host = "unknown";
-            parts = entry.getKey().split(":");
-            try { host = InetAddress.getByName(parts[0]).getHostName(); }
-            catch (UnknownHostException e) { }
-            System.out.println("host = " + host + ",  addr = " + parts[0] +
-                    ",  UDP port = " + parts[1] + ", expid = " + entry.getValue());
+        for (ResponderInfo info : rcResponders) {
+            if (info.host == null) info.host = "<unknown>";
+            System.out.println("host = " + info.host +
+                               ",  UDP port = " + info.udpPort +
+                               ",  expid = " + info.expid +
+                               "\n  IP addresses:");
+            for (String s : info.ipAddrs) {
+                System.out.println("    " + s);
+            }
         }
 
         System.out.println();
@@ -424,32 +438,46 @@ public class cMsgServerFinder {
         StringBuilder buffer = new StringBuilder(1024);
 
         if (cmsg) {
-            for (String s : cMsgResponders) {
-                String host = "unknown";
-                parts = s.split(":");
-                try { host = InetAddress.getByName(parts[0]).getHostName(); }
-                catch (UnknownHostException e) { }
+            for (ResponderInfo info : cMsgResponders) {
+                if (info.host == null) info.host = "unknown";
                 buffer.append("<cMsgNameServer");
-                buffer.append("  host=\"");    buffer.append(host);
-                buffer.append("\"  addr=\"");    buffer.append(parts[0]);
-                buffer.append("\"  udpPort=\""); buffer.append(parts[1]);
-                buffer.append("\"  tcpPort=\""); buffer.append(parts[2]);
-                buffer.append("\" />\n");
+                buffer.append("  host=\"");    buffer.append(info.host);
+                buffer.append("\"  udpPort=\""); buffer.append(info.udpPort);
+                buffer.append("\"  tcpPort=\""); buffer.append(info.tcpPort);
+                buffer.append("\" >\n");
+
+                String[] ips    = info.ipAddrs;
+                String[] bcasts = info.broadcastAddrs;
+
+                for (int i=0; i < ips.length; i++) {
+                    buffer.append("  <interface ip=\""); buffer.append(ips[i]);
+                    buffer.append("\" bcast=\""); buffer.append(bcasts[i]);
+                    buffer.append("\" />\n");
+                }
+
+                buffer.append("</cMsgNameServer>\n");
             }
         }
 
         if (rc) {
-            for (Map.Entry<String,String> entry :  rcResponders.entrySet()) {
-                String host = "unknown";
-                parts = entry.getKey().split(":");
-                try { host = InetAddress.getByName(parts[0]).getHostName(); }
-                catch (UnknownHostException e) { }
+            for (ResponderInfo info : rcResponders) {
+                if (info.host == null) info.host = "unknown";
                 buffer.append("<rcMulticastServer");
-                buffer.append("\"  host=\"");    buffer.append(host);
-                buffer.append("\"  addr=\"");    buffer.append(parts[0]);
-                buffer.append("\"  udpPort=\""); buffer.append(parts[1]);
-                buffer.append("\"  expid=\"");   buffer.append(entry.getValue());
-                buffer.append("\" />\n");
+                buffer.append("  host=\"");    buffer.append(info.host);
+                buffer.append("\"  udpPort=\""); buffer.append(info.udpPort);
+                buffer.append("\"  expid=\""); buffer.append(info.expid);
+                buffer.append("\" >\n");
+
+                String[] ips    = info.ipAddrs;
+                String[] bcasts = info.broadcastAddrs;
+
+                for (int i=0; i < ips.length; i++) {
+                    buffer.append("  <interface ip=\""); buffer.append(ips[i]);
+                    buffer.append("\" bcast=\""); buffer.append(bcasts[i]);
+                    buffer.append("\" />\n");
+                }
+
+                buffer.append("</rcMulticastServer>\n");
             }
         }
 
@@ -471,25 +499,23 @@ public class cMsgServerFinder {
         String[] parts;
         cMsgMessage[] msgs = new cMsgMessage[cMsgResponders.size()];
 
-        for (String s : cMsgResponders) {
+        for (ResponderInfo info : cMsgResponders) {
 
-            String host = "unknown";
-            parts = s.split(":");
-            try { host = InetAddress.getByName(parts[0]).getHostName(); }
-            catch (UnknownHostException e) { }
-
+            if (info.host == null) info.host = "unknown";
             cMsgMessage msg = new cMsgMessage();
 
             try {
-                cMsgPayloadItem item1 = new cMsgPayloadItem("host",    host);
-                cMsgPayloadItem item2 = new cMsgPayloadItem("address", parts[0]);
-                cMsgPayloadItem item3 = new cMsgPayloadItem("udpPort", Integer.parseInt(parts[1]));
-                cMsgPayloadItem item4 = new cMsgPayloadItem("tcpPort", Integer.parseInt(parts[2]));
+                cMsgPayloadItem item1 = new cMsgPayloadItem("host", info.host);
+                cMsgPayloadItem item2 = new cMsgPayloadItem("udpPort", info.udpPort);
+                cMsgPayloadItem item3 = new cMsgPayloadItem("tcpPort", info.tcpPort);
+                cMsgPayloadItem item4 = new cMsgPayloadItem("addresses", info.ipAddrs);
+                cMsgPayloadItem item5 = new cMsgPayloadItem("bcastAddresses", info.broadcastAddrs);
 
                 msg.addPayloadItem(item1);
                 msg.addPayloadItem(item2);
                 msg.addPayloadItem(item3);
                 msg.addPayloadItem(item4);
+                msg.addPayloadItem(item5);
             }
             catch (cMsgException e) { /* never happen */ }
 
@@ -515,25 +541,23 @@ public class cMsgServerFinder {
         String[] parts;
         cMsgMessage[] msgs = new cMsgMessage[rcResponders.size()];
 
-        for (Map.Entry<String,String> entry :  rcResponders.entrySet()) {
+        for (ResponderInfo info : rcResponders) {
 
-            String host = "unknown";
-            parts = entry.getKey().split(":");
-            try { host = InetAddress.getByName(parts[0]).getHostName(); }
-            catch (UnknownHostException e) { }
-
+            if (info.host == null) info.host = "unknown";
             cMsgMessage msg = new cMsgMessage();
 
             try {
-                cMsgPayloadItem item1 = new cMsgPayloadItem("host",    host);
-                cMsgPayloadItem item2 = new cMsgPayloadItem("address", parts[0]);
-                cMsgPayloadItem item3 = new cMsgPayloadItem("udpPort", Integer.parseInt(parts[1]));
-                cMsgPayloadItem item4 = new cMsgPayloadItem("expid",   entry.getValue());
+                cMsgPayloadItem item1 = new cMsgPayloadItem("host", info.host);
+                cMsgPayloadItem item2 = new cMsgPayloadItem("udpPort", info.udpPort);
+                cMsgPayloadItem item3 = new cMsgPayloadItem("expid", info.expid);
+                cMsgPayloadItem item4 = new cMsgPayloadItem("addresses", info.ipAddrs);
+                cMsgPayloadItem item5 = new cMsgPayloadItem("bcastAddresses", info.broadcastAddrs);
 
                 msg.addPayloadItem(item1);
                 msg.addPayloadItem(item2);
                 msg.addPayloadItem(item3);
                 msg.addPayloadItem(item4);
+                msg.addPayloadItem(item5);
             }
             catch (cMsgException e) { /* never happen */ }
 
@@ -567,6 +591,7 @@ public class cMsgServerFinder {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                out.writeInt(cMsgConstants.version);
                 // int describing our message type: multicast is from cMsg domain client
                 out.writeInt(cMsgNetworkConstants.cMsgDomainMulticast);
                 out.writeInt(password.length());
@@ -627,17 +652,15 @@ public class cMsgServerFinder {
         }
 
         public void run() {
-            String nameServerHost;
             int nameServerTcpPort, nameServerUdpPort;
-            StringBuffer id = new StringBuffer(1024);
+            StringBuilder id = new StringBuilder(1024);
             byte[] buf = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buf, 1024);
 
+            nextPacket:
             while (true) {
                 try {
-                    nameServerHost = "";
                     packet.setLength(1024);
-//System.out.println("Waiting to receive a packet");
                     socket.receive(packet);
 
                     // if packet is smaller than 6 ints
@@ -645,7 +668,7 @@ public class cMsgServerFinder {
                         continue;
                     }
 
-//System.out.println("RECEIVED MULTICAST RESPONSE PACKET !!!");
+//System.out.println("RECEIVED CMSG MULTICAST RESPONSE PACKET");
                     // pick apart byte array received
                     int magicInt1  = cMsgUtilities.bytesToInt(buf, 0); // magic password
                     int magicInt2  = cMsgUtilities.bytesToInt(buf, 4); // magic password
@@ -654,41 +677,69 @@ public class cMsgServerFinder {
                     if ( (magicInt1 != cMsgNetworkConstants.magicNumbers[0]) ||
                          (magicInt2 != cMsgNetworkConstants.magicNumbers[1]) ||
                          (magicInt3 != cMsgNetworkConstants.magicNumbers[2]))  {
-//System.out.println("  Bad magic numbers for multicast response packet");
+System.out.println("  Bad magic numbers for multicast response packet");
                         continue;
                     }
 
                     // cMsg name server port
                     nameServerTcpPort = cMsgUtilities.bytesToInt(buf, 12); // port to do a direct connection to
                     nameServerUdpPort = cMsgUtilities.bytesToInt(buf, 16); // port to do a direct connection to
-                    int hostLength    = cMsgUtilities.bytesToInt(buf, 20); // host to do a direct connection to
+                    int addrCount     = cMsgUtilities.bytesToInt(buf, 20); // host to do a direct connection to
 
                     if ((nameServerTcpPort < 1024 || nameServerTcpPort > 65535) ||
-                            (hostLength < 0 || hostLength > 1024 - 24)) {
-//System.out.println("  Wrong port # or host length for multicast response packet");
+                            (addrCount < 0 || addrCount > 50)) {
+System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address count (" +
+                           addrCount + ") for multicast response packet");
                         continue;
                     }
 
-                    if (packet.getLength() != 4*6 + hostLength) {
-//System.out.println("  Wrong length for multicast response packet");
-                        continue;
+                    int pos = 24;
+                    String ss;
+                    int stringLen;
+                    ResponderInfo info = new ResponderInfo();
+                    info.ipAddrs = new String[addrCount];
+                    info.broadcastAddrs = new String[addrCount];
+
+                    for (int i=0; i < addrCount; i++) {
+                        try {
+                            stringLen = cMsgUtilities.bytesToInt(buf, pos); pos += 4;
+//System.out.println("     ip len = " + stringLen);
+                            ss = new String(buf, pos, stringLen, "US-ASCII");
+//System.out.println("     ip = " + ss);
+                            info.ipAddrs[i] = ss;
+                            pos += stringLen;
+
+                            // Get a host name to go with the IP addresses
+                            if (info.host == null) {
+                                try {
+                                    info.host = InetAddress.getByName(ss).getCanonicalHostName();
+                                }
+                                catch (UnknownHostException e) {}
+                            }
+
+                            stringLen = cMsgUtilities.bytesToInt(buf, pos); pos += 4;
+//System.out.println("     broad len = " + stringLen);
+                            ss = new String(buf, pos, stringLen, "US-ASCII");
+//System.out.println("     broad = " + ss);
+                            info.broadcastAddrs[i] = ss;
+                            pos += stringLen;
+                        }
+                        catch (UnsupportedEncodingException e) {/*never happen */}
                     }
 
-                    // cMsg name server host
-                    try { nameServerHost = new String(buf, 24, hostLength, "US-ASCII"); }
-                    catch (UnsupportedEncodingException e) {}
-//System.out.println("  Got port = " + nameServerTcpPort + ", host = " + nameServerHost);
+                    if (info.host == null) info.host = "unknown";
+                    info.udpPort = nameServerUdpPort;
+                    info.tcpPort = nameServerTcpPort;
 
-                    // put in a unique item: "host:udpPort:tcpPort"
-                    if (nameServerHost.length() > 0) {
-                        id.delete(0,1023);
-                        id.append(nameServerHost);
-                        id.append(":");
-                        id.append(nameServerUdpPort);
-                        id.append(":");
-                        id.append(nameServerTcpPort);
-                        cMsgResponders.add(id.toString());
+                    // Do not add this if it is a duplicate
+                    for (ResponderInfo rInfo : cMsgResponders) {
+                        if ( (info.host.equals(rInfo.host) && info.udpPort == rInfo.udpPort) ) {
+                            continue nextPacket;
+                        }
                     }
+
+                    cMsgResponders.add(info);
+
                 }
                 catch (InterruptedIOException e) {
 //System.out.println("  Interrupted receiving thread so return");
@@ -850,13 +901,14 @@ public class cMsgServerFinder {
             DatagramPacket packet = new DatagramPacket(buf, 1024);
             StringBuffer id = new StringBuffer(1024);
 
+            nextPacket:
             while (true) {
                 // reset for each round
                 packet.setLength(1024);
 
                 try {
                     socket.receive(packet);
-//System.out.println("received UDP packet");
+//System.out.println("RECEIVED RC MULTICAST RESPONSE PACKET");
                     // if we get too small of a packet, reject it
                     if (packet.getLength() < 6*4) {
                         if (debug >= cMsgConstants.debugWarn) {
@@ -868,8 +920,8 @@ public class cMsgServerFinder {
                     int magic2 = cMsgUtilities.bytesToInt(buf, 4);
                     int magic3 = cMsgUtilities.bytesToInt(buf, 8);
                     if (magic1 != cMsgNetworkConstants.magicNumbers[0] ||
-                            magic2 != cMsgNetworkConstants.magicNumbers[1] ||
-                            magic3 != cMsgNetworkConstants.magicNumbers[2])  {
+                        magic2 != cMsgNetworkConstants.magicNumbers[1] ||
+                        magic3 != cMsgNetworkConstants.magicNumbers[2])  {
                         if (debug >= cMsgConstants.debugWarn) {
                             System.out.println("rc Multicast receiver: got bad magic # response to multicast");
                         }
@@ -881,44 +933,75 @@ public class cMsgServerFinder {
                     int hostLen  = cMsgUtilities.bytesToInt(buf, 20);
                     int expidLen = cMsgUtilities.bytesToInt(buf, 24);
 
-                    if (packet.getLength() < 4*6 + hostLen + expidLen) {
-                        if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("rc Multicast receiver: got packet that's too small");
-                        }
-                        continue;
-                    }
+                    ResponderInfo info = new ResponderInfo();
+                    info.version = version;
+                    info.udpPort = port;
 
                     // get host
                     index = 28;
-                    String host = "";
                     if (hostLen > 0) {
-                        host = new String(buf, index, hostLen, "US-ASCII");
-//System.out.println("host = " + host);
+                        // Set host below
+                        //info.host = new String(buf, index, hostLen, "US-ASCII");
                         index += hostLen;
                     }
+//System.out.println("host = " + info.host);
 
                     // get expid
-                    String serverExpid="expid";
                     if (expidLen > 0) {
-                        serverExpid = new String(buf, index, expidLen, "US-ASCII");
-//System.out.println("expid = " + serverExpid);
-//                        if (!expid.equals(serverExpid)) {
-//                            if (debug >= cMsgConstants.debugWarn) {
-//                                System.out.println("rc Multicast receiver: got bad expid response to multicast (" + serverExpid + ")");
-//                            }
-//                            continue;
-//                        }
+                        info.expid = new String(buf, index, expidLen, "US-ASCII");
+                        index += expidLen;
+                    }
+                    else {
+                        info.expid = "expid";
+                    }
+//System.out.println("expid = " + info.expid);
+
+                    int addrCount = cMsgUtilities.bytesToInt(buf, index); index += 4;
+//System.out.println("count = " + addrCount);
+                    String ss;
+                    int stringLen;
+                    info.ipAddrs = new String[addrCount];
+                    info.broadcastAddrs = new String[addrCount];
+
+                    for (int i=0; i < addrCount; i++) {
+                        try {
+                            stringLen = cMsgUtilities.bytesToInt(buf, index); index += 4;
+//System.out.println("     ip len = " + stringLen + ", index = " + (index - 4));
+                            ss = new String(buf, index, stringLen, "US-ASCII");
+//System.out.println("     ip = " + ss);
+                            info.ipAddrs[i] = ss;
+                            index += stringLen;
+
+                            // Get a host name to go with the IP addresses
+                            if (info.host == null) {
+                                try {
+                                    info.host = InetAddress.getByName(ss).getCanonicalHostName();
+                                }
+                                catch (UnknownHostException e) {}
+                            }
+
+                            stringLen = cMsgUtilities.bytesToInt(buf, index); index += 4;
+//System.out.println("     broad len = " + stringLen + ", index = " + (index - 4));
+                            ss = new String(buf, index, stringLen, "US-ASCII");
+//System.out.println("     broad = " + ss);
+                            info.broadcastAddrs[i] = ss;
+                            index += stringLen;
+                        }
+                        catch (UnsupportedEncodingException e) {/*never happen */}
                     }
 
-                    // put in a unique item: "host:udpPort"
-                    if (host.length() > 0) {
-                        id.delete(0,1023);
-                        id.append(host);
-                        id.append(":");
-                        id.append(port);
-                        rcResponders.put(id.toString(), serverExpid);
+                    if (info.host == null) info.host = "unknown";
+
+//System.out.println();
+
+                    // Do not add this if it is a duplicate
+                    for (ResponderInfo rInfo : rcResponders) {
+                        if ( (info.host.equals(rInfo.host) && info.udpPort == rInfo.udpPort) ) {
+                            continue nextPacket;
+                        }
                     }
 
+                    rcResponders.add(info);
                 }
                 catch (InterruptedIOException e) {
 //System.out.println("  Interrupted receiving thread so return");
@@ -964,7 +1047,7 @@ public class cMsgServerFinder {
 
                 while (enumer.hasMoreElements()) {
                     NetworkInterface ni = enumer.nextElement();
-                    if (ni.isUp() && ni.supportsMulticast() && !ni.isLoopback()) {
+                    if (ni.isUp()) {
 //System.out.println("cMSgServerFinder: sending mcast packet over " + ni.getName());
                         for (int port : rcPorts) {
                             //System.out.println("Send multicast packets on port " + port);
