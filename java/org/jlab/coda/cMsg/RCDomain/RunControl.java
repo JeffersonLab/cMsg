@@ -622,7 +622,7 @@ System.out.println("RC connect: SUCCESSFUL");
                         }
 
                         int ipCount = cMsgUtilities.bytesToInt(buf, index); index += 4;
-System.out.println("monitor: got ipCount = " + ipCount);
+//System.out.println("monitor: got ipCount = " + ipCount);
 
                         if (ipCount < 0 || ipCount > 50) {
                             if (debug >= cMsgConstants.debugWarn) {
@@ -638,7 +638,7 @@ System.out.println("monitor: got ipCount = " + ipCount);
                             ipLen = cMsgUtilities.bytesToInt(buf, index); index += 4;
                             if (ipLen > 0) {
                                 ipAddrs[i] = new String(buf, index, ipLen, "US-ASCII");
-System.out.println("monitor: ip = " + ipAddrs[i]);
+//System.out.println("monitor: ip = " + ipAddrs[i]);
                                 index += ipLen;
                             }
 
