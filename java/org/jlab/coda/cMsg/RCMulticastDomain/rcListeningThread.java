@@ -173,11 +173,9 @@ class rcListeningThread extends Thread {
             try {
                 for (InterfaceAddress ia : ipInfo) {
                     String ip = ia.getAddress().getHostAddress();
-                    System.out.println("sending ip = " + ip);
                     out.writeInt(ip.length());
                     out.write(ip.getBytes("US-ASCII"));
                     ip = ia.getBroadcast().getHostAddress();
-                    System.out.println("sending bcast = " + ip);
                     out.writeInt(ip.length());
                     out.write(ip.getBytes("US-ASCII"));
                 }
