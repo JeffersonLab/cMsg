@@ -661,7 +661,7 @@ public class cMsg {
      * the argument is ignored and an XML string is returned in the message's text field.
      *
      * @param  command directive for monitoring process
-     * @return response message containing monitoring information
+     * @return response message containing monitoring information; or null if none
      * @throws cMsgException
      */
     public cMsgMessage monitor(String command)
