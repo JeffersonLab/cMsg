@@ -118,7 +118,20 @@ public class cMsgMonitor {
 
         while (true) {
             msg = coda.monitor(null);
-            System.out.println("\nMsg ->\n" + msg.getText());
+            if (msg == null) continue;
+
+            cMsgPayloadItem item = msg.getPayloadItem("IpAddresses");
+            if (item != null) {
+                System.out.println("\nPlatform is on:");
+                String[] ips = item.getStringArray();
+                for (String ip : ips) {
+                    System.out.println("  " + ip);
+                }
+            }
+            else {
+                System.out.println("\nPlatform is on unknown host");
+            }
+
             // wait
             try { Thread.sleep(period); }
             catch (InterruptedException e) {}
