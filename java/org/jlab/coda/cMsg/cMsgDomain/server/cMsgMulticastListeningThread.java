@@ -222,6 +222,7 @@ class cMsgMulticastListeningThread extends Thread {
 System.out.println("multicast packet: bad version (" + version + ") != expected (" + cMsgConstants.version + ")");
                     continue;
                 }
+//System.out.println("multicast packet: version = " + version);
 
                 int msgType     = cMsgUtilities.bytesToInt(buf, 16); // what type of multicast is this ?
                 int passwordLen = cMsgUtilities.bytesToInt(buf, 20); // password length
@@ -233,6 +234,7 @@ System.out.println("multicast packet: bad version (" + version + ") != expected 
 //System.out.println("bad msgtype");
                     continue;
                 }
+//System.out.println("multicast packet: msg type = " + msgType);
 
                 // if packet is too small ...
                 if (packet.getLength() < 20 + passwordLen) {
@@ -245,22 +247,23 @@ System.out.println("multicast packet: bad version (" + version + ") != expected 
                     try { pswd = new String(buf, 24, passwordLen, "US-ASCII"); }
                     catch (UnsupportedEncodingException e) {}
                 }
+//System.out.println("multicast packet: password = " + pswd);
 
                 // Compare sent password with name server's myCloudPassword.
                 // Reject mismatches.
                 if (serverPassword != null) {
                     if (pswd == null || !serverPassword.equals(pswd)) {
-                        if (debug >= cMsgConstants.debugInfo) {
+                  //      if (debug >= cMsgConstants.debugInfo) {
                             System.out.println("REJECTING PASSWORD: server's does not match client's ("
                                     + pswd + ")");
-                        }
+                 //       }
                         continue;
                     }
                 }
                 else if (pswd != null) {
-                    if (debug >= cMsgConstants.debugInfo) {
+                  //  if (debug >= cMsgConstants.debugInfo) {
                         System.out.println("Client password (" + pswd + ") does not match server's (null), reject packet");
-                    }
+                  //  }
                     continue;
                 }
 
@@ -274,7 +277,6 @@ System.out.println("multicast packet: bad version (" + version + ") != expected 
                     // set address and port for responding packet
                     sendPacket.setAddress(clientAddress);
                     sendPacket.setPort(clientUdpPort);
-//System.out.println("Send reponse packet");
                     multicastSocket.send(sendPacket);
                 }
                 catch (IOException e) {
