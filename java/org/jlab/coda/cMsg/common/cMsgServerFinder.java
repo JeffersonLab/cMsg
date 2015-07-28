@@ -933,6 +933,11 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
                     int hostLen  = cMsgUtilities.bytesToInt(buf, 20);
                     int expidLen = cMsgUtilities.bytesToInt(buf, 24);
 
+                    if (version != cMsgConstants.version) {
+System.out.println("rc Multicast receiver: got bad version # = " + version + ", probably from older-cMsg based platforms, ignore");
+                        continue;
+                    }
+
                     ResponderInfo info = new ResponderInfo();
                     info.version = version;
                     info.udpPort = port;
