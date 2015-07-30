@@ -934,7 +934,7 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
                     int expidLen = cMsgUtilities.bytesToInt(buf, 24);
 
                     if (version != cMsgConstants.version) {
-System.out.println("rc Multicast receiver: got bad version # = " + version + ", probably from older-cMsg based platforms, ignore");
+//System.out.println("rc Multicast receiver: got bad version # = " + version + ", probably from older-cMsg based platforms, ignore");
                         continue;
                     }
 
