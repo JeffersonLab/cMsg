@@ -285,7 +285,7 @@ extern void  codanetFreeIpAddrs(codaIpAddr *ipaddr);
 extern int   codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info);
 extern void  codanetFreeAddrList(codaIpList *addr);
 extern int   codanetGetBroadcastAddrs(codaIpList **addrs, codaDotDecIpAddrs *bcaddrs);
-extern int   codanetGetIpaddrs(char ***ipAddrs, int *count, char *host);
+extern int   codanetGetIpAddrs(char ***ipAddrs, int *count, char *host);
 extern codaIpList *codanetOrderIpAddrs(codaIpList *ipList, codaIpAddr *netinfo,
                                        char* preferredSubnet);
 extern int   codanetMcastSetIf(int sockfd, const char *ifname, uint32_t ifindex);
