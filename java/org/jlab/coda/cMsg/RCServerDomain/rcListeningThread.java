@@ -65,7 +65,7 @@ class rcListeningThread extends Thread {
     private DatagramChannel udpChannel;
 
     /** RC client channel */
-    private SocketChannel myChannel;
+    private SocketChannel tcpChannel;
 
     /** Socket input stream associated with RC client channel */
     private DataInputStream in;
@@ -101,7 +101,7 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
             } catch (Exception ex) {}
 
             try {
-                if (rcListeningThread.this.myChannel != null) rcListeningThread.this.myChannel.close();
+                if (rcListeningThread.this.tcpChannel != null) rcListeningThread.this.tcpChannel.close();
             } catch (Exception ex) {}
 
             try {
@@ -344,7 +344,8 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
                 // 2 second timeout
                 int n = selector.select(2000);
 
-                // if no channels (sockets) are ready, listen some more
+                // if no additional channels (sockets) are ready
+                // since last select call, listen some more.
                 if (n < 1) {
                     // but first check to see if we've been commanded to die
                     if (killThread) return;
@@ -397,11 +398,11 @@ System.out.println("rcListeningThread: " + server.getName() + " woke from select
                             channel.register(selector, SelectionKey.OP_READ, "TCP");
 
                             // save channel for later use
-                            myChannel = channel;
+                            tcpChannel = channel;
 
                             // buffered communication streams for efficiency
                             in = new DataInputStream(new BufferedInputStream(
-                                     myChannel.socket().getInputStream(), 65536));
+                                     tcpChannel.socket().getInputStream(), 65536));
 
                             tcpBuffer.clear();
                             tcpBuffer.limit(8);
@@ -420,11 +421,12 @@ System.out.println("rcListeningThread: established TCP connection from client");
 
                             // if channel is TCP ...
                             if (channelType.equals("TCP")) {
+                                SocketChannel readChannel = (SocketChannel)key.channel();
 
                                 // FIRST, read size & msgId
                                 if (readingSize) {
                                     try {
-                                        bytes = myChannel.read(tcpBuffer);
+                                        bytes = readChannel.read(tcpBuffer);
                                     }
                                     catch (IOException e) {
                                         // client has died
@@ -468,7 +470,7 @@ System.out.println("rcListeningThread: " + server.getName() + " tcp size = " + s
 //System.out.println("  try reading rest of buffer");
 //System.out.println("  buffer capacity = " + buffer.capacity() + ", limit = " +
 //                   buffer.limit() + ", position = " + buffer.position() );
-                                        bytes = myChannel.read(tcpBuffer);
+                                        bytes = readChannel.read(tcpBuffer);
                                     }
                                     catch (IOException ex) {
                                         // client has died
@@ -493,16 +495,19 @@ System.out.println("rcListeningThread: " + server.getName() + " tcp size = " + s
                                         okToParseMsg = true;
                                     }
                                 }
+
+                                tcpChannel = readChannel;
                             }
 
                             // else if channel is UDP ...
                             else {
 //System.out.println("  client is UDP readable");
                                 udpBuffer.clear();
+                                DatagramChannel readChannel = (DatagramChannel)key.channel();
 
                                 // receive packet
                                 try {
-                                    senderAddress = udpChannel.receive(udpBuffer);
+                                    senderAddress = readChannel.receive(udpBuffer);
                                     if (senderAddress == null) {
                                         // This should not happen as select() says
                                         // there is something to read on this channel.
@@ -570,6 +575,8 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
 System.out.println("rcListeningThread: " + server.getName() + " received udp msg #" + prescalePrintOut);
                                     lastPrintTime = System.currentTimeMillis();
                                 }
+
+                                udpChannel = readChannel;
                             }
 
                             if (okToParseMsg) {
@@ -616,13 +623,13 @@ System.out.println("rcListeningThread: " + server.getName() + " bad client msg c
 //            if (debug >= cMsgConstants.debugError) {
                 System.out.println("rcListenThread: I/O ERROR in rc server");
                 System.out.println("rcListenThread: close TCP server socket, port = " +
-                        myChannel.socket().getLocalPort());
+                                           tcpChannel.socket().getLocalPort());
                 ex.printStackTrace();
 //            }
         }
         finally {
             try {if (in != null) in.close();}               catch (IOException ex) {}
-            try {if (myChannel  != null)  myChannel.close();} catch (IOException ex) {}
+            try {if (tcpChannel != null)  tcpChannel.close();} catch (IOException ex) {}
             try {if (udpChannel != null) udpChannel.close();} catch (IOException ex) {}
             try {serverChannel.close();} catch (IOException ex) {}
             try {selector.close();}      catch (IOException ex) {}
