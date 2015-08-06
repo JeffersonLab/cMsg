@@ -512,31 +512,32 @@ System.out.println("rcListeningThread: " + server.getName() + " tcp size = " + s
                                         // This should not happen as select() says
                                         // there is something to read on this channel.
 System.out.println("rcListeningThread: " + server.getName() + " nothing to read in udp channel");
-                                        //key.cancel();
                                         it.remove();
                                         continue;
                                     }
                                 }
                                 catch (IOException e) {
 System.out.println("rcListeningThread: " + server.getName() + " IO error reading udp packet");
-                                    //key.cancel();
                                     it.remove();
                                     continue;
                                 }
 
                                 udpBuffer.flip();
-                                if (udpBuffer.limit() < 20) {
+                                // Enough data for next 5 ints? (3 magic ints, size, id)
+                                if (udpBuffer.limit() < 4*5) {
 System.out.println("rcListeningThread: " + server.getName() + " udp packet is too small, " + udpBuffer.limit());
-                                    //key.cancel();
                                     it.remove();
                                     continue;
                                 }
 
-                                if (udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[0] ||
-                                    udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[1] ||
-                                    udpBuffer.getInt() != cMsgNetworkConstants.magicNumbers[2]) {
+                                int m1 = udpBuffer.getInt();
+                                int m2 = udpBuffer.getInt();
+                                int m3 = udpBuffer.getInt();
+
+                                if (m1 != cMsgNetworkConstants.magicNumbers[0] ||
+                                    m2 != cMsgNetworkConstants.magicNumbers[1] ||
+                                    m3 != cMsgNetworkConstants.magicNumbers[2]) {
 System.out.println("rcListeningThread: " + server.getName() + " received bogus udp packet (bad magic ints)");
-                                    //key.cancel();
                                     it.remove();
                                     continue;
                                 }
@@ -545,25 +546,10 @@ System.out.println("rcListeningThread: " + server.getName() + " received bogus u
                                 size  = udpBuffer.getInt();
                                 msgId = udpBuffer.getInt();
 
-                                // Check values
-                                if (size > 1500) {
-System.out.println("rcListeningThread: " + server.getName() + " too big udp size = " + size + ", msgId = " + msgId);
-                                    //key.cancel();
-                                    it.remove();
-                                    continue;
-                                }
-                                // There are at least 13 int's worth of data in each msg + msgId
-                                else if (size < 4*14) {
-System.out.println("rcListeningThread: " + server.getName() + " too small udp data, size = " + size + ", msgId = " + msgId);
-                                    //key.cancel();
-                                    it.remove();
-                                    continue;
-                                }
-
+                                // Enough data in buffer for msg?
                                 if (4*4 + size > udpBuffer.limit()) {
 System.out.println("rcListeningThread: " + server.getName() + " not enough data in packet (" + udpBuffer.limit() +
                    ") to read complete msg (" + (16 + size) + "), ignore it");
-                                    //key.cancel();
                                     it.remove();
                                     continue;
                                 }
