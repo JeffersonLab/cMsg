@@ -643,23 +643,21 @@ System.out.println("orderIPAddresses: ip " + ipAddresses.get(i) + " on local sub
      public static final boolean isHostLocal(String hostName) {
         if (hostName == null || hostName.length() < 1) return false;
 
+        Collection<String> localIps = getAllIpAddresses();
+
         try {
-            String canonicalHost = InetAddress.getLocalHost().getCanonicalHostName();
-
-            // quick check
-            if (canonicalHost.equalsIgnoreCase(hostName)) {
-                return true;
-            }
-
-            // get all local IP addresses
-            InetAddress[] localAddrs = InetAddress.getAllByName(canonicalHost);
             // get all hostName's IP addresses
             InetAddress[] hostAddrs  = InetAddress.getAllByName(hostName);
 
             // see if any 2 addresses are identical
-            for (InetAddress lAddr : localAddrs) {
+            for (String local : localIps) {
+//System.out.println("Local addr " + local + ": =?");
                 for (InetAddress hAddr : hostAddrs) {
-                    if (lAddr.equals(hAddr)) return true;
+//System.out.println("  " + hAddr.getHostAddress());
+                    if (local.equals(hAddr.getHostAddress())) {
+//System.out.println("FOUND MATCH!!!");
+                        return true;
+                    }
                 }
             }
         }
@@ -668,7 +666,7 @@ System.out.println("orderIPAddresses: ip " + ipAddresses.get(i) + " on local sub
         return false;
      }
 
-    
+
     /**
      * Determine whether two given host names refers to the same host.
      * @param hostName1 host name that is checked to see if it is the same as the other arg or not.
@@ -706,6 +704,7 @@ System.out.println("orderIPAddresses: ip " + ipAddresses.get(i) + " on local sub
 
         return false;
      }
+
 
 
     static public final ByteChannel wrapChannel2(final ByteChannel channel)
