@@ -244,6 +244,7 @@ public class cMsgProducer {
         cMsgMessage msg = new cMsgMessage();
         msg.setSubject(subject);
         msg.setType(type);
+        msg.setHistoryLengthMax(0);
 
         if (sendText) {
           msg.setText(text);
@@ -255,15 +256,15 @@ public class cMsgProducer {
         // send using UDP instead of TCP
         // msg.getContext().setReliableSend(false);
 
-        // Add 2 payload items
-        String[] ses = new String[]{"one", "two", "three"};
-        cMsgPayloadItem item1 = new cMsgPayloadItem("myStringArray", ses);
-        msg.addPayloadItem(item1);
-
-        int j = 123456789;
-        cMsgPayloadItem item2 = new cMsgPayloadItem("myInt", j);
-        msg.addPayloadItem(item2);
-
+//        // Add 2 payload items
+//        String[] ses = new String[]{"one", "two", "three"};
+//        cMsgPayloadItem item1 = new cMsgPayloadItem("myStringArray", ses);
+//        msg.addPayloadItem(item1);
+//
+//        int j = 123456789;
+//        cMsgPayloadItem item2 = new cMsgPayloadItem("myInt", j);
+//        msg.addPayloadItem(item2);
+//
 
         // variables to track message rate
         double freq=0., freqAvg=0.;
@@ -278,7 +279,7 @@ public class cMsgProducer {
             t1 = System.currentTimeMillis();
             for (int i = 0; i < count; i++) {
                 if (useSyncSend) {
-                    j = coda.syncSend(msg, 1000);
+                    int j = coda.syncSend(msg, 1000);
                     //System.out.println("Got syncSend val = " + j);
                 }
                 else {
