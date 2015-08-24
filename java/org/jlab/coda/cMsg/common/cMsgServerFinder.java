@@ -633,8 +633,8 @@ public class cMsgServerFinder {
             try { Thread.sleep(sleepTime); }
             catch (InterruptedException e) { }
 
-            sender.interrupt();
-
+            receiver.interrupt();
+            socket.close();
             return;
         }
     }
@@ -876,7 +876,8 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
             try { Thread.sleep(sleepTime); }
             catch (InterruptedException e) { }
 
-            sender.interrupt();
+            receiver.interrupt();
+            socket.close();
 
             return;
         }
