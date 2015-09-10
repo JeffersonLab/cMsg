@@ -281,8 +281,6 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
     }
 
 
-    long lastPrintTime = 0L;
-
     /** This method is executed as a thread. */
     public void run() {
 
@@ -349,17 +347,7 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
                 if (n < 1) {
                     // but first check to see if we've been commanded to die
                     if (killThread) return;
-
                     selector.selectedKeys().clear();
-
-                    // If it's been over 6 minutes since printing out udp msg,
-                    // then print out here instead.
-                    long deltaT = System.currentTimeMillis() - lastPrintTime;
-                    if (deltaT >= 360000) {
-System.out.println("rcListeningThread: " + server.getName() + " woke from select, time since last print = " + (deltaT/1000) + " sec");
-                        lastPrintTime = System.currentTimeMillis();
-                    }
-
                     continue;
                 }
 
@@ -410,7 +398,6 @@ System.out.println("rcListeningThread: " + server.getName() + " woke from select
 
                             // TCP connection established from RC client,
                             // RC server connect() can now return.
-System.out.println("rcListeningThread: established TCP connection from client");
                             startLatch.countDown();
                         }
 
@@ -554,15 +541,9 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
                                     continue;
                                 }
 
-                                dataBuffer = udpBuffer;
+                                dataBuffer   = udpBuffer;
                                 okToParseMsg = true;
-
-                                if (prescalePrintOut++ % 300 == 0) {
-System.out.println("rcListeningThread: " + server.getName() + " received udp msg #" + prescalePrintOut);
-                                    lastPrintTime = System.currentTimeMillis();
-                                }
-
-                                udpChannel = readChannel;
+                                udpChannel   = readChannel;
                             }
 
                             if (okToParseMsg) {
