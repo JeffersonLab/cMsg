@@ -642,6 +642,7 @@ System.out.println("orderIPAddresses: ip " + ipAddresses.get(i) + " on local sub
       */
      public static final boolean isHostLocal(String hostName) {
         if (hostName == null || hostName.length() < 1) return false;
+        if (hostName.equals("127.0.0.1")) return true;
 
         Collection<String> localIps = getAllIpAddresses();
 
