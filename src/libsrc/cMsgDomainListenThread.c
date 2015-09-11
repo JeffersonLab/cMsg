@@ -416,7 +416,7 @@ void *cMsgClientListeningThread(void *arg)
     
   /* on some operating systems (Linux) this call is necessary - calls cleanup handler */
   pthread_cleanup_pop(1);
-    
+
   pthread_exit(NULL);
   return NULL;
 }
