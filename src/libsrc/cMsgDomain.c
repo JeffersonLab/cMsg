@@ -65,7 +65,6 @@
 
 
 /* package includes */
-//#include "cMsgCommonNetwork.h"
 #include "cMsgNetwork.h"
 #include "cMsgPrivate.h"
 #include "cMsg.h"
@@ -3214,7 +3213,7 @@ int cmsg_cmsg_sendAndGet(void *domainId, void *sendMsg,
   uint64_t llTime;
   struct timespec wait, now;
 
-  
+
   /* check args */
   if (sendMsg == NULL || replyMsg == NULL) return(CMSG_BAD_ARGUMENT);
   
