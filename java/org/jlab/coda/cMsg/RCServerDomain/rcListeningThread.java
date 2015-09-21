@@ -497,12 +497,12 @@ System.out.println("rcListeningThread: " + server.getName() + " tcp size = " + s
                                     // TODO: possible problem, javadoc says:
                                     // If this channel is in non-blocking mode and a datagram is not
                                     // immediately available then this method immediately returns null.
-                                //    senderAddress = readChannel.receive(udpBuffer);
-                                    InetSocketAddress senderAddr = (InetSocketAddress) (readChannel.receive(udpBuffer));
-System.out.println("rcListeningThread: " + server.getName() + " got packet from host " +
-                           senderAddr.getHostName() + ", port " + senderAddr.getPort());
+                                    senderAddress = readChannel.receive(udpBuffer);
+//                                    InetSocketAddress senderAddr = (InetSocketAddress) (readChannel.receive(udpBuffer));
+//System.out.println("rcListeningThread: " + server.getName() + " got packet from host " +
+//                           senderAddr.getHostName() + ", port " + senderAddr.getPort());
 
-                                    if (senderAddr == null) {
+                                    if (senderAddress == null) {
                                         // This should not happen as select() says
                                         // there is something to read on this channel.
 System.out.println("rcListeningThread: " + server.getName() + " nothing to read in udp channel");
