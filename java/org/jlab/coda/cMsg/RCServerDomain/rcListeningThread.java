@@ -308,7 +308,6 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
         cMsgMessageFull msg;
         boolean readingSize = true, okToParseMsg = false;
         int bytes, bytesRead=0, size=0, msgId=0;
-        int prescalePrintOut = 0;
         SocketAddress senderAddress;
 
         Selector selector = null;
@@ -435,7 +434,7 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
                                         size  = tcpBuffer.getInt();
                                         msgId = tcpBuffer.getInt();
                                         if (size > 1500) {
-System.out.println("rcListeningThread: " + server.getName() + " tcp size = " + size + ", msgId = " + msgId);
+//System.out.println("rcListeningThread: " + server.getName() + " tcp size = " + size + ", msgId = " + msgId);
                                         }
 
                                         if (size-4 > tcpBuffer.capacity()) {
