@@ -244,7 +244,7 @@ class cMsgConnectionHandler extends Thread {
         }
         catch (IOException ex) {
             ex.printStackTrace();
-            System.out.println("Exiting Server: cannot registor listening socket with selector");
+            System.out.println("Exiting Server: cannot register listening socket with selector");
             System.exit(-1);
         }
 
