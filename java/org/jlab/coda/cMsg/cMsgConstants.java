@@ -172,9 +172,9 @@ public class cMsgConstants {
     // Codes sent by the server to a client over the
     // network to specify a particular response from cMsgPrivate.h .
 
-    /** Respond to a "sendAndGet" request. */
+    /** Respond to a "sendAndGet" request. Also sent by client to server. */
     public static final int    msgGetResponse                    =  20;
-    /** Respond with message to the subscribe command. */
+    /** Respond with message to the subscribe command. Also sent by client to server. */
     public static final int    msgSubscribeResponse              =  21;
     /** Respond to a server's "sendAndGet" request. */
     public static final int    msgServerGetResponse              =  22;
