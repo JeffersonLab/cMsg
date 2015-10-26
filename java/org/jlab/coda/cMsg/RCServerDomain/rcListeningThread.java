@@ -16,6 +16,7 @@
 
 package org.jlab.coda.cMsg.RCServerDomain;
 
+import com.sun.webpane.platform.Utilities;
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.cMsgCallbackThread;
 import org.jlab.coda.cMsg.common.cMsgGetHelper;
@@ -28,6 +29,7 @@ import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.nio.IntBuffer;
 import java.nio.channels.*;
 import java.nio.charset.Charset;
 import java.util.Date;
@@ -574,7 +576,20 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
                                         break;
 
                                     default:
-System.out.println("rcListeningThread: " + server.getName() + " bad client msg cmd, " + msgId);
+System.out.println("rcListeningThread: " + server.getName() + " bad client msg cmd = " + msgId +
+", size = " + size);
+                                        dataBuffer.position(0);
+
+                                        System.out.println("Bad data buffer:");
+
+                                        IntBuffer ibuf = dataBuffer.asIntBuffer();
+                                        int words = 20;
+                                        words = words > ibuf.capacity() ? ibuf.capacity() : words;
+                                        for (int i=0; i < words; i++) {
+                                            System.out.println("  Buf(" + i + ") = 0x" + Integer.toHexString(ibuf.get(i)));
+                                        }
+                                        System.out.println();
+
                                         break;
                                 }
 
