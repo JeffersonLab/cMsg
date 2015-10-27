@@ -576,19 +576,19 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
                                         break;
 
                                     default:
-System.out.println("rcListeningThread: " + server.getName() + " bad client msg cmd = " + msgId +
-", size = " + size);
-                                        dataBuffer.position(0);
-
-                                        System.out.println("Bad data buffer:");
-
-                                        IntBuffer ibuf = dataBuffer.asIntBuffer();
-                                        int words = 20;
-                                        words = words > ibuf.capacity() ? ibuf.capacity() : words;
-                                        for (int i=0; i < words; i++) {
-                                            System.out.println("  Buf(" + i + ") = 0x" + Integer.toHexString(ibuf.get(i)));
-                                        }
-                                        System.out.println();
+//System.out.println("rcListeningThread: " + server.getName() + " bad client msg cmd = " + msgId +
+//", size = " + size);
+//                                        dataBuffer.position(0);
+//
+//                                        System.out.println("Bad data buffer:");
+//
+//                                        IntBuffer ibuf = dataBuffer.asIntBuffer();
+//                                        int words = 20;
+//                                        words = words > ibuf.capacity() ? ibuf.capacity() : words;
+//                                        for (int i=0; i < words; i++) {
+//                                            System.out.println("  Buf(" + i + ") = 0x" + Integer.toHexString(ibuf.get(i)));
+//                                        }
+//                                        System.out.println();
 
                                         break;
                                 }
