@@ -670,7 +670,7 @@ public class cMsgServerFinder {
                         continue;
                     }
 
-System.out.println("RECEIVED CMSG MULTICAST RESPONSE PACKET");
+//System.out.println("RECEIVED CMSG MULTICAST RESPONSE PACKET");
                     // pick apart byte array received
                     int magicInt1  = cMsgUtilities.bytesToInt(buf, 0); // magic password
                     int magicInt2  = cMsgUtilities.bytesToInt(buf, 4); // magic password
@@ -679,7 +679,7 @@ System.out.println("RECEIVED CMSG MULTICAST RESPONSE PACKET");
                     if ( (magicInt1 != cMsgNetworkConstants.magicNumbers[0]) ||
                          (magicInt2 != cMsgNetworkConstants.magicNumbers[1]) ||
                          (magicInt3 != cMsgNetworkConstants.magicNumbers[2]))  {
-System.out.println("  Bad magic numbers for multicast response packet");
+//System.out.println("  Bad magic numbers for multicast response packet");
                         continue;
                     }
 
@@ -690,8 +690,8 @@ System.out.println("  Bad magic numbers for multicast response packet");
 
                     if ((nameServerTcpPort < 1024 || nameServerTcpPort > 65535) ||
                             (addrCount < 0 || addrCount > 50)) {
-System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address count (" +
-                           addrCount + ") for multicast response packet");
+//System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address count (" +
+//                           addrCount + ") for multicast response packet");
                         continue;
                     }
 
@@ -732,7 +732,7 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
                     if (info.host == null) info.host = "unknown";
                     info.udpPort = nameServerUdpPort;
                     info.tcpPort = nameServerTcpPort;
-System.out.println("cmsgMulticastReceiver host = " + info.host + "\n");
+//System.out.println("cmsgMulticastReceiver host = " + info.host + "\n");
 
                     // Do not add this if it is a duplicate
                     for (ResponderInfo rInfo : cMsgResponders) {
@@ -753,12 +753,12 @@ System.out.println("cmsgMulticastReceiver host = " + info.host + "\n");
                     return;
                 }
                 catch (IOException e) {
-System.out.println("  IO exception in cmsg receiving thread so return\n");
+//System.out.println("  IO exception in cmsg receiving thread so return\n");
                     e.printStackTrace();
                     return;
                 }
                 catch (Exception e) {
-System.out.println("  Exception in cmsg receiving thread so return\n");
+//System.out.println("  Exception in cmsg receiving thread so return\n");
                     e.printStackTrace();
                     return;
                 }
@@ -945,7 +945,6 @@ System.out.println("  Exception in cmsg receiving thread so return\n");
             int index;
             byte[] buf = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buf, 1024);
-            StringBuffer id = new StringBuffer(1024);
 
             nextPacket:
             while (true) {
@@ -956,7 +955,6 @@ System.out.println("  Exception in cmsg receiving thread so return\n");
                     socket.receive(packet);
 
 //System.out.println("rcMulticastReceiver: RECEIVED RC MULTICAST RESPONSE PACKET");
-                    debug = cMsgConstants.debugInfo;
 
                     // if we get too small of a packet, reject it
                     if (packet.getLength() < 6*4) {
@@ -985,7 +983,7 @@ System.out.println("  Exception in cmsg receiving thread so return\n");
 //", host len = " + hostLen + ", expid len = " + expidLen);
 
                     if (version != cMsgConstants.version) {
-System.out.println("rcMulticastReceiver: got bad version # = " + version + ", probably from older-cMsg based platforms, ignore");
+//System.out.println("rcMulticastReceiver: got bad version # = " + version + ", probably from older-cMsg based platforms, ignore");
                         continue;
                     }
 
@@ -1027,12 +1025,12 @@ System.out.println("rcMulticastReceiver: got bad version # = " + version + ", pr
                                 ss = new String(buf, index, stringLen, "US-ASCII");
                             }
                             catch (Exception e) {
-System.out.println("  Exception in rc receiving thread, bad packet, this socket is uses udp port = \n" +
-socket.getLocalPort());
-System.out.println("rcMulticastReceiver: version # = " + version + ", port = " + port +
-", host len = " + hostLen + ", expid len = " + expidLen + ", expid = " + info.expid +
-                           ", addrCount = " + addrCount + ", stringLen = " + stringLen);
-                                printBuffer(ByteBuffer.wrap(buf), 0, 20, "Bad packet bytes");
+//System.out.println("  Exception in rc receiving thread, bad packet, this socket is uses udp port = \n" +
+//socket.getLocalPort());
+//System.out.println("rcMulticastReceiver: version # = " + version + ", port = " + port +
+//", host len = " + hostLen + ", expid len = " + expidLen + ", expid = " + info.expid +
+//                           ", addrCount = " + addrCount + ", stringLen = " + stringLen);
+//                                printBuffer(ByteBuffer.wrap(buf), 0, 20, "Bad packet bytes");
                                 return;
                             }
 
@@ -1072,7 +1070,7 @@ System.out.println("rcMulticastReceiver: version # = " + version + ", port = " +
 //System.out.println("rcMulticastReceiver end packet parsing");
                 }
                 catch (InterruptedIOException e) {
-System.out.println("  Interrupted rc receiving thread so return");
+//System.out.println("  Interrupted rc receiving thread so return");
                     return;
                 }
                 catch (java.net.SocketException e) {
@@ -1080,12 +1078,12 @@ System.out.println("  Interrupted rc receiving thread so return");
                     return;
                 }
                 catch (IOException e) {
-System.out.println("  IO exception in rc receiving thread so return\n");
+System.out.println("  cMsgServerFinder: IO exception in rc receiving thread so return\n");
                     e.printStackTrace();
                     return;
                 }
                 catch (Exception e) {
-System.out.println("  Exception in rc receiving thread so return\n");
+System.out.println("  cMsgServerFinder: Exception in rc receiving thread so return\n");
                     e.printStackTrace();
                     return;
                 }
