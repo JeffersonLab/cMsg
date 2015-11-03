@@ -20,7 +20,6 @@ import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.cMsgGetHelper;
 import org.jlab.coda.cMsg.common.*;
 
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -574,14 +573,14 @@ System.out.println("RC Server: made tcp socket to rc client " + clientHost + " o
                 clientPort = Integer.parseInt(udlPort);
             }
             catch (NumberFormatException e) {
-                clientPort = cMsgNetworkConstants.rcClientPort;
+                clientPort = cMsgNetworkConstants.rcTcpClientPort;
                 if (debug >= cMsgConstants.debugWarn) {
                     System.out.println("parseUDL: non-integer port, guessing codaComponent port is " + rcClientPort);
                 }
             }
         }
         else {
-            clientPort = cMsgNetworkConstants.rcClientPort;
+            clientPort = cMsgNetworkConstants.rcTcpClientPort;
             if (debug >= cMsgConstants.debugWarn) {
                 System.out.println("parseUDL: guessing codaComponent port is " + rcClientPort);
             }
