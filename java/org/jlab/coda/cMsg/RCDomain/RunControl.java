@@ -218,7 +218,7 @@ public class RunControl extends cMsgDomainAdapter {
 
             // port #'s < 1024 are reserved
             if (startingPort < 1024) {
-                startingPort = cMsgNetworkConstants.rcClientPort;
+                startingPort = cMsgNetworkConstants.rcTcpClientPort;
             }
 
             // At this point, find a port to bind to. If that isn't possible, throw
@@ -366,6 +366,30 @@ public class RunControl extends cMsgDomainAdapter {
 
                 // create socket to receive at anonymous port & all interfaces
                 multicastUdpSocket = new MulticastSocket();
+
+                // Pick local port for socket to avoid being assigned a port
+                // to which cMsgServerFinder is multicasting.
+                int localPort = cMsgNetworkConstants.rcUdpClientPort;
+                while (true) {
+                    try {
+                        multicastUdpSocket.bind(new InetSocketAddress(localPort));
+                        break;
+                    }
+                    catch (IOException ex) {
+                        // try another port by adding one
+                        if (localPort < 65535) {
+                            localPort++;
+                            try { Thread.sleep(100);  }
+                            catch (InterruptedException e) {}
+                        }
+                        else {
+                            // close socket
+                            multicastUdpSocket.close();
+                            throw new cMsgException("connect: cannot find local UDP port", ex);
+                        }
+                    }
+                }
+
                 multicastUdpSocket.setTimeToLive(32);  // Make it through routers
 
                 // create packet to multicast from the byte array
