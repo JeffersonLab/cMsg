@@ -157,6 +157,30 @@ public class EmuClient extends cMsgDomainAdapter {
 
             // create socket to receive at anonymous port & all interfaces
             multicastUdpSocket = new MulticastSocket();
+
+            // Pick local port for socket to avoid being assigned a port
+            // to which cMsgServerFinder is multicasting.
+            int localPort = cMsgNetworkConstants.emuUdpClientPort;
+            while (true) {
+                try {
+                    multicastUdpSocket.bind(new InetSocketAddress(localPort));
+                    break;
+                }
+                catch (IOException ex) {
+                    // try another port by adding one
+                    if (localPort < 65535) {
+                        localPort++;
+                        try { Thread.sleep(100);  }
+                        catch (InterruptedException e) {}
+                    }
+                    else {
+                        // close socket
+                        multicastUdpSocket.close();
+                        throw new cMsgException("connect: cannot find local UDP port", ex);
+                    }
+                }
+            }
+
             multicastUdpSocket.setTimeToLive(32);  // Make it through routers
             InetAddress multicastServerAddress = null;
             try {multicastServerAddress = InetAddress.getByName(cMsgNetworkConstants.emuMulticast); }

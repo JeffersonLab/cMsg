@@ -45,7 +45,11 @@ public class cMsgNetworkConstants {
     // so we'll chose ports in the 45,000 range to avoid potential conflicts.
 
     /** Default TCP port at which an Emu domain server listens for client connections = {@value} */
-    public static final int    emuTcpPort = 46100;
+    public static final int    emuTcpPort = 46400;
+    /** UDP port at which an emu domain client starts looking for a port for the local end
+     * of a UDP socket to use when multicasting to find server. */
+    public static final int    emuUdpClientPort = 46600;
+
     /** Default TCP port at which a cMsg domain name server listens for client connections = {@value} */
     public static final int    nameServerTcpPort = 45000;
     /** Default UDP port at which a cMsg name server listens for multicasts = {@value} */
@@ -53,14 +57,22 @@ public class cMsgNetworkConstants {
     /** Default TCP port at which a cMsg domain, domain server listens for 2 client connections
       * (after that client has connected to name server) = {@value} */
     public static final int    domainServerPort = 45001;
+
     /** Default UDP port at which a run control multicast server listens for multicasts = {@value} */
     public static final int    rcMulticastPort = 45200;
     /** TCP port at which a run control server starts looking for a port to listen
      *  for a client connection on = {@value} */
     public static final int    rcServerPort = 45300;
+    /** UDP port at which an rc domain client starts looking for a port for the local end
+     * of a UDP socket to use when multicasting to find server. */
+    public static final int    rcUdpClientPort = 45700;
     /** TCP port at which a run control client starts looking for a port to listen on and the port
       * that a run control server assumes a client is waiting for connections on = {@value} */
-    public static final int    rcClientPort = 45800;
+    public static final int    rcTcpClientPort = 45800;
+
+    /** UDP port at which a cMsg domain client starts looking for a port for the local end
+     * of a UDP socket to use when multicasting to find server. */
+    public static final int    cMsgUdpClientPort = 45900;
 
     /** TCP port at which a TCPServer server listens for connections = {@value} */
     public static final int    tcpServerPort = 45600;

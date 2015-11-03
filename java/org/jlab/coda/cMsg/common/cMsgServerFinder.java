@@ -20,6 +20,8 @@ import org.jlab.coda.cMsg.*;
 
 import java.net.*;
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.util.*;
 
 /**
@@ -28,7 +30,7 @@ import java.util.*;
  * By convention, all cMsg name servers should have a multicast port starting at
  * 45000 and not exceeding 45099. All these ports will be probed for servers.
  * By convention, all rc multicast servers should have a multicast port starting at
- * 45200 and not exceeding 45299. All these ports will be probed for servers.
+ * 45200 and not exceeding 45299. Twenty of these ports will be probed for servers.
  * Additional ports may be specified.
  */
 public class cMsgServerFinder {
@@ -96,11 +98,11 @@ public class cMsgServerFinder {
         rcPorts   = new HashSet<Integer>();
         cmsgPorts = new HashSet<Integer>();
 
-        defaultRcPorts   = new int[100];
-        defaultCmsgPorts = new int[100];
+        defaultRcPorts   = new int[20];
+        defaultCmsgPorts = new int[20];
 
         // set default ports to scan
-        for (int i=0; i<100; i++) {
+        for (int i=0; i<20; i++) {
             defaultRcPorts[i]   = cMsgNetworkConstants.rcMulticastPort   + i;
             defaultCmsgPorts[i] = cMsgNetworkConstants.nameServerUdpPort + i;
         }
@@ -215,7 +217,7 @@ public class cMsgServerFinder {
 
     /**
      * Remove a UDP port from the list of user-specified ports to be probed
-     * for rc multicast servers. The list of 100 default ports will still be
+     * for rc multicast servers. The list of 20 default ports will still be
      * probed regardless.
      * @param port UDP port to be removed from probing for rc multicast servers
      */
@@ -223,7 +225,7 @@ public class cMsgServerFinder {
 
 
     /** Remove all user-specified UDP ports from list of ports to be
-     *  probed for rc multicast servers. The list of 100 default ports will
+     *  probed for rc multicast servers. The list of 20 default ports will
      *  still be probed regardless. */
     synchronized public void removeRcPorts() {rcPorts.clear();}
 
@@ -259,7 +261,7 @@ public class cMsgServerFinder {
 
     /**
      * Remove a user-specified UDP port from the list of ports to be probed
-     * for cmsg name servers. The list of 100 default ports will still be
+     * for cmsg name servers. The list of 20 default ports will still be
      * probed regardless.
      * @param port UDP port to be removed from probing for cmsg name servers
      */
@@ -269,7 +271,7 @@ public class cMsgServerFinder {
 
 
     /** Remove all user-specified UDP ports from list of ports to be probed
-     * for cmsg name servers. The list of 100 default ports will
+     * for cmsg name servers. The list of 20 default ports will
      *  still be probed regardless. */
     synchronized public void removeCmsgPorts() { cmsgPorts.clear(); }
 
@@ -668,7 +670,7 @@ public class cMsgServerFinder {
                         continue;
                     }
 
-//System.out.println("RECEIVED CMSG MULTICAST RESPONSE PACKET");
+System.out.println("RECEIVED CMSG MULTICAST RESPONSE PACKET");
                     // pick apart byte array received
                     int magicInt1  = cMsgUtilities.bytesToInt(buf, 0); // magic password
                     int magicInt2  = cMsgUtilities.bytesToInt(buf, 4); // magic password
@@ -730,6 +732,7 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
                     if (info.host == null) info.host = "unknown";
                     info.udpPort = nameServerUdpPort;
                     info.tcpPort = nameServerTcpPort;
+System.out.println("cmsgMulticastReceiver host = " + info.host + "\n");
 
                     // Do not add this if it is a duplicate
                     for (ResponderInfo rInfo : cMsgResponders) {
@@ -745,8 +748,18 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
 //System.out.println("  Interrupted receiving thread so return");
                     return;
                 }
+                catch (java.net.SocketException e) {
+                    // time's up, socket was closed
+                    return;
+                }
                 catch (IOException e) {
-//System.out.println("  IO exception in receiving thread so return");
+System.out.println("  IO exception in cmsg receiving thread so return\n");
+                    e.printStackTrace();
+                    return;
+                }
+                catch (Exception e) {
+System.out.println("  Exception in cmsg receiving thread so return\n");
+                    e.printStackTrace();
                     return;
                 }
             }
@@ -895,6 +908,38 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
             this.socket = socket;
         }
 
+        /**
+         * This method takes a byte buffer and prints out the desired number of words
+         * from the given position.
+         *
+         * @param buf            buffer to print out
+         * @param position       position of data (bytes) in buffer to start printing
+         * @param words          number of 32 bit words to print in hex
+         * @param label          a label to print as header
+         */
+        public void printBuffer(ByteBuffer buf, int position, int words, String label) {
+
+            if (buf == null) {
+                System.out.println("printBuffer: buf arg is null");
+                return;
+            }
+
+            int origPos = buf.position();
+            buf.position(position);
+
+            if (label != null) System.out.println(label + ":");
+
+            IntBuffer ibuf = buf.asIntBuffer();
+            words = words > ibuf.capacity() ? ibuf.capacity() : words;
+            for (int i=0; i < words; i++) {
+                System.out.println("  Buf(" + i + ") = 0x" + Integer.toHexString(ibuf.get(i)));
+            }
+            System.out.println();
+
+            buf.position(origPos);
+       }
+
+
         public void run() {
 
             int index;
@@ -909,11 +954,14 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
 
                 try {
                     socket.receive(packet);
-//System.out.println("RECEIVED RC MULTICAST RESPONSE PACKET");
+
+//System.out.println("rcMulticastReceiver: RECEIVED RC MULTICAST RESPONSE PACKET");
+                    debug = cMsgConstants.debugInfo;
+
                     // if we get too small of a packet, reject it
                     if (packet.getLength() < 6*4) {
                         if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("rc Multicast receiver: got packet that's too small");
+                            System.out.println("rcMulticastReceiver: got packet that's too small");
                         }
                         continue;
                     }
@@ -924,7 +972,7 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
                         magic2 != cMsgNetworkConstants.magicNumbers[1] ||
                         magic3 != cMsgNetworkConstants.magicNumbers[2])  {
                         if (debug >= cMsgConstants.debugWarn) {
-                            System.out.println("rc Multicast receiver: got bad magic # response to multicast");
+                            System.out.println("rcMulticastReceiver: got bad magic # response to multicast");
                         }
                         continue;
                     }
@@ -933,9 +981,11 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
                     int port     = cMsgUtilities.bytesToInt(buf, 16);
                     int hostLen  = cMsgUtilities.bytesToInt(buf, 20);
                     int expidLen = cMsgUtilities.bytesToInt(buf, 24);
+//System.out.println("rcMulticastReceiver: version # = " + version + ", port = " + port +
+//", host len = " + hostLen + ", expid len = " + expidLen);
 
                     if (version != cMsgConstants.version) {
-//System.out.println("rc Multicast receiver: got bad version # = " + version + ", probably from older-cMsg based platforms, ignore");
+System.out.println("rcMulticastReceiver: got bad version # = " + version + ", probably from older-cMsg based platforms, ignore");
                         continue;
                     }
 
@@ -950,7 +1000,6 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
                         //info.host = new String(buf, index, hostLen, "US-ASCII");
                         index += hostLen;
                     }
-//System.out.println("host = " + info.host);
 
                     // get expid
                     if (expidLen > 0) {
@@ -960,10 +1009,10 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
                     else {
                         info.expid = "expid";
                     }
-//System.out.println("expid = " + info.expid);
+//System.out.println("rcMulticastReceiver expid = " + info.expid);
 
                     int addrCount = cMsgUtilities.bytesToInt(buf, index); index += 4;
-//System.out.println("count = " + addrCount);
+//System.out.println("rcMulticastReceiver count = " + addrCount);
                     String ss;
                     int stringLen;
                     info.ipAddrs = new String[addrCount];
@@ -973,7 +1022,20 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
                         try {
                             stringLen = cMsgUtilities.bytesToInt(buf, index); index += 4;
 //System.out.println("     ip len = " + stringLen + ", index = " + (index - 4));
-                            ss = new String(buf, index, stringLen, "US-ASCII");
+
+                            try {
+                                ss = new String(buf, index, stringLen, "US-ASCII");
+                            }
+                            catch (Exception e) {
+System.out.println("  Exception in rc receiving thread, bad packet, this socket is uses udp port = \n" +
+socket.getLocalPort());
+System.out.println("rcMulticastReceiver: version # = " + version + ", port = " + port +
+", host len = " + hostLen + ", expid len = " + expidLen + ", expid = " + info.expid +
+                           ", addrCount = " + addrCount + ", stringLen = " + stringLen);
+                                printBuffer(ByteBuffer.wrap(buf), 0, 20, "Bad packet bytes");
+                                return;
+                            }
+
 //System.out.println("     ip = " + ss);
                             info.ipAddrs[i] = ss;
                             index += stringLen;
@@ -997,8 +1059,7 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
                     }
 
                     if (info.host == null) info.host = "unknown";
-
-//System.out.println();
+//System.out.println("rcMulticastReceiver host = " + info.host + "\n");
 
                     // Do not add this if it is a duplicate
                     for (ResponderInfo rInfo : rcResponders) {
@@ -1008,13 +1069,24 @@ System.out.println("  Wrong TCP port # (" + nameServerTcpPort + ") or address co
                     }
 
                     rcResponders.add(info);
+//System.out.println("rcMulticastReceiver end packet parsing");
                 }
                 catch (InterruptedIOException e) {
-//System.out.println("  Interrupted receiving thread so return");
+System.out.println("  Interrupted rc receiving thread so return");
+                    return;
+                }
+                catch (java.net.SocketException e) {
+//System.out.println("  time's up, socket closed\n");
                     return;
                 }
                 catch (IOException e) {
-//System.out.println("  IO exception in receiving thread so return");
+System.out.println("  IO exception in rc receiving thread so return\n");
+                    e.printStackTrace();
+                    return;
+                }
+                catch (Exception e) {
+System.out.println("  Exception in rc receiving thread so return\n");
+                    e.printStackTrace();
                     return;
                 }
             }

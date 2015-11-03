@@ -604,7 +604,8 @@ public class cMsg extends cMsgDomainAdapter {
      * can be made. Only called when connectLock is held.
      *
      * @throws cMsgException if there are problems parsing the UDL or
-     *                       communication problems with the server
+     *                       communication problems with the server, or
+     *                       cannot find local port in specified range.
      */
     protected void connectWithMulticast() throws cMsgException {
         // Need a new latch for each go round - one shot deal
@@ -643,6 +644,30 @@ public class cMsg extends cMsgDomainAdapter {
 
             // create socket to receive at anonymous port & all interfaces
             udpSocket = new MulticastSocket();
+
+            // Pick local port for socket to avoid being assigned a port
+            // to which cMsgServerFinder is multicasting.
+            int port = cMsgNetworkConstants.cMsgUdpClientPort;
+            while (true) {
+                try {
+                    udpSocket.bind(new InetSocketAddress(port));
+                    break;
+                }
+                catch (IOException ex) {
+                    // try another port by adding one
+                    if (port < 65535) {
+                        port++;
+                        try { Thread.sleep(100);  }
+                        catch (InterruptedException e) {}
+                    }
+                    else {
+                        // close socket
+                        udpSocket.close();
+                        throw new cMsgException("Cannot find local UDP port", ex);
+                    }
+                }
+            }
+
             udpSocket.setSoTimeout(1000);
             udpSocket.setReceiveBufferSize(1024);
             udpSocket.setTimeToLive(32); // Need to get thru routers
