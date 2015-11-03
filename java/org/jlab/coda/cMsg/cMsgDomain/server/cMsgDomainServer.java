@@ -772,6 +772,9 @@ class cMsgDomainServer extends Thread {
                             // need to shutdown this domain server
                             if (calledShutdown.compareAndSet(false, true)) {
 //System.out.println("SHUTDOWN TO BE RUN BY msgDisconnectRequest");
+                                if (debug >= cMsgConstants.debugSevere) {
+System.out.println("Client " + info.getName() + " called disconnect");
+                                }
                                 shutdown();
                             }
                             return;

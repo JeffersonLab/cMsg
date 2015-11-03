@@ -240,6 +240,10 @@ class cMsgMonitorClient extends Thread {
                     }
 
                     removeClient(cd);
+
+                    if (debug >= cMsgConstants.debugSevere) {
+                        System.out.println("Client " + cd.getName() + " error reading during keepalive, remove");
+                    }
                 }
             }
             catch (IOException e) {
@@ -262,6 +266,10 @@ class cMsgMonitorClient extends Thread {
                     }
 
                     removeClient(cd);
+
+                    if (debug >= cMsgConstants.debugSevere) {
+                        System.out.println("Client " + cd.getName() + " I/O error in keepalive, remove");
+                    }
                 }
             }
         }

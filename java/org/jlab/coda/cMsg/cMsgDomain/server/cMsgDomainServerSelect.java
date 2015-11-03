@@ -1151,8 +1151,6 @@ class cMsgDomainServerSelect extends Thread {
                                                                                      holder.namespace);
                             break;
 
-
-
                         case cMsgConstants.msgMonitorRequest:
                             // Client requesting monitor data function is now obsolete, but is used to test
                             // client communication with server when using ssh tunnels.
@@ -1162,6 +1160,9 @@ class cMsgDomainServerSelect extends Thread {
                         case cMsgConstants.msgDisconnectRequest: // client disconnecting
                             // BUGBUG if no clients left, then what? shutdown domain server?
 //System.out.println("Call deleteClient 0");
+                            if (debug >= cMsgConstants.debugSevere) {
+System.out.println("Client " + info.getName() + " called disconnect");
+                            }
                             deleteClient(info);
                             break;
                             // need to shutdown this domain server
@@ -1174,8 +1175,6 @@ class cMsgDomainServerSelect extends Thread {
                         case cMsgConstants.msgServerShutdownSelf: // tell this name server to shutdown
                             nameServer.shutdown();
                             break;
-
-
 
                         case cMsgConstants.msgServerShutdownClients: // tell local clients to shutdown
                             holder = readShutdownInfo(array);
