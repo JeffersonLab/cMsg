@@ -1381,6 +1381,10 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
      * @param userCalledDisconnect set disconnectCalled to this value
      */
     private void disconnect(boolean userCalledDisconnect) {
+        if (debug >= cMsgConstants.debugSevere) {
+            System.out.println("Client " + name + " called disconnect");
+        }
+
         // The user calling disconnect means all msg flow to callbacks is stopped.
         // This only comes into play once connect (on this same object) is called
         // again and this forces the user to call start() again to get msgs flowing.
@@ -3052,6 +3056,8 @@ System.out.println("disconnect: IO error");
      * <li>domain server port is in tag=value part of UDL as domainPort=&lt;port&gt;<p>
      * <li>multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;<p>
      * <li>subnet is in tag=value part of UDL as subnet=&lt;preferred subnet in dot-decimal&gt;<p>
+     * <li>failover is in tag=value part of UDL as failover=&lt;cloud, cloudonly, or any&gt;<p>
+     * <li>cloud is in tag=value part of UDL as failover=&lt;local or any&gt;<p>
      * <li>the tag=value part of UDL parsed here as regime=low or regime=high means:<p>
      *   <ul>
      *   <li>low message/data throughput client if regime=low, meaning many clients are serviced
@@ -3310,11 +3316,9 @@ System.out.println("disconnect: IO error");
             else if (matcher.group(1).equalsIgnoreCase("cloudonly")) {
                 failover = cMsgConstants.failoverCloudOnly;
             }
-            else if (matcher.group(1).equalsIgnoreCase("any")) {
-                failover = cMsgConstants.failoverAny;
-            }
+            // "any" / default
             else {
-                throw new cMsgException("parseUDL: failover must be any, cloud or cloudonly");
+                failover = cMsgConstants.failoverAny;
             }
             counter++;
         }
@@ -3333,11 +3337,9 @@ System.out.println("disconnect: IO error");
             if (matcher.group(1).equalsIgnoreCase("local")) {
                 cloud = cMsgConstants.cloudLocal;
             }
-            else if (matcher.group(1).equalsIgnoreCase("any")) {
-                failover = cMsgConstants.cloudAny;
-            }
             else {
-                throw new cMsgException("parseUDL: cloud must be any or local");
+                // "any" / default to connecting to cloud located anywhere
+                cloud = cMsgConstants.cloudAny;
             }
             counter++;
         }
@@ -3643,7 +3645,7 @@ System.out.println("disconnect: IO error");
 
                     // if the user called "disconnect" or only 1 UDL, do NOT do any failovers
                     if (disconnectCalled || !useFailovers) {
-                        if (debug >= cMsgConstants.debugError) {
+                        if (debug >= cMsgConstants.debugSevere) {
                             System.out.println("\nkeepAliveThread: user called disconnect and/or server terminated connection");
                         }
                         // Only get rid of subscriptions & end callbacks if disconnect called.
@@ -3692,6 +3694,8 @@ System.out.println("disconnect: IO error");
                                 return;
                             }
                         }
+
+                        boolean cloudOnly = (currentParsedUDL.failover == cMsgConstants.failoverCloudOnly);
 
                         // name of server we were just connected to
                         String sName = currentParsedUDL.nameServerHost + ":" + currentParsedUDL.nameServerTcpPort;
@@ -3757,8 +3761,18 @@ System.out.println("disconnect: IO error");
                                 catch (cMsgException e) { }
                             }
                         }
-                        // Went thru list of cloud servers with nothing to show for it,
-                        // so try next UDL in list
+
+                        // Went through list of cloud servers with nothing to show for it.
+
+                        // If we only want a cloud server to connect to, we're done.
+                        if (cloudOnly) {
+//System.out.println("keepAliveThread: so just disconnect");
+                            try { localDisconnect(disconnectCalled); }
+                            catch (Exception e) { }
+                            return;
+                        }
+
+                        // Try next UDL in list
                         break;
                     }
 
