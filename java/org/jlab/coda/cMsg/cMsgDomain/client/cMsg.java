@@ -3908,8 +3908,8 @@ System.out.println("disconnect: IO error");
 //                    Thread.currentThread().isInterrupted());
             byte[] bytes = new byte[4096];
             int len = in.readInt();
-if (len > 200000)
-System.out.println("\n  111111 Try to allocate " + len + " bytes for getMonitorInfo() 111111\n");
+//if (len > 200000)
+//System.out.println("\n  111111 Try to allocate " + len + " bytes for getMonitorInfo() 111111\n");
 //System.out.println("  getMonitorInfo: len xml = " + len);
             if (len > 0) {
                 // read all monitor data string
@@ -3921,8 +3921,8 @@ System.out.println("\n  111111 Try to allocate " + len + " bytes for getMonitorI
             }
 
             int itemsToFollow = in.readInt();
-if (itemsToFollow > 2000)
-System.out.println("\n  121212 " + itemsToFollow + " items to follow 121212\n");
+//if (itemsToFollow > 2000)
+//System.out.println("\n  121212 " + itemsToFollow + " items to follow 121212\n");
 
             if (itemsToFollow > 0) {
 
@@ -3935,28 +3935,28 @@ System.out.println("\n  121212 " + itemsToFollow + " items to follow 121212\n");
                     int tcpPort, udpPort, hlen, plen;
 
                     int numServers = in.readInt();
-if (numServers > 2000)
-System.out.println("\n  131313 " + numServers + " number of servers 131313\n");
+//if (numServers > 2000)
+//System.out.println("\n  131313 " + numServers + " number of servers 131313\n");
                     if (numServers > 0) {
                         for (int i=0; i<numServers; i++) {
                             s = "";
                             isLocal = false;
 
                             tcpPort = in.readInt();
-if (tcpPort > 50000)
-System.out.println("\n  141414 Read tcpPort = " + tcpPort + " bytes for getMonitorInfo() 141414\n");
+//if (tcpPort > 50000)
+//System.out.println("\n  141414 Read tcpPort = " + tcpPort + " bytes for getMonitorInfo() 141414\n");
                             udpPort = in.readInt();
-if (udpPort > 50000)
-System.out.println("\n  151515 Read udpPort = " + udpPort + " bytes for getMonitorInfo() 151515\n");
+//if (udpPort > 50000)
+//System.out.println("\n  151515 Read udpPort = " + udpPort + " bytes for getMonitorInfo() 151515\n");
                             hlen    = in.readInt(); // host string len
-if (hlen > 2000) {
-    System.out.println("\n  222222 Try to allocate " + hlen + " bytes for getMonitorInfo() 222222\n");
-    System.out.println("  len = " + len + ", items to follow = " + itemsToFollow);
-    System.out.println("  xml = \n" + monitorXML);
-}
+//if (hlen > 2000) {
+//    System.out.println("\n  222222 Try to allocate " + hlen + " bytes for getMonitorInfo() 222222\n");
+//    System.out.println("  len = " + len + ", items to follow = " + itemsToFollow);
+//    System.out.println("  xml = \n" + monitorXML);
+//}
                             plen    = in.readInt(); // password string len
-if (plen > 2000)
-System.out.println("\n  333333 Try to allocate " + plen + " bytes for getMonitorInfo() 333333\n");
+//if (plen > 2000)
+//System.out.println("\n  333333 Try to allocate " + plen + " bytes for getMonitorInfo() 333333\n");
 
 //System.out.println("  getMonitorInfo: cloud server => tcpPort = " +
 //                                    Integer.toHexString(tcpPort) +
