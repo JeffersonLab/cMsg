@@ -174,9 +174,9 @@ public class EmuClient extends cMsgDomainAdapter {
                         catch (InterruptedException e) {}
                     }
                     else {
-                        // close socket
-                        multicastUdpSocket.close();
-                        throw new cMsgException("connect: cannot find local UDP port", ex);
+                        // Go back to ephemeral port
+                        multicastUdpSocket = new MulticastSocket();
+                        break;
                     }
                 }
             }

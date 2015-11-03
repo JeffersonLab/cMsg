@@ -604,8 +604,7 @@ public class cMsg extends cMsgDomainAdapter {
      * can be made. Only called when connectLock is held.
      *
      * @throws cMsgException if there are problems parsing the UDL or
-     *                       communication problems with the server, or
-     *                       cannot find local port in specified range.
+     *                       communication problems with the server.
      */
     protected void connectWithMulticast() throws cMsgException {
         // Need a new latch for each go round - one shot deal
@@ -661,9 +660,9 @@ public class cMsg extends cMsgDomainAdapter {
                         catch (InterruptedException e) {}
                     }
                     else {
-                        // close socket
-                        udpSocket.close();
-                        throw new cMsgException("Cannot find local UDP port", ex);
+                        // Go back to ephemeral port
+                        udpSocket = new MulticastSocket();
+                        break;
                     }
                 }
             }

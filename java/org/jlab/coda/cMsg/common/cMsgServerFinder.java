@@ -604,6 +604,30 @@ public class cMsgServerFinder {
 
                 // create socket to receive at anonymous port & all interfaces
                 socket = new DatagramSocket();
+
+                // Pick local port for socket to avoid being assigned a port
+                // to which cMsgServerFinder is multicasting.
+                int port = cMsgNetworkConstants.cMsgUdpClientPort;
+                while (true) {
+                    try {
+                        socket.bind(new InetSocketAddress(port));
+                        break;
+                    }
+                    catch (IOException ex) {
+                        // try another port by adding one
+                        if (port < 65535) {
+                            port++;
+                            try { Thread.sleep(100);  }
+                            catch (InterruptedException e) {}
+                        }
+                        else {
+                            // Go back to ephemeral port
+                            socket = new DatagramSocket();
+                            break;
+                        }
+                    }
+                }
+
                 socket.setReceiveBufferSize(1024);
                 socket.setSoTimeout(sleepTime);
 
@@ -861,6 +885,30 @@ public class cMsgServerFinder {
 
                 // create socket to receive at anonymous port & all interfaces
                 socket = new MulticastSocket();
+
+                // Pick local port for socket to avoid being assigned a port
+                // to which cMsgServerFinder is multicasting.
+                int port = cMsgNetworkConstants.rcUdpClientPort;
+                while (true) {
+                    try {
+                        socket.bind(new InetSocketAddress(port));
+                        break;
+                    }
+                    catch (IOException ex) {
+                        // try another port by adding one
+                        if (port < 65535) {
+                            port++;
+                            try { Thread.sleep(100);  }
+                            catch (InterruptedException e) {}
+                        }
+                        else {
+                            // Go back to ephemeral port
+                            socket = new MulticastSocket();
+                            break;
+                        }
+                    }
+                }
+
                 socket.setReceiveBufferSize(1024);
                 socket.setSoTimeout(sleepTime);
 
