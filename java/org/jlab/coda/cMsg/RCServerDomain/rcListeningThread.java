@@ -16,7 +16,6 @@
 
 package org.jlab.coda.cMsg.RCServerDomain;
 
-import com.sun.webpane.platform.Utilities;
 import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.cMsgCallbackThread;
 import org.jlab.coda.cMsg.common.cMsgGetHelper;
@@ -29,7 +28,6 @@ import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
-import java.nio.IntBuffer;
 import java.nio.channels.*;
 import java.nio.charset.Charset;
 import java.util.Date;
@@ -245,8 +243,8 @@ System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to c
             // it means that there are more clients than the difference between to 2
             // starting port #s. So try hopping 1500 to a group of (hopefully)
             // unused ports.
-            if (startingTcpPort.get() == cMsgNetworkConstants.rcClientPort) {
-                startingTcpPort.set(cMsgNetworkConstants.rcClientPort + 1500);
+            if (startingTcpPort.get() == cMsgNetworkConstants.rcTcpClientPort) {
+                startingTcpPort.set(cMsgNetworkConstants.rcTcpClientPort + 1500);
             }
 
             tcpPort = startingTcpPort.get();
