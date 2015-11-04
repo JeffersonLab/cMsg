@@ -347,7 +347,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
   
     unsigned short serverPort;
     char   *expid=NULL,*subnet=NULL, buffer[1024];
-    int     err, status, len, expidLen, nameLen, i, index=0;
+    int     err, status, len, expidLen, nameLen, i, index=0, localPort;
     int32_t outGoing[7];
     int     myCodaId, multicastTO, dataBufSize, tcpSendBufSize=0, tcpNoDelay=0;
     char    temp[CMSG_MAXHOSTNAMELEN];
@@ -360,7 +360,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     thdArg    rArg,    bArg;
     
     struct timespec wait, time;
-    struct sockaddr_in servaddr, addr;
+    struct sockaddr_in servaddr, addr, localaddr;
     int    gotResponse=0;
     const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
         
@@ -417,10 +417,6 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
      * Talk to emu multicast server
      *-------------------------------------------------------*/
     
-    memset((void *)&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port   = htons(serverPort);
-    
     /* create UDP socket */
     domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (domain->sendSocket < 0) {
@@ -430,6 +426,23 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
         free(expid);
         return(CMSG_SOCKET_ERROR);
     }
+
+    memset((void *)&localaddr, 0, sizeof(localaddr));
+    localaddr.sin_family = AF_INET;
+    localaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    /* Pick local port for socket to avoid being assigned a port
+       to which cMsgServerFinder is multicasting. */
+    for (localPort = EMU_UDP_CLIENT_LISTENING_PORT; localPort < 65535; localPort++) {
+        localaddr.sin_port = htons((uint16_t)localPort);
+        if (bind(domain->sendSocket, (struct sockaddr *)&localaddr, sizeof(localaddr)) == 0) {
+            break;
+        }
+    }
+    /* If  bind always failed, then ephemeral port will be used. */
+
+    memset((void *)&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port   = htons(serverPort);
 
     /* Set TTL to 32 so it will make it through routers. */
     err = setsockopt(domain->sendSocket, IPPROTO_IP, IP_MULTICAST_TTL, (void *) &ttl, sizeof(ttl));

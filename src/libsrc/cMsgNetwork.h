@@ -127,7 +127,19 @@
 
 /** TCP port at which a run control client starts looking for a port to listen on and the port
  * that a run control server assumes a client is waiting for connections on. */
-#define RC_CLIENT_LISTENING_PORT 45800
+#define RC_TCP_CLIENT_LISTENING_PORT 45800
+
+/** UDP port at which an rc domain client starts looking for a port for the local end
+ * of a UDP socket to use when multicasting to find server. */
+#define RC_UDP_CLIENT_LISTENING_PORT 45700
+
+/** UDP port at which a emu domain client starts looking for a port for the local end
+ * of a UDP socket to use when multicasting to find server. */
+#define EMU_UDP_CLIENT_LISTENING_PORT 46600
+
+/** UDP port at which a cMsg domain client starts looking for a port for the local end
+ * of a UDP socket to use when multicasting to find server. */
+#define CMSG_UDP_CLIENT_LISTENING_PORT 45900
 
 /** Default UDP port at which a run control broadcast server listens for broadcasts
  *  and at which a rc domain client looks for the broadcast server. */
