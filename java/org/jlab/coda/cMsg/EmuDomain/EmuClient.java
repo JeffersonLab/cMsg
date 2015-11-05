@@ -710,6 +710,10 @@ System.out.println("preferred subnet = " + preferredSubnet);
 System.out.println("Got IOException in multicast receive, exiting");
                     return;
                 }
+                // Weed out unknown format packets
+                catch (Exception e) {
+                    continue;
+                }
                 break;
             }
 

@@ -534,7 +534,7 @@ System.out.println("RC connect: SUCCESSFUL");
      *         null if no response is found
      * @throws cMsgException
      */
-    public cMsgMessage monitor(String command) throws cMsgException {
+    public cMsgMessage monitor(final String command) throws cMsgException {
 
         /** Tell us receiver thread has started. */
         final CountDownLatch startLatch = new CountDownLatch(1);
@@ -673,6 +673,10 @@ System.out.println("RC connect: SUCCESSFUL");
                     catch (IOException e) {
                         //System.out.println("  IO exception in receiving thread so return");
                         return;
+                    }
+                    catch (Exception e) {
+                        //Weed out unknown format packets
+                        continue;
                     }
                     break;
                 }

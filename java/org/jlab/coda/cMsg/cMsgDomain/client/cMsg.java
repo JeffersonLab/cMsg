@@ -821,7 +821,7 @@ System.out.println("INTERRUPTING WAIT FOR MULTICAST RESPONSE, (timeout NOT speci
 
                         break;
                     }
-                    catch (IOException e) {
+                    catch (Exception e) {
                     }
                 }
 
