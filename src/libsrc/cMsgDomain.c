@@ -6468,7 +6468,7 @@ static void *updateServerThread(void *arg) {
     intptr_t index;
     void *domainId = arg;
     cMsgDomainInfo *domain;
-    int socket, err, state, status;
+    int socket, state, status;
     int sleepTime = 2; /* 2 secs between monitoring sends */
         
     /* increase concurrency for this thread for early Solaris */
@@ -6517,13 +6517,9 @@ static void *updateServerThread(void *arg) {
         }
         socket = domain->keepAliveSocket;
 
-        err = sendMonitorInfo(domain, socket);
-        if (err != CMSG_OK) {
-            if (cMsgDebug >= CMSG_DEBUG_ERROR) {
-                fprintf(stderr, "updateServerThread: write failure\n");
-            }
-        }
-        
+        sendMonitorInfo(domain, socket);
+        /* Don't printout any error msg here as it is usually voluminous */
+
         /* re-enable pthread cancellation at deferred points (sleep) */
         status = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &state);
         if (status != 0) {
@@ -6591,7 +6587,7 @@ static int sendMonitorInfo(cMsgDomainInfo *domain, int connfd) {
         strcat(xml, indent2);
         strcat(xml, "<callback id=\"");
         pchar = xml + strlen(xml);
-        sprintf(pchar, "%d%s%llu%s%d", num++, "\" received=\"",
+        sprintf(pchar, "%d%s%lu%s%d", num++, "\" received=\"",
                 cb->msgCount, "\" cueSize=\"", cb->messages);
         strcat(xml, "\"/>\n");
 
@@ -6691,16 +6687,16 @@ static int sendMonitorInfo(cMsgDomainInfo *domain, int connfd) {
  
   
   /* total number of bytes to send */
-  size = strlen(xml) + sizeof(outInt) - sizeof(int) + sizeof(out64);
+  size = (int) (strlen(xml) + sizeof(outInt) - sizeof(int) + sizeof(out64));
 /*
 printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int array = %d, total size = %d\n",
         strlen(xml), sizeof(outInt), sizeof(out64), size);
 */
-  outInt[0] = htonl(size);
-  outInt[1] = htonl(strlen(xml));
+  outInt[0] = htonl((uint32_t)size);
+  outInt[1] = htonl((uint32_t)strlen(xml));
   outInt[2] = 0; /* This is a C/C++ client (1 for java) */
-  outInt[3] = htonl(monData->subAndGets);  /* pending sub&gets */
-  outInt[4] = htonl(monData->sendAndGets); /* pending send&gets */
+  outInt[3] = htonl((uint32_t)monData->subAndGets);  /* pending sub&gets */
+  outInt[4] = htonl((uint32_t)monData->sendAndGets); /* pending send&gets */
   
   out64[0] = hton64(monData->numTcpSends);
   out64[1] = hton64(monData->numUdpSends);
@@ -6717,15 +6713,18 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
   /* xml already in buffer */
   
   /* Respond with monitor data. Normally this is a pthread cancellation point;
-   * however, cancellation has been blocked at this point. */
+   * however, cancellation has been blocked at this point. Don't print out any
+   * error here as it is voluminous. */
   if ( (err = cMsgNetTcpWrite(connfd, (void *) buffer, len)) != len) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
+      /*
       if (err < 0) {
         fprintf(stderr, "sendMonitorInfo: write failure, err = %d (%s)\n", err, strerror(errno));
       }
       else {
         fprintf(stderr, "sendMonitorInfo: write failure, partial (%d bytes) monitor data written\n", err);
       }
+      */
     }
     return CMSG_NETWORK_ERROR;
   }
