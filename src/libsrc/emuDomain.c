@@ -349,7 +349,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     char   *expid=NULL,*subnet=NULL, buffer[1024];
     int     err, status, len, expidLen, nameLen, i, index=0, localPort;
     int32_t outGoing[7];
-    int     myCodaId, multicastTO, dataBufSize, tcpSendBufSize=0, tcpNoDelay=0;
+    int     myCodaId, multicastTO, dataBufSize, tcpSendBufSize=0, tcpNoDelay=0, off=0;
     char    temp[CMSG_MAXHOSTNAMELEN];
     char   *portEnvVariable=NULL;
     unsigned char ttl = 32;
@@ -427,12 +427,15 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
         return(CMSG_SOCKET_ERROR);
     }
 
+    /* Give each local socket a unique port on a single host. */
+    setsockopt(domain->sendSocket, SOL_SOCKET, SO_REUSEPORT, (void *)(&off), sizeof(int));
+
     memset((void *)&localaddr, 0, sizeof(localaddr));
     localaddr.sin_family = AF_INET;
     localaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     /* Pick local port for socket to avoid being assigned a port
        to which cMsgServerFinder is multicasting. */
-    for (localPort = EMU_UDP_CLIENT_LISTENING_PORT; localPort < 65535; localPort++) {
+    for (localPort = UDP_CLIENT_LISTENING_PORT; localPort < 65535; localPort++) {
         localaddr.sin_port = htons((uint16_t)localPort);
         if (bind(domain->sendSocket, (struct sockaddr *)&localaddr, sizeof(localaddr)) == 0) {
             break;

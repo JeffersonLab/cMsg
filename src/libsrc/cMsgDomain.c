@@ -1078,7 +1078,7 @@ int cmsg_cmsg_reconnect(void *domainId) {
 static int connectWithMulticast(cMsgDomainInfo *domain, codaIpList **hostList, int *port) {
     char   *buffer;
     int    err, status, len, passwordLen, sockfd, isLocal, localPort;
-    int    outGoing[6], multicastTO=0, gotResponse=0;
+    int    outGoing[6], multicastTO=0, gotResponse=0, off=0;
     unsigned char ttl = 32;
 
     pthread_t rThread, bThread;
@@ -1104,12 +1104,15 @@ static int connectWithMulticast(cMsgDomainInfo *domain, codaIpList **hostList, i
         return(CMSG_SOCKET_ERROR);
     }
 
+    /* Give each local socket a unique port on a single host. */
+    setsockopt(domain->sendSocket, SOL_SOCKET, SO_REUSEPORT, (void *)(&off), sizeof(int));
+
     memset((void *)&localaddr, 0, sizeof(localaddr));
     localaddr.sin_family = AF_INET;
     localaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     /* Pick local port for socket to avoid being assigned a port
        to which cMsgServerFinder is multicasting. */
-    for (localPort = CMSG_UDP_CLIENT_LISTENING_PORT; localPort < 65535; localPort++) {
+    for (localPort = UDP_CLIENT_LISTENING_PORT; localPort < 65535; localPort++) {
         localaddr.sin_port = htons((uint16_t)localPort);
         if (bind(sockfd, (struct sockaddr *)&localaddr, sizeof(localaddr)) == 0) {
             break;

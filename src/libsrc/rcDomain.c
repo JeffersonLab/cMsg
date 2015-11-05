@@ -385,7 +385,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     unsigned short serverPort;
     char  *serverHost, *expid=NULL, buffer[1024];
     int    err, status, len, localPort;
-    int    i, index=0, connectTO=0;
+    int    i, index=0, connectTO=0, off=0;
     int32_t outGoing[9], senderId, expidLen, nameLen;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
@@ -570,15 +570,19 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         return(CMSG_SOCKET_ERROR);
     }
 
+    /* Give each local socket a unique port on a single host. */
+    setsockopt(domain->sendSocket, SOL_SOCKET, SO_REUSEPORT, (void *)(&off), sizeof(int));
+
     /* Bind local end of socket to this port */
     memset((void *)&localaddr, 0, sizeof(localaddr));
     localaddr.sin_family = AF_INET;
     localaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     /* Pick local port for socket to avoid being assigned a port
        to which cMsgServerFinder is multicasting. */
-    for (localPort = RC_UDP_CLIENT_LISTENING_PORT; localPort < 65535; localPort++) {
+    for (localPort = UDP_CLIENT_LISTENING_PORT; localPort < 65535; localPort++) {
         localaddr.sin_port = htons((uint16_t)localPort);
         if (bind(domain->sendSocket, (struct sockaddr *)&localaddr, sizeof(localaddr)) == 0) {
+fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
             break;
         }
     }
