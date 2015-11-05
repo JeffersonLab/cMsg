@@ -45,10 +45,7 @@ public class cMsgNetworkConstants {
     // so we'll chose ports in the 45,000 range to avoid potential conflicts.
 
     /** Default TCP port at which an Emu domain server listens for client connections = {@value} */
-    public static final int    emuTcpPort = 46400;
-    /** UDP port at which an emu domain client starts looking for a port for the local end
-     * of a UDP socket to use when multicasting to find server. */
-    public static final int    emuUdpClientPort = 46600;
+    public static final int    emuTcpPort = 46100;
 
     /** Default TCP port at which a cMsg domain name server listens for client connections = {@value} */
     public static final int    nameServerTcpPort = 45000;
@@ -63,19 +60,21 @@ public class cMsgNetworkConstants {
     /** TCP port at which a run control server starts looking for a port to listen
      *  for a client connection on = {@value} */
     public static final int    rcServerPort = 45300;
-    /** UDP port at which an rc domain client starts looking for a port for the local end
-     * of a UDP socket to use when multicasting to find server. */
-    public static final int    rcUdpClientPort = 45700;
     /** TCP port at which a run control client starts looking for a port to listen on and the port
       * that a run control server assumes a client is waiting for connections on = {@value} */
-    public static final int    rcTcpClientPort = 45800;
-
-    /** UDP port at which a cMsg domain client starts looking for a port for the local end
-     * of a UDP socket to use when multicasting to find server. */
-    public static final int    cMsgUdpClientPort = 45900;
+    public static final int    rcTcpClientPort = 45700;
 
     /** TCP port at which a TCPServer server listens for connections = {@value} */
     public static final int    tcpServerPort = 45600;
+
+    /** Mimimum value of a local UDP port range to avoid for client who multicasts looking a server.
+     * This prevents client from receiving multicasts meant for someone else. */
+    public static final int    UdpClientPortMin = 44999;
+    /** Maximum value of a local UDP port range to avoid for client who multicasts looking a server.
+      * This prevents client from receiving multicasts meant for someone else. */
+    public static final int    UdpClientPortMax = 46200;
+
+
 
     /** Int to send in UDP packet to cMsg name server if cMsg domain. */
     public static final int    cMsgDomainMulticast = 1;

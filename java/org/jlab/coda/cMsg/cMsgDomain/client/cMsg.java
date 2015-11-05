@@ -644,27 +644,12 @@ public class cMsg extends cMsgDomainAdapter {
             // create socket to receive at anonymous port & all interfaces
             udpSocket = new MulticastSocket();
 
-            // Pick local port for socket to avoid being assigned a port
-            // to which cMsgServerFinder is multicasting.
-            int port = cMsgNetworkConstants.cMsgUdpClientPort;
-            while (true) {
-                try {
-                    udpSocket.bind(new InetSocketAddress(port));
-                    break;
-                }
-                catch (IOException ex) {
-                    // try another port by adding one
-                    if (port < 65535) {
-                        port++;
-                        try { Thread.sleep(100);  }
-                        catch (InterruptedException e) {}
-                    }
-                    else {
-                        // Go back to ephemeral port
-                        udpSocket = new MulticastSocket();
-                        break;
-                    }
-                }
+            // Avoid local port for socket to which others may be multicasting to
+            int tries = 20;
+            while (udpSocket.getLocalPort() > cMsgNetworkConstants.UdpClientPortMin &&
+                   udpSocket.getLocalPort() < cMsgNetworkConstants.UdpClientPortMax) {
+                udpSocket = new MulticastSocket();
+                if (--tries < 0) break;
             }
 
             udpSocket.setSoTimeout(1000);

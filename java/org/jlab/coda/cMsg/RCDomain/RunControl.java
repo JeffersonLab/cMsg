@@ -364,31 +364,16 @@ public class RunControl extends cMsgDomainAdapter {
                 out.flush();
                 out.close();
 
-                // create socket to receive at anonymous port & all interfaces
+                // Create socket bound to ephemeral port
                 multicastUdpSocket = new MulticastSocket();
 
-                // Pick local port for socket to avoid being assigned a port
-                // to which cMsgServerFinder is multicasting.
-                int localPort = cMsgNetworkConstants.rcUdpClientPort;
-                while (true) {
-                    try {
-                        multicastUdpSocket.bind(new InetSocketAddress(localPort));
-                        break;
-                    }
-                    catch (IOException ex) {
-                        // try another port by adding one
-                        if (localPort < 65535) {
-                            localPort++;
-                            try { Thread.sleep(100);  }
-                            catch (InterruptedException e) {}
-                        }
-                        else {
-                            // Go back to ephemeral port
-                            multicastUdpSocket = new MulticastSocket();
-                            break;
-                        }
-                    }
-                }
+                // Avoid local port for socket to which others may be multicasting to
+                int tries = 20;
+                while (multicastUdpSocket.getLocalPort() > cMsgNetworkConstants.UdpClientPortMin &&
+                       multicastUdpSocket.getLocalPort() < cMsgNetworkConstants.UdpClientPortMax) {
+                    multicastUdpSocket = new MulticastSocket();
+                    if (--tries < 0) break;
+                 }
 
                 multicastUdpSocket.setTimeToLive(32);  // Make it through routers
 
@@ -752,6 +737,13 @@ System.out.println("RC connect: SUCCESSFUL");
 
                 // create socket to receive at anonymous port & all interfaces
                 socket = new MulticastSocket();
+                // Avoid local port for socket to which others may be multicasting to
+                int tries = 20;
+                while (socket.getLocalPort() > cMsgNetworkConstants.UdpClientPortMin &&
+                       socket.getLocalPort() < cMsgNetworkConstants.UdpClientPortMax) {
+                    socket = new MulticastSocket();
+                    if (--tries < 0) break;
+                }
                 socket.setReceiveBufferSize(1024);
                 socket.setSoTimeout(sleepTime);
                 socket.setTimeToLive(32);
