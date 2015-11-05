@@ -54,14 +54,12 @@ Version 4.0
 	  call in both C and Java returns a cMsg message with a String array payload item
 	  named "IpAddresses" which contains all the server's dot-decimal IP addresses.
 
-    - internal change: don't poll channels, transports, and modules for errors to determine
-      state. Have them report and error when it occurs. Eliminate unnecessary locks when
-      finding state and reporting errors/stats.
-      Have reset shut down ability for chan, trans, mods to change state.
-
     - if a client uses a password, but the cMsg server has none, cMsg now rejects the connection.
       In previous versions it allowed the connection. This change was made so that
       a cMsg server's password can act as a name. Clients can now multicast while specifying
       that password and will get a response from that server only (if it is unique).
+
+    - specify the local port of a udp socket for multicasting to avoid overlap with cMsgServerFinder
+      and thereby received unwanted udp packets
 
 
