@@ -766,10 +766,8 @@ public class cMsgServerFinder {
                     e.printStackTrace();
                     return;
                 }
+                // Possibly get this with unknown packet, so ignore packet
                 catch (Exception e) {
-//System.out.println("  Exception in cmsg receiving thread so return\n");
-                    e.printStackTrace();
-                    return;
                 }
             }
         }
@@ -1096,14 +1094,12 @@ public class cMsgServerFinder {
                     return;
                 }
                 catch (IOException e) {
-System.out.println("  cMsgServerFinder: IO exception in rc receiving thread so return\n");
+//System.out.println("  cMsgServerFinder: IO exception in rc receiving thread so return\n");
                     e.printStackTrace();
                     return;
                 }
+                // Possibly get this with unknown packet, ignore it
                 catch (Exception e) {
-System.out.println("  cMsgServerFinder: Exception in rc receiving thread so return\n");
-                    e.printStackTrace();
-                    return;
                 }
             }
         }
