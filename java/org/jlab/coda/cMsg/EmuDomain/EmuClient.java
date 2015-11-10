@@ -76,6 +76,9 @@ public class EmuClient extends cMsgDomainAdapter {
     /** From UDL, no delay setting for TCP socket. */
     private boolean tcpNoDelay = false;
 
+    /** From UDL, our coda id. */
+    private int codaID;
+
     /** From UDL, name of destination CODA component. */
     private String destComponentName;
 
@@ -143,11 +146,11 @@ public class EmuClient extends cMsgDomainAdapter {
             out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
             out.writeInt(cMsgNetworkConstants.emuDomainMulticastClient);
             out.writeInt(cMsgConstants.version);
-            out.writeInt(name.length());
+            out.writeInt(destComponentName.length());
             out.writeInt(expid.length());
 
             try {
-                out.write( name.getBytes("US-ASCII"));
+                out.write(destComponentName.getBytes("US-ASCII"));
                 out.write(expid.getBytes("US-ASCII"));
             }
             catch (UnsupportedEncodingException e) {/* never happen*/}
@@ -223,9 +226,9 @@ public class EmuClient extends cMsgDomainAdapter {
         if (!response) {
             throw new cMsgException("No response to UDP multicast received");
         }
-        else {
-System.out.println("Emu connect: got a response to multicast!");
-        }
+//        else {
+//System.out.println("Emu connect: got a response to multicast!");
+//        }
 
         // Now that we got a response from the Emu server,
         // we have the info to connect to its TCP listening thread.
@@ -248,9 +251,6 @@ System.out.println("Emu connect: got a response to multicast!");
         if (orderedIps != null && orderedIps.size() > 0) {
             for (String ip : orderedIps) {
                 try {
-System.out.println("Emu connect: Try making tcp connection to server (host = " +
-                    ip + "; port = " + tcpServerPort + ")");
-
                     tcpSocket = new Socket();
                     tcpSocket.setTcpNoDelay(tcpNoDelay);
                     tcpSocket.setSendBufferSize(tcpSendBufferSize);
@@ -258,11 +258,11 @@ System.out.println("Emu connect: Try making tcp connection to server (host = " +
                     if (outgoingIp != null) {
                         try {
                             tcpSocket.bind(new InetSocketAddress(outgoingIp, 0));
-System.out.println("Emu connect: bound outgoing data to " + outgoingIp);
+System.out.println("      Emu connect: bound outgoing data to " + outgoingIp);
                         }
                         catch (IOException e) {
                             // If we cannot bind to this IP address, forget about it
-System.out.println("Emu connect: tried but FAILED to bind outgoing data to " + outgoingIp);
+System.out.println("      Emu connect: tried but FAILED to bind outgoing data to " + outgoingIp);
                         }
                     }
                     // Don't waste time if a connection can't be made, timeout = 0.2 sec
@@ -270,17 +270,18 @@ System.out.println("Emu connect: tried but FAILED to bind outgoing data to " + o
 
                     domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
                                                                               cMsgNetworkConstants.bigBufferSize));
-System.out.println("Emu connect: Made tcp connection to Emu server");
+System.out.println("      Emu connect: Made TCP connection to host = " +
+                   ip + "; port = " + tcpServerPort);
                     serverIp = ip;
                     gotTcpConnection = true;
                     break;
                 }
                 catch (SocketTimeoutException e) {
-                    System.out.println("Emu connect: connection TIMEOUT");
+                    System.out.println("      Emu connect: connection TIMEOUT");
                     ioex = e;
                 }
                 catch (IOException e) {
-                    System.out.println("Emu connect: connection failed");
+                    System.out.println("      Emu connect: connection failed");
                     ioex = e;
                 }
             }
@@ -331,7 +332,7 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      *
      * Emu domain UDL is of the form:<p>
-     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&noDelay</b><p>
+     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&noDelay</b><p>
      *
      * Remember that for this domain:
      *<ol>
@@ -339,6 +340,7 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
      *<li>port is required - UDP multicast port<p>
      *<li>expid is required <p>
      *<li>compName is required - destination CODA component name<p>
+     *<li>codaId is required<p>
      *<li>optional timeout for connecting to emu server, defaults to 3 seconds<p>
      *<li>optional bufSize (max size in bytes of a single send) defaults to 2.1MB<p>
      *<li>optional tcpSend is the TCP send buffer size in bytes<p>
@@ -393,26 +395,42 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
         if (multicastServerPort < 1024 || multicastServerPort > 65535) {
             throw new cMsgException("parseUDL: illegal port number");
         }
-System.out.println("Port = " + multicastServerPort);
+//System.out.println("Port = " + multicastServerPort);
 
         // Get expid
         if (udlExpid == null) {
             throw new cMsgException("parseUDL: must specify the EXPID");
         }
         expid = udlExpid;
-System.out.println("expid = " + udlExpid);
+//System.out.println("expid = " + udlExpid);
 
         // Get destination CODA component name
         if (udlDestName == null) {
             throw new cMsgException("parseUDL: must specify the destination CODA component name");
         }
         destComponentName = udlDestName;
-System.out.println("component = " + udlDestName);
+//System.out.println("component = " + udlDestName);
 
         // If no remaining UDL to parse, return
         if (remainder == null) {
             throw new cMsgException("parseUDL: must specify the CODA id");
         }
+
+        // Look for ?codaId=value
+        pattern = Pattern.compile("[\\?]codaId=([0-9]+)", Pattern.CASE_INSENSITIVE);
+        matcher = pattern.matcher(remainder);
+        if (matcher.find()) {
+            try {
+                codaID = Integer.parseInt(matcher.group(1));
+            }
+            catch (NumberFormatException e) {
+                throw new cMsgException("parseUDL: improper CODA id", e);
+            }
+        }
+        else {
+            throw new cMsgException("parseUDL: must specify the CODA id");
+        }
+//System.out.println("CODA id = " + codaID);
 
         // Look for ?timeout=value or &timeout=value
         pattern = Pattern.compile("[\\?&]timeout=([0-9]+)", Pattern.CASE_INSENSITIVE);
@@ -469,7 +487,7 @@ System.out.println("component = " + udlDestName);
                 if (cMsgUtilities.isDottedDecimal(preferredSubnet) == null) {
                     preferredSubnet = null;
                 }
-System.out.println("preferred subnet = " + preferredSubnet);
+//System.out.println("preferred subnet = " + preferredSubnet);
             }
             catch (NumberFormatException e) {
                 // ignore error and keep value of 0
@@ -549,6 +567,7 @@ System.out.println("preferred subnet = " + preferredSubnet);
             domainOut.flush();
         }
         catch (IOException e) {
+            e.printStackTrace();
             if (debug >= cMsgConstants.debugError) {
                 System.out.println("send: " + e.getMessage());
             }
