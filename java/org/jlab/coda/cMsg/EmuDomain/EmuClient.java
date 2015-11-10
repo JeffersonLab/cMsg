@@ -68,7 +68,7 @@ public class EmuClient extends cMsgDomainAdapter {
     private CountDownLatch multicastResponse;
 
     /** From UDL, max size, in bytes, of data chunk to be sent in one msg. */
-    private int maxSize = 2100000;
+    private int maxSize = 4010000;
 
     /** TCP send buffer size in bytes. */
     private int tcpSendBufferSize = maxSize + 1024;
@@ -450,9 +450,9 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
             try {
-                maxSize = Integer.parseInt(matcher.group(1));
-                if (maxSize == 0) {
-                    maxSize = 2100000;
+                int mSize = Integer.parseInt(matcher.group(1));
+                if (mSize > 0) {
+                    maxSize = mSize;
                 }
 //System.out.println("max data buffer size = " + maxSize);
             }
