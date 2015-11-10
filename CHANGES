@@ -62,4 +62,8 @@ Version 4.0
     - specify the local port of a udp socket for multicasting to avoid overlap with cMsgServerFinder
       and thereby received unwanted udp packets
 
+ Version 5.0
+    - the emu domain sender now exactly identifies the receiving server to avoid mis-communication.
+      Do this by sending a multicast packet with the destination CODA component name to act
+      as a filter on the receiving end or like the password of the cMsg domain.
 
