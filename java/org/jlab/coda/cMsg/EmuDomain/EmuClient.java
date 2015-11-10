@@ -76,8 +76,8 @@ public class EmuClient extends cMsgDomainAdapter {
     /** From UDL, no delay setting for TCP socket. */
     private boolean tcpNoDelay = false;
 
-    /** From UDL, our coda id. */
-    private int codaID;
+    /** From UDL, name of destination CODA component. */
+    private String destComponentName;
 
     /** From UDL, our experiment id. */
     private String expid;
@@ -331,14 +331,14 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      *
      * Emu domain UDL is of the form:<p>
-     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&noDelay</b><p>
+     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&noDelay</b><p>
      *
      * Remember that for this domain:
      *<ol>
      *<li>multicast address is always 239.230.0.0<p>
-     *<li>port is required<p>
-     *<li>expid is required<p>
-     *<li>codaId is required<p>
+     *<li>port is required - UDP multicast port<p>
+     *<li>expid is required <p>
+     *<li>compName is required - destination CODA component name<p>
      *<li>optional timeout for connecting to emu server, defaults to 3 seconds<p>
      *<li>optional bufSize (max size in bytes of a single send) defaults to 2.1MB<p>
      *<li>optional tcpSend is the TCP send buffer size in bytes<p>
@@ -355,23 +355,26 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
             throw new cMsgException("invalid UDL");
         }
 
-        Pattern pattern = Pattern.compile("(\\d+)/([^?&]+)(.*)");
+        Pattern pattern = Pattern.compile("(\\d+)/([^/]+)/([^?&]+)(.*)");
         Matcher matcher = pattern.matcher(udlRemainder);
 
-        String udlPort, udlExpid, remainder;
+        String udlPort, udlExpid, udlDestName, remainder;
 
         if (matcher.find()) {
             // port
             udlPort = matcher.group(1);
             // expid
             udlExpid = matcher.group(2);
+            // destination component name
+            udlDestName = matcher.group(3);
             // remainder
-            remainder = matcher.group(3);
+            remainder = matcher.group(4);
 
             if (debug >= cMsgConstants.debugInfo) {
                 System.out.println("\nparseUDL: " +
                                    "\n  port      = " + udlPort +
                                    "\n  expid     = " + udlExpid +
+                                   "\n  component = " + udlDestName +
                                    "\n  remainder = " + remainder);
             }
         }
@@ -390,35 +393,26 @@ System.out.println("Emu connect: Made tcp connection to Emu server");
         if (multicastServerPort < 1024 || multicastServerPort > 65535) {
             throw new cMsgException("parseUDL: illegal port number");
         }
-//System.out.println("Port = " + multicastServerPort);
+System.out.println("Port = " + multicastServerPort);
 
         // Get expid
         if (udlExpid == null) {
             throw new cMsgException("parseUDL: must specify the EXPID");
         }
         expid = udlExpid;
-//System.out.println("expid = " + udlExpid);
+System.out.println("expid = " + udlExpid);
+
+        // Get destination CODA component name
+        if (udlDestName == null) {
+            throw new cMsgException("parseUDL: must specify the destination CODA component name");
+        }
+        destComponentName = udlDestName;
+System.out.println("component = " + udlDestName);
 
         // If no remaining UDL to parse, return
         if (remainder == null) {
             throw new cMsgException("parseUDL: must specify the CODA id");
         }
-
-        // Look for ?codaId=value
-        pattern = Pattern.compile("[\\?]codaId=([0-9]+)", Pattern.CASE_INSENSITIVE);
-        matcher = pattern.matcher(remainder);
-        if (matcher.find()) {
-            try {
-                codaID = Integer.parseInt(matcher.group(1));
-            }
-            catch (NumberFormatException e) {
-                throw new cMsgException("parseUDL: improper CODA id", e);
-            }
-        }
-        else {
-            throw new cMsgException("parseUDL: must specify the CODA id");
-        }
-//System.out.println("CODA id = " + codaID);
 
         // Look for ?timeout=value or &timeout=value
         pattern = Pattern.compile("[\\?&]timeout=([0-9]+)", Pattern.CASE_INSENSITIVE);
@@ -496,6 +490,7 @@ System.out.println("preferred subnet = " + preferredSubnet);
         }
 
     }
+
 
 
     /**
