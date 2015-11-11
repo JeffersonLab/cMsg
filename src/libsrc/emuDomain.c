@@ -477,8 +477,8 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
      * as does the UDP port we're sending from.
      */
 
-printf("emu connect: multicast info (expid = %s) to server on port = %hu (%s)\n",
-        expid, serverPort, EMU_MULTICAST_ADDR);
+/*printf("emu connect: multicast info (expid = %s) to server on port = %hu (%s)\n",
+        expid, serverPort, EMU_MULTICAST_ADDR);*/
     
     nameLen  = strlen(componentName);
     expidLen = strlen(expid);
@@ -545,7 +545,7 @@ printf("emu connect: multicast info (expid = %s) to server on port = %hu (%s)\n"
             cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
-printf("emu connect: wait %d seconds for multicast server to answer\n", multicastTO);
+/*printf("emu connect: wait %d seconds for multicast server to answer\n", multicastTO);*/
         status = pthread_cond_timedwait(&cond, &mutex, &time);
         if (status == ETIMEDOUT) {
           /* stop receiving thread */
@@ -569,7 +569,7 @@ printf("emu connect: wait %d seconds for multicast server to answer\n", multicas
             cmsg_err_abort(status, "pthread_mutex_lock");
         }
  
-printf("emu connect: wait forever for multicast server to answer\n");
+/*printf("emu connect: wait forever for multicast server to answer\n");*/
         status = pthread_cond_wait(&cond, &mutex);
         if (status != 0) {
             cmsg_err_abort(status, "pthread_cond_timedwait");
@@ -595,7 +595,7 @@ printf("emu connect: got no response\n");
         return(CMSG_TIMEOUT);
     }
     
-printf("emu connect: got a response from mcast server\n");       
+/*printf("emu connect: got a response from mcast server\n");*/
     close(domain->sendSocket);
  
     /* create TCP sending socket and store */
@@ -603,15 +603,16 @@ printf("emu connect: got a response from mcast server\n");
     /* The emu Server may have multiple network interfaces.
      * The ip address of each is stored in a hash table.
      * Try one at a time to see which we can use to connect. */
+    hashGetAll(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
 
     if (!gotValidEmuServerHost) {
         for (i=0; i < hashEntryCount; i++) {
             emuServerHost = hashEntries[i].key;
-printf("emu connect: from IP list, try making tcp connection to emu server = %s w/ TO = %u sec\n",
-       emuServerHost, (uint32_t) ((&tv)->tv_sec));
+/*printf("emu connect: from IP list, try making tcp connection to emu server = %s w/ TO = %u sec\n",
+       emuServerHost, (uint32_t) ((&tv)->tv_sec));*/
 
-//            if ((err = cMsgNetTcpConnectTimeout(emuServerHost, (unsigned short) domain->sendPort,
-//                tcpSendBufSize , 0, tcpNoDelay, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
+/*            if ((err = cMsgNetTcpConnectTimeout(emuServerHost, (unsigned short) domain->sendPort,
+                tcpSendBufSize , 0, tcpNoDelay, &tv, &domain->sendSocket, NULL)) == CMSG_OK) { */
             if ((err = cMsgNetTcpConnect(emuServerHost, NULL, (unsigned short) domain->sendPort,
                 tcpSendBufSize , 0, tcpNoDelay, &domain->sendSocket, NULL)) == CMSG_OK) {
 
@@ -983,11 +984,10 @@ int cmsg_emu_send(void *domainId, void *vmsg) {
 
   /* Type of message is in 1st (lowest) byte, source (Emu's EventType) of message is in 2nd byte */
   outGoing[0] = htonl((uint32_t)msg->userInt);
-
   /* Length of byte array (not including this int) */
   lenByteArray = msg->byteArrayLength;
   outGoing[1] = htonl((uint32_t)lenByteArray);
- 
+
   if (domain->gotConnection != 1) {
     return(CMSG_LOST_CONNECTION);
   }
