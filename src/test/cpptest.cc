@@ -21,11 +21,6 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <time.h>
 
 #include "cMsg.hxx"
 
@@ -51,7 +46,8 @@ int main(int argc,char **argv) {
   int16_t  ivals16[11];
   int32_t  ivals32[11];
   double   dvals[11];
-  char *s, *vals[3];
+  char *s;
+  const char *vals[3];
       
  
   if (debug) {
@@ -142,19 +138,19 @@ int main(int argc,char **argv) {
     
   vector<int8_t> *vec = msg.getInt8Vector("myInt8Array");
   for (ii=0; ii<vec->size(); ii++) {
-    printf("  int8 array vec[%d] = %d\n", ii, (*vec)[ii]);
+    printf("  int8 array vec[%d] = %d\n", (int)ii, (*vec)[ii]);
   }
   delete(vec);
   
   vector<double> *dvec = msg.getDoubleVector("myDoubleArray");
   for (ii=0; ii<dvec->size(); ii++) {
-    printf("  dbl array vec[%d] = %.16lg\n", ii, (*dvec)[ii]);
+    printf("  dbl array vec[%d] = %.16lg\n", (int)ii, (*dvec)[ii]);
   }
   delete(dvec);
 
   vector<string> *svec = msg.getStringVector("heyho");
   for (ii=0; ii<svec->size(); ii++) {
-    printf("  str array vec[%d] = %s\n", ii, (*svec)[ii].c_str());
+    printf("  str array vec[%d] = %s\n", (int)ii, (*svec)[ii].c_str());
   }
   delete(svec);
 
