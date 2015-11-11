@@ -54,9 +54,7 @@
 #include <pthread.h>
 
 #include "cMsgPrivate.h"
-#include "cMsg.h"
 #include "cMsgNetwork.h"
-#include "rwlock.h"
 #include "cMsgRegex.h"
 #include "cMsgDomain.h"
 
@@ -108,9 +106,9 @@ static void *multicastThd(void *arg);
 static int   udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static void  defaultShutdownHandler(void *userArg);
 static int parseUDL(const char *UDLR, unsigned short *port,
-                    char **expid, int  *codaId, int  *timeout,
-                    int  *bufSize, int  *tcpSend, int  *noDelay,
-                    char** subnet, char **remainder);
+                    char **expid, char **compName, int  *codaId,
+                    int  *timeout, int  *bufSize, int  *tcpSend,
+                    int  *noDelay, char** subnet, char **remainder);
                       
 /* Prototypes of the 28 functions which implement the standard tasks in cMsg. */
 int   cmsg_emu_connect           (const char *myUDL, const char *myName,
@@ -346,36 +344,34 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
                      const char *UDLremainder, void **domainId) {
   
     unsigned short serverPort;
-    char   *expid=NULL,*subnet=NULL, buffer[1024];
-    int     err, status, len, expidLen, nameLen, i, index=0, localPort;
+    char   *expid=NULL,*subnet=NULL, *componentName=NULL, buffer[1024];
+    int     err, status, len, i, index=0, localPort;
+    size_t  expidLen, nameLen;
     int32_t outGoing[7];
     int     myCodaId, multicastTO, dataBufSize, tcpSendBufSize=0, tcpNoDelay=0, off=0;
     char    temp[CMSG_MAXHOSTNAMELEN];
-    char   *portEnvVariable=NULL;
     unsigned char ttl = 32;
     cMsgDomainInfo *domain;
-    cMsgThreadInfo *threadArg;
-    
+
     pthread_t rThread, bThread;
     thdArg    rArg,    bArg;
     
     struct timespec wait, time;
-    struct sockaddr_in servaddr, addr, localaddr;
+    struct sockaddr_in servaddr, localaddr;
     int    gotResponse=0;
-    const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
-        
+
     /* for connecting to emu Server w/ TCP */
     hashNode *hashEntries = NULL;
-    int hashEntryCount=0, haveHashEntries=0, gotValidEmuServerHost=0;
+    int hashEntryCount=0, gotValidEmuServerHost=0;
     char *emuServerHost = NULL;
     struct timeval tv;
 
     /* clear array */
     memset((void *)buffer, 0, 1024);
     
-    /* parse the UDLRemainder to get the port, expid, codaId,
+    /* parse the UDLRemainder to get the port, expid, component name, codaId,
        timeout, dataBufSize, TCP sendBufSize, TCP noDelay, and preferred subnet */
-    err = parseUDL(UDLremainder, &serverPort, &expid, &myCodaId, &multicastTO,
+    err = parseUDL(UDLremainder, &serverPort, &expid, &componentName, &myCodaId, &multicastTO,
                    &dataBufSize, &tcpSendBufSize, &tcpNoDelay, &subnet, NULL);
     if (err != CMSG_OK) {
         return(err);
@@ -394,7 +390,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     cMsgDomainInit(domain);  
 
     /* allocate memory for message-sending buffer */
-    domain->msgBuffer     = (char *) malloc(initialMsgBufferSize);
+    domain->msgBuffer     = (char *) malloc((size_t)initialMsgBufferSize);
     domain->msgBufferSize = initialMsgBufferSize;
     if (domain->msgBuffer == NULL) {
         cMsgDomainFree(domain);
@@ -405,12 +401,12 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
 
     /* store our host's name */
     gethostname(temp, CMSG_MAXHOSTNAMELEN);
-    domain->myHost = (char *) strdup(temp);
+    domain->myHost = strdup(temp);
 
     /* store names, can be changed until server connection established */
-    domain->name        = (char *) strdup(myName);
-    domain->udl         = (char *) strdup(myUDL);
-    domain->description = (char *) strdup(myDescription);
+    domain->name        = strdup(myName);
+    domain->udl         = strdup(myUDL);
+    domain->description = strdup(myDescription);
 
 
     /*-------------------------------------------------------
@@ -474,9 +470,9 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     /*
      * We send 4 items:
      *   1) Type of multicast (emu domain multicast from client),
-     *   1) major cMsg version number,
-     *   2) name of this client, &
-     *   2) EXPID (experiment id string)
+     *   2) major cMsg version number,
+     *   3) name of destination CODA component, &
+     *   4) EXPID (experiment id string)
      * The host we're sending from gets sent for free
      * as does the UDP port we're sending from.
      */
@@ -484,7 +480,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
 printf("emu connect: multicast info (expid = %s) to server on port = %hu (%s)\n",
         expid, serverPort, EMU_MULTICAST_ADDR);
     
-    nameLen  = strlen(myName);
+    nameLen  = strlen(componentName);
     expidLen = strlen(expid);
     
     /* magic #s */
@@ -496,14 +492,14 @@ printf("emu connect: multicast info (expid = %s) to server on port = %hu (%s)\n"
     /* cMsg version */
     outGoing[4] = htonl(CMSG_VERSION_MAJOR);
     /* length of "myName" string */
-    outGoing[5] = htonl(nameLen);
+    outGoing[5] = htonl((uint32_t)nameLen);
     /* length of "expid" string */
-    outGoing[6] = htonl(expidLen);
+    outGoing[6] = htonl((uint32_t)expidLen);
 
     /* copy data into a single buffer */
     memcpy(buffer, (void *)outGoing, sizeof(outGoing));
     len = sizeof(outGoing);
-    memcpy(buffer+len, (const void *)myName, nameLen);
+    memcpy(buffer+len, (const void *)componentName, nameLen);
     len += nameLen;
     memcpy(buffer+len, (const void *)expid, expidLen);
     len += expidLen;
@@ -607,7 +603,6 @@ printf("emu connect: got a response from mcast server\n");
     /* The emu Server may have multiple network interfaces.
      * The ip address of each is stored in a hash table.
      * Try one at a time to see which we can use to connect. */
-    haveHashEntries = hashGetAll(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
 
     if (!gotValidEmuServerHost) {
         for (i=0; i < hashEntryCount; i++) {
@@ -655,9 +650,9 @@ printf("emu connect: failed to connect to %s on port %hu\n", emuServerHost, doma
     /* cMsg major version */
     outGoing[3] = htonl(CMSG_VERSION_MAJOR);
     /* my coda Id */
-    outGoing[4] = htonl(myCodaId);
+    outGoing[4] = htonl((uint32_t)myCodaId);
     /* max size data buffer in bytes in one cMsg message */
-    outGoing[5] = htonl(dataBufSize);
+    outGoing[5] = htonl((uint32_t)dataBufSize);
 
     /* send data over TCP socket */
     len = cMsgNetTcpWrite(domain->sendSocket, (void *) outGoing, 6*sizeof(int32_t));
@@ -700,8 +695,8 @@ static void *receiverThd(void *arg) {
 
     thdArg *threadArg = (thdArg *) arg;
     int32_t ints[5], length;
-    int     i, magic[3], addressCount, port, len1, minMsgSize;
-    char    buf[1024], *pbuf, *tmp, *host=NULL;
+    int     i, magic[3], addressCount, port, minMsgSize;
+    char    buf[1024], *pbuf, *tmp;
     ssize_t len;
     cMsgDomainInfo *domain = threadArg->domain;
 
@@ -740,9 +735,9 @@ static void *receiverThd(void *arg) {
 printf("receiverThd: packet from host %s on port %hu\n",
                 inet_ntoa(threadArg->addr.sin_addr), ntohs(threadArg->addr.sin_port));
 */
-        magic[0] = ntohl(ints[0]);
-        magic[1] = ntohl(ints[1]);
-        magic[2] = ntohl(ints[2]);
+        magic[0] = ntohl((uint32_t)ints[0]);
+        magic[1] = ntohl((uint32_t)ints[1]);
+        magic[2] = ntohl((uint32_t)ints[2]);
         if (magic[0] != CMSG_MAGIC_INT1 ||
             magic[1] != CMSG_MAGIC_INT2 ||
             magic[2] != CMSG_MAGIC_INT3)  {
@@ -750,14 +745,14 @@ printf("receiverThd: packet from host %s on port %hu\n",
           continue;
         }
 
-        port = ntohl(ints[3]);
+        port = ntohl((uint32_t)ints[3]);
         if (port != threadArg->port) {
           printf("receiverThd: received bad port response to multicast (%d)\n", port);
           continue;
         }
         domain->sendPort = port;
 
-        addressCount = ntohl(ints[4]);
+        addressCount = ntohl((uint32_t)ints[4]);
         if (addressCount < 1) {
           printf("receiverThd: received bad IP addresse count (%d)\n", addressCount);
           continue;
@@ -772,7 +767,7 @@ printf("receiverThd: packet from host %s on port %hu\n",
             
             /* # of chars in string stored in 32 bit int */
             length = *((int32_t *) pbuf);
-            length = ntohl(length);
+            length = ntohl((uint32_t)length);
             pbuf += sizeof(int32_t);
 
             if (length > 0) {
@@ -791,7 +786,7 @@ printf("receiverThd: packet from host %s on port %hu\n",
             /* get broadcast address and store in hash table */
             
             length = *((int32_t *) pbuf);
-            length = ntohl(length);
+            length = ntohl((uint32_t)length);
             pbuf += sizeof(int32_t);
             
             if (length > 0) {
@@ -987,11 +982,11 @@ int cmsg_emu_send(void *domainId, void *vmsg) {
   fd = domain->sendSocket;
 
   /* Type of message is in 1st (lowest) byte, source (Emu's EventType) of message is in 2nd byte */
-  outGoing[0] = htonl(msg->userInt);
+  outGoing[0] = htonl((uint32_t)msg->userInt);
 
   /* Length of byte array (not including this int) */
   lenByteArray = msg->byteArrayLength;
-  outGoing[1] = htonl(lenByteArray);
+  outGoing[1] = htonl((uint32_t)lenByteArray);
  
   if (domain->gotConnection != 1) {
     return(CMSG_LOST_CONNECTION);
@@ -1220,13 +1215,6 @@ int cmsg_emu_stop(void *domainId) {
 int cmsg_emu_disconnect(void **domainId) {
 
     cMsgDomainInfo *domain;
-    int i, tblSize, status, loops=0, domainUsed=1;
-    subscribeCbInfo *cb, *cbNext;
-    subInfo *sub;
-    struct timespec wait = {0, 10000000}; /* 0.01 sec */
-    hashNode *entries = NULL;
-    cMsgMessage_t *msg, *nextMsg;
-    void *p;
 
     if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
     domain = (cMsgDomainInfo *) (*domainId);
@@ -1331,18 +1319,20 @@ int cmsg_emu_shutdownServers(void *domainId, const char *server, int flag) {
 
 /*-------------------------------------------------------------------*/
 
+
 /**
  * This routine parses, using regular expressions, the emu domain
  * portion of the UDL sent from the next level up" in the API.
  *
  * Emu domain UDL is of the form:<p>
- *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&noDelay</b><p>
+ *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&noDelay</b><p>
  *
  * Remember that for this domain:
  *<ol>
  *<li>multicast address is always 239.230.0.0<p>
  *<li>port (of emu domain server) is required<p>
  *<li>expid is required<p>
+ *<li>compName is required - destination CODA component name<p>
  *<li>codaId (coda id of data sender) is required<p>
  *<li>optional timeout (sec) to connect to emu server, default = 0 (wait forever)<p>
  *<li>optional bufSize (max size in bytes of a single send), min = 1KB, default = 2.1MB<p>
@@ -1353,13 +1343,14 @@ int cmsg_emu_shutdownServers(void *domainId, const char *server, int flag) {
  *
  * @param UDLR       partial UDL to be parsed
  * @param port       pointer filled in with port
- * @param expid      pointer filled in with expid value, allocates mem and must be freed by caller
- * @param codaId     pointer filled in with codaId value
- * @param timeout    pointer filled in with timeout value if it exists
- * @param bufSize    pointer filled in with bufSize value if it exists
- * @param tcpSend    pointer filled in with tcpSend value if it exists
+ * @param expid      pointer filled in with expid, allocates mem and must be freed by caller
+ * @param compName   pointer filled in with component name, allocates mem and must be freed by caller
+ * @param codaId     pointer filled in with codaId
+ * @param timeout    pointer filled in with timeout if it exists
+ * @param bufSize    pointer filled in with bufSize if it exists
+ * @param tcpSend    pointer filled in with tcpSend if it exists
  * @param noDelay    pointer filled in with 1 if noDelay exists, else 0
- * @param subnet     pointer filled in with preferred subnet value, allocates mem and must be freed by caller
+ * @param subnet     pointer filled in with preferred subnet, allocates mem and must be freed by caller
  * @param remainder  pointer filled in with the part of the udl after host:port/expid if it exists,
  *                   else it is set to NULL; allocates mem and must be freed by caller if not NULL
  *
@@ -1372,6 +1363,7 @@ int cmsg_emu_shutdownServers(void *domainId, const char *server, int flag) {
 static int parseUDL(const char *UDLR,
                     unsigned short *port,
                     char **expid,
+                    char **compName,
                     int  *codaId,
                     int  *timeout,
                     int  *bufSize,
@@ -1382,10 +1374,10 @@ static int parseUDL(const char *UDLR,
 
     int        err, Port, index;
     size_t     len, bufLength;
-    char       *udlRemainder, *val, *myExpid = NULL;
+    char       *udlRemainder, *val, *myExpid = NULL, *myComponent=NULL;
     char       *buffer;
-    const char *pattern = "([0-9]+)/([^?&]+)(.*)";
-    regmatch_t matches[4]; /* we have 4 potential matches: 1 whole, 3 sub */
+    const char *pattern = "([0-9]+)/([^/]+)/([^?&]+)(.*)";
+    regmatch_t matches[5]; /* we have 5 potential matches: 1 whole, 4 sub */
     regex_t    compiled;
     
     if (UDLR == NULL) {
@@ -1393,7 +1385,7 @@ static int parseUDL(const char *UDLR,
     }
     
     /* make a copy */        
-    udlRemainder = (char *) strdup(UDLR);
+    udlRemainder = strdup(UDLR);
     if (udlRemainder == NULL) {
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -1418,7 +1410,7 @@ static int parseUDL(const char *UDLR,
     }
     
     /* find matches */
-    err = cMsgRegexec(&compiled, udlRemainder, 4, matches, 0);
+    err = cMsgRegexec(&compiled, udlRemainder, 5, matches, 0);
     if (err != 0) {
         /* no match */
         free(udlRemainder);
@@ -1455,25 +1447,25 @@ printf("parseUDL: port required in UDL\n");
     }
                
     if (port != NULL) {
-      *port = Port;
+      *port = (unsigned short)Port;
     }
 /*printf("parseUDL: port = %hu\n", Port);*/
 
-	/**************/        
+    /**************/
     /* find expid */
-	/**************/        
+    /**************/
     index++;
     buffer[0] = 0;
     if (matches[index].rm_so < 0) {
         free(udlRemainder);
         free(buffer);
-printf("parseUDL: expid required in UDL\n");
+        printf("parseUDL: expid required in UDL\n");
         return (CMSG_BAD_FORMAT);
     }
     else {
         len = matches[index].rm_eo - matches[index].rm_so;
-        strncat(buffer, udlRemainder+matches[index].rm_so, len);                
-        myExpid = (char *) strdup(buffer);
+        strncat(buffer, udlRemainder+matches[index].rm_so, len);
+        myExpid = strdup(buffer);
 
         if (expid != NULL) {
             *expid = myExpid;
@@ -1481,7 +1473,30 @@ printf("parseUDL: expid required in UDL\n");
     }
 /*printf("parseUDL: expid = %s\n", myExpid);*/
 
-	/******************/        
+    /***********************/
+    /* find component name */
+    /***********************/
+    index++;
+    buffer[0] = 0;
+    if (matches[index].rm_so < 0) {
+        free(udlRemainder);
+        free(buffer);
+        free(myExpid);
+        printf("parseUDL: destination component name required in UDL\n");
+        return (CMSG_BAD_FORMAT);
+    }
+    else {
+        len = matches[index].rm_eo - matches[index].rm_so;
+        strncat(buffer, udlRemainder+matches[index].rm_so, len);
+        myComponent = strdup(buffer);
+
+        if (compName != NULL) {
+            *compName = myComponent;
+        }
+    }
+/*printf("parseUDL: component name = %s\n", myComponent);*/
+
+    /******************/
     /* find remainder */
 	/******************/        
     index++;
@@ -1490,6 +1505,7 @@ printf("parseUDL: expid required in UDL\n");
         free(udlRemainder);
         free(buffer);
         free(myExpid);
+        free(myComponent);
 printf("parseUDL: codaId required in UDL\n");
         return (CMSG_BAD_FORMAT);
     }
@@ -1498,7 +1514,7 @@ printf("parseUDL: codaId required in UDL\n");
         strncat(buffer, udlRemainder+matches[index].rm_so, len);
                 
         if (remainder != NULL) {
-            *remainder = (char *) strdup(buffer);
+            *remainder = strdup(buffer);
         }
 /*printf("parseUDL: remainder = %s, len = %d\n", buffer, len);*/
     }
@@ -1510,6 +1526,7 @@ printf("parseUDL: codaId required in UDL\n");
         free(udlRemainder);
     	free(buffer);
         free(myExpid);
+        free(myComponent);
         cMsgRegfree(&compiled);
 printf("parseUDL: \"codaId\" must be set in UDL\n");
        return(CMSG_BAD_FORMAT);
@@ -1546,6 +1563,7 @@ printf("parseUDL: \"codaId\" must be set in UDL\n");
     	    free(udlRemainder);
     	    free(buffer);
             free(myExpid);
+            free(myComponent);
 		    free(val);
             cMsgRegfree(&compiled);
 printf("parseUDL: UDL needs to specify \"codaId\"\n");
