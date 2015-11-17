@@ -48,11 +48,8 @@ public class Et extends cMsgSubdomainAdapter {
     /** Method by which to open the ET system. */
     private int openMethod;
 
-    /** Broadcast to this port to open ET system. */
-    private int broadcastPort;
-
-    /** Multicast to this port to open ET system. */
-    private int multicastPort;
+    /** Broad/Multicast to this port to open ET system. */
+    private int udpPort;
 
     /** Directly connect to this port to open ET system. */
     private int serverPort;
@@ -197,9 +194,8 @@ public class Et extends cMsgSubdomainAdapter {
 //System.out.println("parsed open = " + s);
         }
 
-        serverPort    = EtConstants.serverPort;
-        broadcastPort = EtConstants.broadcastPort;
-        multicastPort = EtConstants.multicastPort;
+        serverPort = EtConstants.serverPort;
+        udpPort = EtConstants.udpPort;
 
         // look for ?port=value or &port=value
         pattern = Pattern.compile("[\\?&]port=([0-9]+)");
@@ -212,14 +208,8 @@ public class Et extends cMsgSubdomainAdapter {
                     if (openMethod == EtConstants.direct) {
                         serverPort = port;
                     }
-                    else if (openMethod == EtConstants.broadcast) {
-                        broadcastPort = port;
-                    }
-                    else if (openMethod == EtConstants.multicast) {
-                        multicastPort = port;
-                    }
-                    else if (openMethod == EtConstants.broadAndMulticast) {
-                        broadcastPort = port;
+                    else {
+                        udpPort = port;
                     }
                 }
                 else {
@@ -284,17 +274,17 @@ public class Et extends cMsgSubdomainAdapter {
                 config = new EtSystemOpenConfig(etFile, host, serverPort);
             }
             else if (openMethod == EtConstants.broadcast) {
-                config = new EtSystemOpenConfig(etFile, broadcastPort, host);
+                config = new EtSystemOpenConfig(etFile, udpPort, host);
             }
             else if (openMethod == EtConstants.multicast) {
                 config = new EtSystemOpenConfig(etFile, host, multicastAddrs,
-                                                multicastPort, EtConstants.multicastTTL);
+                                                udpPort, EtConstants.multicastTTL);
             }
             else if (openMethod == EtConstants.broadAndMulticast) {
                 // ET system will automatically find subnet addresses
                 config = new EtSystemOpenConfig(etFile, host,
                                  null, multicastAddrs,
-                                 false, openMethod, 0, broadcastPort, multicastPort,
+                                 false, openMethod, 0, udpPort,
                                  EtConstants.multicastTTL, EtConstants.policyFirst);
             }
 
