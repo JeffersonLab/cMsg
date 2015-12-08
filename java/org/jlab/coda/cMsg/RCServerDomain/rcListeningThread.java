@@ -762,7 +762,7 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
             // if callbacks have been stopped, return
             if (!server.isReceiving()) {
                 if (debug >= cMsgConstants.debugInfo) {
-                    System.out.println("runCallbacks: all subscription callbacks have been stopped");
+                    System.out.println("rc runCallbacks: all subscription callbacks have been stopped");
                 }
                 return;
             }
@@ -785,7 +785,8 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
             }
         }
         if (!delivered) {
-            System.out.println("runCallbacks: no callbacks to deliver msg to");
+            System.out.println("rc runCallbacks: no callbacks to deliver msg to (sub = " + msg.getSubject() +
+                               ", typ = " + msg.getType() + ") from rc client " + msg.getSender());
         }
     }
 
