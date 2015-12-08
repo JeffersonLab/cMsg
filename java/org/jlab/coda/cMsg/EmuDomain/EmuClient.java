@@ -461,8 +461,8 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
             }
         }
 
-        // now look for ?tcpBuf=value or &tcpBuf=value
-        pattern = Pattern.compile("[\\?&]tcpBuf=([0-9]+)", Pattern.CASE_INSENSITIVE);
+        // now look for ?tcpSend=value or &tcpSend=value
+        pattern = Pattern.compile("[\\?&]tcpSend=([0-9]+)", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
             try {
@@ -519,6 +519,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
         if (!connected) return;
 
         connected = false;
+        try {domainOut.flush();} catch (IOException e) {}
         multicastUdpSocket.close();
         try {tcpSocket.close();} catch (IOException e) {}
         try {domainOut.close();} catch (IOException e) {}
@@ -564,7 +565,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
             catch (UnsupportedEncodingException e) {
             }
 
-            domainOut.flush();
+            //domainOut.flush();
         }
         catch (IOException e) {
             e.printStackTrace();
