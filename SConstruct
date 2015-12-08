@@ -167,7 +167,7 @@ else:
 
     elif platform == 'Darwin':
         execLibs = ['pthread', 'dl']
-        env.Append(CPPDEFINES = ['Darwin'], SHLINKFLAGS = ['-multiply_define2', '-flat_namespace', 'suppress'])
+        env.Append(CPPDEFINES = ['Darwin'], SHLINKFLAGS = ['-undefined', 'suppress','-flat_namespace'])
         env.Append(CCFLAGS = ['-fmessage-length=0'])
 
 
