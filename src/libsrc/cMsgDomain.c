@@ -1104,8 +1104,11 @@ static int connectWithMulticast(cMsgDomainInfo *domain, codaIpList **hostList, i
         return(CMSG_SOCKET_ERROR);
     }
 
-    /* Give each local socket a unique port on a single host. */
+    /* Give each local socket a unique port on a single host.
+     * SO_REUSEPORT not defined in Redhat 5. I think off is default anyway. */
+#ifdef SO_REUSEPORT
     setsockopt(domain->sendSocket, SOL_SOCKET, SO_REUSEPORT, (void *)(&off), sizeof(int));
+#endif
 
     memset((void *)&localaddr, 0, sizeof(localaddr));
     localaddr.sin_family = AF_INET;
