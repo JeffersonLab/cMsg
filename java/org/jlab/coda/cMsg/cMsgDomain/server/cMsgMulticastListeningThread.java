@@ -249,21 +249,21 @@ System.out.println("multicast packet: bad version (" + version + ") != expected 
                 }
 //System.out.println("multicast packet: password = " + pswd);
 
-                // Compare sent password with name server's myCloudPassword.
+                // Compare sent password with name server's password (not the cloud password).
                 // Reject mismatches.
                 if (serverPassword != null) {
                     if (pswd == null || !serverPassword.equals(pswd)) {
-                  //      if (debug >= cMsgConstants.debugInfo) {
+                        if (debug >= cMsgConstants.debugInfo) {
                             System.out.println("REJECTING PASSWORD: server's does not match client's ("
                                     + pswd + ")");
-                 //       }
+                        }
                         continue;
                     }
                 }
                 else if (pswd != null) {
-                  //  if (debug >= cMsgConstants.debugInfo) {
+                    if (debug >= cMsgConstants.debugInfo) {
                         System.out.println("Client password (" + pswd + ") does not match server's (null), reject packet");
-                  //  }
+                    }
                     continue;
                 }
 
