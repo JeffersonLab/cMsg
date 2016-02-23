@@ -510,6 +510,21 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
     }
 
 
+    /**
+     * {@inheritDoc}
+     *
+     * @param timeout {@inheritDoc}
+     * @throws cMsgException if I/O exception on the output stream flush.
+     */
+    public void flush(int timeout) throws cMsgException {
+        try {
+            domainOut.flush();
+        }
+        catch (IOException e) {
+            throw new cMsgException(e);
+        }
+    }
+
 
     /**
      * Method to close the connection to the domain server. This method results in this object
@@ -530,7 +545,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
      * Method to send a message to the Emu domain server.
      *
      * @param message {@inheritDoc}
-     * @throws org.jlab.coda.cMsg.cMsgException if there are communication problems with the server;
+     * @throws cMsgException if there are communication problems with the server;
      *                       subject and/or type is null
      */
     synchronized public void send(final cMsgMessage message) throws cMsgException {
