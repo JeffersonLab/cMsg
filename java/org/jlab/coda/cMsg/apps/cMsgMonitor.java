@@ -18,6 +18,9 @@ package org.jlab.coda.cMsg.apps;
 
 import org.jlab.coda.cMsg.*;
 
+import java.util.Map;
+import java.util.Set;
+
 /**
  * This class prints out cMsg domain system monitoring information
  * obtained from a cMsg domain client.
@@ -119,6 +122,12 @@ public class cMsgMonitor {
         while (true) {
             msg = coda.monitor(null);
             if (msg == null) continue;
+            System.out.println("GOT MESSAGE: has payload = " + msg.hasPayload());
+            Map<String, cMsgPayloadItem> map = msg.getPayloadItems();
+            Set<Map.Entry<String, cMsgPayloadItem>> set = map.entrySet();
+            for (Map.Entry<String, cMsgPayloadItem> entry : set) {
+                System.out.println("Key = " + entry.getKey() + ", Val = " + entry.getValue());
+            }
 
             cMsgPayloadItem item = msg.getPayloadItem("IpAddresses");
             if (item != null) {
