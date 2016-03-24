@@ -75,11 +75,12 @@ public class cMsgPlatformSpy  implements Runnable {
 
     @Override
     public void run() {
-        finder = new cMsgServerFinder();
         enviromentalExpid = System.getenv("EXPID");
         if (expid == null) {
             expid = enviromentalExpid;
         }
+        finder = new cMsgServerFinder();
+        finder.setPassword(expid);
 
         while(true){
             finder.findRcServers();
