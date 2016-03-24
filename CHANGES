@@ -67,4 +67,5 @@ Version 5.0
       Do this by sending a multicast packet with the destination CODA component name to act
       as a filter on the receiving end or like the password of the cMsg domain.
     - fix bug in parsing emu domain UDL
+    - added flush() to emu domain so prestart event can be flushed through CODA's emu
 
