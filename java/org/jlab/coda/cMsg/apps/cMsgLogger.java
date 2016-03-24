@@ -242,7 +242,6 @@ public class cMsgLogger {
         // decode command line
         decode_command_line(args);
 
-
         // generate name if not set
         if(name==null) {
             String host="";
@@ -492,87 +491,69 @@ public class cMsgLogger {
             else if (args[i].equalsIgnoreCase("-name")) {
                 name = args[i + 1];
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-descr")) {
                 description = args[i + 1];
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-udl")) {
                 UDL= args[i + 1];
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-subject")) {
                 subject = args[i + 1];
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-type")) {
                 type= args[i + 1];
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-screen")) {
                 toScreen=true;
-
             }
             else if (args[i].equalsIgnoreCase("-verbose")) {
                 verbose=true;
-
             }
             else if (args[i].equalsIgnoreCase("-payload")) {
                 payload=true;
-
             }
             else if (args[i].equalsIgnoreCase("-header")) {
                 header=true;
-
             }
             else if (args[i].equalsIgnoreCase("-file")) {
                 filename= args[i + 1];
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-url")) {
                 url = args[i + 1];
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-table")) {
                table = args[i + 1];
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-driver")) {
                 driver = args[i + 1];
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-account")) {
                 account = args[i + 1];
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-pwd")) {
                 password = args[i + 1];
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-wide")) {
                 wide = true;
-
             }
             else if (args[i].equalsIgnoreCase("-maxText")) {
                 maxText = Integer.parseInt(args[i+1]);
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-maxByteArray")) {
                 maxByteArray = Integer.parseInt(args[i+1]);
                 i++;
-
             }
             else if (args[i].equalsIgnoreCase("-debug")) {
                 debug = true;
