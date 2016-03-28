@@ -46,6 +46,11 @@ public class cMsg extends cMsgDomainAdapter {
     /** The parsed form of the single UDL the client is currently connected to. */
     ParsedUDL currentParsedUDL;
 
+    /** All recognized subdomains, used in parsing UDL. */
+    private String[] allowedSubdomains = {"LogFile", "CA", "Database",
+                                          "Queue", "FileQueue", "SmartSockets",
+                                          "TcpServer", "cMsg"};
+
     //-- FAILOVER STUFF ---------------------------------------------------------------
 
     /** List of parsed UDL objects - one for each failover UDL. */
@@ -102,9 +107,6 @@ public class cMsg extends cMsgDomainAdapter {
 
     /** Domain server's host. */
     String domainServerHost;
-
-    /** Name server's TCP port. */
-    int nameServerPort;
 
     /** Domain server's TCP port. */
     int domainServerPort;
@@ -3079,6 +3081,11 @@ System.out.println("disconnect: IO error");
      *   </ul>
      * </ul>
      *
+     * The first "cMsg:" is optional. IN the case of the "cMsg" subdomain, its presence in the udl
+     * is also optional.
+     * The cMsg subdomain interprets the subdoman remainder as a namespace in which  messages live
+     * with no crossing of messages into other namespaces.
+     *
      * @param udl UDL to parse
      * @return an object with all the parsed UDL information in it
      * @throws cMsgException if UDL is null, no beginning cmsg://, no host given, unknown host
@@ -3132,6 +3139,27 @@ System.out.println("disconnect: IO error");
         // if subdomain not specified, use cMsg subdomain
         if (udlSubdomain == null) {
             udlSubdomain = "cMsg";
+        }
+        else {
+            // Make sure the sub domain is recognized.
+            // Because the cMsg subdomain is the only one in which a "/" is contained
+            // in the remainder, and because the presence of the "cMsg" subdomain identifier
+            // is optional, what will happen when it's parsed is that the namespace will be
+            // interpreted as the subdomain. Thus we must take care of this case.
+            // If we don't recognize the subdomain, assume it's the namespace of the cMsg
+            // subdomain.
+            boolean foundSubD = false;
+            for (String subDom: allowedSubdomains) {
+                if (subDom.equalsIgnoreCase(udlSubdomain)) {
+                    foundSubD = true;
+                    break;
+                }
+            }
+
+            if (!foundSubD) {
+                udlSubRemainder = udlSubdomain + "/" + matcher.group(4);
+                udlSubdomain = "cMsg";
+            }
         }
 
         boolean isLocal = false;
