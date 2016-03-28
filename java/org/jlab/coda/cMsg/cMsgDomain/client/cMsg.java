@@ -46,11 +46,6 @@ public class cMsg extends cMsgDomainAdapter {
     /** The parsed form of the single UDL the client is currently connected to. */
     ParsedUDL currentParsedUDL;
 
-    /** All recognized subdomains, used in parsing UDL. */
-    private String[] allowedSubdomains = {"LogFile", "CA", "Database",
-                                          "Queue", "FileQueue", "SmartSockets",
-                                          "TcpServer", "cMsg"};
-
     //-- FAILOVER STUFF ---------------------------------------------------------------
 
     /** List of parsed UDL objects - one for each failover UDL. */
@@ -3141,6 +3136,11 @@ System.out.println("disconnect: IO error");
             udlSubdomain = "cMsg";
         }
         else {
+            // All recognized subdomains
+            String[] allowedSubdomains = {"LogFile", "CA", "Database",
+                                          "Queue", "FileQueue", "SmartSockets",
+                                          "TcpServer", "cMsg"};
+
             // Make sure the sub domain is recognized.
             // Because the cMsg subdomain is the only one in which a "/" is contained
             // in the remainder, and because the presence of the "cMsg" subdomain identifier
