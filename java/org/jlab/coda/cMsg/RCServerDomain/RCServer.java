@@ -56,10 +56,6 @@ public class RCServer extends cMsgDomainAdapter {
      *  is on same subnet as rc server. */
     private ArrayList<String> clientIpOrderedSet;
 
-    /** Set of client broadcast/subnet addresses sorted to correspond
-     *  to entries in the clientIpOrderedSet. */
-    private ArrayList<String> clientBroadcastOrderedSet;
-
     /** Set of server IP addresses sorted so that first addr
      *  is on same subnet as rc client. */
     private ArrayList<String> serverIpOrderedSet;
@@ -279,7 +275,6 @@ public class RCServer extends cMsgDomainAdapter {
 
         clientIpOrderedSet = new ArrayList<String>();
         serverIpOrderedSet = new ArrayList<String>();
-        clientBroadcastOrderedSet = new ArrayList<String>();
 
         // Order both client and server IP lists so
         // that those on the same subnet come first.
