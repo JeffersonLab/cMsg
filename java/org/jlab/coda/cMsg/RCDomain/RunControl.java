@@ -982,6 +982,10 @@ System.out.println("RC connect: SUCCESSFUL");
                 if (specifiedLocalSubnet == null) {
                     specifiedLocalIp = null;
                 }
+                else if (specifiedLocalSubnet.equalsIgnoreCase(specifiedLocalIp)) {
+                    // User specified a broadcast address, so we can't use it
+                    specifiedLocalIp = specifiedLocalSubnet = null;
+                }
             }
             catch (cMsgException e) {
                 // Not dot-decimal format
