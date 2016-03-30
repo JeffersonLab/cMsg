@@ -402,8 +402,7 @@ public class RunControl extends cMsgDomainAdapter {
             Multicaster sender = new Multicaster(udpPacket);
             sender.start();
 
-            // Now that we got a response from the RC Multicast server,
-            // wait for that server to pass its info on to the RC server
+            // Wait for RC Multicast server to pass its info on to the RC server
             // which should complete this connect by sending a "connect"
             // message to our listening thread.
 
@@ -1290,12 +1289,7 @@ System.out.println("RC connect: SUCCESSFUL");
 
 
     /**
-     * Method to subscribe to receive messages of a subject and type from the domain server.
-     *
-     * Note about the server failing and an IOException being thrown. All existing
-     * subscriptions are resubscribed on the new failover server by the keepAlive thread.
-     * However, this routine will recover from an IO error during the subscribe itself
-     * if the failover is successful.
+     * Method to subscribe to receive messages of a subject and type from the rc server.
      *
      * @param subject {@inheritDoc}
      * @param type    {@inheritDoc}
@@ -1385,11 +1379,7 @@ System.out.println("RC connect: SUCCESSFUL");
 
     /**
      * Method to unsubscribe a previous subscription to receive messages of a subject and type
-     * from the domain server.
-     *
-     * Note about the server failing and an IOException being thrown. To have "unsubscribe" make
-     * sense on the failover server, we must wait until all existing subscriptions have been
-     * successfully resubscribed on the new server.
+     * from the rc server.
      *
      * @param obj {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server; object arg is null
