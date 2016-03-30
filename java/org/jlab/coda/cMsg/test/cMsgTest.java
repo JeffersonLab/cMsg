@@ -138,7 +138,7 @@ public class cMsgTest {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage:\n\n" +
-            "   java cMsgTestPayload\n" +
+            "   java cMsgTest\n" +
             "        [-n <name>]          set client name\n"+
             "        [-d <description>]   set description of client\n" +
             "        [-u <UDL>]           set UDL to connect to cMsg\n" +
