@@ -354,7 +354,6 @@ System.out.println("rcListening thd: connection to rc client already established
                             // dot-decimal IP addresses of server's host. These are in the
                             // message and must be recorded in the client for future use.
                             client.rcServerAddress = InetAddress.getByName(msg.getSenderHost());
-                            client.rcServerAddresses.clear();
 
                             cMsgPayloadItem pItem = msg.getPayloadItem("serverIp");
                             String serverIp;
@@ -362,23 +361,21 @@ System.out.println("rcListening thd: connection to rc client already established
                                 try {
                                     serverIp = pItem.getString();
                                     client.rcServerAddress = InetAddress.getByName(serverIp);
-                                    // TODO: don't really need this list, remove it once things are working
-                                    client.rcServerAddresses.add(client.rcServerAddress);
 //System.out.println("rcClient server handler: server's ip addr from payload = " + serverIp);
                                 }
                                 catch (cMsgException e) {/* never happen*/}
                             }
 
-                            pItem = msg.getPayloadItem("clientIp");
-                            if (pItem != null) {
-                                try {
-                                    String clientIp = pItem.getString();
-//System.out.println("rcClient server handler: this client's ip addr from payload = " + clientIp);
-                                    // TODO: use this to bind local end of socket?
-                                    // TODO: not necessary I think
-                                }
-                                catch (cMsgException e) {/* never happen*/}
-                            }
+//                            NO LONGER USED
+//
+//                            pItem = msg.getPayloadItem("clientIp");
+//                            if (pItem != null) {
+//                                try {
+//                                    String clientIp = pItem.getString();
+////System.out.println("rcClient server handler: this client's ip addr from payload = " + clientIp);
+//                                }
+//                                catch (cMsgException e) {/* never happen*/}
+//                            }
 
                             client.rcUdpServerPort = Integer.parseInt(msg.getText());
                             client.rcTcpServerPort = msg.getUserInt();

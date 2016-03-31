@@ -65,9 +65,6 @@ public class RunControl extends cMsgDomainAdapter {
     /** RunControl server's net addresses obtained from multicast response. */
     volatile InetAddress rcServerAddress;
 
-    /** RunControl server's net address obtained from multicast response. */
-    volatile LinkedList<InetAddress> rcServerAddresses = new LinkedList<InetAddress>();
-
     /** RunControl server's UDP listening port obtained from {@link #connect}. */
     volatile int rcUdpServerPort;
 
@@ -451,34 +448,26 @@ public class RunControl extends cMsgDomainAdapter {
             boolean gotTcpConnection = false;
             IOException ioex = null;
 
-            if (rcServerAddresses.size() > 0) {
-                for (InetAddress rcServerAddr : rcServerAddresses) {
-                    try {
-//System.out.println("RC connect: Try making tcp connection to RC server (host = " + rcServerAddr.getHostName() + ", " +
-//                   rcServerAddr.getHostAddress() + "; port = " + rcTcpServerPort + ")");
-
-                        tcpSocket = new Socket();
-                        // don't waste time if a connection cannot be made, timeout = 2 seconds
-                        tcpSocket.connect(new InetSocketAddress(rcServerAddr, rcTcpServerPort), 2000);
-                        tcpSocket.setTcpNoDelay(true);
-                        tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
-                        domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
-                                                                                  cMsgNetworkConstants.bigBufferSize));
-//System.out.println("RC connect: Made tcp connection to RC server");
-System.out.println("RC connect: made tcp connection to host " + rcServerAddr + ", port " + rcTcpServerPort);
-                        rcServerAddress = rcServerAddr;
-                        gotTcpConnection = true;
-                        break;
-                    }
-                    catch (SocketTimeoutException e) {
+            try {
+//System.out.println("RC connect: Try making tcp connection to RC server (host = " + rcServerAddress.getHostName() + ", " +
+//                           rcServerAddress.getHostAddress() + "; port = " + rcTcpServerPort + ")");
+                tcpSocket = new Socket();
+                // don't waste time if a connection cannot be made, timeout = 2 seconds
+                tcpSocket.connect(new InetSocketAddress(rcServerAddress, rcTcpServerPort), 2000);
+                tcpSocket.setTcpNoDelay(true);
+                tcpSocket.setSendBufferSize(cMsgNetworkConstants.bigBufferSize);
+                domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
+                                                                          cMsgNetworkConstants.bigBufferSize));
+System.out.println("RC connect: made tcp connection to host " + rcServerAddress + ", port " + rcTcpServerPort);
+                gotTcpConnection = true;
+            }
+            catch (SocketTimeoutException e) {
 //System.out.println("RC connect: connection TIMEOUT");
-                        ioex = e;
-                    }
-                    catch (IOException e) {
+                ioex = e;
+            }
+            catch (IOException e) {
 //System.out.println("RC connect: connection failed");
-                        ioex = e;
-                    }
-                }
+                ioex = e;
             }
 
 
