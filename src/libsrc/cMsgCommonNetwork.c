@@ -3005,7 +3005,8 @@ void codanetFreeIpAddrs(codaIpAddr *ipaddr) {
 /**
  * This routine finds all IP addresses, their names, subnets, & subnet masks of this host
  * and returns the data in the arguments. Only the first item of the returned linked
- * list or array will have the canonical name and aliases.
+ * list or array will have the canonical name and aliases. The returned linked list of
+ * structures in the first arg need to be freed by calling et/cMsgFreeIpAddrs().
  *
  * @param ipaddrs address of pointer to a struct to hold IP data in linked list.
  *                If NULL, nothing is returned here.
