@@ -119,7 +119,7 @@ static int   udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg);
 static void  defaultShutdownHandler(void *userArg);
 static int   parseUDL(const char *UDLR, char **host,
                       unsigned short *port, char **expid,
-                      int *connectTO, char **junk);
+                      int *connectTO, char **junk, char **ip);
                       
 /* Prototypes of the 17 functions which implement the standard tasks in cMsg. */
 int   cmsg_rc_connect           (const char *myUDL, const char *myName,
@@ -383,10 +383,10 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
                     const char *UDLremainder, void **domainId) {
   
     unsigned short serverPort;
-    char  *serverHost, *expid=NULL, buffer[1024];
-    int    err, status, len, localPort;
-    int    i, index=0, connectTO=0, off=0;
-    int32_t outGoing[9], senderId, expidLen, nameLen;
+    char  *serverHost, *ipForRcServer=NULL, *expid=NULL, *buffer;
+    int    err, status, len, localPort, i, connectTO=0, off=0;
+    int32_t outGoing[9];
+    size_t expidLen,  nameLen;
     char   temp[CMSG_MAXHOSTNAMELEN];
     char  *portEnvVariable=NULL;
     unsigned char ttl = 32;
@@ -396,27 +396,36 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     int    hz, num_try, try_max;
     struct timespec waitForThread;
     
-    pthread_t rThread, bThread;
+    pthread_t bThread;
     thdArg    bArg;
     
-    struct timespec wait, time;
-    struct sockaddr_in servaddr, addr, localaddr;
-    const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
+    struct timespec wait;
+    struct sockaddr_in *servaddr, addr, localaddr;
+    const int size = CMSG_BIGSOCKBUFSIZE; /* bytes */
         
     /* for connecting to rc Server w/ TCP */
-    hashNode *hashEntries = NULL;
-    int hashEntryCount=0, haveHashEntries=0, gotValidRcServerHost=0;
-    char *rcServerHost = NULL;
     struct timeval tv = {0, 300000}; /* 0.3 sec wait for rc Server to respond */
 
 
-    /* clear array */
-    memset((void *)buffer, 0, 1024);
-    
-    /* parse the UDLRemainder to get the host, port, & expid but ignore everything else */
+    /* create buffer */
+    buffer = (char *) calloc(1, 1024);
+    if (buffer == NULL) {
+        return(CMSG_OUT_OF_MEMORY);
+    }
+
+    /* create network address structure */
+    servaddr = (struct sockaddr_in *) calloc(1, sizeof(struct sockaddr_in));
+    if (servaddr == NULL) {
+        free(buffer);
+        return(CMSG_OUT_OF_MEMORY);
+    }
+
+    /* parse the UDLRemainder to get the host, port, expid, connect timeout, and ip for rc server */
     err = parseUDL(UDLremainder, &serverHost, &serverPort,
-                   &expid, &connectTO, NULL);
+                   &expid, &connectTO, NULL, &ipForRcServer);
     if (err != CMSG_OK) {
+        free(buffer);
+        free(servaddr);
         return(err);
     }
 
@@ -425,18 +434,24 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     if (domain == NULL) {
         free(serverHost);
         free(expid);
+        free(buffer);
+        free(servaddr);
+        if (ipForRcServer != NULL) free(ipForRcServer);
         return(CMSG_OUT_OF_MEMORY);  
     }
     cMsgDomainInit(domain);  
 
     /* allocate memory for message-sending buffer */
-    domain->msgBuffer     = (char *) malloc(initialMsgBufferSize);
+    domain->msgBuffer     = (char *) malloc((size_t) initialMsgBufferSize);
     domain->msgBufferSize = initialMsgBufferSize;
     if (domain->msgBuffer == NULL) {
         cMsgDomainFree(domain);
         free(domain);
         free(serverHost);
         free(expid);
+        free(buffer);
+        free(servaddr);
+        if (ipForRcServer != NULL) free(ipForRcServer);
         return(CMSG_OUT_OF_MEMORY);
     }
 
@@ -491,6 +506,9 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
                                           &domain->listenSocket)) != CMSG_OK) {
         cMsgDomainFree(domain);
         free(domain);
+        free(buffer);
+        free(servaddr);
+        if (ipForRcServer != NULL) free(ipForRcServer);
         return(err); /* CMSG_SOCKET_ERROR if cannot find available port */
     }
 
@@ -499,6 +517,9 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
     if (threadArg == NULL) {
         cMsgDomainFree(domain);
         free(domain);
+        free(buffer);
+        free(servaddr);
+        if (ipForRcServer != NULL) free(ipForRcServer);
         return(CMSG_OUT_OF_MEMORY);
     }
     threadArg->isRunning   = 0;
@@ -546,11 +567,8 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         exit(-1);
     }
 
-    /* Mem allocated for the argument passed to listening thread is 
-     * now freed in the pthread cancellation cleanup handler.in
-     * rcDomainListenThread.c
-     */
-    /*free(threadArg);*/
+    /* Mem allocated for the argument passed to listening thread is now freed
+     * in the pthread cancellation cleanup handler in rcDomainListenThread.c */
 
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
         fprintf(stderr, "cmsg_rc_connect: created listening thread\n");
@@ -567,6 +585,9 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
+        free(buffer);
+        free(servaddr);
+        if (ipForRcServer != NULL) free(ipForRcServer);
         return(CMSG_SOCKET_ERROR);
     }
 
@@ -592,9 +613,8 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
     /* If  bind always failed, then ephemeral port will be used. */
 
     /* Send to this address */
-    memset((void *)&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port   = htons(serverPort);
+    servaddr->sin_family = AF_INET;
+    servaddr->sin_port   = htons(serverPort);
 
     /* Set TTL to 32 so it will make it through routers. */
     err = setsockopt(domain->sendSocket, IPPROTO_IP, IP_MULTICAST_TTL, (void *) &ttl, sizeof(ttl));
@@ -604,19 +624,25 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
+        free(buffer);
+        free(servaddr);
+        if (ipForRcServer != NULL) free(ipForRcServer);
         return(CMSG_SOCKET_ERROR);
     }
 
-    if ( (err = cMsgNetStringToNumericIPaddr(serverHost, &servaddr)) != CMSG_OK ) {
+    if ( (err = cMsgNetStringToNumericIPaddr(serverHost, servaddr)) != CMSG_OK ) {
         close(domain->sendSocket);
         cMsgRestoreSignals(domain);
         pthread_cancel(domain->pendThread);
         cMsgDomainFree(domain);
         free(domain);
+        free(buffer);
+        free(servaddr);
+        if (ipForRcServer != NULL) free(ipForRcServer);
         /* only possible errors are:
-           CMSG_NETWORK_ERROR if the numeric address could not be obtained
-           CMSG_OUT_OF_MEMORY if out of memory
-        */
+            CMSG_NETWORK_ERROR if the numeric address could not be obtained
+            CMSG_OUT_OF_MEMORY if out of memory
+         */
         return(err);
     }
     
@@ -626,11 +652,11 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
      *   2) cMsg version,
      *   3) Type of multicast (rc or cMsg domain),
      *   4) TCP listening port of this client,
-     *   5) unique sender id integer,
+     *   5) unique sender id integer (current time in millisec)
      *   6) name of this client, &
      *   7) EXPID (experiment id string)
      *   8) list of IP and broadcast addresses
-     * The UDP port we're sending from is aleady part of the UDP packet
+     * The UDP port we're sending from is already part of the UDP packet
      */
 
 /*printf("rc connect: sending info (listening tcp port = %d, expid = %s) to server on port = %hu on host %s\n",
@@ -648,7 +674,7 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
     /* type of multicast */
     outGoing[4] = htonl(RC_DOMAIN_MULTICAST);
     /* tcp port */
-    outGoing[5] = htonl(domain->listenPort);
+    outGoing[5] = htonl((uint32_t) domain->listenPort);
     
     /* use current time as unique indentifier */
 #ifdef Darwin
@@ -664,15 +690,15 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
         struct timespec now;
         int64_t millisec;
         clock_gettime(CLOCK_REALTIME, &now);
-        millisec =  now.tv_sec * 1000 + now.tv_nsec / 1000000;
-        outGoing[6] = htonl((int32_t) millisec);
+        millisec = (int64_t) (now.tv_sec * 1000 + now.tv_nsec / 1000000);
+        outGoing[6] = htonl((uint32_t) millisec);
     }
 #endif
 
     /* length of "myName" string */
-    outGoing[7] = htonl(nameLen);
+    outGoing[7] = htonl((uint32_t)nameLen);
     /* length of "expid" string */
-    outGoing[8] = htonl(expidLen);
+    outGoing[8] = htonl((uint32_t)expidLen);
 
     /* copy data into a single buffer */
     memcpy(buffer, (void *)outGoing, sizeof(outGoing));
@@ -686,7 +712,7 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
     {
         void *pAddrCount;
         codaIpAddr *ipAddrs, *ipAddrNext;
-        int32_t  strLen, netOrderInt, addrCount=0;
+        uint32_t  strLen, netOrderInt, addrCount=0, useSpecifiedIp = 0;
         
         err = codanetGetNetworkInfo(&ipAddrs, NULL);
         ipAddrNext = ipAddrs;
@@ -699,36 +725,86 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
         }
         else {
             /* keep pointer to place to write # of IP addresses */
-            pAddrCount = (void *) (buffer+len);
+            pAddrCount = (void *) (buffer + len);
             len += sizeof(int32_t);
-            
-            while (ipAddrNext != NULL) {
-                /* send len of IP addr */
-                strLen = strlen(ipAddrNext->addr);
-                netOrderInt = htonl(strLen);
-                memcpy(buffer+len, (const void *)&netOrderInt, sizeof(int32_t));
-                len += sizeof(int32_t);
-                
-                /* send IP addr */
-                memcpy(buffer+len, (const void *)ipAddrNext->addr, strLen);
-                len += strLen;               
+
+            /*
+              * If the user has already specified, in the UDL, which ip address for the
+              * rc server to use to connect back to this client, then scan the network
+              * info to check and see if it's a legitimate local address. If it is,
+              * then pick out its corresponding broadcast address as well. If it isn't
+              * just send everything from GetNetworkInfo.
+              */
+            if (ipForRcServer != NULL) {
+                while (ipAddrNext != NULL) {
+                    /* If user-supplied IP is a local address, we're good.
+                     * Use it as the only address to send. */
+                    if (strcmp((const char *) ipAddrNext->addr, ipForRcServer) == 0) {
+                        /* send len of IP addr */
+                        strLen = (uint32_t) strlen(ipAddrNext->addr);
+                        netOrderInt = htonl(strLen);
+                        memcpy(buffer + len, (const void *) &netOrderInt, sizeof(uint32_t));
+                        len += sizeof(uint32_t);
+
+                        /* send IP addr */
+                        memcpy(buffer + len, (const void *) ipAddrNext->addr, strLen);
+                        len += strLen;
 /*printf("rc connect: sending IP addr %s to rc multicast server\n", ipAddrNext->addr);*/
-                
-                /* send len of broadcast addr */
-                strLen = strlen(ipAddrNext->broadcast);
-                netOrderInt = htonl(strLen);
-                memcpy(buffer+len, (const void *)&netOrderInt, sizeof(int32_t));
-                len += sizeof(int32_t);
-                
-                /* send broadcast addr */
-                memcpy(buffer+len, (const void *)ipAddrNext->broadcast, strLen);
-                len += strLen;               
-/*printf("rc connect: sending broadcast addr %s to rc multicast server\n", ipAddrNext->broadcast);*/
-                
-                addrCount++;
-                ipAddrNext = ipAddrNext->next;
+
+                        /* send len of broadcast addr */
+                        strLen = (uint32_t)strlen(ipAddrNext->broadcast);
+                        netOrderInt = htonl(strLen);
+                        memcpy(buffer + len, (const void *) &netOrderInt, sizeof(uint32_t));
+                        len += sizeof(uint32_t);
+
+                        /* send broadcast addr */
+                        memcpy(buffer + len, (const void *) ipAddrNext->broadcast, strLen);
+                        len += strLen;
+
+                        addrCount = 1;
+                        useSpecifiedIp = 1;
+
+                        break;
+                    }
+
+                    ipAddrNext = ipAddrNext->next;
+                }
             }
-            
+
+            /* If we have not used the single, user-specified-in-UDL value
+             * for our ip address, send everything */
+            if (!useSpecifiedIp) {
+                /* re initialize for second search thru network info */
+                ipAddrNext = ipAddrs;
+
+                while (ipAddrNext != NULL) {
+                    /* send len of IP addr */
+                    strLen = (uint32_t) strlen(ipAddrNext->addr);
+                    netOrderInt = htonl(strLen);
+                    memcpy(buffer + len, (const void *) &netOrderInt, sizeof(int32_t));
+                    len += sizeof(int32_t);
+
+                    /* send IP addr */
+                    memcpy(buffer + len, (const void *) ipAddrNext->addr, strLen);
+                    len += strLen;
+/*printf("rc connect: sending IP addr %s to rc multicast server\n", ipAddrNext->addr);*/
+
+                    /* send len of broadcast addr */
+                    strLen =(uint32_t)  strlen(ipAddrNext->broadcast);
+                    netOrderInt = htonl(strLen);
+                    memcpy(buffer + len, (const void *) &netOrderInt, sizeof(int32_t));
+                    len += sizeof(int32_t);
+
+                    /* send broadcast addr */
+                    memcpy(buffer + len, (const void *) ipAddrNext->broadcast, strLen);
+                    len += strLen;
+/*printf("rc connect: sending broadcast addr %s to rc multicast server\n", ipAddrNext->broadcast);*/
+
+                    addrCount++;
+                    ipAddrNext = ipAddrNext->next;
+                }
+            }
+
             /* now write out how many addrs are coming next */
             netOrderInt = htonl(addrCount);
             memcpy(pAddrCount, (const void *)&netOrderInt, sizeof(int32_t));
@@ -738,10 +814,12 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
         }
     }
 
+    if (ipForRcServer != NULL) free(ipForRcServer);
+
     /* create and start a thread which will multicast every second */
-    bArg.len       = (socklen_t) sizeof(servaddr);
+    bArg.len       = (socklen_t) sizeof(struct sockaddr_in);
     bArg.sockfd    = domain->sendSocket;
-    bArg.paddr     = &servaddr;
+    bArg.paddr     = servaddr;
     bArg.buffer    = buffer;
     bArg.bufferLen = len;
     
@@ -809,46 +887,20 @@ printf("rc connect: wait timeout or rcConnectComplete is not 1\n");
     cMsgMutexUnlock(&domain->rcConnectMutex);
 
     /* create TCP sending socket and store */
-/*printf("rc connect: will make tcp connection to RC server\n");*/
+    printf("rc connect: try making tcp connection to RC server = %s w/ TO = %u sec, %u msec\n",
+           domain->sendHost, (uint32_t) ((&tv)->tv_sec),(uint32_t) ((&tv)->tv_usec));
 
-    /* The rc Server may have multiple network interfaces.
-     * The ip address of each is stored in a hash table.
-     * Try one at a time to see which we can use to connect. */
-    haveHashEntries = hashGetAll(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
-
-    
-    if (!gotValidRcServerHost) {
-        for (i=0; i < hashEntryCount; i++) {
-            rcServerHost = hashEntries[i].key;
-printf("rc connect: from IP list, try making tcp connection to RC server = %s w/ TO = %u sec, %u msec\n",
-       rcServerHost, (uint32_t) ((&tv)->tv_sec),(uint32_t) ((&tv)->tv_usec));
-            if ((err = cMsgNetTcpConnectTimeout(rcServerHost, (unsigned short) domain->sendPort,
-                 CMSG_BIGSOCKBUFSIZE, 0, 1, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
-                gotValidRcServerHost = 1;
-                printf("rc connect: SUCCESS connecting to %s, port %d\n", rcServerHost, domain->sendPort);
-                // Copy host for getServerHost() function
-                if (domain->sendHost != NULL) free(domain->sendHost);
-                domain->sendHost = strdup(rcServerHost);
-                break;
-            }
-printf("rc connect: failed to connect to %s\n", rcServerHost);
-        }
-
-        if (!gotValidRcServerHost) {
-            if (hashEntries != NULL) free(hashEntries);
-            hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
-            if (hashEntries != NULL) {
-                for (i=0; i < hashEntryCount; i++) {
-                    free(hashEntries[i].key);
-                }
-                free(hashEntries);
-            }
-            cMsgRestoreSignals(domain);
-            pthread_cancel(domain->pendThread);
-            cMsgDomainFree(domain);
-            free(domain);
-            return(err);
-        }
+    if ((err = cMsgNetTcpConnectTimeout(domain->sendHost, (unsigned short) domain->sendPort,
+                                        CMSG_BIGSOCKBUFSIZE, 0, 1, &tv, &domain->sendSocket, NULL)) == CMSG_OK) {
+        printf("rc connect: SUCCESS connecting to %s, port %d\n", domain->sendHost, domain->sendPort);
+    }
+    else {
+        printf("rc connect: failed to connect to %s\n", domain->sendHost);
+        cMsgRestoreSignals(domain);
+        pthread_cancel(domain->pendThread);
+        cMsgDomainFree(domain);
+        free(domain);
+        return (err);
     }
 
     /*
@@ -859,7 +911,7 @@ printf("rc connect: failed to connect to %s\n", rcServerHost);
      */
     memset((void *)&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port   = htons(domain->sendUdpPort);
+    addr.sin_port   = htons((uint16_t) domain->sendUdpPort);
     
     /* create new UDP socket for sends */
     if (domain->sendUdpSocket > -1) {
@@ -868,14 +920,6 @@ printf("rc connect: failed to connect to %s\n", rcServerHost);
     domain->sendUdpSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
     if (domain->sendUdpSocket < 0) {
-        if (hashEntries != NULL) free(hashEntries);
-        hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
-        if (hashEntries != NULL) {
-            for (i=0; i < hashEntryCount; i++) {
-                free(hashEntries[i].key);
-            }
-            free(hashEntries);
-        }
         cMsgRestoreSignals(domain);
         close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
@@ -887,14 +931,6 @@ printf("rc connect: failed to connect to %s\n", rcServerHost);
     /* set send buffer size */
     err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
     if (err < 0) {
-        if (hashEntries != NULL) free(hashEntries);
-        hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
-        if (hashEntries != NULL) {
-            for (i=0; i < hashEntryCount; i++) {
-                free(hashEntries[i].key);
-            }
-            free(hashEntries);
-        }
         cMsgRestoreSignals(domain);
         close(domain->sendSocket);
         pthread_cancel(domain->pendThread);
@@ -904,15 +940,7 @@ printf("rc connect: failed to connect to %s\n", rcServerHost);
     }
 
     /* convert string host into binary numeric host */
-    if ( (err = cMsgNetStringToNumericIPaddr(rcServerHost, &addr)) != CMSG_OK ) {
-        if (hashEntries != NULL) free(hashEntries);
-        hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
-        if (hashEntries != NULL) {
-            for (i=0; i < hashEntryCount; i++) {
-                free(hashEntries[i].key);
-            }
-            free(hashEntries);
-        }
+    if ( (err = cMsgNetStringToNumericIPaddr(domain->sendHost, &addr)) != CMSG_OK ) {
         cMsgRestoreSignals(domain);
         close(domain->sendUdpSocket);
         close(domain->sendSocket);
@@ -922,17 +950,9 @@ printf("rc connect: failed to connect to %s\n", rcServerHost);
         return(err);
     }
 
-/*rintf("rc connect: try UDP connection rc server on port = %hu\n", ntohs(addr.sin_port));*/
+/* printf("rc connect: try UDP connection rc server on port = %hu\n", ntohs(addr.sin_port));*/
     err = connect(domain->sendUdpSocket, (SA *)&addr, sizeof(addr));
     if (err < 0) {
-        if (hashEntries != NULL) free(hashEntries);
-        hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
-        if (hashEntries != NULL) {
-            for (i=0; i < hashEntryCount; i++) {
-                free(hashEntries[i].key);
-            }
-            free(hashEntries);
-        }
         cMsgRestoreSignals(domain);
         close(domain->sendUdpSocket);
         close(domain->sendSocket);
@@ -941,20 +961,7 @@ printf("rc connect: failed to connect to %s\n", rcServerHost);
         free(domain);
         return(CMSG_SOCKET_ERROR);
     }
-    
-    /* Even though we free hash entries array, rcServerHost
-     * is still pointing to valid string inside hashtable. */
-    if (hashEntries != NULL) free(hashEntries);
-    
-    /* Clear & free memory in table */
-    hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
-    if (hashEntries != NULL) {
-        for (i=0; i < hashEntryCount; i++) {
-            free(hashEntries[i].key);
-        }
-        free(hashEntries);
-    }
-    
+
     /* return id */
     *domainId = (void *) domain;
         
@@ -990,32 +997,37 @@ int cmsg_rc_reconnect(void *domainId) {
 typedef struct freeMem_t {
     char **ifNames;
     int nameCount;
+    char *buffer;
+    struct sockaddr_in *pAddr;
 } freeMem;
 
 
 /*-------------------------------------------------------------------*
  * multicastThd needs a pthread cancellation cleanup handler.
  * This handler will be called when the multicastThd is
- * cancelled. It's task is to free memory.
+ * cancelled. It's only task is to free memory.
  *-------------------------------------------------------------------*/
 static void cleanUpHandler(void *arg) {
-  int i;  
-  freeMem *pMem = (freeMem *)arg;
-  
-  if (cMsgDebug >= CMSG_DEBUG_INFO) {
-    fprintf(stderr, "cleanUpHandler: in\n");
-  }
-  
-  /* release memory */
-  if (pMem == NULL) return;
-  if (pMem->ifNames != NULL) {
-      for (i=0; i < pMem->nameCount; i++) {
-          free(pMem->ifNames[i]);
-      }
-      free(pMem->ifNames);
-  }
+    int i;
+    freeMem *pMem = (freeMem *)arg;
 
-  free(pMem);
+    if (cMsgDebug >= CMSG_DEBUG_INFO) {
+        fprintf(stderr, "cleanUpHandler: in\n");
+    }
+
+    /* release memory */
+    if (pMem == NULL) return;
+    if (pMem->ifNames != NULL) {
+        for (i=0; i < pMem->nameCount; i++) {
+            free(pMem->ifNames[i]);
+        }
+        free(pMem->ifNames);
+    }
+
+    free(pMem->buffer);
+    free(pMem->pAddr);
+
+    free(pMem);
 }
 
 
@@ -1066,28 +1078,17 @@ static void *multicastThd(void *arg) {
     }
     pfreeMem->ifNames = ifNames;
     pfreeMem->nameCount = count;
+    pfreeMem->buffer = buffer;
+    pfreeMem->pAddr = threadArg->paddr;
+
     pthread_cleanup_push(cleanUpHandler, (void *)pfreeMem);
 
     while (1) {
         int sleepCount = 0;
-        int32_t num;
 
         if (useDefaultIf) {
             sendto(threadArg->sockfd, (void *)buffer, bufferLen, 0,
                    (SA *) threadArg->paddr, threadArg->len);
-                   
-            /*-------------------------------------------------
-            * Increment packet number (last 4 bytes in buffer)
-            * for the next time the packet is sent out.
-            *-------------------------------------------------*/
-            /* Read existing packet # */
-            num = *((int32_t *)(buffer +  bufferLen - 4));
-            num = ntohl(num);      
-            /* Add 1 */
-            num++;
-            /* Write it into packet data */
-            num = htonl(num);
-            memcpy((void *)(buffer +  bufferLen - 4), (const void *)&num, sizeof(int32_t));
         }
         else {
             for (i=0; i < count; i++) {
@@ -1102,13 +1103,7 @@ static void *multicastThd(void *arg) {
 /*printf("Send multicast to RC Multicast server\n");*/
                 sendto(threadArg->sockfd, (void *)buffer, bufferLen, 0,
                        (SA *) threadArg->paddr, threadArg->len);
-                                
-                num = *((int32_t *)(buffer +  bufferLen - 4));
-                num = ntohl(num);      
-                num++;
-                num = htonl(num);
-                memcpy((void *)(buffer +  bufferLen - 4), (const void *)&num, sizeof(int32_t));
-                
+
                 /* Wait 1/2 second between multicasting on each interface */
                 nanosleep(&delay, NULL);
                 sleepCount++;
@@ -1162,11 +1157,12 @@ static void *multicastThd(void *arg) {
  *                               by a call to cMsgDisconnect()
  */   
 int cmsg_rc_send(void *domainId, void *vmsg) {
-  
+
   cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
   cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
-  int len, lenSender, lenSubject, lenType, lenText, lenPayloadText, lenByteArray;
-  int err=CMSG_OK, fd, highInt, lowInt, msgType, getResponse, outGoing[16];
+  size_t len, lenSender, lenSubject, lenType, lenByteArray, lenText, lenPayloadText;
+  uint32_t highInt, lowInt;
+  int err=CMSG_OK, fd, msgType, getResponse, outGoing[16];
   ssize_t sendLen;
   uint64_t llTime;
   struct timespec now;
@@ -1216,60 +1212,60 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
   }
 
   /* message id (in network byte order) to domain server */
-  outGoing[1] = htonl(msgType);
+  outGoing[1] = htonl((uint32_t) msgType);
   /* reserved for future use */
   outGoing[2] = htonl(CMSG_VERSION_MAJOR);
   /* user int */
-  outGoing[3] = htonl(msg->userInt);
+  outGoing[3] = htonl((uint32_t) msg->userInt);
   /* bit info */
-  outGoing[4] = htonl(msg->info);
+  outGoing[4] = htonl((uint32_t) msg->info);
   /* senderToken */
-  outGoing[5] = htonl(msg->senderToken);
+  outGoing[5] = htonl((uint32_t) msg->senderToken);
 
   /* time message sent (right now) */
   clock_gettime(CLOCK_REALTIME, &now);
   /* convert to milliseconds */
   llTime  = ((uint64_t)now.tv_sec * 1000) +
             ((uint64_t)now.tv_nsec/1000000);
-  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
-  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  highInt = (uint32_t) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (uint32_t) (llTime & 0x00000000FFFFFFFF);
   outGoing[6] = htonl(highInt);
   outGoing[7] = htonl(lowInt);
 
   /* user time */
   llTime  = ((uint64_t)msg->userTime.tv_sec * 1000) +
             ((uint64_t)msg->userTime.tv_nsec/1000000);
-  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
-  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  highInt = (uint32_t) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (uint32_t) (llTime & 0x00000000FFFFFFFF);
   outGoing[8] = htonl(highInt);
   outGoing[9] = htonl(lowInt);
 
   /* length of "sender" string */
   lenSender    = strlen(domain->name);
-  outGoing[10] = htonl(lenSender);
+  outGoing[10] = htonl((uint32_t) lenSender);
 
   /* length of "subject" string */
   lenSubject   = strlen(msg->subject);
-  outGoing[11] = htonl(lenSubject);
+  outGoing[11] = htonl((uint32_t) lenSubject);
 
   /* length of "type" string */
   lenType      = strlen(msg->type);
-  outGoing[12] = htonl(lenType);
+  outGoing[12] = htonl((uint32_t) lenType);
 
   /* length of "payloadText" string */
-  outGoing[13] = htonl(lenPayloadText);
+  outGoing[13] = htonl((uint32_t) lenPayloadText);
 
   /* length of "text" string */
-  outGoing[14] = htonl(lenText);
+  outGoing[14] = htonl((uint32_t) lenText);
 
   /* length of byte array */
-  lenByteArray = msg->byteArrayLength;
-  outGoing[15] = htonl(lenByteArray);
+  lenByteArray = (size_t) msg->byteArrayLength;
+  outGoing[15] = htonl((uint32_t) lenByteArray);
 
   /* total length of message (minus first int) is first item sent */
   len = sizeof(outGoing) + lenSubject + lenType +
         lenSender + lenPayloadText + lenText + lenByteArray;
-  outGoing[0] = htonl((int) (len - sizeof(int)));
+  outGoing[0] = htonl((uint32_t) (len - sizeof(int)));
 
   if (len > BIGGEST_UDP_PACKET_SIZE) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -1294,8 +1290,8 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
   /* allocate more memory for message-sending buffer if necessary */
   if (domain->msgBufferSize < len) {
     free(domain->msgBuffer);
-    domain->msgBufferSize = len + 1024; /* give us 1kB extra */
-    domain->msgBuffer = (char *) malloc(domain->msgBufferSize);
+    domain->msgBufferSize = (int) (len + 1024); /* give us 1kB extra */
+    domain->msgBuffer = (char *) malloc((size_t) domain->msgBufferSize);
     if (domain->msgBuffer == NULL) {
       cMsgSocketMutexUnlock(domain);
       cMsgConnectReadUnlock(domain);
@@ -1321,7 +1317,7 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
 
 /*printf("cmsg_rc_send: TCP, fd = %d\n", fd);*/
   /* send data over TCP socket */
-  sendLen = cMsgNetTcpWrite(fd, (void *) domain->msgBuffer, len);
+  sendLen = cMsgNetTcpWrite(fd, (void *) domain->msgBuffer, (int)len);
   if (sendLen != len) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
       fprintf(stderr, "cmsg_rc_send: write failure\n");
@@ -1342,14 +1338,23 @@ int cmsg_rc_send(void *domainId, void *vmsg) {
 /** This routine sends a msg to the specified rc server using UDP. */
 static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
 
-  int len, lenSender, lenSubject, lenType, lenText, lenPayloadText, lenByteArray;
-  int err=CMSG_OK, fd, highInt, lowInt, msgType, getResponse, outGoing[19];
+  size_t len, lenSender, lenSubject, lenType, lenText, lenPayloadText, lenByteArray;
+  uint32_t highInt, lowInt;
+  int err=CMSG_OK, fd, msgType, getResponse, outGoing[19];
   ssize_t sendLen;
   uint64_t llTime;
   struct timespec now;
-        
-  
-  fd = domain->sendUdpSocket;
+
+//    cMsgMessage_t *msg = (cMsgMessage_t *) vmsg;
+//    cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
+//    size_t len, lenSender, lenSubject, lenType, lenByteArray, lenText, lenPayloadText;
+//    uint32_t highInt, lowInt;
+//    int err=CMSG_OK, fd, msgType, getResponse, outGoing[16];
+//    ssize_t sendLen;
+//    uint64_t llTime;
+//    struct timespec now;
+
+    fd = domain->sendUdpSocket;
   
   if (msg->text == NULL) {
     lenText = 0;
@@ -1381,61 +1386,61 @@ static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
   outGoing[2] = htonl(CMSG_MAGIC_INT3);
   
   /* message id (in network byte order) to domain server */
-  outGoing[4] = htonl(msgType);
+  outGoing[4] = htonl((uint32_t) msgType);
   /* reserved for future use */
   outGoing[5] = htonl(CMSG_VERSION_MAJOR);
   /* user int */
-  outGoing[6] = htonl(msg->userInt);
+  outGoing[6] = htonl((uint32_t) msg->userInt);
   /* bit info */
-  outGoing[7] = htonl(msg->info);
+  outGoing[7] = htonl((uint32_t) msg->info);
   /* senderToken */
-  outGoing[8] = htonl(msg->senderToken);
+  outGoing[8] = htonl((uint32_t) msg->senderToken);
 
   /* time message sent (right now) */
   clock_gettime(CLOCK_REALTIME, &now);
   /* convert to milliseconds */
   llTime  = ((uint64_t)now.tv_sec * 1000) +
       ((uint64_t)now.tv_nsec/1000000);
-  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
-  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  highInt = (uint32_t) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (uint32_t) (llTime & 0x00000000FFFFFFFF);
   outGoing[9]  = htonl(highInt);
   outGoing[10] = htonl(lowInt);
 
   /* user time */
   llTime  = ((uint64_t)msg->userTime.tv_sec * 1000) +
       ((uint64_t)msg->userTime.tv_nsec/1000000);
-  highInt = (int) ((llTime >> 32) & 0x00000000FFFFFFFF);
-  lowInt  = (int) (llTime & 0x00000000FFFFFFFF);
+  highInt = (uint32_t) ((llTime >> 32) & 0x00000000FFFFFFFF);
+  lowInt  = (uint32_t) (llTime & 0x00000000FFFFFFFF);
   outGoing[11] = htonl(highInt);
   outGoing[12] = htonl(lowInt);
 
   /* length of "sender" string */
   lenSender    = strlen(domain->name);
-  outGoing[13] = htonl(lenSender);
+  outGoing[13] = htonl((uint32_t) lenSender);
 
   /* length of "subject" string */
   lenSubject   = strlen(msg->subject);
-  outGoing[14] = htonl(lenSubject);
+  outGoing[14] = htonl((uint32_t) lenSubject);
 
   /* length of "type" string */
   lenType      = strlen(msg->type);
-  outGoing[15] = htonl(lenType);
+  outGoing[15] = htonl((uint32_t) lenType);
 
   /* length of "payloadText" string */
-  outGoing[16] = htonl(lenPayloadText);
+  outGoing[16] = htonl((uint32_t) lenPayloadText);
 
   /* length of "text" string */
-  outGoing[17] = htonl(lenText);
+  outGoing[17] = htonl((uint32_t) lenText);
 
   /* length of byte array */
-  lenByteArray = msg->byteArrayLength;
-  outGoing[18] = htonl(lenByteArray);
+  lenByteArray = (size_t) msg->byteArrayLength;
+  outGoing[18] = htonl((uint32_t) lenByteArray);
 
   len = sizeof(outGoing) + lenSubject + lenType +
         lenSender + lenPayloadText + lenText + lenByteArray;
   /* total length of message (minus magic numbers and first int which is length)
    * is first item sent */
-  outGoing[3] = htonl((int) (len - 4*sizeof(int)));
+  outGoing[3] = htonl((uint32_t) (len - 4*sizeof(int)));
 
   if (len > BIGGEST_UDP_PACKET_SIZE) {
     if (cMsgDebug >= CMSG_DEBUG_ERROR) {
@@ -1460,8 +1465,8 @@ static int udpSend(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
   /* allocate more memory for message-sending buffer if necessary */
   if (domain->msgBufferSize < len) {
     free(domain->msgBuffer);
-    domain->msgBufferSize = len + 1024; /* give us 1kB extra */
-    domain->msgBuffer = (char *) malloc(domain->msgBufferSize);
+    domain->msgBufferSize = (int) (len + 1024); /* give us 1kB extra */
+    domain->msgBuffer = (char *) malloc((size_t) domain->msgBufferSize);
     if (domain->msgBuffer == NULL) {
       cMsgSocketMutexUnlock(domain);
       cMsgConnectReadUnlock(domain);
@@ -2977,22 +2982,23 @@ int cmsg_rc_shutdownServers(void *domainId, const char *server, int flag) {
  * portion of the UDL sent from the next level up" in the API.
  *
  * Runcontrol domain UDL is of the form:<p>
- *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;&connectTO=&lt;timeout&gt;</b><p>
+ *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;?connectTO=&lt;timeout&gt;&ip=&lt;address&gt;</b><p>
  *
  * For the cMsg domain the UDL has the more specific form:<p>
  *   <b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ...</b><p>
  *
  * Remember that for this domain:
- *<ol>
+ *<ul>
  *<li>host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
  *<li>port is optional with a default of {@link RC_MULTICAST_PORT}<p>
  *<li>the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
- *<li>connectTO is the time to wait in seconds before connect returns a
- *       timeout while waiting for the rc server to send a special (tcp)
- *       concluding connect message. Defaults to 5 seconds.<p>
- *</ol><p>
+ *<li>connectTO (optional) is the time to wait in seconds before connect returns a
+ *    timeout while waiting for the rc server to send a special (tcp)
+ *    concluding connect message. Defaults to 30 seconds.<p>
+ *<li>ip (optional) is ip address in dot-decimal format which the rc server
+ *    or agent must use to connect to this rc client.<p>
+ *</ul><p>
  *
- * 
  * @param UDLR  udl to be parsed
  * @param host  pointer filled in with host
  * @param port  pointer filled in with port
@@ -3000,6 +3006,7 @@ int cmsg_rc_shutdownServers(void *domainId, const char *server, int flag) {
  * @param connectTO   pointer filled in with connect timeout tag's value if it exists
  * @param remainder   pointer filled in with the part of the udl after host:port/expid if it exists,
  *                    else it is set to NULL
+ * @param ip    pointer filled in with ip address to use for connecting back to this client
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_FORMAT if UDLR arg is not in the proper format
@@ -3012,7 +3019,8 @@ static int parseUDL(const char *UDLR,
                     unsigned short *port,
                     char **expid,
                     int  *connectTO,
-                    char **remainder) {
+                    char **remainder,
+                    char **ip) {
 
     int        err, Port, index;
     size_t     len, bufLength;
@@ -3179,23 +3187,18 @@ static int parseUDL(const char *UDLR,
         err = cMsgRegexec(&compiled, val, 2, matches, 0);
         
         /* if there's a match ... */
-        if (err == 0) {
+        if (err == 0 && matches[1].rm_so >= 0) {
             /* find timeout (in milliseconds) */
-            if (matches[1].rm_so >= 0) {
-               int t;
-               buffer[0] = 0;
-               len = matches[1].rm_eo - matches[1].rm_so;
-               strncat(buffer, val+matches[1].rm_so, len);
-               t = atoi(buffer);
-               if (t < 1) t=0;
-               if (connectTO != NULL) {
-                 *connectTO = t;
-               }        
+            int t;
+            buffer[0] = 0;
+            len = matches[1].rm_eo - matches[1].rm_so;
+            strncat(buffer, val+matches[1].rm_so, len);
+            t = atoi(buffer);
+            if (t < 1) t=0;
+            if (connectTO != NULL) {
+                *connectTO = t;
+            }
 /*printf("parseUDL: connection timeout = %d\n", t);*/
-            }
-            else if (connectTO != NULL) {
-                *connectTO = 30;
-            }
         }
         else if (connectTO != NULL) {
             *connectTO = 30;
@@ -3203,8 +3206,39 @@ static int parseUDL(const char *UDLR,
 
         /* free up memory */
         cMsgRegfree(&compiled);
+
+
+        /* find ip parameter if it exists, look for ip=<value> */
+        pattern = "ip=([^&]+)";
+
+        /* compile regular expression */
+        err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
+        if (err != 0) {
+            free(val);
+            break;
+        }
+
+        /* find matches */
+        err = cMsgRegexec(&compiled, val, 2, matches, 0);
+        /* if there's a match ... */
+        if (err == 0 && matches[1].rm_so >= 0) {
+            int pos=0;
+            buffer[0] = 0;
+            len = matches[1].rm_eo - matches[1].rm_so;
+            pos = matches[1].rm_eo;
+            strncat(buffer, val+matches[1].rm_so, len);
+            if (ip != NULL) {
+                *ip = strdup(buffer);
+            }
+printf("parseUDL: ip = %s\n", buffer);
+        }
+        else if (ip != NULL) {
+            *ip = NULL;
+        }
+
+        /* free up memory */
+        cMsgRegfree(&compiled);
         free(val);
-        
         break;
     }
 
