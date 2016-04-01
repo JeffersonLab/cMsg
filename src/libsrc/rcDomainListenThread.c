@@ -370,7 +370,7 @@ static void *clientThread(void *arg)
   int  status, state;
   size_t bufSize;
   cMsgThreadInfo *info, *origArg;
-  char *buffer, *returnBuf;
+  char *buffer;
   freeMem *pfreeMem=NULL;
   cMsgDomainInfo *domain;
   struct timespec wait;
@@ -468,10 +468,10 @@ static void *clientThread(void *arg)
       goto end;
     }
     
-    size = ntohl(inComing[0]);
+    size = ntohl((uint32_t) inComing[0]);
     
     /* extract command */
-    msgId = ntohl(inComing[1]);
+    msgId = ntohl((uint32_t) inComing[1]);
 
 /*fprintf(stderr, "clientThread %d: size = %d bytes, msgId = %d\n", localCount, size, msgId);*/
 
@@ -666,46 +666,30 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
             goto end;
           }
           
-          /* We need 4 pieces of info from the server: 1) server's host,
-           * 2) server's UDP port, 3) server's TCP port, and 4) list of dot-decimal
-           * IP addresses of server's host. These are in the message
+          /* We need 3 pieces of info from the server: 1) server's host,
+           * 2) server's UDP port, 3) server's TCP port. These are in the message
            * and must be recorded in the domain structure for future use.
            */
          
           domain->sendUdpPort = atoi(message->text);
           domain->sendPort = message->userInt;
-          
-          /* clear table containing all ip addresses of rc server */
-          hashClear(&domain->rcIpAddrTable, NULL, NULL);
 
           /* store IP from which this connection was made */
           err = cMsgGetString(msg, "serverIp", &serverIp);
           if (err == CMSG_OK) {
               if (domain->sendHost != NULL) {
                   free(domain->sendHost);
-                  domain->sendHost = (char *) strdup(serverIp);
+                  domain->sendHost = strdup(serverIp);
               }
-              hashInsert(&domain->rcIpAddrTable, serverIp, NULL, NULL);
           }
           else if (message->senderHost != NULL) {
               if (domain->sendHost != NULL) free(domain->sendHost);
-              domain->sendHost = (char *) strdup(message->senderHost);
+              domain->sendHost = strdup(message->senderHost);
           }
           else {
-              domain->sendHost = (char *) strdup("unknownHost");
+              domain->sendHost = strdup("unknownHost");
           }
-          
-          /* add in new ones sent as a payload array of strings */
-          /*
-          err = cMsgGetStringArray(msg, "IpAddresses", &ipAddrStrings, &len);
-          if (err == CMSG_OK) {
-              int i;
-              for (i=0; i < len; i++) {
-                  hashInsert(&domain->rcIpAddrTable, ipAddrStrings[i], NULL, NULL);
-              }
-          }
-          */
-          
+
           /* now free message */
           cMsgFreeMessage(&msg);
 
