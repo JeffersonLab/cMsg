@@ -6742,28 +6742,44 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
 /*   miscellaneous local functions                                   */
 /*-------------------------------------------------------------------*/
 
-
 /**
- * This routine parses, using regular expressions, the cMsg domain
- * portion of the UDL sent from the next level up" in the API.
- * The full cMsg domain UDL is of the form:<p>
- *     cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2& ...<p>
+ * This routine parses, using regular expressions, the Universal Domain Locator
+ * (UDL) into its various components. The general cMsg domain UDL is of the form:<p>
  *
- * The first "cMsg:" is optional. The subdomain is optional with
- * the default being cMsg.
+ *   <b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ...</b><p>
  *
- * Remember that for this domain:
- * 1) port is not necessary
- * 2) host can be "localhost", or "multicast", or may include dots (.),
- *    or may be dotted decimal, but may not include colons
- * 3) if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
- *    if subdomainType is not cMsg, it is required
- * 4) remainder is past on to the subdomain plug-in
- * 5) tag/val of multicastTO=&lt;value&gt; is looked for
- * 6) tag/val of cmsgpassword=&lt;value&gt; is looked for
- * 7) tag/val of regime=low or regime=high is looked for
- * 8) tag/val of domainPort=&lt;value&gt; is looked for
+ * <ul>
+ * <li>port is not necessary to specify but is the name server's TCP port if connecting directly
+ *     or the server's UDP port if multicasting. If not specified, defaults are
+ *     {@link CMSG_NAME_SERVER_TCP_PORT} if connecting directly, else
+ *     {@link CMSG_NAME_SERVER_MULTICAST_PORT} if multicasting<p>
+ * <li>host can be "multicast", "localhost" or may also be in dotted form (129.57.35.21),
+ * but may not contain a colon.<p>
+ * <li>if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
+ *     if subdomainType is not cMsg, it is required<p>
+ * <li>the domain name is case insensitive as is the subdomainType<p>
+ * <li>remainder is passed on to the subdomain plug-in<p>
+ * <li>client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;<p>
+ * <li>domain server port is in tag=value part of UDL as domainPort=&lt;port&gt;<p>
+ * <li>multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;<p>
+ * <li>subnet is in tag=value part of UDL as subnet=&lt;preferred subnet in dot-decimal&gt;<p>
+ * <li>failover is in tag=value part of UDL as failover=&lt;cloud, cloudonly, or any&gt;<p>
+ * <li>cloud is in tag=value part of UDL as failover=&lt;local or any&gt;<p>
+ * <li>the tag=value part of UDL parsed here as regime=low or regime=high means:<p>
+ *   <ul>
+ *   <li>low message/data throughput client if regime=low, meaning many clients are serviced
+ *       by a single server thread and all msgs retain time order<p>
+ *   <li>high message/data throughput client if regime=high, meaning each client is serviced
+ *       by multiple threads to maximize throughput. Msgs are NOT guaranteed to be handled in
+ *       time order<p>
+ *   <li>if regime is not specified (default), it is assumed to be medium, where a single thread is
+ *       dedicated to a single client and msgs are guaranteed to be handled in time order<p>
+ *   </ul>
+ * </ul>
  *
+ * The first "cMsg:" is optional. The subdomainType is optional with the default being cMsg.
+ * The cMsg subdomain interprets the subdoman remainder as a namespace in which  messages live
+ * with no crossing of messages into other namespaces.
  *
  * @param UDL  full udl to be parsed
  * @param pUdl pointer to struct that contains all parsed UDL info
@@ -6776,6 +6792,7 @@ printf("sendMonitorInfo: xml len = %d, size of int arry = %d, size of 64 bit int
  *             subdomain        subdomain type
  *             subRemainder     everything after subdomain portion of UDL
  *             multicast        1 if multicast specified, else 0
+ *             subnet           ip address of preferred subnet, else NULL
  *             timeout          time in seconds to wait for multicast response
  *             regime           CMSG_REGIME_LOW if regime of client will be low data througput rate
  *                              CMSG_REGIME_HIGH if regime of client will be high data througput rate
@@ -6792,22 +6809,22 @@ static int parseUDL(const char *UDL, parsedUDL *pUdl) {
 
     int        i, err, error, Port, index;
     int        dbg=0, mustMulticast = 0;
-    size_t     len, bufLength;
+    size_t     len, bufLength, subRemainderLen;
     char       *p, *udl, *udlLowerCase, *udlRemainder, *remain;
     char       *buffer;
     const char *pattern = "([^:/]+):?([0-9]+)?/?([a-zA-Z0-9]+)?/?(.*)";
     regmatch_t matches[5]; /* we have 5 potential matches: 1 whole, 4 sub */
     regex_t    compiled;
-    
+
     if (UDL == NULL || pUdl == NULL) {
       return (CMSG_BAD_ARGUMENT);
     }
     
     /* make a copy */
-    udl = (char *) strdup(UDL);
+    udl = strdup(UDL);
     
     /* make a copy in all lower case */
-    udlLowerCase = (char *) strdup(UDL);
+    udlLowerCase = strdup(UDL);
     len = strlen(udlLowerCase);
     for (i=0; i<len; i++) {
       udlLowerCase[i] = tolower(udlLowerCase[i]);
@@ -6826,7 +6843,7 @@ static int parseUDL(const char *UDL, parsedUDL *pUdl) {
     udlRemainder = udl + index + 7;
 if(dbg) printf("parseUDL: udl remainder = %s\n", udlRemainder);
     
-    pUdl->udlRemainder = (char *) strdup(udlRemainder);
+    pUdl->udlRemainder = strdup(udlRemainder);
 
     /* make a big enough buffer to construct various strings, 256 chars minimum */
     len       = strlen(udlRemainder) + 1;
@@ -6957,34 +6974,85 @@ if(dbg) printf("parseUDL: TCP port = %hu\n", Port );
     }
 
 
-    /* find subdomain */
-    if (matches[3].rm_so < 0) {
-        /* no match for subdomain, cMsg is default */
-        pUdl->subdomain = (char *) strdup("cMsg");
-if(dbg) printf("parseUDL: subdomain = cMsg\n");
-    }
-    else {
-        buffer[0] = 0;
-        len = matches[3].rm_eo - matches[3].rm_so;
-        strncat(buffer, udlRemainder+matches[3].rm_so, len);
-        pUdl->subdomain = (char *) strdup(buffer);
-if(dbg) printf("parseUDL: subdomain = %s\n", buffer);
-    }
-
-
     /* find subdomain remainder */
     buffer[0] = 0;
     if (matches[4].rm_so < 0) {
         /* no match */
         pUdl->subRemainder = NULL;
+        subRemainderLen = 0;
     }
     else {
         len = matches[4].rm_eo - matches[4].rm_so;
+        subRemainderLen = len;
         strncat(buffer, udlRemainder+matches[4].rm_so, len);
-        pUdl->subRemainder = (char *) strdup(buffer);
-if(dbg) printf("parseUDL: subdomain remainder = %s, len = %d\n", buffer, len);
+        pUdl->subRemainder = strdup(buffer);
     }
 
+
+    /* find subdomain */
+    if (matches[3].rm_so < 0) {
+        /* no match for subdomain, cMsg is default */
+        pUdl->subdomain = strdup("cMsg");
+    }
+    else {
+        /* All recognized subdomains */
+        char *allowedSubdomains[] = {"LogFile", "CA", "Database",
+                                     "Queue", "FileQueue", "SmartSockets",
+                                     "TcpServer", "cMsg"};
+        int j, foundSubD = 0;
+
+        buffer[0] = 0;
+        len = matches[3].rm_eo - matches[3].rm_so;
+        strncat(buffer, udlRemainder+matches[3].rm_so, len);
+
+        /*
+         * Make sure the sub domain is recognized.
+         * Because the cMsg subdomain is the only one in which a "/" is contained
+         * in the remainder, and because the presence of the "cMsg" subdomain identifier
+         * is optional, what will happen when it's parsed is that the namespace will be
+         * interpreted as the subdomain if "cMsg" domain identifier is not there.
+         * Thus we must take care of this case. If we don't recognize the subdomain,
+         * assume it's the namespace of the cMsg subdomain.
+         */
+        for (j=0; j < 8; j++) {
+            if (strcasecmp(allowedSubdomains[j], buffer) == 0) {
+                foundSubD = 1;
+                break;
+            }
+        }
+
+        if (!foundSubD) {
+            /* If here, sudomain is actually namespace and should
+             * be part of subRemainder and subdomain is "cMsg" */
+            if (pUdl->subRemainder == NULL || strlen(pUdl->subRemainder) < 1) {
+                pUdl->subRemainder = strdup(buffer);
+                /*if(dbg) printf("parseUDL: remainder null (or len 0) but set to %s\n",  pUdl->subRemainder);*/
+            }
+            else  {
+                char *oldSubRemainder = pUdl->subRemainder;
+                char *newRemainder = (char *)calloc(1, (len + subRemainderLen + 2));
+                if (newRemainder == NULL) {
+                    free(udl);
+                    free(buffer);
+                    return(CMSG_OUT_OF_MEMORY);
+                }
+                sprintf(newRemainder, "%s/%s", buffer, oldSubRemainder);
+                pUdl->subRemainder = newRemainder;
+                /*if(dbg) printf("parseUDL: remainder originally = %s, now = %s\n",oldSubRemainder, newRemainder );*/
+                free(oldSubRemainder);
+            }
+
+            pUdl->subdomain = strdup("cMsg");
+        }
+        else {
+            pUdl->subdomain = strdup(buffer);
+        }
+    }
+
+if(dbg) {
+    printf("parseUDL: subdomain = %s\n", pUdl->subdomain);
+    printf("parseUDL: subdomain remainder = %s\n",pUdl->subRemainder);
+}
 
     /* find optional parameters */
     error = CMSG_OK;
@@ -7021,6 +7089,7 @@ if(dbg) printf("parseUDL: password 1 = %s\n", buffer);
 if(dbg) printf("Found duplicate password in UDL\n");
             /* there is another password defined, return an error */
             cMsgRegfree(&compiled);
+            free(remain);
             error = CMSG_BAD_FORMAT;
             break;
           }
@@ -7036,6 +7105,7 @@ if(dbg) printf("Found duplicate password in UDL\n");
 
         err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
         if (err != 0) {
+            free(remain);
             break;
         }
 
@@ -7054,6 +7124,7 @@ if(dbg) printf("Found duplicate password in UDL\n");
             if (!isdigit(buffer[i])) {
 if(dbg) printf("Got nondigit in timeout = %c\n",buffer[i]);
               cMsgRegfree(&compiled);
+              free(remain);
               error = CMSG_BAD_FORMAT;
               break;
             }
@@ -7061,9 +7132,10 @@ if(dbg) printf("Got nondigit in timeout = %c\n",buffer[i]);
           
           pUdl->timeout = atoi(buffer);
           if (pUdl->timeout < 0) {
-            cMsgRegfree(&compiled);
-            error = CMSG_BAD_FORMAT;
-            break;
+              cMsgRegfree(&compiled);
+              free(remain);
+              error = CMSG_BAD_FORMAT;
+              break;
           }
 if(dbg) printf("parseUDL: timeout = %d seconds\n", pUdl->timeout);
      
@@ -7071,10 +7143,11 @@ if(dbg) printf("parseUDL: timeout = %d seconds\n", pUdl->timeout);
           err = cMsgRegexec(&compiled, remain+pos, 2, matches, 0);
           if (err == 0 && matches[1].rm_so >= 0) {
 if(dbg) printf("Found duplicate timeout in UDL\n");
-            /* there is another timeout defined, return an error */
-            cMsgRegfree(&compiled);
-            error = CMSG_BAD_FORMAT;
-            break;
+              /* there is another timeout defined, return an error */
+              cMsgRegfree(&compiled);
+              free(remain);
+              error = CMSG_BAD_FORMAT;
+              break;
           }
         }
                 
@@ -7086,7 +7159,8 @@ if(dbg) printf("Found duplicate timeout in UDL\n");
 
         err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
         if (err != 0) {
-          break;
+            free(remain);
+            break;
         }
 
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
@@ -7111,19 +7185,21 @@ if(dbg) printf("parseUDL: regime = medium\n");
           }
           else {
 if(dbg) printf("parseUDL: regime = %s, return error\n", buffer);
-            cMsgRegfree(&compiled);
-            error = CMSG_BAD_FORMAT;
-            break;
+              cMsgRegfree(&compiled);
+              free(remain);
+              error = CMSG_BAD_FORMAT;
+              break;
           }
 
           /* see if there is another regime defined (a no-no) */
           err = cMsgRegexec(&compiled, remain+pos, 2, matches, 0);
           if (err == 0 && matches[1].rm_so >= 0) {
 if(dbg) printf("Found duplicate regime in UDL\n");
-            /* there is another timeout defined, return an error */
-            cMsgRegfree(&compiled);
-            error = CMSG_BAD_FORMAT;
-            break;
+              /* there is another timeout defined, return an error */
+              cMsgRegfree(&compiled);
+              free(remain);
+              error = CMSG_BAD_FORMAT;
+              break;
           }
 
         }
@@ -7137,7 +7213,8 @@ if(dbg) printf("Found duplicate regime in UDL\n");
 
         err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
         if (err != 0) {
-          break;
+            free(remain);
+            break;
         }
 
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
@@ -7162,19 +7239,21 @@ if(dbg) printf("parseUDL: failover = cloud only\n");
           }
           else {
 if(dbg) printf("parseUDL: failover = %s, return error\n", buffer);
-            cMsgRegfree(&compiled);
-            error = CMSG_BAD_FORMAT;
-            break;
+              cMsgRegfree(&compiled);
+              free(remain);
+              error = CMSG_BAD_FORMAT;
+              break;
           }
 
           /* see if there is another failover defined (a no-no) */
           err = cMsgRegexec(&compiled, remain+pos, 2, matches, 0);
           if (err == 0 && matches[1].rm_so >= 0) {
 if(dbg) printf("Found duplicate failover in UDL\n");
-            /* there is another failover defined, return an error */
-            cMsgRegfree(&compiled);
-            error = CMSG_BAD_FORMAT;
-            break;
+              /* there is another failover defined, return an error */
+              cMsgRegfree(&compiled);
+              free(remain);
+              error = CMSG_BAD_FORMAT;
+              break;
           }
 
         }
@@ -7188,7 +7267,8 @@ if(dbg) printf("Found duplicate failover in UDL\n");
 
         err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
         if (err != 0) {
-          break;
+            free(remain);
+            break;
         }
 
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
@@ -7209,19 +7289,21 @@ if(dbg) printf("parseUDL: cloud = local\n");
           }
           else {
 if(dbg) printf("parseUDL: cloud = %s, return error\n", buffer);
-            cMsgRegfree(&compiled);
-            error = CMSG_BAD_FORMAT;
-            break;
+              cMsgRegfree(&compiled);
+              free(remain);
+              error = CMSG_BAD_FORMAT;
+              break;
           }
 
           /* see if there is another failover defined (a no-no) */
           err = cMsgRegexec(&compiled, remain+pos, 2, matches, 0);
           if (err == 0 && matches[1].rm_so >= 0) {
 if(dbg) printf("Found duplicate cloud in UDL\n");
-            /* there is another cloud defined, return an error */
-            cMsgRegfree(&compiled);
-            error = CMSG_BAD_FORMAT;
-            break;
+              /* there is another cloud defined, return an error */
+              cMsgRegfree(&compiled);
+              free(remain);
+              error = CMSG_BAD_FORMAT;
+              break;
           }
 
         }
@@ -7236,6 +7318,7 @@ if(dbg) printf("Found duplicate cloud in UDL\n");
 
         err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
         if (err != 0) {
+            free(remain);
             break;
         }
 
@@ -7254,6 +7337,7 @@ if(dbg) printf("Found duplicate cloud in UDL\n");
                 if (!isdigit(buffer[i])) {
 if(dbg) printf("Got nondigit in port = %c\n",buffer[i]);
                     cMsgRegfree(&compiled);
+                    free(remain);
                     error = CMSG_BAD_FORMAT;
                     break;
                 }
@@ -7262,6 +7346,7 @@ if(dbg) printf("Got nondigit in port = %c\n",buffer[i]);
             pUdl->domainServerPort = atoi(buffer);
             if (pUdl->domainServerPort < 1024 || pUdl->domainServerPort > 65535) {
                 cMsgRegfree(&compiled);
+                free(remain);
                 error = CMSG_BAD_FORMAT;
                 break;
             }
@@ -7273,6 +7358,7 @@ if(dbg) printf("parseUDL: domain server port = %d\n", pUdl->domainServerPort);
 if(dbg) printf("Found duplicate domain server port in UDL\n");
                 /* there is another domain server port defined, return an error */
                 cMsgRegfree(&compiled);
+                free(remain);
                 error = CMSG_BAD_FORMAT;
                 break;
             }
@@ -7281,7 +7367,46 @@ if(dbg) printf("Found duplicate domain server port in UDL\n");
         
         /* free up memory */
         cMsgRegfree(&compiled);
-                                
+
+        /* find preferred subnet parameter if it exists, */
+        /* look for subnet=<value> */
+        pattern = "[&\\?]subnet=([^&]+)";
+
+        /* compile regular expression */
+        err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
+        if (err != 0) {
+            free(remain);
+            break;
+        }
+
+        /* find matches */
+        err = cMsgRegexec(&compiled, remain, 2, matches, 0);
+        /* if match find (first) subnet */
+        if (err == 0 && matches[1].rm_so >= 0) {
+            int pos=0;
+            buffer[0] = 0;
+            len = matches[1].rm_eo - matches[1].rm_so;
+            pos = matches[1].rm_eo;
+            strncat(buffer, remain+matches[1].rm_so, len);
+            pUdl->subnet = strdup(buffer);
+            if(dbg) printf("parseUDL: subnet 1 = %s\n", buffer);
+
+            /* see if there is another subnet defined (a no-no) */
+            err = cMsgRegexec(&compiled, remain+pos, 2, matches, 0);
+            if (err == 0 && matches[1].rm_so >= 0) {
+                if(dbg) printf("Found duplicate subnet in UDL\n");
+                /* there is another subnet defined, return an error */
+                cMsgRegfree(&compiled);
+                free(remain);
+                error = CMSG_BAD_FORMAT;
+                break;
+            }
+        }
+
+        /* free up memory */
+        cMsgRegfree(&compiled);
+
+
         free(remain);
         break;
     }
