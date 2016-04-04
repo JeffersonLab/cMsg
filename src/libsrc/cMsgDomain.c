@@ -72,7 +72,7 @@
 #include "cMsgDomain.h"
 #include "rwlock.h"
 #include "cMsgRegex.h"
-
+#include "cMsgCommonNetwork.h"
 
 
 /**
@@ -7090,7 +7090,7 @@ if(dbg) {
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
         /* if match find (first) password */
         if (err == 0 && matches[1].rm_so >= 0) {
-          int pos=0;
+          int pos;
           buffer[0] = 0;
           len = matches[1].rm_eo - matches[1].rm_so;
           pos = matches[1].rm_eo;
@@ -7127,7 +7127,7 @@ if(dbg) printf("Found duplicate password in UDL\n");
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
         /* if match find timeout */
         if (err == 0 && matches[1].rm_so >= 0) {
-          int pos=0;
+          int pos;
           buffer[0] = 0;
           len = matches[1].rm_eo - matches[1].rm_so;
           pos = matches[1].rm_eo;
@@ -7181,7 +7181,7 @@ if(dbg) printf("Found duplicate timeout in UDL\n");
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
         /* if match find regime */
         if (err == 0 && matches[1].rm_so >= 0) {
-          int pos=0;
+          int pos;
           buffer[0] = 0;
           len = matches[1].rm_eo - matches[1].rm_so;
           pos = matches[1].rm_eo;
@@ -7235,7 +7235,7 @@ if(dbg) printf("Found duplicate regime in UDL\n");
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
         /* if match find failover */
         if (err == 0 && matches[1].rm_so >= 0) {
-          int pos=0;
+          int pos;
           buffer[0] = 0;
           len = matches[1].rm_eo - matches[1].rm_so;
           pos = matches[1].rm_eo;
@@ -7289,7 +7289,7 @@ if(dbg) printf("Found duplicate failover in UDL\n");
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
         /* if match find cloud */
         if (err == 0 && matches[1].rm_so >= 0) {
-          int pos=0;
+          int pos;
           buffer[0] = 0;
           len = matches[1].rm_eo - matches[1].rm_so;
           pos = matches[1].rm_eo;
@@ -7340,7 +7340,7 @@ if(dbg) printf("Found duplicate cloud in UDL\n");
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
         /* if match find port */
         if (err == 0 && matches[1].rm_so >= 0) {
-            int pos=0;
+            int pos;
             buffer[0] = 0;
             len = matches[1].rm_eo - matches[1].rm_so;
             pos = matches[1].rm_eo;
@@ -7398,30 +7398,25 @@ if(dbg) printf("Found duplicate domain server port in UDL\n");
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
         /* if match find (first) subnet */
         if (err == 0 && matches[1].rm_so >= 0) {
-            int pos=0;
+            char *subnet = NULL;
+            int pos;
             buffer[0] = 0;
             len = matches[1].rm_eo - matches[1].rm_so;
             pos = matches[1].rm_eo;
             strncat(buffer, remain+matches[1].rm_so, len);
-            pUdl->subnet = strdup(buffer);
-            if(dbg) printf("parseUDL: subnet 1 = %s\n", buffer);
 
-            /* see if there is another subnet defined (a no-no) */
-            err = cMsgRegexec(&compiled, remain+pos, 2, matches, 0);
-            if (err == 0 && matches[1].rm_so >= 0) {
-                if(dbg) printf("Found duplicate subnet in UDL\n");
-                /* there is another subnet defined, return an error */
-                cMsgRegfree(&compiled);
-                free(remain);
-                error = CMSG_BAD_FORMAT;
-                break;
+            /* check to make sure it really is a local subnet */
+            cMsgNetGetBroadcastAddress(buffer, &subnet);
+
+            /* if it is NOT a local subnet, forget about it */
+            if (subnet != NULL) {
+                pUdl->subnet = subnet;
+                if(dbg) printf("parseUDL: subnet 1 = %s\n", buffer);
             }
         }
 
         /* free up memory */
         cMsgRegfree(&compiled);
-
-
         free(remain);
         break;
     }
