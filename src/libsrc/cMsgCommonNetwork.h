@@ -17,8 +17,8 @@
  *
  *----------------------------------------------------------------------------*/
  
-#ifndef __etCommonNetwork_h
-#define __etCommonNetwork_h
+#ifndef __cmsgCommonNetwork_h
+#define __cmsgCommonNetwork_h
 
 
 /*#include <netinet/ip.h>*/  /* IPTOS_LOWDELAY defn */
@@ -26,10 +26,6 @@
 #include <netinet/tcp.h> /* TCP_NODELAY def */
 #include <net/if.h>	     /* find broacast addr */
 #include <pthread.h>
-
-#ifndef VXWORKS
-#include <sys/time.h>    /* struct timeval */
-#endif
 
 
 /* cmsg or et definitions here */
@@ -72,6 +68,7 @@ extern "C" {
 #define   codanetTcpConnectTimeout2     cMsgNetTcpConnectTimeout2
 #define   codanetGetListeningSocket     cMsgNetGetListeningSocket
 #define   codanetUdpReceive             cMsgNetUdpReceive
+#define   codanetUdpReceiveAll          etNetUdpReceiveAll
 
 #define   codanetTcpRead                cMsgNetTcpRead
 #define   codanetTcpRead3iNB            cMsgNetTcpRead3iNB
@@ -95,38 +92,26 @@ extern "C" {
 #define   codanetHstrerror              cMsgNetHstrerror
 #define   codanetStringToNumericIPaddr  cMsgNetStringToNumericIPaddr
 
-#define   codanetGetInterfaceInfo       cMsgNetGetInterfaceInfo
-#define   codanetFreeInterfaceInfo      cMsgNetFreeInterfaceInfo
-#define   codanetFreeIpAddrs            cMsgNetFreeIpAddrs
-#define   codanetGetNetworkInfo         cMsgNetGetNetworkInfo
-#define   codanetFreeAddrList           cMsgNetFreeAddrList
-#define   codanetGetBroadcastAddrs      cMsgNetGetBroadcastAddrs
-#define   codanetGetIpAddrs             cMsgNetGetIpAddrs
-#define   codanetOrderIpAddrs           cMsgNetOrderIpAddrs
-#define   codanetMcastSetIf             cMsgNetMcastSetIf
-#define   codanetGetIfNames             cMsgNetGetIfNames
+#define   codanetGetInterfaceInfo          cMsgNetGetInterfaceInfo
+#define   codanetFreeInterfaceInfo         cMsgNetFreeInterfaceInfo
+#define   codanetFreeIpAddrs               cMsgNetFreeIpAddrs
+#define   codanetGetNetworkInfo            cMsgNetGetNetworkInfo
+#define   codanetFreeAddrList              cMsgNetFreeAddrList
+#define   codanetGetBroadcastAddrs         cMsgNetGetBroadcastAddrs
+#define   codanetGetIpAddrs                cMsgNetGetIpAddrs
+#define   codanetOrderIpAddrs              cMsgNetOrderIpAddrs
+#define   codanetMcastSetIf                cMsgNetMcastSetIf
+#define   codanetGetIfNames                cMsgNetGetIfNames
+#define   codanetGetMatchingLocalIpAddress cMsgNetGetMatchingLocalIpAddress
+#define   codanetGetBroadcastAddress       cMsgNetGetBroadcastAddress
 
 
 
 /* convenient network definitions (from Richard Stevens ) */
 #define SA                  struct sockaddr
 #define LISTENQ             10
+#define INET_ATON_ERR       0
 
-#ifdef VXWORKS
-#define INET_ATON_ERR   ERROR
-#define socklen_t int
-#else
-#define INET_ATON_ERR   0
-#endif
-
-#ifdef VXWORKS
-/*
-struct sockaddr_storage {
-    uint8_t ss_len;
-    sa_family_t ss_family;
-};
-*/
-#endif
 
 
 /*****************************************************************************
@@ -254,6 +239,7 @@ extern int   codanetGetListeningSocket(int nonblocking, unsigned short startingP
                                        int *finalPort, int *fd);
 extern int   codanetAccept(int fd, struct sockaddr *sa, socklen_t *salenptr);
 extern int   codanetUdpReceive(unsigned short port, const char *address, int multicast, int *fd);
+extern int   codanetUdpReceiveAll(unsigned short port, char multicastAddrs[][CODA_IPADDRSTRLEN], int addrCount, int *fd);
 
 extern int   codanetTcpRead(int fd, void *vptr, int n);
 extern int   codanetTcpRead3iNB(int fd, int *i1, int *i2, int *i3);
@@ -286,11 +272,13 @@ extern int   codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info);
 extern void  codanetFreeAddrList(codaIpList *addr);
 extern int   codanetGetBroadcastAddrs(codaIpList **addrs, codaDotDecIpAddrs *bcaddrs);
 extern int   codanetGetIpAddrs(char ***ipAddrs, int *count, char *host);
-extern codaIpList *codanetOrderIpAddrs(codaIpList *ipList, codaIpAddr *netinfo,
-                                       char* preferredSubnet);
 extern int   codanetMcastSetIf(int sockfd, const char *ifname, uint32_t ifindex);
 extern int   codanetGetIfNames(char ***ifNames, int *count);
-
+extern codaIpList *codanetOrderIpAddrs(codaIpList *ipList, codaIpAddr *netinfo,
+                                       char* preferredSubnet);
+extern int   codanetGetMatchingLocalIpAddress(char *ip, char **matchingIp);
+extern int   codanetGetBroadcastAddress(char *ip, char **broadcastIp);
+                                       
 
     
 
