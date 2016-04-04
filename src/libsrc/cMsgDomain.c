@@ -725,8 +725,8 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
   int failoverIndex=0, gotConnection = 0;
   char temp[CMSG_MAXHOSTNAMELEN];
   cMsgDomainInfo *domain;
-  codaIpList *ipList = NULL;
-
+  codaIpList *ipList = NULL, *orderedIpList = NULL;
+  codaIpAddr *ipAddrs = NULL;
 
   /* handle memory, keep track of which functions are being called */
   cMsgMemoryMutexLock();
@@ -787,12 +787,12 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
 
   /* store our host's name */
   gethostname(temp, CMSG_MAXHOSTNAMELEN);
-  domain->myHost = (char *) strdup(temp);
+  domain->myHost = strdup(temp);
 
   /* store names, can be changed until server connection established */
-  domain->name        = (char *) strdup(myName);
-  domain->udl         = (char *) strdup(myUDL);
-  domain->description = (char *) strdup(myDescription);   
+  domain->name        =  strdup(myName);
+  domain->udl         =  strdup(myUDL);
+  domain->description =  strdup(myDescription);
 
   connectPointers[index] = (void *)domain;
   
@@ -818,25 +818,32 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
     failoverIndex++;
     /* copy this UDL's specifics into main structure */
     cMsgParsedUDLCopy(&domain->currentUDL, &domain->failovers[failoverIndex]);
-    
+
     /* connect using that UDL info */
 /*printf("\nTrying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
     if (domain->currentUDL.mustMulticast) {
-      free(domain->currentUDL.nameServerHost);
-      domain->currentUDL.nameServerHost = NULL;
+        free(domain->currentUDL.nameServerHost);
+        domain->currentUDL.nameServerHost = NULL;
 /*printf("Trying to connect with Multicast\n"); */
-//      err = connectWithMulticast(domain, &domain->currentUDL.nameServerHost,
-//                           &domain->currentUDL.nameServerPort);
-      err = connectWithMulticast(domain, &ipList, &domain->currentUDL.nameServerPort);
-      if (err != CMSG_OK || ipList == NULL) {
+        err = connectWithMulticast(domain, &ipList, &domain->currentUDL.nameServerPort);
+        if (err != CMSG_OK || ipList == NULL) {
 /*printf("Error trying to connect with Multicast, err = %d\n", err);*/
-        cMsgParsedUDLFree(&domain->currentUDL);
-        continue;
-      }
+            cMsgParsedUDLFree(&domain->currentUDL);
+            continue;
+        }
+
+        /* Get local network info if not already done */
+        if (ipAddrs == NULL) {
+            cMsgNetGetNetworkInfo(&ipAddrs, NULL);
+        }
+
+        /* Order the IP list according to the given preferred subnet, if any */
+        orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, domain->currentUDL.subnet);
     }
 
-    err = connectDirect(domain, (void *) index, ipList);
+    err = connectDirect(domain, (void *) index, orderedIpList);
     cMsgNetFreeAddrList(ipList);
+    cMsgNetFreeAddrList(orderedIpList);
     if (err != CMSG_OK) {
         cMsgParsedUDLFree(&domain->currentUDL);
     }
@@ -855,6 +862,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
         cMsgMemoryMutexLock();
         connectPointers[index] = NULL;
         cMsgMemoryMutexUnlock();
+        cMsgNetFreeIpAddrs(ipAddrs);
         return(CMSG_OUT_OF_MEMORY);
       }
       sprintf(domain->currentUDL.serverName, "%s:%d",domain->currentUDL.nameServerHost,
@@ -865,6 +873,9 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
     }
     
   } while (failoverIndex < domain->failoverSize - 1);
+
+  /* Free up local network info */
+  cMsgNetFreeIpAddrs(ipAddrs);
 
   if (!gotConnection) {
     cMsgDomainFree(domain);
@@ -914,15 +925,13 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
  */
 int cmsg_cmsg_reconnect(void *domainId) {
         
-    void *vp;
-    char *p, *udl;
     intptr_t index;
-    int i, len, err=CMSG_OK, outGoing[2];
-    int failoverUDLCount = 0, failoverIndex=0, gotConnection = 0;
-    char temp[CMSG_MAXHOSTNAMELEN];
+    int len, err=CMSG_OK, outGoing[2];
+    int failoverUDLCount = 0, failoverIndex=0;
     cMsgDomainInfo *domain;
-    codaIpList *ipList = NULL;
-    
+    codaIpList *ipList = NULL, *orderedIpList = NULL;
+    codaIpAddr *ipAddrs = NULL;
+
     index = (intptr_t) domainId;
     if (index < 0 || index > CMSG_CONNECT_PTRS_ARRAY_SIZE-1) {
         return(CMSG_BAD_ARGUMENT);
@@ -1006,11 +1015,20 @@ int cmsg_cmsg_reconnect(void *domainId) {
                     /*printf("Error trying to connect with Multicast, err = %d\n", err);*/
                     continue;
                 }
+
+                /* Get local network info if not already done */
+                if (ipAddrs == NULL) {
+                    cMsgNetGetNetworkInfo(&ipAddrs, NULL);
+                }
+
+                /* Order the IP list according to the given preferred subnet, if any */
+                orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, domain->currentUDL.subnet);
             }
 
-            err = reconnect(domainId, ipList);
+            err = reconnect(domainId, orderedIpList);
             cMsgNetFreeAddrList(ipList);
-            
+            cMsgNetFreeAddrList(orderedIpList);
+
             if (err == CMSG_OK) {
                 domain->failoverIndex = failoverIndex;
                 domain->gotConnection = 1;
@@ -1023,6 +1041,7 @@ int cmsg_cmsg_reconnect(void *domainId) {
                 if (domain->currentUDL.serverName == NULL) {
                     cMsgConnectWriteUnlock(domain);
                     cMsgCleanupAfterUsingMem(index);
+                    cMsgNetFreeIpAddrs(ipAddrs);
                     return CMSG_OUT_OF_MEMORY;
                 }
                 sprintf(domain->currentUDL.serverName, "%s:%d",domain->currentUDL.nameServerHost,
@@ -1041,6 +1060,9 @@ int cmsg_cmsg_reconnect(void *domainId) {
             }
     
         } while (failoverIndex < failoverUDLCount - 1);
+
+        /* Free up local network info */
+        cMsgNetFreeIpAddrs(ipAddrs);
     }
 
 
@@ -1292,7 +1314,7 @@ static int connectWithMulticast(cMsgDomainInfo *domain, codaIpList **hostList, i
 static void *receiverThd(void *arg) {
     int i, tcpPort, udpPort, ipLen, ipCount, magicInt[3];
     thdArg *threadArg = (thdArg *) arg;
-    char buf[1024], *pchar, *ipAddr, *bcastAddr;
+    char buf[1024], *pchar;
     ssize_t len;
     codaIpList *listHead=NULL, *listEnd, *listItem;
     
@@ -1358,7 +1380,7 @@ printf("  Multicast response has wrong magic numbers, ignore packet\n");
             /* Create address item */
             listItem = (codaIpList *) calloc(1, sizeof(codaIpList));
             if (listItem == NULL) {
-                codanetFreeAddrList(listHead);
+                cMsgNetFreeAddrList(listHead);
                 pthread_exit(NULL);
                 return NULL;
             }
@@ -1474,9 +1496,7 @@ static void *multicastThd(void *arg) {
  */
 static int connectDirect(cMsgDomainInfo *domain, void *domainId, codaIpList *ipList) {
 
-    int err, serverfd, sendLen, status, uniqueClientKey, outGoing[4];
-    const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
-    struct sockaddr_in  servaddr;
+    int err, serverfd=0, uniqueClientKey;
 
     /* Block SIGPIPE for this and all spawned threads. */
     cMsgBlockSignals(domain);
@@ -1575,7 +1595,6 @@ static int connectToDomainServer(cMsgDomainInfo *domain, void *domainId,
                                  int uniqueClientKey, int reconnecting) {
 
     int i, index, err, same, lastOption, sendLen, status, outGoing[5];
-    int messageSocket, keepAliveSocket;
     const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
     struct sockaddr_in servaddr;
   
@@ -1960,11 +1979,7 @@ error:
 static int reconnect(void *domainId, codaIpList *ipList) {
 
     intptr_t index;
-    int i, err, serverfd, status, tblSize, sendLen, uniqueClientKey, outGoing[4];
-    getInfo *info;
-    const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
-    struct sockaddr_in  servaddr;
-    hashNode *entries = NULL;
+    int i, err, serverfd, uniqueClientKey;
     cMsgDomainInfo *domain;
   
     index = (intptr_t) domainId;
