@@ -901,7 +901,7 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
 
   /* no values (all NULL) so only keys must be freed */
   hashDestroy(&domain->rcIpAddrTable, NULL, NULL);
-  
+
   hashDestroy(&domain->syncSendTable, &entries, &size);
   /* If there are entries in the hashTable, free them.
    * Key is a string, value is getInfo pointer. */
@@ -1037,6 +1037,7 @@ void cMsgParsedUDLInit(parsedUDL *p) {
   p->password          = NULL;
   p->nameServerHost    = NULL;
   p->serverName        = NULL;
+  p->subnet            = NULL;
 }
 
 
@@ -1091,12 +1092,17 @@ int cMsgParsedUDLCopy(parsedUDL *dest, parsedUDL *src) {
     dest->nameServerHost = strdup(src->nameServerHost);
     if (dest->nameServerHost == NULL) return CMSG_OUT_OF_MEMORY;
   }
-  
+
   if (src->serverName != NULL) {
     dest->serverName = strdup(src->serverName);
     if (dest->serverName == NULL) return CMSG_OUT_OF_MEMORY;
   }
-  
+
+  if (src->subnet != NULL) {
+    dest->subnet = strdup(src->subnet);
+    if (dest->subnet == NULL) return CMSG_OUT_OF_MEMORY;
+  }
+
   return CMSG_OK;
 }
 
@@ -1118,6 +1124,7 @@ void cMsgParsedUDLFree(parsedUDL *p) {
   if (p->password        != NULL) {free(p->password);        p->password        = NULL;}
   if (p->nameServerHost  != NULL) {free(p->nameServerHost);  p->nameServerHost  = NULL;}
   if (p->serverName      != NULL) {free(p->serverName);      p->serverName      = NULL;}
+  if (p->subnet          != NULL) {free(p->subnet);          p->subnet          = NULL;}
 }
 
 /*-------------------------------------------------------------------*/
