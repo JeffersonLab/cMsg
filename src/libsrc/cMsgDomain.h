@@ -178,6 +178,7 @@ typedef struct parsedUDL_t {
   char *password;          /**< password of name server. */
   char *nameServerHost;    /**< host of name server. */
   char *serverName;        /**< name of server (nameServerHost:nameServerPort). */
+  char *subnet;            /**< name of preferred subnet over which to connect to server. */
 } parsedUDL;
 
 
@@ -260,7 +261,7 @@ typedef struct cMsgDomainInfo_t {
                               indicate that connection is complete? (1-y, 0-n) */
   pthread_mutex_t rcConnectMutex;    /**< Mutex used for rc domain connect. */
   pthread_cond_t  rcConnectCond;     /**< Condition variable used for rc domain connect. */
-  /** Hashtable of rcServer ip addresses used by rc client to make TCP connection. */
+  /** Hashtable of rcServer ip addresses used by emu client to make TCP connection (no longer used in rc client). */
   hashTable rcIpAddrTable;
   /* ***************** */
   
