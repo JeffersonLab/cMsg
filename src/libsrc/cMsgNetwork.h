@@ -20,13 +20,7 @@
 #ifndef __cMsgNetwork_h
 #define __cMsgNetwork_h
 
-#ifdef VXWORKS
-#include <ioLib.h>       /* writev */
-#include <inetLib.h>     /* htonl stuff */
-#else
 #include <arpa/inet.h>   /* htonl stuff */
-#endif
-
 #include <netinet/tcp.h> /* TCP_NODELAY def */
 
 #include <cMsgCommonNetwork.h> 
@@ -61,25 +55,6 @@
 #define __BYTE_ORDER __LITTLE_ENDIAN
 #endif
 
-/*
- * On vxworks, _BIG_ENDIAN = 1234 and _LITTLE_ENDIAN = 4321,
- * which is a bit backwards. _BYTE_ORDER is also defined.
- * In types/vxArch.h, these definitions are carefully set
- * to these reversed values. In other header files such as
- * netinet/ip.h & tcp.h, the values are normal (ie
- * _BIG_ENDIAN = 4321). What's this all about?
- */
-#elif VXWORKS
-
-#define __LITTLE_ENDIAN 1234
-#define __BIG_ENDIAN    4321
-
-#if _BYTE_ORDER == _BIG_ENDIAN
-#define __BYTE_ORDER __BIG_ENDIAN
-#else
-#define __BYTE_ORDER __LITTLE_ENDIAN
-#endif
-
 #endif
 
 /* Byte swapping for 64 bits. */
@@ -93,7 +68,7 @@
 #endif
 
 
-#if defined sun || defined VXWORKS || defined __APPLE__
+#if defined __APPLE__
 #  define socklen_t int
 #endif
 
@@ -105,16 +80,8 @@
 
 
 /* set send and receive TCP buffer sizes */
-#ifdef VXWORKS
-/*
- * The 6100 board likes 36K buffers if there is no tcpNoDelay,
- * but it likes 22K if the socket is set for no delay.
- */
-#define CMSG_BIGSOCKBUFSIZE     65536
-#else
 /*#define CMSG_BIGSOCKBUFSIZE    131072*/
 #define CMSG_BIGSOCKBUFSIZE    1024000
-#endif
 
 #define CMSG_IOV_MAX        16     /* minimum for POSIX systems */
 
