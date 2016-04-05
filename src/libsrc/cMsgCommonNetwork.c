@@ -213,7 +213,7 @@ int codanetGetListeningSocket(int nonblocking, unsigned short startingPort,
                               int noDelay, int *finalPort, int *fd) {
                                
     unsigned short  i, port=startingPort, trylimit=1500;
-    int listenFd;
+    int listenFd = 0;
       
     /* for a limited number of times */
     for (i=0; i < trylimit; i++) {
@@ -580,7 +580,6 @@ int codanetTcpConnectTimeout(const char *ip_address, unsigned short port,
 
     /* if there's no error, find & return the local port number of this socket */
     if (err != -1 && localPort != NULL) {
-        int prt;
         socklen_t len;
         struct sockaddr_in ss;
       
@@ -644,7 +643,7 @@ int codanetTcpConnectTimeout2(const char *ip_address, const char *interface, uns
                               int sendBufSize, int rcvBufSize, int noDelay, struct timeval *timeout,
                               int *fd, int *localPort)
 {
-    int                 res, sockfd, err=0, isDottedDecimal=0;
+    int                 sockfd, err=0, isDottedDecimal=0;
     const int           on=1, off=0;
     struct sockaddr_in  servaddr;
     uint32_t            inetaddr;
@@ -760,7 +759,6 @@ int codanetTcpConnectTimeout2(const char *ip_address, const char *interface, uns
 
     /* since there's no error, find & return the local port number of this socket */
     if (localPort != NULL) {
-        int prt;
         socklen_t len;
         struct sockaddr_in ss;
       
@@ -935,7 +933,6 @@ int codanetTcpConnect(const char *ip_address, const char *interface, unsigned sh
 
     /* if there's no error, find & return the local port number of this socket */
     if (err != -1 && localPort != NULL) {
-        int prt;
         socklen_t len;
         struct sockaddr_in ss;
       
@@ -1052,7 +1049,6 @@ int codanetTcpConnect2(uint32_t inetaddr, const char *interface, unsigned short 
   
     /* if there's no error, find & return the local port number of this socket */
     if (err != -1 && localPort != NULL) {
-        int prt;
         socklen_t len;
         struct sockaddr_in ss;
       
@@ -1093,11 +1089,9 @@ int codanetTcpConnect2(uint32_t inetaddr, const char *interface, unsigned short 
  */
 int codanetStringToNumericIPaddr(const char *ip_address, struct sockaddr_in *addr)
 {
-    int err=0, isDottedDecimal=0, j, i[4];
-    int                 status;
+    int isDottedDecimal=0, status;
     struct in_addr      **pptr;
     struct hostent      *hp;
-    int h_errnop        = 0;
 
     if (ip_address == NULL) {
         if (codanetDebug >= CODA_DEBUG_ERROR) fprintf(stderr, "%sStringToNumericIPaddr: null argument\n", codanetStr);
@@ -1481,7 +1475,6 @@ int codanetLocalByteOrder(int *endian)
  */
 int codanetLocalSocketAddress(int sockfd, char *ipAddress)
 {
-    int   err;
     char *ip;
     struct sockaddr_in *sa;
 
@@ -1566,7 +1559,7 @@ int codanetOnSameSubnet(const char *ipAddress1, const char *ipAddress2,
         return(CODA_ERROR);
     }
 
-    mask  = (msk[0] << 24) | (msk[1] << 16) | (msk[2] << 8) | msk[3];
+    mask  = (uint32_t) ((msk[0] << 24) | (msk[1] << 16) | (msk[2] << 8) | msk[3]);
 
     return codanetOnSameSubnet2(ipAddress1, ipAddress2, mask, sameSubnet);
 }
@@ -1598,8 +1591,8 @@ int codanetOnSameSubnet2(const char *ipAddress1, const char *ipAddress2,
         return(CODA_ERROR);
     }
     
-    addr1 = (ip1[0] << 24) | (ip1[1] << 16) | (ip1[2] << 8) | ip1[3];
-    addr2 = (ip2[0] << 24) | (ip2[1] << 16) | (ip2[2] << 8) | ip2[3];
+    addr1 = (uint32_t) ((ip1[0] << 24) | (ip1[1] << 16) | (ip1[2] << 8) | ip1[3]);
+    addr2 = (uint32_t) ((ip2[0] << 24) | (ip2[1] << 16) | (ip2[2] << 8) | ip2[3]);
 
     if ((addr1 & subnetMask) == (addr2 & subnetMask)) {
         *sameSubnet = 1;
@@ -1788,7 +1781,7 @@ int codanetGetUname(char *host, int length)
     }
 
     /* return the null-teminated uname */
-    strncpy(host, myname.nodename, length);
+    strncpy(host, myname.nodename, (size_t)length);
     host[length-1] = '\0';
   
     return CODA_OK;
@@ -1831,12 +1824,12 @@ int codanetLocalHost(char *host, int length)
 
     if ( (hptr = gethostbyname(myname.nodename)) == NULL) {
         /* return the null-teminated uname node name */
-        strncpy(host, myname.nodename, length);
+        strncpy(host, myname.nodename, (size_t)length);
         host[length-1] = '\0';
     }
     else {
         /* return the null-teminated canonical name */
-        strncpy(host, hptr->h_name, length);
+        strncpy(host, hptr->h_name, (size_t)length);
         host[length-1] = '\0';
     }
   
@@ -2163,7 +2156,8 @@ struct ifi_info *codanetGetInterfaceInfo(int family, int doaliases)
 struct ifi_info *codanetGetInterfaceInfo(int family, int doaliases)
 {
     struct ifi_info     *ifi, *ifihead, **ifipnext;
-    int                 err, sockfd, len, lastlen, flags, myflags;
+    int                 err, sockfd, lastlen, flags, myflags;
+    size_t              len;
     char                *ptr, *buf, lastname[IFNAMSIZ], *cptr;
     struct ifconf       ifc;
     struct ifreq        *ifr, ifrcopy;
@@ -2181,7 +2175,7 @@ struct ifi_info *codanetGetInterfaceInfo(int family, int doaliases)
   
     for ( ; ; ) {
         buf = malloc(len);
-        ifc.ifc_len = len;
+        ifc.ifc_len = (int) len;
         ifc.ifc_buf = buf;
         
         if (ioctl(sockfd, SIOCGIFCONF, &ifc) < 0) {
@@ -2260,8 +2254,8 @@ fprintf(stderr, "et_get_ifi_info: ioctl error\n");
         *ifipnext = ifi;               /* prev points to this new one */
         ifipnext  = &ifi->ifi_next;    /* pointer to next one goes here */
 
-        ifi->ifi_flags = flags;        /* IFF_xxx values */
-        ifi->ifi_myflags = myflags;    /* IFI_xxx values */
+        ifi->ifi_flags = (short)flags;        /* IFF_xxx values */
+        ifi->ifi_myflags = (short)myflags;    /* IFI_xxx values */
         memcpy(ifi->ifi_name, ifr->ifr_name, IFI_NAME);
         ifi->ifi_name[IFI_NAME-1] = '\0';
 
@@ -2391,7 +2385,7 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
     struct ifi_info   *ifi, *ifihead;
     struct sockaddr   *sa;
     struct hostent    *hptr;
-    int               i, debug=0;
+    int               i;
     char              **pptr, *pChar, host[CODA_MAXHOSTNAMELEN];
     codaIpAddr         *ipaddr=NULL, *prev=NULL, *first=NULL;
   
@@ -2508,7 +2502,7 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
             }
 
             if (first->aliasCount > 0) {
-                first->aliases = (char **)calloc(first->aliasCount, sizeof(char *));
+                first->aliases = (char **)calloc((size_t)first->aliasCount, sizeof(char *));
                 if (first->aliases == NULL) {
                     codanetFreeIpAddrs(first);
                     codanetFreeInterfaceInfo(ifihead);
@@ -2546,8 +2540,9 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
   
     /* copy everything into a fixed-size array of structures for use in shared memory */
     if (info != NULL) {
-        int j, i=0;
+        int j;
         ipaddr = first;
+        i=0;
     
         while (ipaddr != NULL) {
             /* look at no more than CODA_MAXADDRESSES IP addresses */
@@ -2620,7 +2615,7 @@ void codanetFreeAddrList(codaIpList *addr) {
 int codanetGetBroadcastAddrs(codaIpList **addrs, codaDotDecIpAddrs *bcaddrs)
 {
     char  *p;
-    int    index, count=0, skip, debug=0;
+    int    index, count=0, skip;
     struct ifi_info *ifi, *ifihead;
     struct sockaddr *sa;
     codaIpList      *baddr=NULL, *first=NULL, *prev=NULL, *paddr;
@@ -2736,7 +2731,7 @@ int codanetGetBroadcastAddrs(codaIpList **addrs, codaDotDecIpAddrs *bcaddrs)
 int codanetGetIfNames(char ***ifNames, int *count) {
 
     char   **array;
-    int    index=0, numIfs=0, debug=0;
+    int    index=0, numIfs=0;
     struct ifi_info *ifi, *ifihead;
 
     /* look through IPv4 interfaces - no aliases */
@@ -3008,8 +3003,8 @@ int codanetGetBroadcastAddress(char *ip, char **broadcastIp) {
 int codanetGetIpAddrs(char ***ipAddrs, int *count, char *host) {
 
     static char str[128];
-    char   **array, *pChar;
-    int    err, status, index=0, numIps=0, debug=0, hostIsLocal=0, h_errnop=0;
+    char **array = NULL, *pChar;
+    int    err, status, index=0, numIps=0, hostIsLocal=0, h_errnop=0;
     struct sockaddr *sa;
     struct ifi_info *ifi, *ifihead;
     struct in_addr  **pptr;
@@ -3186,9 +3181,9 @@ int codanetGetIpAddrs(char ***ipAddrs, int *count, char *host) {
 codaIpList *codanetOrderIpAddrs(codaIpList *ipList, codaIpAddr *netinfo,
                                 char* preferredSubnet) {
 
-    int i, onSameSubnet, onPreferredSubnet, preferredCount=0;
+    int onSameSubnet, onPreferredSubnet, preferredCount=0;
     char *ipAddress, *bcastAddress;
-    codaIpList *listItem, *lastItem, *lastPrefItem, *firstItem = NULL, *firstPrefItem = NULL;
+    codaIpList *listItem, *lastItem=NULL, *lastPrefItem=NULL, *firstItem = NULL, *firstPrefItem = NULL;
     codaIpAddr *local;
 
     if (ipList == NULL) return NULL;
