@@ -106,9 +106,7 @@
 #include "cMsgConstants.h"
 #endif
 
-#ifndef VXWORKS
 #include <inttypes.h>
-#endif
 
 /** Subscribe configuration. */
 typedef void *cMsgSubscribeConfig;
@@ -127,12 +125,6 @@ extern "C" {
 #ifdef Darwin
 #define CLOCK_REALTIME 0
 int clock_gettime(int dummy, struct timespec *t1);
-#endif
-
-#ifdef VXWORKS
-  char *strdup(const char *s1);
-  int   strcasecmp(const char *s1, const char *s2);
-  int   strncasecmp(const char *s1, const char *s2, size_t n);
 #endif
 
   /* basic functions */
