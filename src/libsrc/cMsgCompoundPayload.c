@@ -84,18 +84,9 @@
  */
 
 /* system includes */
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <taskLib.h>
-#include <symLib.h>
-#include <symbol.h>
-#include <sysSymTbl.h>
-#else
 #include <strings.h>
 #include <dlfcn.h>
 #include <inttypes.h>
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
