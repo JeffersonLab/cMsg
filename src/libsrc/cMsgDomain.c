@@ -6060,10 +6060,6 @@ static void *keepAliveThread(void *arg) {
     struct timespec wait4reconnect  = {0,100000000}; /* 0.1 sec */
     void *p;
 
-    /* increase concurrency for this thread for early Solaris */
-    int  con;
-    con = sun_getconcurrency();
-    sun_setconcurrency(con + 1);
 
     index = (intptr_t) domainId;
     if (index < 0 || index > CMSG_CONNECT_PTRS_ARRAY_SIZE-1) {
@@ -6471,17 +6467,12 @@ static void *updateServerThread(void *arg) {
     int socket, state, status;
     unsigned int sleepTime = 2; /* 2 secs between monitoring sends */
 
-    /* increase concurrency for this thread for early Solaris */
-    int  con;
-    con = sun_getconcurrency();
-    sun_setconcurrency(con + 1);
 
     index = (intptr_t) domainId;
     if (index < 0 || index > CMSG_CONNECT_PTRS_ARRAY_SIZE-1) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
             fprintf(stderr, "updateServerThread: bad value for domain, ending thread (1)\n");
         }
-        sun_setconcurrency(con);
         pthread_exit(NULL);
     }
 
@@ -6492,7 +6483,6 @@ static void *updateServerThread(void *arg) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
             fprintf(stderr, "updateServerThread: bad value for domain, ending thread (2)\n");
         }
-        sun_setconcurrency(con);
         pthread_exit(NULL);
     }
     cMsgMemoryMutexUnlock();
@@ -6529,8 +6519,6 @@ static void *updateServerThread(void *arg) {
         /* wait (pthread cancellation point) */
         sleep(sleepTime);
     }
-
-    sun_setconcurrency(con);
 
     pthread_exit(NULL);
 }
