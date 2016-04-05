@@ -1977,10 +1977,10 @@ void *cMsgCallbackWorkerThread(void *arg)
         cMsgMutexUnlock(&cb->mutex);
 
         /* run callback */
-        msg->context.domain  = (char *) strdup("cMsg");
-        msg->context.subject = (char *) strdup(subject);
-        msg->context.type    = (char *) strdup(type);
-        msg->context.udl     = (char *) strdup(udl);
+        msg->context.domain  = strdup("cMsg");
+        msg->context.subject = strdup(subject);
+        msg->context.type    = strdup(type);
+        msg->context.udl     = strdup(udl);
         msg->context.cueSize = &cb->messages; /* pointer to cueSize info allows it
         to always be up-to-date in callback */
 
