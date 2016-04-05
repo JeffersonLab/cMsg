@@ -373,7 +373,7 @@ System.out.println("getMatchingLocalIpAddress: broadcast addr, use this IP on th
 
     /**
      * Takes a list of dotted-decimal formatted IP address strings and their corresponding
-     * broadcast addresses and orders them so that those on the given local subnet are first,
+     * broadcast addresses and orders them so that those on the local, preferred subnet are first,
      * those on other local subnets are next, and all others come last.
      * This only works for IPv4.
      *
