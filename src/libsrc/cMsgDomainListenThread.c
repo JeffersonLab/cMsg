@@ -92,9 +92,7 @@ static void cleanUpHandler(void *arg) {
     fprintf(stderr, "cleanUpHandler: in\n");
   }
   */
-  /* decrease concurrency as this thread disappears */
-  sun_setconcurrency(sun_getconcurrency() - 1);
-  
+
   /* close socket */
   /* close(pMem->fd); */ /* I don't think this is necessary, Carl 8/11/08 */
 
@@ -142,9 +140,6 @@ void *cMsgClientListeningThread(void *arg)
   }
   cMsgMemoryMutexUnlock();
 
-  /* increase concurrency for this thread */
-  sun_setconcurrency(sun_getconcurrency() + 1);
-  
   /* release system resources when thread finishes */
   /* pthread_detach(pthread_self()); */
 
