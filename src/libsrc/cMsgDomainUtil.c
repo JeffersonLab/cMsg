@@ -1599,7 +1599,7 @@ void *cMsgCallbackThread(void *arg)
     cMsgDomainInfo *domain = cbarg->domain;
     subInfo *sub           = cbarg->sub;
     subscribeCbInfo *cb    = cbarg->cb;
-    int i, nextIndex, freeIndex, status, need, threadsAdded, maxToAdd, wantToAdd, state, con;
+    int i, nextIndex, freeIndex, status, need, threadsAdded, maxToAdd, wantToAdd, state;
     int *used;
     cMsgMessage_t *msg;
     pthread_t *threads;
@@ -1609,11 +1609,7 @@ void *cMsgCallbackThread(void *arg)
            
     /* release system resources when thread finishes */
     pthread_detach(pthread_self());
-    
-    /* increase concurrency for this thread for early Solaris */
-    con = sun_getconcurrency();
-    sun_setconcurrency(con + 1);
-    
+
     /* keep local copies of some strings as they may be freed elsewhere */
     udl     = strdup(domain->udl);
     type    = strdup(sub->type);
@@ -1800,10 +1796,7 @@ void *cMsgCallbackThread(void *arg)
 static void cleanUpHandler(void *arg) {
     int status;
     subscribeCbInfo *cb = (subscribeCbInfo *)arg;
-    
-    /* decrease concurrency as this thread disappears */
-    sun_setconcurrency(sun_getconcurrency() - 1);
-  
+
     /* release mutex */
     status = pthread_mutex_trylock(&cb->mutex);
     /*
@@ -1838,10 +1831,6 @@ void *cMsgCallbackWorkerThread(void *arg)
     struct timespec timeout = {0,200000000}; /* wait .2 sec before waking up and checking for messages */
     struct timespec wait, waitOneTic = {0,1}, waitOneSec = {1,0}; /* 1 sec */
 
-    /* increase concurrency for this thread for early Solaris */
-    int  con;
-    con = sun_getconcurrency();
-    sun_setconcurrency(con + 1);
 
     /* release system resources when thread finishes */
     /*pthread_detach(pthread_self());*/
@@ -2022,9 +2011,7 @@ void *cMsgCallbackWorkerThread(void *arg)
     }
     
   end:
-          
-  sun_setconcurrency(con);
-  
+
   /* calls cleanup handler */
   pthread_cleanup_pop(0);
   
