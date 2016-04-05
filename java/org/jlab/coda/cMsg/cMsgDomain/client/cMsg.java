@@ -3145,9 +3145,9 @@ System.out.println("disconnect: IO error");
             // Because the cMsg subdomain is the only one in which a "/" is contained
             // in the remainder, and because the presence of the "cMsg" subdomain identifier
             // is optional, what will happen when it's parsed is that the namespace will be
-            // interpreted as the subdomain. Thus we must take care of this case.
-            // If we don't recognize the subdomain, assume it's the namespace of the cMsg
-            // subdomain.
+            // interpreted as the subdomain if "cMsg" domain identifier is not there.
+            // Thus we must take care of this case. If we don't recognize the subdomain,
+            // assume it's the namespace of the cMsg subdomain.
             boolean foundSubD = false;
             for (String subDom: allowedSubdomains) {
                 if (subDom.equalsIgnoreCase(udlSubdomain)) {
@@ -3157,7 +3157,12 @@ System.out.println("disconnect: IO error");
             }
 
             if (!foundSubD) {
-                udlSubRemainder = udlSubdomain + "/" + matcher.group(4);
+                if (udlSubRemainder == null) {
+                    udlSubRemainder = udlSubdomain;
+                }
+                else {
+                    udlSubRemainder = udlSubdomain + "/" + udlSubRemainder;
+                }
                 udlSubdomain = "cMsg";
             }
         }
