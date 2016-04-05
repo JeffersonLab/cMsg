@@ -36,17 +36,10 @@
  */  
  
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <sysLib.h>
-#include <sockLib.h>
-#include <hostLib.h>
-#else
 #include <strings.h>
 #include <sys/time.h>    /* struct timeval */
- #ifdef linux
+#ifdef linux
   #include <sys/types.h>   /* getpid() */
- #endif
 #endif
 
 #include <stdio.h>
@@ -457,7 +450,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
 
     /* store our host's name */
     gethostname(temp, CMSG_MAXHOSTNAMELEN);
-    domain->myHost = (char *) strdup(temp);
+    domain->myHost = strdup(temp);
 
     /* store names, can be changed until server connection established */
     domain->name        = strdup(myName);
@@ -496,7 +489,7 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
             }
         }
         else {
-            startingPort = i;
+            startingPort = (unsigned short)i;
         }
     }
      
@@ -544,13 +537,9 @@ int cmsg_rc_connect(const char *myUDL, const char *myName, const char *myDescrip
      * the listening thread.
      */
 
-  #ifdef VXWORKS
-    hz = sysClkRateGet();
-  #else
     /* get system clock rate - probably 100 Hz */
-    hz = 100;
+    /*hz = 100;*/
     hz = (int) sysconf(_SC_CLK_TCK);
-  #endif
     /* wait up to WAIT_FOR_THREADS seconds for a thread to start */
     try_max = hz * WAIT_FOR_THREADS;
     num_try = 0;
@@ -1639,8 +1628,8 @@ int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type,
         return(CMSG_OUT_OF_MEMORY);
       }
       cMsgSubscribeInfoInit(sub);
-      sub->subject = (char *) strdup(subject);
-      sub->type    = (char *) strdup(type);
+      sub->subject = strdup(subject);
+      sub->type    = strdup(type);
       cMsgSubscriptionSetRegexpStuff(sub);
       /* put it in hash table */
       hashInsert(&domain->subscribeTable, subKey, sub, NULL);
@@ -1717,15 +1706,6 @@ int cmsg_rc_subscribe(void *domainId, const char *subject, const char *type,
     /* init thread attributes */
     pthread_attr_init(&threadAttribute);
             
-#ifdef VXWORKS
-    /* Make 30k bytes the default stack size in vxworks (instead
-     * of the normal 20k) since people have been running out of
-     * stack memory.
-    */
-    if (cb->config.stackSize == 0) {
-  pthread_attr_setstacksize(&threadAttribute, CMSG_VX_DEFAULT_STACK_SIZE);
-    }
-#endif
     /* if stack size of this thread is set, include in attribute */
     if (cb->config.stackSize > 0) {
       pthread_attr_setstacksize(&threadAttribute, cb->config.stackSize);
@@ -2111,7 +2091,7 @@ int cmsg_rc_subscriptionQueueIsFull(void *domainId, void *handle, int *full) {
  */
 int cmsg_rc_subscriptionQueueClear(void *domainId, void *handle) {
 
-    int i, status;
+    int status;
     cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
     cbArg           *cbarg;
     subscribeCbInfo *cb;
@@ -2192,7 +2172,7 @@ int cmsg_rc_subscriptionMessagesTotal(void *domainId, void *handle, int *total) 
     cMsgMutexLock(&cb->mutex);
     
     /* tell callback thread to resume */
-    if (total != NULL) *total = cb->msgCount;
+    if (total != NULL) *total = (int)cb->msgCount;
     
     cMsgMutexUnlock(&cb->mutex);
     
@@ -2211,7 +2191,7 @@ static void *receiverThd(void *arg) {
     thdArg *threadArg = (thdArg *) arg;
     char buffer[1024], *tmp, *pchar, *host;
     ssize_t len;
-    codaIpList *listHead=NULL, *listEnd, *listItem;
+    codaIpList *listHead=NULL, *listEnd=NULL, *listItem;
     socklen_t sockLen;
     struct sockaddr_in addr;
 
@@ -2257,9 +2237,9 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
 
         /* The server is sending back its 1) port, 2) host name length, 3) host name */
         memcpy(magicInt, pchar, 3 * sizeof(int));
-        magicInt[0] = ntohl(magicInt[0]);
-        magicInt[1] = ntohl(magicInt[1]);
-        magicInt[2] = ntohl(magicInt[2]);
+        magicInt[0] = ntohl((uint32_t)magicInt[0]);
+        magicInt[1] = ntohl((uint32_t)magicInt[1]);
+        magicInt[2] = ntohl((uint32_t)magicInt[2]);
         pchar += 3 * sizeof(int);
 
         if ((magicInt[0] != CMSG_MAGIC_INT1) ||
@@ -2270,19 +2250,19 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
         }
 
         memcpy(&cMsgVersion, pchar, sizeof(int));
-        cMsgVersion = ntohl(cMsgVersion);
+        cMsgVersion = ntohl((uint32_t)cMsgVersion);
         pchar += sizeof(int);
 
         memcpy(&udpPort, pchar, sizeof(int));
-        udpPort = ntohl(udpPort);
+        udpPort = ntohl((uint32_t)udpPort);
         pchar += sizeof(int);
 
         memcpy(&hostLen, pchar, sizeof(int));
-        hostLen = ntohl(hostLen);
+        hostLen = ntohl((uint32_t)hostLen);
         pchar += sizeof(int);
 
         memcpy(&expidLen, pchar, sizeof(int));
-        expidLen = ntohl(expidLen);
+        expidLen = ntohl((uint32_t)expidLen);
         pchar += sizeof(int);
 
         if (cMsgVersion != CMSG_VERSION_MAJOR) {
@@ -2298,12 +2278,12 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
 
         /*  read host string  */
         if (hostLen > 0) {
-            if ((tmp = (char *) malloc(hostLen + 1)) == NULL) {
+            if ((tmp = (char *) malloc((size_t)(hostLen + 1))) == NULL) {
                 printf("  out of memory, quit program\n");
                 exit(-1);
             }
             /* read sender string into memory */
-            memcpy(tmp, pchar, hostLen);
+            memcpy(tmp, pchar, (size_t)hostLen);
             /* add null terminator to string */
             tmp[hostLen] = 0;
             /* store string in msg structure */
@@ -2325,7 +2305,7 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
         /*  how many IP addresses?  */
         /*--------------------------*/
         memcpy(&ipCount, pchar, sizeof(int));
-        ipCount = ntohl(ipCount);
+        ipCount = ntohl((uint32_t)ipCount);
         pchar += sizeof(int);
 
         if ((ipCount < 0) || (ipCount > 50)) {
@@ -2346,7 +2326,7 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
 
             /* First read in IP address len */
             memcpy(&ipLen, pchar, sizeof(int));
-            ipLen = ntohl(ipLen);
+            ipLen = ntohl((uint32_t)ipLen);
             pchar += sizeof(int);
 
             /* IP address is in dot-decimal format */
@@ -2358,13 +2338,13 @@ printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
             }
 
             /* Put address into a list for later sorting */
-            memcpy(listItem->addr , pchar, ipLen);
+            memcpy(listItem->addr , pchar, (size_t)ipLen);
             listItem->addr[ipLen] = 0;
             pchar += ipLen;
 
             /* Skip over the corresponding broadcast or network address */
             memcpy(&ipLen, pchar, sizeof(int));
-            ipLen = ntohl(ipLen);
+            ipLen = ntohl((uint32_t)ipLen);
             pchar += sizeof(int);
 
             if (ipLen < 7 || ipLen > 20) {
@@ -2434,9 +2414,7 @@ int cmsg_rc_monitor(void *domainId, const char *command, void **replyMsg) {
     cMsgDomainInfo *domain = (cMsgDomainInfo *) domainId;
 
     char   *host=NULL, buffer[1024];
-    int    status, err, len, sockfd, nameLen, expidLen;
-    int    ipCount=0, outGoing[9];
-    int    multicastTO, gotResponse = 0;
+    int    status, err, len, sockfd, nameLen, expidLen, outGoing[9], multicastTO, gotResponse = 0;
     unsigned char ttl = 32;
     thdArg    rArg;
     pthread_t rThread;
@@ -3035,7 +3013,7 @@ static int parseUDL(const char *UDLR,
     }
     
     /* make a copy */        
-    udlRemainder = (char *) strdup(UDLR);
+    udlRemainder = strdup(UDLR);
     if (udlRemainder == NULL) {
       return(CMSG_OUT_OF_MEMORY);
     }
@@ -3081,7 +3059,7 @@ static int parseUDL(const char *UDLR,
         /* if the host is "localhost", find the actual host name */
         if (strcasecmp(buffer, "localhost") == 0) {
             /* get canonical local host name */
-            if (cMsgNetLocalHost(buffer, bufLength) != CMSG_OK) {
+            if (cMsgNetLocalHost(buffer, (int)bufLength) != CMSG_OK) {
                 /* error finding local host so just multicast */
                 buffer[0] = 0;
                 strcat(buffer, RC_MULTICAST_ADDR);
@@ -3100,7 +3078,7 @@ static int parseUDL(const char *UDLR,
     }
     
     if (host != NULL) {
-        *host = (char *)strdup(buffer);
+        *host = strdup(buffer);
     }    
 /*printf("parseUDL: host = %s\n", buffer);*/
 
@@ -3130,7 +3108,7 @@ static int parseUDL(const char *UDLR,
     }
                
     if (port != NULL) {
-      *port = Port;
+      *port = (unsigned short)Port;
     }
 /*printf("parseUDL: port = %hu\n", Port);*/
 
@@ -3148,7 +3126,7 @@ static int parseUDL(const char *UDLR,
         strncat(buffer, udlRemainder+matches[index].rm_so, len);
                 
         if (expid != NULL) {
-            *expid = (char *) strdup(buffer);
+            *expid = strdup(buffer);
         }
     }
 /*printf("parseUDL: expid = %s\n", buffer);*/
@@ -3168,7 +3146,7 @@ static int parseUDL(const char *UDLR,
         strncat(buffer, udlRemainder+matches[index].rm_so, len);
                 
         if (remainder != NULL) {
-            *remainder = (char *) strdup(buffer);
+            *remainder = strdup(buffer);
         }
 /*printf("parseUDL: remainder = %s, len = %d\n", buffer, len);*/
     }
