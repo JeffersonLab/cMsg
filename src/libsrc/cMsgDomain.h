@@ -404,8 +404,6 @@ int   cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg);
 int   cMsgRunCallbacks(cMsgDomainInfo *domain, void *msg);
 int   cMsgCheckString(const char *s);
 int   cMsgGetAbsoluteTime(const struct timespec *deltaTime, struct timespec *absTime);
-int   sun_setconcurrency(int newLevel);
-int   sun_getconcurrency(void);
 
 /* signals */
 void  cMsgBlockSignals(cMsgDomainInfo *domain);
