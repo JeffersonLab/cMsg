@@ -38,10 +38,6 @@ extern "C" {
 
 #include <stdlib.h>
 
-#ifdef VXWORKS
-#define uintptr_t unsigned int
-#define intptr_t  int
-#endif
 
 /** Macro taken from "Programming with POSIX threads' by Butenhof
  * that aborts a program while printing out the file, line, and error
@@ -81,9 +77,6 @@ extern "C" {
 #define CMSG_VERSION_MAJOR 4
 /** Minor version number. */
 #define CMSG_VERSION_MINOR 0
-
-/** Default vxworks stack size for subscription threads. */
-#define CMSG_VX_DEFAULT_STACK_SIZE 40000
 
 /** The maximum number domain types that a client can connect to. */
 #define CMSG_MAX_DOMAIN_TYPES   20
