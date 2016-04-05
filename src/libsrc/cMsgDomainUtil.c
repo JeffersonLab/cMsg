@@ -29,10 +29,6 @@
  * implementations of the cMsg user API.
  */  
  
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -566,8 +562,6 @@ void cMsgGetInfoInit(getInfo *info) {
 void cMsgGetInfoFree(getInfo *info) {
   void *p = (void *)info->msg;
 
-#ifdef VXWORKS
-    /* cannot destroy mutexes and cond vars in vxworks & Linux(?) */
     int status;
     
     status = pthread_cond_destroy (&info->cond);
@@ -579,8 +573,7 @@ void cMsgGetInfoFree(getInfo *info) {
     if (status != 0) {
       cmsg_err_abort(status, "cMsgGetInfoFree: destroying cond var");
     }
-#endif
-    
+
     if (info->type != NULL)    {free(info->type);    info->type    = NULL;}
     if (info->subject != NULL) {free(info->subject); info->subject = NULL;}
     if (info->msg != NULL)     {cMsgFreeMessage(&p); info->msg     = NULL;}
@@ -655,31 +648,28 @@ void cMsgCallbackInfoInit(subscribeCbInfo *info) {
  * @param info pointer to subscription callback structure
  */
 void cMsgCallbackInfoFree(subscribeCbInfo *info) {
-#ifndef VXWORKS
-    /* cannot destroy mutexes and cond vars in vxworks & apparently Linux */
     int status;
 
-      status = pthread_cond_destroy (&info->addToQ);
-      if (status != 0) {
-          cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
-      }
+    status = pthread_cond_destroy (&info->addToQ);
+    if (status != 0) {
+        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
+    }
 
-      status = pthread_cond_destroy (&info->checkQ);
-      if (status != 0) {
-          cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
-      }
+    status = pthread_cond_destroy (&info->checkQ);
+    if (status != 0) {
+        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
+    }
 
-      status = pthread_cond_destroy (&info->takeFromQ);
-      if (status != 0) {
-          cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
-      }
+    status = pthread_cond_destroy (&info->takeFromQ);
+    if (status != 0) {
+        cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying cond var");
+    }
 
-      status = pthread_mutex_destroy(&info->mutex);
-      if (status != 0) {
+    status = pthread_mutex_destroy(&info->mutex);
+    if (status != 0) {
         cmsg_err_abort(status, "cMsgCallbackInfoFree:destroying mutex");
-      }
+    }
   
-#endif
     cMsgCountDownLatchFree(&info->pauseLatch);
 }
 
@@ -874,9 +864,7 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
 void cMsgDomainFree(cMsgDomainInfo *domain) {  
   int i, size;
   hashNode *entries = NULL;
-#ifndef VXWORKS
   int status;
-#endif
 
   if (domain->myHost         != NULL) {free(domain->myHost);         domain->myHost         = NULL;}
   if (domain->sendHost       != NULL) {free(domain->sendHost);       domain->sendHost       = NULL;}
@@ -955,9 +943,6 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
     free(entries);
   }
 
-#ifndef VXWORKS
-  /* cannot destroy mutexes in vxworks & Linux(?) */
-
   status = rwl_destroy(&domain->connectLock);
   if (status != 0) {
       cmsg_err_abort(status, "cMsgDomainFree:destroying connect read/write lock");
@@ -1004,7 +989,6 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
   cmsg_err_abort(status, "cMsgDomainFree:destroying connect read/write lock");
 }
   */
-#endif
 
   cMsgCountDownLatchFree(&domain->syncLatch);
     
@@ -1204,8 +1188,6 @@ void cMsgCountDownLatchInit(countDownLatch *latch, int count) {
  * a countdown latch.
  */
 void cMsgCountDownLatchFree(countDownLatch *latch) {  
-#ifndef VXWORKS
-    /* cannot destroy mutexes and cond vars in vxworks & Linux(?) */
     int status;
     
     status = pthread_mutex_destroy(&latch->mutex);
@@ -1222,8 +1204,6 @@ void cMsgCountDownLatchFree(countDownLatch *latch) {
     if (status != 0) {
       cmsg_err_abort(status, "countDownLatchFree:destroying cond var");
     }
-    
-#endif   
 }
 
 
@@ -1734,10 +1714,7 @@ void *cMsgCallbackThread(void *arg)
                     workerArg->subject = subject;
                     workerArg->type = type;
                     workerArg->udl = udl;
-#ifdef VXWORKS
-                    /* zero some memory to avoid funny pthread stuff on vxworks */
-                    memset(&threads[freeIndex], 0, sizeof(pthread_t));
-#endif
+
                     status = pthread_create(&threads[freeIndex], NULL,
                                             cMsgCallbackWorkerThread, (void *)workerArg);
                     if (status != 0) {
