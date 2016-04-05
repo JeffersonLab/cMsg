@@ -75,9 +75,6 @@ static void cleanUpHandler(void *arg) {
     fprintf(stderr, "rcClientListeningThread: in cleanup handler\n");
   }
   
-  /* decrease concurrency as this thread disappears */
-  sun_setconcurrency(sun_getconcurrency() - 1);
-  
   /* If we're in this code, the user called disconnect so go ahead and
    * cancel spawned thread. */
   nanosleep(&sTime,NULL);
@@ -115,9 +112,6 @@ static void cleanUpClientHandler(void *arg) {
   pMem->domain->functionsRunning--;
   cMsgMutexUnlock(&pMem->domain->syncSendMutex);
 
-  /* decrease concurrency as this thread disappears */
-  sun_setconcurrency(sun_getconcurrency() - 1);
-  
   /* close socket */
   close(pMem->fd);
 
@@ -156,9 +150,6 @@ void *rcClientListeningThread(void *arg)
   /* pointer to information to be passed to threads */
   cMsgThreadInfo *pinfo;
       
-  /* increase concurrency for this thread for early Solaris */
-  sun_setconcurrency(sun_getconcurrency() + 1);
-
   /* release system resources when thread finishes */
   /*pthread_detach(pthread_self());*//* this thread joined by disconnect */
 
@@ -382,9 +373,6 @@ static void *clientThread(void *arg)
   origArg = info->arg;
   free(arg);
 
-  
-  /* increase concurrency for this thread */
-  sun_setconcurrency(sun_getconcurrency() + 1);
   
   localCount = counter++;
 
