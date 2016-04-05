@@ -45,10 +45,6 @@
 #include "cMsgNetwork.h"
 #include "rwlock.h"
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 
 
 /* Prototypes of the 17 functions which implement the standard cMsg tasks in each domain. */
@@ -342,9 +338,6 @@ int cmsg_file_send(void *domainId, void *vmsg) {
   char *s;
   time_t now;
   char nowBuf[32];
-#if defined VXWORKS || defined sun
-  size_t nowLen=sizeof(nowBuf);
-#endif
   int stat;
   cMsgMessage_t  *msg = (cMsgMessage_t*)vmsg;
   fileDomainInfo *fdi = (fileDomainInfo*)domainId;
@@ -372,15 +365,7 @@ int cmsg_file_send(void *domainId, void *vmsg) {
     free(s);
   } else {
     now=time(NULL);
-#ifdef VXWORKS
-    ctime_r(&now,nowBuf,&nowLen);
-/*
-#elif defined sun
-    ctime_r(&now,nowBuf,nowLen);
-*/
-#else
     ctime_r(&now,nowBuf);
-#endif
     nowBuf[strlen(nowBuf)-1]='\0';
     s=(char*)malloc(strlen(nowBuf)+strlen(msg->text)+64);
     sprintf(s,"%s:    %s\n",nowBuf,msg->text);
