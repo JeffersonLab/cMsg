@@ -34,16 +34,8 @@
  */  
  
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <sysLib.h>
-#include <sockLib.h>
-#include <hostLib.h>
-#else
 #include <strings.h>
 #include <sys/time.h>    /* struct timeval */
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
