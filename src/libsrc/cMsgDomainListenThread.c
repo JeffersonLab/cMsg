@@ -17,15 +17,7 @@
  *
  *----------------------------------------------------------------------------*/
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <taskLib.h>
-#include <sockLib.h>
-#include <ctype.h>
-#else
 #include <strings.h>
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
