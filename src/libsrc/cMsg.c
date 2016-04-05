@@ -67,16 +67,8 @@
  */  
  
 /* system includes */
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <taskLib.h>
-#include <symLib.h>
-#include <symbol.h>
-#include <sysSymTbl.h>
-#else
 #include <strings.h>
 #include <dlfcn.h>
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -186,7 +178,7 @@ void cMsgTrim(char *s) {
     
     if (s == NULL) return;
 
-    len = strlen(s);
+    len = (int)strlen(s);
 
     if (len < 1) return;
     
@@ -197,7 +189,7 @@ void cMsgTrim(char *s) {
     while (isspace(*firstChar) && *firstChar != '\0') {
         firstChar++;
     }
-    frontCount = firstChar - s;
+    frontCount = (int) (firstChar - s);
 
     /* Check to see if string all white space, if so send back blank string. */
     if (frontCount >= len) {
@@ -211,7 +203,7 @@ void cMsgTrim(char *s) {
     }
 
     /* number of nonwhite chars */
-    len = lastChar - firstChar + 1;
+    len = (int) (lastChar - firstChar + 1);
 
     /* move chars to front of string */
     for (i=0; i < len; i++) {
@@ -298,127 +290,10 @@ void cMsgTrimDoubleChars(char *s, char trimChar) {
 
 }
 
-#ifdef VXWORKS
-
-/** Implementation of strdup for vxWorks. */
-char *strdup(const char *s1) {
-    char *s;
-    if (s1 == NULL) return NULL;
-    if ((s = (char *) malloc(strlen(s1)+1)) == NULL) return NULL;
-    return strcpy(s, s1);
-}
-
-/** Implementation of strndup for vxWorks. */
-char *strndup(const char *s1, size_t count) {
-    int len;
-    char *s;
-    if (s1 == NULL) return NULL;
-
-    len = strlen(s1) > count ? count : strlen(s1);
-    if ((s = (char *) malloc(len+1)) == NULL) return NULL;
-    s[len] = '\0';
-    return strncpy(s, s1, len);
-}
-
-/** Implementation of strcasecmp for vxWorks. */
-int strcasecmp(const char *s1, const char *s2) {
-  int i, len1, len2;
-  
-  /* handle NULL's */
-  if (s1 == NULL && s2 == NULL) {
-    return 0;
-  }
-  else if (s1 == NULL) {
-    return -1;  
-  }
-  else if (s2 == NULL) {
-    return 1;  
-  }
-  
-  len1 = strlen(s1);
-  len2 = strlen(s2);
-  
-  /* handle different lengths */
-  if (len1 < len2) {
-    for (i=0; i<len1; i++) {
-      if (toupper((int) s1[i]) < toupper((int) s2[i])) {
-        return -1;
-      }
-      else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
-         return 1;   
-      }
-    }
-    return -1;
-  }
-  else if (len1 > len2) {
-    for (i=0; i<len2; i++) {
-      if (toupper((int) s1[i]) < toupper((int) s2[i])) {
-        return -1;
-      }
-      else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
-         return 1;   
-      }
-    }
-    return 1;  
-  }
-  
-  /* handle same lengths */
-  for (i=0; i<len1; i++) {
-    if (toupper((int) s1[i]) < toupper((int) s2[i])) {
-      return -1;
-    }
-    else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
-       return 1;   
-    }
-  }
-  
-  return 0;
-}
-
-/** Implementation of strncasecmp for vxWorks. */
-int strncasecmp(const char *s1, const char *s2, size_t n) {
-  int i, len1, len2;
-  
-  /* handle NULL's */
-  if (s1 == NULL && s2 == NULL) {
-    return 0;
-  }
-  else if (s1 == NULL) {
-    return -1;  
-  }
-  else if (s2 == NULL) {
-    return 1;  
-  }
-  
-  len1 = strlen(s1);
-  len2 = strlen(s2);
-    
-  /* handle short lengths */
-  if (len1 < n || len2 < n) {
-    return strcasecmp(s1, s2);
-  }  
-   
-  /* both lengths >= n, but compare only n chars */
-  for (i=0; i<n; i++) {
-    if (toupper((int) s1[i]) < toupper((int) s2[i])) {
-      return -1;
-    }
-    else if (toupper((int) s1[i]) > toupper((int) s2[i])) {
-       return 1;   
-    }
-  }
-  
-  return 0;
-}
-
-
-/* else if not vxworks */
-#else
 
 #if !defined linux || !defined _GNU_SOURCE
-/** Implementation of strndup for vxWorks. */
 char *strndup(const char *s1, size_t count) {
-    int len;
+    size_t len;
     char *s;
     if (s1 == NULL) return NULL;
 
@@ -429,7 +304,6 @@ char *strndup(const char *s1, size_t count) {
 }
 #endif
 
-#endif
 
 /*-------------------------------------------------------------------*/
 #ifdef Darwin
@@ -593,7 +467,7 @@ static int readConfigFile(char *fileName, char **newUDL) {
         if (strstr(str, "://") == NULL) {
             continue;
         }
-        if (newUDL != NULL) *newUDL = (char *) (strdup(str));
+        if (newUDL != NULL) *newUDL = strdup(str);
         gotUDL = 1;
         break;
       }
@@ -632,7 +506,7 @@ static int splitUDL(const char *myUDL, parsedUDL** list, int *count) {
    * The UDL may be a semicolon separated list of UDLs.
    * Separate them and return a linked list of them.
    */
-  udl = (char *)strdup(myUDL);
+  udl = strdup(myUDL);
   if (udl == NULL) return(CMSG_OUT_OF_MEMORY);       
   p = strtok(udl, ";");
   
@@ -806,10 +680,10 @@ static int expandConfigFileUDLs(parsedUDL **list, int *count) {
 /* printf("expandConfigFileUDLs: read file, udl = %s\n", newUDL); */
 
     /* make a copy in all lower case */
-    udlLowerCase = (char *) strdup(newUDL);
-    len = strlen(udlLowerCase);
+    udlLowerCase = strdup(newUDL);
+    len = (int)strlen(udlLowerCase);
     for (i=0; i<len; i++) {
-      udlLowerCase[i] = tolower(udlLowerCase[i]);
+      udlLowerCase[i] = (char)tolower(udlLowerCase[i]);
     }
 
     if (strstr(udlLowerCase, "configfile") != NULL) {
@@ -883,7 +757,7 @@ static int expandConfigFileUDLs(parsedUDL **list, int *count) {
  * @returns CMSG_OUT_OF_MEMORY if out of memory
  */
 static int reconstructUDL(parsedUDL *pList, char **UDL) {
-  int  prefixLen, totalLen=0;
+  size_t  prefixLen, totalLen=0;
   char *udl, *prefix;
   parsedUDL *pUDL;
 
@@ -892,7 +766,7 @@ static int reconstructUDL(parsedUDL *pList, char **UDL) {
  /* Reconstruct the UDL for passing on to the proper domain (if necessary).
    * Do that by first scanning thru the list to get the length of string
    * we'll be dealing with. Then scan again to construct the string. */
-  prefixLen = 8+strlen(pList->domain); /* length of cMsg:<domainType>:// */
+  prefixLen = 8 + strlen(pList->domain); /* length of cMsg:<domainType>:// */
   prefix = (char *) calloc(1, prefixLen+1);
   if (prefix == NULL) {
     return(CMSG_OUT_OF_MEMORY);
@@ -1004,8 +878,8 @@ static int processUDL(const char *myUDL, char **newUDL, char **domainType,
     /*printf("processUDL: reconstructed udl = %s\n", *newUDL);*/
 
     /* return values */
-    if (domainType != NULL) *domainType = (char *) strdup(pList->domain);
-    if (remainderFirstUDL != NULL) *remainderFirstUDL = (char *) strdup(pList->remainder);
+    if (domainType != NULL) *domainType = strdup(pList->domain);
+    if (remainderFirstUDL != NULL) *remainderFirstUDL = strdup(pList->remainder);
   
     freeList(pList);
 
@@ -1050,18 +924,18 @@ int cMsgSetUDL(void *domainId, const char *UDL) {
     
 
     /* chew on the UDL, transform it */
-    if (err = processUDL(UDL, &newUDL, &domainType, &remainder) != CMSG_OK ) {
+    if ((err = processUDL(UDL, &newUDL, &domainType, &remainder)) != CMSG_OK ) {
         return(err);
     }
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     if (strcasecmp(domainType, domain->type) != 0) {
         free(newUDL); free(remainder); free(domainType);
-        cleanupAfterFunc(index);
+        cleanupAfterFunc((int)index);
         return(CMSG_WRONG_DOMAIN_TYPE);
     }
     err = domain->functions->setUDL(domain->implId, newUDL, remainder);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
     
     return(err);
 }
@@ -1091,10 +965,10 @@ int cMsgGetCurrentUDL(void *domainId, const char **udl) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
     
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     /* dispatch to function registered for this domain type */
     err = domain->functions->getCurrentUDL(domain->implId, udl);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
     
     return(err);
 }
@@ -1124,10 +998,10 @@ int cMsgGetServerHost(void *domainId, const char **ipAddress) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
     
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     /* dispatch to function registered for this domain type */
     err = domain->functions->getServerHost(domain->implId, ipAddress);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
     
     return(err);
 }
@@ -1156,10 +1030,10 @@ int cMsgGetServerPort(void *domainId, int *port) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
     
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     /* dispatch to function registered for this domain type */
     err = domain->functions->getServerPort(domain->implId, port);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
     
     return(err);
 }
@@ -1187,10 +1061,10 @@ int cMsgGetInfo(void *domainId, const char *command, char **string) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
     
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     /* dispatch to function registered for this domain type */
     err = domain->functions->getInfo(domain->implId, command, string);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
     
     return(err);
 }
@@ -1243,7 +1117,7 @@ int cMsgConnect(const char *myUDL, const char *myName,
   }
   
   /* check for colon in name */
-  len = strlen(myName);
+  len = (int)strlen(myName);
   for (i=0; i<len; i++) {
       if (myName[i] == ':') return(CMSG_BAD_ARGUMENT);
   }
@@ -1305,7 +1179,7 @@ int cMsgConnect(const char *myUDL, const char *myName,
   
       
   /* chew on the UDL, transform it, and extract info from it */
-  if (err = processUDL(myUDL, &newUDL, &domainType, &remainder) != CMSG_OK ) {
+  if ((err = processUDL(myUDL, &newUDL, &domainType, &remainder)) != CMSG_OK ) {
       return(err);
   }
   
@@ -1327,9 +1201,9 @@ int cMsgConnect(const char *myUDL, const char *myName,
 
 
   /* store stuff */
-  domain->name         = (char *) strdup(myName);
+  domain->name         = strdup(myName);
   domain->udl          = newUDL;
-  domain->description  = (char *) strdup(myDescription);
+  domain->description  = strdup(myDescription);
   domain->type         = domainType;
   domain->UDLremainder = remainder;
 
@@ -1390,10 +1264,10 @@ int cMsgReconnect(void *domainId) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     /* dispatch to function registered for this domain type */
     err = domain->functions->reconnect(domain->implId);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
 
     return err;
 }
@@ -1445,7 +1319,7 @@ int cMsgDisconnect(void **domainId) {
         return err;
     }
 
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     /* make this id unusable from now on (copied id's will not be affected) */
     *domainId = (void *)(-1);
@@ -1482,10 +1356,10 @@ int cMsgSend(void *domainId, void *msg) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     /* dispatch to function registered for this domain type */
     err = domain->functions->send(domain->implId, msg);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
     
     return err;
 }
@@ -1521,9 +1395,9 @@ int cMsgSyncSend(void *domainId, void *msg, const struct timespec *timeout, int 
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
   
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->syncSend(domain->implId, msg, timeout, response);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
 
     return err;
 }
@@ -1554,9 +1428,9 @@ int cMsgFlush(void *domainId, const struct timespec *timeout) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
   
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->flush(domain->implId, timeout);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -1597,10 +1471,10 @@ int cMsgSubscribe(void *domainId, const char *subject, const char *type, cMsgCal
   index = (intptr_t) domainId;
   if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-  if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+  if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
   err = domain->functions->subscribe(domain->implId, subject, type,
                                      callback, userArg, config, handle);
-  cleanupAfterFunc(index);
+  cleanupAfterFunc((int)index);
   
   return err;
 }
@@ -1629,9 +1503,9 @@ int cMsgUnSubscribe(void *domainId, void *handle) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->unsubscribe(domain->implId, handle);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 } 
@@ -1660,9 +1534,9 @@ int cMsgSubscriptionPause(void *domainId, void *handle) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->subscriptionPause(domain->implId, handle);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -1691,9 +1565,9 @@ int cMsgSubscriptionResume(void *domainId, void *handle) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->subscriptionResume(domain->implId, handle);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -1722,9 +1596,9 @@ int cMsgSubscriptionQueueCount(void *domainId, void *handle, int *count) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->subscriptionQueueCount(domain->implId, handle, count);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -1753,9 +1627,9 @@ int cMsgSubscriptionQueueIsFull(void *domainId, void *handle, int *full) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->subscriptionQueueIsFull(domain->implId, handle, full);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -1781,9 +1655,9 @@ int cMsgSubscriptionQueueClear(void *domainId, void *handle) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->subscriptionQueueClear(domain->implId, handle);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -1812,9 +1686,9 @@ int cMsgSubscriptionMessagesTotal(void *domainId, void *handle, int *total) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->subscriptionMessagesTotal(domain->implId, handle, total);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -1851,9 +1725,9 @@ int cMsgSendAndGet(void *domainId, void *sendMsg, const struct timespec *timeout
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->sendAndGet(domain->implId, sendMsg, timeout, replyMsg);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -1886,10 +1760,10 @@ int cMsgSubscribeAndGet(void *domainId, const char *subject, const char *type,
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->subscribeAndGet(domain->implId, subject, type,
                                               timeout, replyMsg);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -1922,9 +1796,9 @@ int cMsgMonitor(void *domainId, const char *command, void **replyMsg) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->monitor(domain->implId, command, replyMsg);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -1953,10 +1827,10 @@ int cMsgReceiveStart(void *domainId) {
   index = (intptr_t) domainId;
   if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-  if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+  if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
   err = domain->functions->start(domain->implId);
   if (err == CMSG_OK) domain->receiveState = 1;
-  cleanupAfterFunc(index);
+  cleanupAfterFunc((int)index);
   
   return err;
 }
@@ -1986,10 +1860,10 @@ int cMsgReceiveStop(void *domainId) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->stop(domain->implId);
     if (err == CMSG_OK) domain->receiveState = 0;
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -2021,9 +1895,9 @@ int cMsgGetConnectState(void *domainId, int *connected) {
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->isConnected(domain->implId, connected);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -2054,9 +1928,9 @@ int cMsgSetShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *u
     index = (intptr_t) domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
 
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->setShutdownHandler(domain->implId, handler, userArg);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -2088,9 +1962,9 @@ int cMsgShutdownClients(void *domainId, const char *client, int flag) {
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
     if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
     
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->shutdownClients(domain->implId, client, flag);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -2122,9 +1996,9 @@ int cMsgShutdownServers(void *domainId, const char *server, int flag) {
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
     if (flag != 0 && flag!= CMSG_SHUTDOWN_INCLUDE_ME) return(CMSG_BAD_ARGUMENT);
     
-    if ( (domain = prepareToCallFunc(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = prepareToCallFunc((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     err = domain->functions->shutdownServers(domain->implId, server, flag);
-    cleanupAfterFunc(index);
+    cleanupAfterFunc((int)index);
   
     return err;
 }
@@ -2340,27 +2214,27 @@ int cMsgSetDebugLevel(int level) {
 static int registerPermanentDomains() {
   
   /* cMsg type */
-  dTypeInfo[0].type = (char *)strdup(cmsgDomainTypeInfo.type); 
+  dTypeInfo[0].type = strdup(cmsgDomainTypeInfo.type);
   dTypeInfo[0].functions = cmsgDomainTypeInfo.functions;
 
 
   /* runcontrol (rc) domain */
-  dTypeInfo[1].type = (char *)strdup(rcDomainTypeInfo.type);
+  dTypeInfo[1].type = strdup(rcDomainTypeInfo.type);
   dTypeInfo[1].functions = rcDomainTypeInfo.functions;
 
 
   /* for file domain */
-  dTypeInfo[2].type = (char *)strdup(fileDomainTypeInfo.type);
+  dTypeInfo[2].type = strdup(fileDomainTypeInfo.type);
   dTypeInfo[2].functions = fileDomainTypeInfo.functions;
   
   /* for file domain */
-  dTypeInfo[3].type = (char *)strdup(emuDomainTypeInfo.type);
+  dTypeInfo[3].type = strdup(emuDomainTypeInfo.type);
   dTypeInfo[3].functions = emuDomainTypeInfo.functions;
   
   
   /* for dummy domain */
   /*
-  dTypeInfo[4].type = (char *)strdup(dummyDomainTypeInfo.type);
+  dTypeInfo[4].type = strdup(dummyDomainTypeInfo.type);
   dTypeInfo[4].functions = dummyDomainTypeInfo.functions;
   */
   return(CMSG_OK);
@@ -2383,14 +2257,9 @@ static int registerDynamicDomains(char *domainType) {
   int   len, index=-1;
   char  functionName[256];
   domainFunctions *funcs;
-#ifdef VXWORKS
-  char     *pValue;
-  SYM_TYPE  pType;
-#else
   char  libName[256];
   void *libHandle, *sym;
-#endif
-      
+
   /*
    * We have already loaded the cmsg, rc, and file domains.
    * Now we need to dynamically load any libraries needed
@@ -2401,10 +2270,10 @@ static int registerDynamicDomains(char *domainType) {
    */
    
   /* First lower the domain name to all lower case letters. */
-  lowerCase = (char *) strdup(domainType);
-  len = strlen(lowerCase);
+  lowerCase = strdup(domainType);
+  len = (int)strlen(lowerCase);
   for (i=0; i<len; i++) {
-    lowerCase[i] = tolower(lowerCase[i]);
+    lowerCase[i] = (char)tolower(lowerCase[i]);
   }
   
   /* Check to see if it's been loaded already */
@@ -2430,229 +2299,8 @@ static int registerDynamicDomains(char *domainType) {
     free(lowerCase);
     return(CMSG_OUT_OF_MEMORY);  
   }
-  
-
-#ifdef VXWORKS
-
-  /* get "connect" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_connect", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->connect = (CONNECT_PTR) pValue;
-  
-  /* get "reconnect" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_reconnect", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->reconnect = (START_STOP_PTR) pValue;
-  
-  /* get "send" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_send", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->send = (SEND_PTR) pValue;
-  
-  /* get "syncSend" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_syncSend", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->syncSend = (SYNCSEND_PTR) pValue;
-  
-  /* get "flush" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_flush", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->flush = (FLUSH_PTR) pValue;
-  
-  /* get "subscribe" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_subscribe", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->subscribe = (SUBSCRIBE_PTR) pValue;
-  
-  /* get "unsubscribe" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_unsubscribe", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->unsubscribe = (UNSUBSCRIBE_PTR) pValue;
-  
-  /* get "subscriptionPause" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_subscriptionPause", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->subscriptionPause = (UNSUBSCRIBE_PTR) pValue;
-  
-  /* get "subscriptionResume" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_subscriptionResume", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->subscriptionResume = (UNSUBSCRIBE_PTR) pValue;
-  
-  /* get "subscriptionQueueClear" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_subscriptionQueueClear", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->subscriptionQueueClear = (UNSUBSCRIBE_PTR) pValue;
-  
-  /* get "subscriptionQueueCount" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_subscriptionQueueCount", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->subscriptionQueueCount = (SUBSCRIPTION_PTR) pValue;
-  
-  /* get "subscriptionQueueIsFull" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_subscriptionQueueIsFull", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->subscriptionQueueIsFull = (SUBSCRIPTION_PTR) pValue;
-  
-  /* get "subscriptionMessagesTotal" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_subscriptionMessagesTotal", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->subscriptionMessagesTotal = (SUBSCRIPTION_PTR) pValue;
-  
-  /* get "subscribeAndGet" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_subscribeAndGet", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->subscribeAndGet = (SUBSCRIBE_AND_GET_PTR) pValue;
-  
-  /* get "sendAndGet" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_sendAndGet", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->sendAndGet = (SEND_AND_GET_PTR) pValue;
-  
-  /* get "start" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_start", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->start = (START_STOP_PTR) pValue;
-  
-  /* get "stop" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_stop", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->stop = (START_STOP_PTR) pValue;
-  
-  /* get "disconnect" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_disconnect", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->disconnect = (DISCONNECT_PTR) pValue;
-    
-  /* get "shutdownClients" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_shutdownClients", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->shutdownClients = (SHUTDOWN_PTR) pValue;
-
-  /* get "shutdownServers" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_shutdownServers", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->shutdownServers = (SHUTDOWN_PTR) pValue;
-
-  /* get "setShutdownHandler" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_setShutdownHandler", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-    free(funcs);
-    free(lowerCase);
-    return(CMSG_ERROR);
-  }
-  funcs->setShutdownHandler = (SET_SHUTDOWN_HANDLER_PTR) pValue;
-
-  /* get "isConnected" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_isConnected", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->isConnected = (ISCONNECTED_PTR) pValue;
-
-  /* get "setUDL" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_setUDL", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->setUDL = (SETUDL_PTR) pValue;
-
-  /* get "getCurrentUDL" function from global symbol table */
-  sprintf(functionName, "cmsg_%s_getCurrentUDL", lowerCase);
-  if (symFindByName(sysSymTbl, functionName, &pValue, &pType) != OK) {
-      free(funcs);
-      free(lowerCase);
-      return(CMSG_ERROR);
-  }
-  funcs->getCurrentUDL = (GETUDL_PTR) pValue;
 
 
-#else 
-  
   /* create name of library to look for */
   sprintf(libName, "libcmsg%s.so", lowerCase);
 /* printf("registerDynamicDomains: looking for %s\n", libName); */
@@ -2929,9 +2577,6 @@ static int registerDynamicDomains(char *domainType) {
   }
   funcs->getCurrentUDL = (GETUDL_PTR) sym;
 
-
-#endif  
-
    /* for new domain */
   dTypeInfo[index].type = lowerCase; 
   dTypeInfo[index].functions = funcs;
@@ -3022,7 +2667,7 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
     }
     
     /* make a copy */
-    udl = (char *) strdup(UDL);
+    udl = strdup(UDL);
     
     /* make a big enough buffer to construct various strings, 256 chars minimum */
     len       = strlen(UDL) + 1;
@@ -3072,7 +2717,7 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
        strncat(buffer, udl+matches[2].rm_so, len);
                         
         if (domainType != NULL) {
-            *domainType = (char *)strdup(buffer);
+            *domainType = strdup(buffer);
         }
     }
 /*printf("parseUDL: domain = %s\n", buffer);*/
@@ -3092,7 +2737,7 @@ static int parseUDL(const char *UDL, char **domainType, char **UDLremainder) {
         strncat(buffer, udl+matches[3].rm_so, len);
                 
         if (UDLremainder != NULL) {
-            *UDLremainder = (char *) strdup(buffer);
+            *UDLremainder = strdup(buffer);
         }        
 /* printf("parseUDL: domain remainder = %s\n", buffer); */
     }
@@ -3122,7 +2767,7 @@ static int checkString(const char *s) {
   int i, len;
 
   if (s == NULL) return(CMSG_ERROR);
-  len = strlen(s);
+  len = (int)strlen(s);
 
   /* check for printable character */
   for (i=0; i<len; i++) {
@@ -3521,7 +3166,7 @@ int cMsgFreeMessage_r(void **vmsg) {
     
     /* copy domain */
     if (msg->domain != NULL) {
-        if ( (newMsg->domain = (char *) strdup(msg->domain)) == NULL) {
+        if ( (newMsg->domain = strdup(msg->domain)) == NULL) {
             freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
@@ -3534,7 +3179,7 @@ int cMsgFreeMessage_r(void **vmsg) {
         
     /* copy subject */
     if (msg->subject != NULL) {
-        if ( (newMsg->subject = (char *) strdup(msg->subject)) == NULL) {
+        if ( (newMsg->subject = strdup(msg->subject)) == NULL) {
             freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
@@ -3546,7 +3191,7 @@ int cMsgFreeMessage_r(void **vmsg) {
         
     /* copy type */
     if (msg->type != NULL) {
-        if ( (newMsg->type = (char *) strdup(msg->type)) == NULL) {
+        if ( (newMsg->type = strdup(msg->type)) == NULL) {
             freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
@@ -3558,7 +3203,7 @@ int cMsgFreeMessage_r(void **vmsg) {
         
     /* copy text */
     if (msg->text != NULL) {
-        if ( (newMsg->text = (char *) strdup(msg->text)) == NULL) {
+        if ( (newMsg->text = strdup(msg->text)) == NULL) {
             freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
@@ -3570,7 +3215,7 @@ int cMsgFreeMessage_r(void **vmsg) {
     
     /* copy sender */
     if (msg->sender != NULL) {
-        if ( (newMsg->sender = (char *) strdup(msg->sender)) == NULL) {
+        if ( (newMsg->sender = strdup(msg->sender)) == NULL) {
             freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
@@ -3582,7 +3227,7 @@ int cMsgFreeMessage_r(void **vmsg) {
     
     /* copy senderHost */
     if (msg->senderHost != NULL) {
-        if ( (newMsg->senderHost = (char *) strdup(msg->senderHost)) == NULL) {
+        if ( (newMsg->senderHost = strdup(msg->senderHost)) == NULL) {
             freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
@@ -3594,7 +3239,7 @@ int cMsgFreeMessage_r(void **vmsg) {
         
     /* copy receiver */
     if (msg->receiver != NULL) {
-        if ( (newMsg->receiver = (char *) strdup(msg->receiver)) == NULL) {
+        if ( (newMsg->receiver = strdup(msg->receiver)) == NULL) {
             freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
@@ -3606,7 +3251,7 @@ int cMsgFreeMessage_r(void **vmsg) {
         
     /* copy receiverHost */
     if (msg->receiverHost != NULL) {
-        if ( (newMsg->receiverHost = (char *) strdup(msg->receiverHost)) == NULL) {
+        if ( (newMsg->receiverHost = strdup(msg->receiverHost)) == NULL) {
             freeMessage((void *)newMsg);
             free(newMsg);
             return NULL;
@@ -3637,7 +3282,7 @@ int cMsgFreeMessage_r(void **vmsg) {
     if (msg->byteArray != NULL) {
       /* if byte array was copied into msg, copy it again */
       if ((msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) > 0) {
-        newMsg->byteArray = (char *) malloc(msg->byteArrayLengthFull);
+        newMsg->byteArray = (char *) malloc((size_t)msg->byteArrayLengthFull);
         if (newMsg->byteArray == NULL) {
             freeMessage((void *)newMsg);
             free(newMsg);
@@ -3661,28 +3306,28 @@ int cMsgFreeMessage_r(void **vmsg) {
     
     newMsg->context.cueSize = msg->context.cueSize;
     if (msg->context.domain != NULL) {
-      if ( (newMsg->context.domain = (char *) strdup(msg->context.domain)) == NULL) {
+      if ( (newMsg->context.domain = strdup(msg->context.domain)) == NULL) {
         freeMessage((void *)newMsg);
         free(newMsg);
         return NULL;
       }
     }
     if (msg->context.subject != NULL) {
-      if ( (newMsg->context.subject = (char *) strdup(msg->context.subject)) == NULL) {
+      if ( (newMsg->context.subject = strdup(msg->context.subject)) == NULL) {
         freeMessage((void *)newMsg);
         free(newMsg);
         return NULL;
       }
     }
     if (msg->context.type != NULL) {
-      if ( (newMsg->context.type = (char *) strdup(msg->context.type)) == NULL) {
+      if ( (newMsg->context.type = strdup(msg->context.type)) == NULL) {
         freeMessage((void *)newMsg);
         free(newMsg);
         return NULL;
       }
     }
     if (msg->context.udl != NULL) {
-      if ( (newMsg->context.udl = (char *) strdup(msg->context.udl)) == NULL) {
+      if ( (newMsg->context.udl = strdup(msg->context.udl)) == NULL) {
         freeMessage((void *)newMsg);
         free(newMsg);
         return NULL;
@@ -3801,8 +3446,8 @@ void *cMsgCreateResponseMessage(const void *vmsg) {
     newMsg->senderToken = msg->senderToken;
     newMsg->sysMsgId    = msg->sysMsgId;
     newMsg->info        = CMSG_IS_GET_RESPONSE;
-    newMsg->subject     = (char *)strdup("dummy");
-    newMsg->type        = (char *)strdup("dummy");
+    newMsg->subject     = strdup("dummy");
+    newMsg->type        = strdup("dummy");
 
     return (void *)newMsg;
 }
@@ -3840,8 +3485,8 @@ void *cMsgCreateNullResponseMessage(const void *vmsg) {
     newMsg->senderToken = msg->senderToken;
     newMsg->sysMsgId    = msg->sysMsgId;
     newMsg->info        = CMSG_IS_GET_RESPONSE | CMSG_IS_NULL_GET_RESPONSE;
-    newMsg->subject     = (char *)strdup("dummy");
-    newMsg->type        = (char *)strdup("dummy");
+    newMsg->subject     = strdup("dummy");
+    newMsg->type        = strdup("dummy");
     
     return (void *)newMsg;
 }
@@ -4145,7 +3790,7 @@ int cMsgSetSubject(void *vmsg, const char *subject) {
     msg->subject = NULL;    
   }
   else {
-    msg->subject = (char *)strdup(subject);
+    msg->subject = strdup(subject);
   }
 
   return(CMSG_OK);
@@ -4198,7 +3843,7 @@ int cMsgSetType(void *vmsg, const char *type) {
     msg->type = NULL;    
   }
   else {
-    msg->type = (char *)strdup(type);
+    msg->type = strdup(type);
   }
 
   return(CMSG_OK);
@@ -4251,7 +3896,7 @@ int cMsgSetText(void *vmsg, const char *text) {
     msg->text = NULL;    
   }
   else {
-    msg->text = (char *)strdup(text);
+    msg->text = strdup(text);
   }
 
   return(CMSG_OK);
@@ -4692,7 +4337,7 @@ int cMsgSetByteArrayNoCopy(void *vmsg, char *array, int length) {
   if (msg == NULL || length < 0) return(CMSG_BAD_ARGUMENT);
 
   /* if there is a pre-existing array that was copied in, free it */
-  if (msg->bits & CMSG_BYTE_ARRAY_IS_COPIED == CMSG_BYTE_ARRAY_IS_COPIED) {
+  if (msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) {
     if (msg->byteArray != NULL) free(msg->byteArray);
   }
 
@@ -4737,7 +4382,7 @@ int cMsgSetByteArray(void *vmsg, char *array, int length) {
   if (msg == NULL || length < 0) return(CMSG_BAD_ARGUMENT);
 
   /* if there is a pre-existing array that was copied in, free it */
-  if (msg->bits & CMSG_BYTE_ARRAY_IS_COPIED == CMSG_BYTE_ARRAY_IS_COPIED) {
+  if (msg->bits & CMSG_BYTE_ARRAY_IS_COPIED) {
     if (msg->byteArray != NULL) free(msg->byteArray);
   }
   
@@ -4749,7 +4394,7 @@ int cMsgSetByteArray(void *vmsg, char *array, int length) {
     return(CMSG_OK);
   }
   
-  msg->byteArray = (char *) malloc(length);
+  msg->byteArray = (char *) malloc((size_t)length);
   if (msg->byteArray == NULL) {
     return (CMSG_OUT_OF_MEMORY);
   }
@@ -5049,7 +4694,7 @@ static int messageStringSize(const void *vmsg, int margin, int binary,
     
         if (binary && msg->byteArray != NULL && msg->byteArrayLength > 0) {
             totalLen += cMsg_b64_encode_len(msg->byteArray + msg->byteArrayOffset,
-                                            msg->byteArrayLength, 1);
+                                            (unsigned int)msg->byteArrayLength, 1);
         }
     }
     /* calculate payload length */
@@ -5060,7 +4705,7 @@ static int messageStringSize(const void *vmsg, int margin, int binary,
     if (!hasPayload) {
     }
     else if (compactPayload) {
-        payloadLen = strlen(msg->payloadText) + 2*margin + 50;
+        payloadLen = (int)strlen(msg->payloadText) + 2*margin + 50;
     }
     else {
         item = msg->payload;
@@ -5136,7 +4781,8 @@ static int messageStringSize(const void *vmsg, int margin, int binary,
  */
 char* escapeQuotesForXML(char *s) {
     char *pchar=s, *newString, *pcharDest, *sub="&#34;";
-    int i, slen, lenLeft, index, count=0;
+    int i, count=0;
+    size_t slen, index, lenLeft;
     
     if (s == NULL) return NULL;
     slen = strlen(s);
@@ -5197,8 +4843,9 @@ char* escapeQuotesForXML(char *s) {
  */
 char* escapeCdataForXML(char *s) {
     char *p1, *p2, *pchar=s, *newString, *pcharDest, *sub="<![CDATA[]]]]><![CDATA[>";
-    int i, slen, lenLeft, index1=0, index2=0, count=0;
-    
+    int i, count=0;
+    size_t slen, lenLeft;
+
     if (s == NULL) return NULL;
     
     /* don't need to escape anything */
@@ -5291,7 +4938,8 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
                             const char *itemName) {
 
   time_t now;
-  int    j, err, len, slen, count, endian, hasPayload, indentLen, offsetLen;
+  int    j, err, len, count, endian, hasPayload, indentLen;
+  size_t slen, offsetLen;
   char   *buf, *pchar, *indent, *offsett, *str;
   char   userTimeBuf[32],senderTimeBuf[32],receiverTimeBuf[32];
   struct tm tBuf;
@@ -5314,33 +4962,33 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
       indentLen = 0;
   }
   else {
-      indent = (char *)malloc(margin + 1);
+      indent = (char *)malloc((size_t)(margin + 1));
       if (indent == NULL) {
         return(CMSG_OUT_OF_MEMORY);
       }
-      memset(indent, '\040', margin); /* ASCII space = char #32 (40 octal) */
+      memset(indent, '\040',(size_t) margin); /* ASCII space = char #32 (40 octal) */
       indent[margin] = '\0';
       indentLen = margin;
   }
 
   /* indentation of 5 spaces past margin */
-  offsett = (char *)malloc(margin+6);
+  offsett = (char *)malloc((size_t)(margin+6));
   if (offsett == NULL) {
       if (margin > 0) free(indent);
       return(CMSG_OUT_OF_MEMORY);
   }
-  memset(offsett, '\040', margin+5);
+  memset(offsett, '\040',(size_t)(margin+5));
   offsett[margin+5] = '\0';
-  offsetLen = margin+5;
+  offsetLen = (size_t)(margin+5);
  
  /* Allocate and zero buffer if first level only. */
   if (level < 1) {
       level = 0;
       /* find msg size */
-      slen = messageStringSize(vmsg, margin, binary, compactPayload, 0);
+      slen = (size_t)messageStringSize(vmsg, margin, binary, compactPayload, 0);
       /* add 5% (plus 100 bytes for little msgs) */
       slen += slen*5/100 + 100;
-      /*printf("cMsgToStringImpl: length of buffer needed = %d\n", slen);*/
+      /*printf("cMsgToStringImpl: length of buffer needed = %d\n", (int)slen);*/
       pchar = buf = (char*)calloc(1, slen);
       if (buf == NULL) {
           if (margin > 0) free(indent);
@@ -5358,14 +5006,14 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
 
   /* Main XML element */
   if (hasName) {
-      strncpy(pchar,indent,indentLen); pchar+=indentLen;
+      strncpy(pchar, indent, (size_t)indentLen); pchar+=indentLen;
       strncpy(pchar,"<cMsgMessage name=\"",19); pchar+=19;
       slen = strlen(itemName);
       strncpy(pchar,itemName, slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
   }
   else {
-      strncpy(pchar,indent,indentLen); pchar+=indentLen;
+      strncpy(pchar, indent, (size_t)indentLen); pchar+=indentLen;
       strncpy(pchar,"<cMsgMessage\n",13); pchar+=13;
   }
 
@@ -5373,28 +5021,28 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
    * print all attributes in a pretty form first
    *---------------------------------------------*/
 
-  strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+  strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
   strncpy(pchar,"version           = \"",21); pchar+=21;
   sprintf(pchar, "%d%n", msg->version, &len); pchar+=len;
   strncpy(pchar,"\"\n",2); pchar+=2;
 
-  strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+  strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
   strncpy(pchar,"userInt           = \"",21); pchar+=21;
   sprintf(pchar, "%d%n", msg->userInt, &len); pchar+=len;
   strncpy(pchar,"\"\n",2); pchar+=2;
 
   /* check if getRequest, if so, it cannot also be a getResponse */
   if ( msg->info & CMSG_IS_GET_REQUEST ) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"getRequest        = \"true\"\n",27); pchar+=27;
   }
   /* check if nullGetResponse, if so, then it's a getResponse too (no need to print) */
   else if ( msg->info & CMSG_IS_NULL_GET_RESPONSE ) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"nullGetResponse   = \"true\"\n",27); pchar+=27;
   }
   else {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       if ( msg->info & CMSG_IS_GET_RESPONSE ) {
           strncpy(pchar,"getResponse       = \"true\"\n",27); pchar+=27;
       }
@@ -5405,20 +5053,20 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
 
   /* domain */
   if (msg->domain != NULL) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"domain            = \"",21); pchar+=21;
       slen = strlen(msg->domain);
-      strncpy(pchar,msg->domain,slen); pchar+=slen;
+      strncpy(pchar , msg->domain, slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
   }
   else if (!compact) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"domain            = \"(null)\"\n", 29); pchar+=29;
   }
 
   /* sender */
   if (msg->sender != NULL) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar,offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"sender            = \"",21);  pchar+=21;
       str = escapeQuotesForXML(msg->sender);
       if (str == NULL) {
@@ -5427,12 +5075,12 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
           return CMSG_OUT_OF_MEMORY;
       }
       slen = strlen(str);
-      strncpy(pchar,str,slen); pchar+=slen;
+      strncpy(pchar, str, slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
       if (str != msg->sender) free(str);
   }
   else if (!compact) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"sender            = \"(null)\"\n", 29); pchar+=29;
   }
 
@@ -5447,27 +5095,27 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
           return CMSG_OUT_OF_MEMORY;
       }
       slen = strlen(str);
-      strncpy(pchar,str,slen); pchar+=slen;
+      strncpy(pchar, str, slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
       if (str != msg->senderHost) free(str);
   }
   else if (!compact) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"senderHost        = \"(null)\"\n", 29); pchar+=29;
   }
 
   /* senderTime */
   if (!compact || msg->senderTime.tv_sec > 0) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"senderTime        = \"",21);  pchar+=21;
       slen = strlen(senderTimeBuf);
-      strncpy(pchar,senderTimeBuf,slen); pchar+=slen;
+      strncpy(pchar, senderTimeBuf, slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
   }
 
   /* receiver */
   if (msg->receiver != NULL) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"receiver          = \"",21);  pchar+=21;
       str = escapeQuotesForXML(msg->receiver);
       if (str == NULL) {
@@ -5476,18 +5124,18 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
           return CMSG_OUT_OF_MEMORY;
       }
       slen = strlen(str);
-      strncpy(pchar,str,slen); pchar+=slen;
+      strncpy(pchar, str, slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
       if (str != msg->receiver) free(str);
   }
   else if (!compact) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"receiver          = \"(null)\"\n", 29); pchar+=29;
   }
 
   /* receiverHost */
   if (msg->receiverHost != NULL) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"receiverHost      = \"",21);  pchar+=21;
       str = escapeQuotesForXML(msg->receiverHost);
       if (str == NULL) {
@@ -5496,35 +5144,35 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
           return CMSG_OUT_OF_MEMORY;
       }
       slen = strlen(str);
-      strncpy(pchar,str,slen); pchar+=slen;
+      strncpy(pchar, str, slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
       if (str != msg->receiverHost) free(str);
   }
   else if (!compact) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"receiverHost      = \"(null)\"\n", 29); pchar+=29;
   }
 
   /* receiverTime */
   if (!compact || msg->receiverTime.tv_sec > 0) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"receiverTime      = \"",21);  pchar+=21;
       slen = strlen(receiverTimeBuf);
-      strncpy(pchar,receiverTimeBuf,slen); pchar+=slen;
+      strncpy(pchar, receiverTimeBuf, slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
   }
 
   if (!compact || msg->userTime.tv_sec > 0) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"userTime          = \"",21);  pchar+=21;
       slen = strlen(userTimeBuf);
-      strncpy(pchar,userTimeBuf,slen); pchar+=slen;
+      strncpy(pchar, userTimeBuf, slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
   }
 
   /* subject */
   if (msg->subject != NULL) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"subject           = \"",21);  pchar+=21;
       str = escapeQuotesForXML(msg->subject);
       if (str == NULL) {
@@ -5533,18 +5181,18 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
           return CMSG_OUT_OF_MEMORY;
       }
       slen = strlen(str);
-      strncpy(pchar,str,slen); pchar+=slen;
+      strncpy(pchar, str, slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
       if (str != msg->subject) free(str);
   }
   else if (!compact) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"subject           = \"(null)\"\n", 29); pchar+=29;
   }
 
   /* type */
   if (msg->type != NULL) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"type              = \"",21);  pchar+=21;      
       str = escapeQuotesForXML(msg->type);
       if (str == NULL) {
@@ -5553,18 +5201,18 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
           return CMSG_OUT_OF_MEMORY;
       }
       slen = strlen(str);
-      strncpy(pchar,str,slen); pchar+=slen;
+      strncpy(pchar, str, slen); pchar+=slen;
       strncpy(pchar,"\"\n",2); pchar+=2;
       if (str != msg->type) free(str);
   }
   else if (!compact) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"type              = \"(null)\"\n", 29); pchar+=29;
   }
 
   /* payload count */
   if (hasPayload) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"payloadItemCount  = \"",21); pchar+=21;
       sprintf(pchar, "%d%n", msg->payloadCount, &len); pchar+=len;
       strncpy(pchar,"\"\n",2); pchar+=2;
@@ -5580,7 +5228,7 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
  
   /* Text */
   if (msg->text != NULL) {
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"<text><![CDATA[",15); pchar+=15;
       str = escapeCdataForXML(msg->text);
       if (str == NULL) {
@@ -5589,7 +5237,7 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
           return CMSG_OUT_OF_MEMORY;
       }
       slen = strlen(str);
-      strncpy(pchar,str,slen); pchar+=slen;
+      strncpy(pchar,str, slen); pchar+=slen;
       strncpy(pchar,"]]></text>\n",11); pchar+=11;
       if (str != msg->text) free(str);
   }
@@ -5598,7 +5246,7 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   if (binary && (msg->byteArray != NULL) && (msg->byteArrayLength > 0)) {
       cMsgGetByteArrayEndian(vmsg, &endian);
       
-      strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+      strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
       strncpy(pchar,"<binary endian=\"",16); pchar+=16;
       if (endian == CMSG_ENDIAN_BIG) {
           strncpy(pchar,"big",3); pchar+=3;
@@ -5612,13 +5260,15 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
       /* put in line breaks after 76 chars (57 bytes) */
       if (msg->byteArrayLength > 57) {
           strncpy(pchar,"\">\n",3); pchar+=3;
-          count = cMsg_b64_encode(msg->byteArray + msg->byteArrayOffset, msg->byteArrayLength, pchar, 1); pchar+=count;
-          strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+          count = cMsg_b64_encode(msg->byteArray + msg->byteArrayOffset,
+                                  (unsigned int)msg->byteArrayLength, pchar, 1); pchar+=count;
+          strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
           strncpy(pchar,"</binary>\n",10);  pchar+=10;
       }
       else {
           strncpy(pchar,"\">",2); pchar+=2;
-          count = cMsg_b64_encode(msg->byteArray + msg->byteArrayOffset, msg->byteArrayLength, pchar, 0); pchar+=count;
+          count = cMsg_b64_encode(msg->byteArray + msg->byteArrayOffset,
+                                  (unsigned int)msg->byteArrayLength, pchar, 0); pchar+=count;
           strncpy(pchar,"</binary>\n",10); pchar+=10;
       }
   }
@@ -5626,28 +5276,28 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
   /* Payload */
   if (hasPayload) {
       if (compactPayload) {
-          strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+          strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
           strncpy(pchar,"<payload compact=\"true\">\n",25); pchar+=25;
           slen = strlen(msg->payloadText);
-          strncpy(pchar,msg->payloadText,slen); pchar+=slen;
-          strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+          strncpy(pchar, msg->payloadText, slen); pchar+=slen;
+          strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
           strncpy(pchar,"</payload>\n",11); pchar+=11;
       }
       else {
           err = cMsgPayloadToStringImpl(vmsg, &pchar, level+1, margin+5, binary, compact, noSystemFields);
           if (err != CMSG_OK) {
               /* payload is not expanded */
-              strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+              strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
               strncpy(pchar,"<payload expanded=\"false\">\n",27); pchar+=27;
               slen = strlen(msg->payloadText);
-              strncpy(pchar,msg->payloadText,slen); pchar+=slen;
-              strncpy(pchar,offsett,offsetLen); pchar+=offsetLen;
+              strncpy(pchar, msg->payloadText, slen); pchar+=slen;
+              strncpy(pchar, offsett, offsetLen); pchar+=offsetLen;
               strncpy(pchar,"</payload>\n",11); pchar+=11;
           }
       }
   }
 
-  strncpy(pchar,indent, indentLen);  pchar+=indentLen;
+  strncpy(pchar,indent, (size_t)indentLen);  pchar+=indentLen;
   strncpy(pchar,"</cMsgMessage>\n",15); pchar+=15;
   
   if (margin > 0) free(indent);
@@ -5692,7 +5342,8 @@ static int cMsgToStringImpl(const void *vmsg, char **string,
 static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, int margin,
                                    int binary, int compact, int noSystemFields) {
 
-  int i, j, ok, slen, len, count, hasPayload, *types, indentLen, offsetLen, offset5Len, namesLen=0;  
+  int i, j, ok, len, count, hasPayload, *types, indentLen, namesLen=0;
+  size_t slen, offsetLen, offset5Len;
   char *buffer=NULL, *pchar, *name, *indent, *offsett, *offset5, **names;
 
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
@@ -5710,11 +5361,11 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
       indentLen = 0;
   }
   else {
-      indent = (char *)malloc(margin + 1);
+      indent = (char *)malloc((size_t)(margin + 1));
       if (indent == NULL) {
           return(CMSG_OUT_OF_MEMORY);
       }
-      memset(indent, '\040', margin); /* ASCII space = char #32 (40 octal) */
+      memset(indent, '\040', (size_t)margin); /* ASCII space = char #32 (40 octal) */
       indent[margin] = '\0';
       indentLen = margin;
   }
@@ -5730,21 +5381,21 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
   offset5Len = 5;
  
   /* indentation of margin + 5 spaces */
-  offsett = (char *)malloc(margin+6);
+  offsett = (char *)malloc((size_t)(margin+6));
   if (offsett == NULL) {
       if (margin > 0) free(indent);
       free(offset5);
       return(CMSG_OUT_OF_MEMORY);
   }
-  memset(offsett, '\040', margin+5);
+  memset(offsett, '\040', (size_t)(margin+5));
   offsett[margin+5] = '\0';
-  offsetLen = margin+5;
+  offsetLen = (size_t)(margin+5);
  
   /* Allocate and zero buffer if first level only. */
   if (level < 1) {
       level = 0;
       /* find payload size */
-      slen = messageStringSize(vmsg, margin, binary, 0, 1) + 1000;
+      slen = (size_t)messageStringSize(vmsg, margin, binary, 0, 1) + 1000;
       /*printf("cMsgToStringImpl: length of buffer needed = %d\n", slen);*/
       pchar = buffer = (char*)calloc(1, slen);
       if (buffer == NULL) {
@@ -5760,7 +5411,7 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
   }
  
   /* if we're here, there is a payload and we want it in full XML format */
-  strncpy(pchar,indent,indentLen); pchar+=indentLen;
+  strncpy(pchar,indent, (size_t)indentLen); pchar+=indentLen;
   strncpy(pchar,"<payload compact=\"false\">\n",26); pchar+=26;
 
   /* get all name & type info */
@@ -5935,13 +5586,13 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
              /* put in line breaks after 76 chars (57 bytes) */
              if (sz > 57) {
                 strncpy(pchar,"\">\n",3);              pchar+=3;
-                count = cMsg_b64_encode(s, sz, pchar, 1); pchar += count;
+                count = cMsg_b64_encode(s, (unsigned int)sz, pchar, 1); pchar += count;
                 strncpy(pchar,offsett,offsetLen);      pchar+=offsetLen;
                 strncpy(pchar,"</binary>\n",10);       pchar+=10;
              }
              else {
                  strncpy(pchar,"\">",2);                pchar+=2;
-                 count = cMsg_b64_encode(s, sz, pchar, 0); pchar += count;
+                 count = cMsg_b64_encode(s, (unsigned int)sz, pchar, 0); pchar += count;
                  strncpy(pchar,"</binary>\n",10);       pchar+=10;
              }
          }
@@ -5978,7 +5629,7 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
         } break;
          
       case CMSG_CP_BIN_A:
-        {const char **s; int *sizes, *endians, count, nchars; char *endianTxt;
+        {const char **s; int *sizes, *endians, nchars; char *endianTxt;
          ok=cMsgGetBinaryArray(msg, name, &s, &sizes, &endians, &count); if(ok!=CMSG_OK) {
          if(level < 1){free(buffer);} free(offsett);free(offset5);if(margin>0){free(indent);} return(CMSG_ERROR);}
          strncpy(pchar,offsett,offsetLen);           pchar+=offsetLen;
@@ -6007,14 +5658,14 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
                  /* put in line breaks after 76 chars (57 bytes) */
                  if (sizes[j]> 57) {
                      strncpy(pchar,"\">\n",3);              pchar+=3;
-                     nchars = cMsg_b64_encode(s[j], sizes[j], pchar, 1); pchar += nchars;
+                     nchars = cMsg_b64_encode(s[j], (unsigned int)sizes[j], pchar, 1); pchar += nchars;
                      strncpy(pchar,offsett,offsetLen);      pchar+=offsetLen;
                      strncpy(pchar,offset5,offset5Len);     pchar+=offset5Len;
                      strncpy(pchar,"</binary>\n",10);       pchar+=10;
                  }
                  else {
                      strncpy(pchar,"\">",2);                pchar+=2;
-                     nchars = cMsg_b64_encode(s[j], sizes[j], pchar, 0); pchar += nchars;
+                     nchars = cMsg_b64_encode(s[j], (unsigned int)sizes[j], pchar, 0); pchar += nchars;
                      strncpy(pchar,"</binary>\n",10);       pchar+=10;
                  }
              }
@@ -6240,7 +5891,7 @@ static int cMsgPayloadToStringImpl(const void *vmsg, char **string, int level, i
    free(offset5);
    
    /*   </payload> */
-   strncpy(pchar,indent,indentLen); pchar+=indentLen;
+   strncpy(pchar,indent,(size_t)indentLen); pchar+=indentLen;
    strncpy(pchar,"</payload>\n",11); pchar+=11;
 
   if (margin > 0) free(indent);
