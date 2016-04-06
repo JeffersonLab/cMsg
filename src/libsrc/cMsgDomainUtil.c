@@ -404,7 +404,7 @@ int cMsgCheckString(const char *s) {
   int i, len;
 
   if (s == NULL) return(CMSG_ERROR);
-  len = strlen(s);
+  len = (int)strlen(s);
 
   /* check for printable character */
   for (i=0; i<len; i++) {
@@ -1579,9 +1579,8 @@ void *cMsgCallbackThread(void *arg)
     cMsgDomainInfo *domain = cbarg->domain;
     subInfo *sub           = cbarg->sub;
     subscribeCbInfo *cb    = cbarg->cb;
-    int i, nextIndex, freeIndex, status, need, threadsAdded, maxToAdd, wantToAdd, state;
+    int i, nextIndex, freeIndex, status, need, threadsAdded, maxToAdd, wantToAdd;
     int *used;
-    cMsgMessage_t *msg;
     pthread_t *threads;
     cbWorkerArg *workerArg;
     char *subject, *type, *udl;
@@ -1597,7 +1596,7 @@ void *cMsgCallbackThread(void *arg)
 
     /* allocate array to track threads */
     /*printf("cb thd: allocating space for %d worker thds\n",cb->config.maxThreads);*/
-    used = (int *) calloc(cb->config.maxThreads,sizeof(int));
+    used = (int *) calloc((size_t)cb->config.maxThreads,sizeof(int));
     threads = (pthread_t *) malloc(cb->config.maxThreads*sizeof(pthread_t));
     if (threads == NULL || used == NULL || udl == NULL || type == NULL || subject == NULL) {
         cmsg_err_exit(-1, "cMsgCallbackThreadNew: out of memory");
@@ -1801,7 +1800,6 @@ void *cMsgCallbackWorkerThread(void *arg)
     subscribeCbInfo *cb = workerArg->cb;
     int permanentWorker = workerArg->index == 0 ? 1 : 0;
     int *used = workerArg->used, index = workerArg->index;
-    pthread_t *threads = workerArg->threads;
     char *subject=workerArg->subject, *type=workerArg->type, *udl=workerArg->udl;
     int latchStatus, status, empty, state;
     cMsgMessage_t *msg;
