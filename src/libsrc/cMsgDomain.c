@@ -571,7 +571,7 @@ int cmsg_cmsg_setUDL(void *domainId, const char *newUDL, const char *newRemainde
     free(udl);
 
     /* make sure domain is usable */
-    if ( (domain = cMsgPrepareToUseMem(index)) == NULL ) return (CMSG_BAD_ARGUMENT);
+    if ( (domain = cMsgPrepareToUseMem((int)index)) == NULL ) return (CMSG_BAD_ARGUMENT);
     
     /* Cannot run this with other functions */
     cMsgConnectWriteLock(domain);
@@ -1966,7 +1966,7 @@ error:
 static int reconnect(void *domainId, codaIpList *ipList) {
 
     intptr_t index;
-    int i, err, serverfd=0, uniqueClientKey;
+    int err, serverfd=0, uniqueClientKey;
     cMsgDomainInfo *domain;
   
     index = (intptr_t) domainId;
@@ -4124,10 +4124,10 @@ static int resubscribe(cMsgDomainInfo *domain, subInfo *sub) {
   iov[0].iov_base = (char*) outGoing;
   iov[0].iov_len  = sizeof(outGoing);
 
-  iov[1].iov_base = (char*) sub->subject;
+  iov[1].iov_base = sub->subject;
   iov[1].iov_len  = lenSubject;
 
-  iov[2].iov_base = (char*) sub->type;
+  iov[2].iov_base = sub->type;
   iov[2].iov_len  = lenType;
 
 
@@ -4960,7 +4960,6 @@ static int partialShutdown(void *domainId, int reconnecting) {
     int i, status, tblSize;
     cMsgDomainInfo *domain;
     getInfo *info;
-    subInfo *sub;
     struct timespec wait = {0, 10000000}; /* 0.01 sec */
     hashNode *entries = NULL;
 
@@ -5578,28 +5577,28 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueCli
   iov[0].iov_base = (char*) outGoing;
   iov[0].iov_len  = sizeof(outGoing);
 
-  iov[1].iov_base = (char*) pUDL->password;
+  iov[1].iov_base = pUDL->password;
   iov[1].iov_len  = lengthPassword;
 
   iov[2].iov_base = (char*) domainType;
   iov[2].iov_len  = lengthDomain;
 
-  iov[3].iov_base = (char*) pUDL->subdomain;
+  iov[3].iov_base = pUDL->subdomain;
   iov[3].iov_len  = lengthSubdomain;
 
-  iov[4].iov_base = (char*) pUDL->subRemainder;
+  iov[4].iov_base = pUDL->subRemainder;
   iov[4].iov_len  = lengthRemainder;
 
-  iov[5].iov_base = (char*) domain->myHost;
+  iov[5].iov_base = domain->myHost;
   iov[5].iov_len  = lengthHost;
 
-  iov[6].iov_base = (char*) domain->name;
+  iov[6].iov_base = domain->name;
   iov[6].iov_len  = lengthName;
 
-  iov[7].iov_base = (char*) pUDL->udl;
+  iov[7].iov_base = pUDL->udl;
   iov[7].iov_len  = lengthUDL;
 
-  iov[8].iov_base = (char*) domain->description;
+  iov[8].iov_base = domain->description;
   iov[8].iov_len  = lengthDescription;
 
   if (cMsgNetTcpWritev(serverfd, iov, 9, 16) == -1) {
@@ -5641,7 +5640,7 @@ static int talkToNameServer(cMsgDomainInfo *domain, int serverfd, int *uniqueCli
       return(CMSG_OUT_OF_MEMORY);
     }
 
-    if (cMsgNetTcpRead(serverfd, (char*) string, len) != len) {
+    if (cMsgNetTcpRead(serverfd, string, len) != len) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "talkToNameServer: cannot read error string\n");
       }
@@ -6058,7 +6057,6 @@ static void *keepAliveThread(void *arg) {
     int failoverIndex, failedFailoverIndex, weGotAConnection = 1;
     struct timespec wait4failover   = {1,100000000}; /* 1.1 sec */
     struct timespec wait4reconnect  = {0,100000000}; /* 0.1 sec */
-    void *p;
 
 
     index = (intptr_t) domainId;
@@ -6438,7 +6436,6 @@ static void *keepAliveThread(void *arg) {
     cMsgConnectWriteUnlock(domain);
 
     /* Wait here until reconnect succeeds, or disconnect tells us to quit. */
-    bottom:
     /*printf("ka: wait in sleep loop\n");*/
     while (!domain->gotConnection) {
         nanosleep(&wait4reconnect, NULL);
