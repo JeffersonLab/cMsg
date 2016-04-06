@@ -386,8 +386,8 @@ char *cMsgFloatChars(float f) {
  * @return string of hex characters rep of IEEE765 bytes
  */   
 char *cMsgDoubleChars(double d) {
-    int byte;
-    uint64_t j64;
+
+    uint64_t byte, j64;
     intDoubleUnion doubler;
     static char dbl[17];
     
@@ -445,7 +445,7 @@ static int isValidFieldName(const char *s, int isSystem) {
   int i, len;
 
   if (s == NULL) return(0);
-  len = strlen(s);
+  len = (int)strlen(s);
 
   /* check for printable character */
   for (i=0; i<len; i++) {
@@ -489,7 +489,7 @@ static int isValidSystemFieldName(const char *s) {
   int i, len;
 
   if (s == NULL) return(0);
-  len = strlen(s);
+  len = (int)strlen(s);
 
   /* check for printable character */
   for (i=0; i<len; i++) {
@@ -1517,7 +1517,7 @@ int cMsgAddHistoryToPayloadText(void *vmsg, char *name, char *host,
             return(err);
         }
 
-        err = createIntArrayItem("cMsgSenderTimeHistory", newTimes,
+        err = createIntArrayItem("cMsgSenderTimeHistory", (const int *)newTimes,
                                  CMSG_CP_INT64_A, len+1, 1, 0, &newItems[2]);
         if (err != CMSG_OK) {
             free(newNames); free(newHosts); free(newTimes);
@@ -1720,9 +1720,9 @@ if(debug) printf("  skipped field\n");
 if(debug) {
   /* read only "len" # of chars */
   char txt[msgTxtLen+1];
-  memcpy(txt, pmsgTxt, msgTxtLen);
+  memcpy(txt, pmsgTxt, (size_t)msgTxtLen);
   txt[msgTxtLen] = '\0';
-  printf("msg as string =\n%s\nlength = %d, t = %p\n", txt, strlen(txt), t);
+  printf("msg as string =\n%s\nlength = %d, t = %p\n", txt, (int)strlen(txt), t);
   cMsgPayloadPrint(newMsg);
 }
       err = addMessagesFromText(vmsg, name, type, count, isSystem,
@@ -1761,9 +1761,9 @@ if(debug) {
 if(debug) {
     /* read only "len" # of chars */
     char txt[msgTxtLen+1];
-    memcpy(txt, pmsgTxt, msgTxtLen);
+    memcpy(txt, pmsgTxt,(size_t) msgTxtLen);
     txt[msgTxtLen] = '\0';
-    printf("msg as string =\n%s\nlength = %d, t = %p\n", txt, strlen(txt), t);
+    printf("msg as string =\n%s\nlength = %d, t = %p\n", txt, (int)strlen(txt), t);
     for (j=0; j<count; j++) {
       printf("\nMsg[%d]:\n", j);
       cMsgPayloadPrint(myArray[j]);
@@ -1885,43 +1885,43 @@ static payloadItem *copyPayloadItem(const payloadItem *from) {
     case CMSG_CP_INT8_A:
       item->array = malloc(count*sizeof(int8_t));
       if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
-      memcpy((void *)item->array, (const void *)from->array, count*sizeof(int8_t));
+      memcpy(item->array, (const void *)from->array, count*sizeof(int8_t));
       break;
     case CMSG_CP_UINT16_A:
     case CMSG_CP_INT16_A:
       item->array = malloc(count*sizeof(int16_t));
       if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
-      memcpy((void *)item->array, (const void *)from->array, count*sizeof(int16_t));
+      memcpy(item->array, (const void *)from->array, count*sizeof(int16_t));
       break;
     case CMSG_CP_UINT32_A:
     case CMSG_CP_INT32_A:
       item->array = malloc(count*sizeof(int32_t));
       if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
-      memcpy((void *)item->array, (const void *)from->array, count*sizeof(int32_t));
+      memcpy(item->array, (const void *)from->array, count*sizeof(int32_t));
       break;
     case CMSG_CP_UINT64_A:
     case CMSG_CP_INT64_A:
       item->array = malloc(count*sizeof(int64_t));
       if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
-      memcpy((void *)item->array, (const void *)from->array, count*sizeof(int64_t));
+      memcpy(item->array, (const void *)from->array, count*sizeof(int64_t));
       break;
     case CMSG_CP_FLT_A:
       item->array = malloc(count*sizeof(float));
       if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
-      memcpy((void *)item->array, (const void *)from->array, count*sizeof(float));
+      memcpy(item->array, (const void *)from->array, count*sizeof(float));
       break;
     case CMSG_CP_DBL_A:
       item->array = malloc(count*sizeof(double));
       if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
-      memcpy((void *)item->array, (const void *)from->array, count*sizeof(double));
+      memcpy(item->array, (const void *)from->array, count*sizeof(double));
       break;
       
       
     case CMSG_CP_BIN:
       if (from->array == NULL) break;
-      item->array = malloc(size);
+      item->array = malloc((size_t)size);
       if (item->array == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
-      item->array = memcpy(item->array, from->array, size);
+      item->array = memcpy(item->array, from->array, (size_t)size);
       break;
     case CMSG_CP_BIN_A:
       if (from->array == NULL) break;
@@ -1934,9 +1934,9 @@ static payloadItem *copyPayloadItem(const payloadItem *from) {
       memcpy((void *)item->sizes,   (void *)from->sizes,   from->count*sizeof(int));
       memcpy((void *)item->endians, (void *)from->endians, from->count*sizeof(int));
       for (i=0; i < count; i++) {
-          s = (char *)malloc(item->sizes[i]);
+          s = (char *)malloc((size_t)item->sizes[i]);
           if (s == NULL) {payloadItemFree(item, 1); free(item); return(NULL);}
-          memcpy((void *)s, (void *)((char **)from->array)[i], item->sizes[i]);
+          memcpy((void *)s, (void *)((char **)from->array)[i], (size_t)item->sizes[i]);
           ((char **)(item->array))[i] = s;
       }
       break;
@@ -2289,7 +2289,7 @@ static void payloadPrintout(const void *msg, int level) {
     indent = "";
   }
   else {
-    indent = (char *)malloc(level*5+1);
+    indent = (char *)malloc((size_t)(level*5+1));
     for (j=0; j<level*5; j++) { /* indent by 5 spaces for each level */
       indent[j] = '\040';       /* ASCII space = char #32 (40 octal) */
     }
@@ -2368,14 +2368,14 @@ static void payloadPrintout(const void *msg, int level) {
         {const char *b; char *enc; size_t sb; unsigned int se; int sz, end;
         ok=cMsgGetBinary(msg, name, &b, &sz, &end); if(ok!=CMSG_OK) break;
         /* only print up to 1kB */
-        sb = sz; if (sb > 1024) {sb = 1024;}
-        se = cMsg_b64_encode_len(b, sb, 1);
+        sb = (size_t)sz; if (sb > 1024) {sb = 1024;}
+        se = cMsg_b64_encode_len(b, (unsigned int)sb, 1);
         enc = (char *)malloc(se+1); if (enc == NULL) break;
         enc[se] = '\0';
-        cMsg_b64_encode(b, sb, enc, 1);
+        cMsg_b64_encode(b, (unsigned int)sb, enc, 1);
         if (end == CMSG_ENDIAN_BIG) printf(" (binary, big endian):\n%s%s\n", indent, enc);
         else printf(" (binary, little endian):\n%s%s\n", indent, enc);
-        if (sz > sb) {printf("%s... %u bytes more binary not printed here ...\n", indent, (sz-sb));}
+        if (sz > sb) {printf("%s... %u bytes more binary not printed here ...\n", indent, (uint32_t)(sz-sb));}
         free(enc);
         } break;
         
@@ -2385,16 +2385,16 @@ static void payloadPrintout(const void *msg, int level) {
         printf(" (binary arrays):\n");
         /* only print up to 1kB for each array */
         for (i=0; i<cnt; i++) {
-          sb = szs[i]; if (sb > 1024) {sb = 1024;}
-          se = cMsg_b64_encode_len(b[i], sb, 1);
+          sb = (size_t)szs[i]; if (sb > 1024) {sb = 1024;}
+          se = cMsg_b64_encode_len(b[i], (unsigned int)sb, 1);
           enc = (char *)malloc(se+1); if (enc == NULL) break;
           enc[se] = '\0';
-          cMsg_b64_encode(b[i], sb, enc, 1);
+          cMsg_b64_encode(b[i], (unsigned int)sb, enc, 1);
           if (ends[i] == CMSG_ENDIAN_BIG) printf("%s  (array #%d, big endian):\n%s    %s\n",
                                                  indent, i, indent, enc);
           else printf("%s  (array #%d, little endian):\n%s    %s\n", indent, i, indent, enc);
           if (szs[i] > sb)
-            {printf("%s... %u bytes more binary not printed here ...\n", indent, (szs[i]-sb));}
+            {printf("%s... %u bytes more binary not printed here ...\n", indent, (uint32_t)(szs[i]-sb));}
           free(enc);
         }
         } break;
@@ -2777,7 +2777,7 @@ int cMsgGetMessage(const void *vmsg, const char *name, const void **val) {
     return(CMSG_BAD_FORMAT);
   }
     
-  *val = (void *)item->array;
+  *val = item->array;
   
   releaseMutex();
   return(CMSG_OK);
@@ -3713,19 +3713,19 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
   item->endian = endian;
   
   /* store original data */
-  item->array = (void *) malloc(size);
+  item->array = (void *) malloc((size_t)size);
   if (item->array == NULL) {
     payloadItemFree(item, 1);
     free(item);
     return(CMSG_OUT_OF_MEMORY);
   }
-  memcpy(item->array, src, size);
+  memcpy(item->array, src, (size_t)size);
     
   /* Create a string to hold all data to be transferred over the network.
    * That means converting binary to text */
 
   /* first find size of text-encoded binary data (including newline at end) */
-  lenBin = cMsg_b64_encode_len(src, size, 1);
+  lenBin = cMsg_b64_encode_len(src, (unsigned int)size, 1);
  
   /* length of string to contain all text representation except first line */
   textLen = numDigits(lenBin, 0) + numDigits(size, 0) +
@@ -3733,16 +3733,16 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
   item->noHeaderLen = textLen;
             
   /* length of first line of text representation + textLen + null */
-  totalLen = strlen(name) +
+  totalLen = (int) (strlen(name) +
              2 + /* 2 digit type */
              numDigits(item->count, 0) +
              1 + /* 1 digit isSystem */
              numDigits(textLen, 0) + 
              6 + /* 4 spaces, 1 newline, 1 null term */
-             textLen;
+             textLen);
                 
 /*printf("addBinary: encoded bin len = %u, allocate = %d\n", lenBin, totalLen);*/
-  s = item->text = (char *) malloc(totalLen);
+  s = item->text = (char *) malloc((size_t)totalLen);
   /*memset(s, 255, totalLen);*/
   
   if (item->text == NULL) {
@@ -3758,7 +3758,7 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
   s += len;
   
   /* write the binary-encoded text */
-  numChars = cMsg_b64_encode(src, size, s, 1);
+  numChars = cMsg_b64_encode(src, (unsigned int)size, s, 1);
   s += numChars;
   if (lenBin != numChars) {
       printf("addBinary: error\n");
@@ -3769,7 +3769,7 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
 /*printf("addBinary: actually add bytes = %u\n", numChars);*/
 /*printf("addBinary: total text rep =\n%s", item->text);*/
     
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
 /*printf("addBinary: total string len = %d\n", item->length);*/
   /* remove any existing item with that name */
   if (cMsgPayloadContainsName(vmsg, name)) {
@@ -3929,13 +3929,13 @@ static int addBinaryArray(void *vmsg, const char *name, const char *src[],
     }
     
     for (i=0; i<number; i++) {
-        array[i] = (char *) malloc(size[i]);
+        array[i] = (char *) malloc((size_t)size[i]);
         if (array[i] == NULL) {
             payloadItemFree(item, 1);
             free(item);
             return(CMSG_OUT_OF_MEMORY);
         }
-        memcpy((void *)array[i], (void *)src[i], sizes[i]);
+        memcpy((void *)array[i], (void *)src[i], (size_t)sizes[i]);
     }
 
     /* Create a string to hold all data to be transferred over the network.
@@ -3943,7 +3943,7 @@ static int addBinaryArray(void *vmsg, const char *name, const char *src[],
 
     for (i=0; i<number; i++) {
         /* first find size of text-encoded binary data (including newline at end) */
-        lenBin[i] = cMsg_b64_encode_len(src[i], size[i], 1);
+        lenBin[i] = cMsg_b64_encode_len(src[i], (unsigned int)size[i], 1);
 /*printf("addBinaryArray: encoded bin len[%d] = %u\n", i, lenBin[i]);*/
 
         /* length of string to contain all text representation except first line */
@@ -3954,16 +3954,16 @@ static int addBinaryArray(void *vmsg, const char *name, const char *src[],
 /*printf("addBinaryArray: total noheader text len = %d\n", textLen);*/
 
     /* length of first line of text representation + textLen + null */
-    totalLen = strlen(name) +
+    totalLen = (int) (strlen(name) +
             2 + /* 2 digit type */
             numDigits(number, 0) +
             1 + /* 1 digit isSystem */
             numDigits(textLen, 0) +
             6 + /* 4 spaces, 1 newline, 1 null term */
-            textLen;
+            textLen);
 /*printf("addBinaryArray: total text rep len = %d\n", totalLen);*/
 
-    s = item->text = (char *) malloc(totalLen);
+    s = item->text = (char *) malloc((size_t)totalLen);
     if (item->text == NULL) {
         payloadItemFree(item, 1);
         free(item);
@@ -3986,7 +3986,7 @@ static int addBinaryArray(void *vmsg, const char *name, const char *src[],
         s += len;
         
         /* write the binary-encoded text */
-        numChars = cMsg_b64_encode(src[i], size[i], s, 1);
+        numChars = cMsg_b64_encode(src[i], (unsigned int)size[i], s, 1);
         s += numChars;
         if (lenBin[i] != numChars) {
             payloadItemFree(item, 1);
@@ -3998,7 +3998,7 @@ static int addBinaryArray(void *vmsg, const char *name, const char *src[],
 
 /*printf("addBinaryArray: text =\n%s", item->text);*/
 
-    item->length = strlen(item->text);
+    item->length = (int)strlen(item->text);
 /*printf("addBinaryArray: total string len = %d\n", item->length);*/
     /* remove any existing item with that name */
     if (cMsgPayloadContainsName(vmsg, name)) {
@@ -4066,7 +4066,8 @@ int cMsgAddBinaryArray(void *vmsg, const char *name, const char *src[],
  */
 static int addReal(void *vmsg, const char *name, double val, int type, int isSystem) {
   payloadItem *item;
-  int byte, textLen, totalLen, len;
+  int byte, textLen, len;
+  size_t totalLen;
   char *s;
   uint32_t j32;
   uint64_t j64;
@@ -4139,26 +4140,26 @@ static int addReal(void *vmsg, const char *name, double val, int type, int isSys
   else {
     doubler.d = val;
     j64 = doubler.i;
-    byte = j64>>56 & 0xffL;
+    byte = (int) (j64>>56 & 0xffL);
     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-    byte = j64>>48 & 0xffL;
+    byte = (int) (j64>>48 & 0xffL);
     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-    byte = j64>>40 & 0xffL;
+    byte = (int) (j64>>40 & 0xffL);
     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-    byte = j64>>32 & 0xffL;
+    byte = (int) (j64>>32 & 0xffL);
     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-    byte = j64>>24 & 0xffL;
+    byte = (int) (j64>>24 & 0xffL);
     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-    byte = j64>>16 & 0xffL;
+    byte = (int) (j64>>16 & 0xffL);
     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-    byte = j64>>8 & 0xffL;
+    byte = (int) (j64>>8 & 0xffL);
     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-    byte = j64 & 0xffL;
+    byte = (int) (j64 & 0xffL);
     *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
     *s++ = '\n';
   }
 
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
   item->dval   = val;
 
   if (cMsgPayloadContainsName(vmsg, name)) {
@@ -4242,11 +4243,12 @@ int cMsgAddDouble(void *vmsg, const char *name, double val) {
 static int addRealArray(void *vmsg, const char *name, const double *vals,
                         int type, int len, int isSystem, int copy) {
   payloadItem *item;
-  int i, byte, cLen, totalLen, textLen=0, thisOneZero=0;
+  int i, byte, cLen, textLen=0, thisOneZero=0;
+  size_t totalLen;
   void *array;
   char *s;
   uint32_t j32, zeros=0, suppressed=0;
-  uint64_t j64;  
+  uint64_t j64;
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
   if (msg == NULL  || name == NULL ||
@@ -4459,21 +4461,21 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
           thisOneZero = 0;
         }
         
-        byte = j64>>56 & 0xffL;
+        byte = (int) (j64>>56 & 0xffL);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64>>48 & 0xffL;
+        byte = (int) (j64>>48 & 0xffL);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64>>40 & 0xffL;
+        byte = (int) (j64>>40 & 0xffL);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64>>32 & 0xffL;
+        byte = (int) (j64>>32 & 0xffL);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64>>24 & 0xffL;
+        byte = (int) (j64>>24 & 0xffL);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64>>16 & 0xffL;
+        byte = (int) (j64>>16 & 0xffL);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64>>8 & 0xffL;
+        byte = (int) (j64>>8 & 0xffL);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64 & 0xffL;
+        byte = (int) (j64 & 0xffL);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         if (i < len-1) {
           *s++ = ' ';
@@ -4503,7 +4505,7 @@ static int addRealArray(void *vmsg, const char *name, const double *vals,
     }
   }
   
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
 /*printf("Real array txt =\n%s\n", item->text);*/
   if (cMsgPayloadContainsName(vmsg, name)) {
       removeItem(msg, name, NULL);
@@ -4580,7 +4582,8 @@ int cMsgAddDoubleArray(void *vmsg, const char *name, const double vals[], int le
  */
 static int addInt(void *vmsg, const char *name, int64_t val, int type, int isSystem) {
   payloadItem *item;
-  int totalLen, textLen=0;
+  size_t totalLen;
+  int textLen=0;
   
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -4648,7 +4651,7 @@ static int addInt(void *vmsg, const char *name, int64_t val, int type, int isSys
                                                   isSystem, textLen, val);
   }
 
-  item->length = strlen(item->text);
+  item->length = (int) strlen(item->text);
   item->val    = val;
 
   if (cMsgPayloadContainsName(vmsg, name)) {
@@ -4939,7 +4942,8 @@ static int addIntArray(void *vmsg, const char *name, const int *vals,
 static int createIntArrayItem(const char *name, const int *vals, int type,
                               int len, int isSystem, int copy, payloadItem **newItem) {
   payloadItem *item;
-  int       i, byte, cLen, totalLen, valLen=0, textLen=0, thisOneZero=0;
+  int       i, byte, cLen, valLen=0, textLen=0, thisOneZero=0;
+  size_t totalLen;
   char  *s, j8;
   uint16_t  j16;
   uint32_t  j32, zeros=0, suppressed=0;
@@ -5250,21 +5254,21 @@ static int createIntArrayItem(const char *name, const int *vals, int type,
                   thisOneZero = 0;
                 }
 
-                byte = j64>>56 & 0xffL;
+                byte = (int) (j64>>56 & 0xffL);
                 *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-                byte = j64>>48 & 0xffL;
+                byte = (int) (j64>>48 & 0xffL);
                 *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-                byte = j64>>40 & 0xffL;
+                byte = (int) (j64>>40 & 0xffL);
                 *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-                byte = j64>>32 & 0xffL;
+                byte = (int) (j64>>32 & 0xffL);
                 *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-                byte = j64>>24 & 0xffL;
+                byte = (int) (j64>>24 & 0xffL);
                 *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-                byte = j64>>16 & 0xffL;
+                byte = (int) (j64>>16 & 0xffL);
                 *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-                byte = j64>>8 & 0xffL;
+                byte = (int) (j64>>8 & 0xffL);
                 *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-                byte = j64 & 0xffL;
+                byte = (int) (j64 & 0xffL);
                 *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
                 if (i < len-1) {
                   *s++ = ' ';
@@ -5295,7 +5299,7 @@ static int createIntArrayItem(const char *name, const int *vals, int type,
            break;
   }
    
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
   *newItem = item;
 
   return(CMSG_OK);
@@ -5506,7 +5510,8 @@ int cMsgAddUint64Array(void *vmsg, const char *name, const uint64_t vals[], int 
  */
 static int addString(void *vmsg, const char *name, const char *val, int isSystem, int copy) {
   payloadItem *item;
-  int totalLen, textLen, valLen;
+  int textLen, valLen;
+  size_t totalLen;
   
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -5541,7 +5546,7 @@ static int addString(void *vmsg, const char *name, const char *val, int isSystem
   
   /* Create string to hold all data to be transferred over
    * the network for this item. */
-  valLen = strlen(val);
+  valLen = (int)strlen(val);
    
   textLen  = numDigits(valLen, 0) +
              valLen +
@@ -5564,7 +5569,7 @@ static int addString(void *vmsg, const char *name, const char *val, int isSystem
   }
   sprintf(item->text, "%s %d %d %d %d\n%d\n%s\n", name, item->type, item->count,
                                                   isSystem, textLen, valLen, val);
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
 
   /* remove any existing item with that name */
   if (cMsgPayloadContainsName(vmsg, name)) {
@@ -5623,7 +5628,8 @@ int cMsgAddString(void *vmsg, const char *name, const char *val) {
  */   
 static int createStringArrayItem(const char *name, const char **vals, int len,
                                  int isSystem, int copy, payloadItem **pItem) {
-  int i, cLen, totalLen, textLen=0;
+  int i, cLen, textLen=0;
+  size_t totalLen;
   payloadItem *item;
   char *s;
 
@@ -5691,10 +5697,10 @@ static int createStringArrayItem(const char *name, const char **vals, int len,
   s += cLen;
   
   for (i=0; i<len; i++) {
-    sprintf(s, "%d\n%s\n%n", strlen(vals[i]), vals[i], &cLen);
+    sprintf(s, "%d\n%s\n%n", (int)strlen(vals[i]), vals[i], &cLen);
     s += cLen;
   }
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
   *pItem = item;
   
   return(CMSG_OK);
@@ -5853,10 +5859,10 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   if (message->domain != NULL) {
     count++;
     /* length of text following header line, for this string item */
-    length[0] = strlen(message->domain)
+    length[0] = (int)strlen(message->domain)
                 + numDigits(strlen(message->domain), 0)
                 + 2 /* 2 newlines */;
-    textLen += strlen("cMsgDomain")
+    textLen += (int)strlen("cMsgDomain")
                + 9 /* 2-digit type, 1-digit count (=1), 1-digit isSystem, 4 spaces, and 1 newline */
                + numDigits(length[0], 0) /* # chars in following, nonheader text */
                + length[0];  /* this item's nonheader text */
@@ -5865,50 +5871,50 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   /* add length of "subject" member as a string */
   if (message->subject != NULL) {
     count++;
-    length[1] = strlen(message->subject) + numDigits(strlen(message->subject), 0) + 2;
-    textLen += strlen("cMsgSubject") + 9 + numDigits(length[1], 0) + length[1];
+    length[1] = (int)strlen(message->subject) + numDigits(strlen(message->subject), 0) + 2;
+    textLen += (int)strlen("cMsgSubject") + 9 + numDigits(length[1], 0) + length[1];
   }
   
   /* add length of "type" member as a string */
   if (message->type != NULL) {
     count++;
-    length[2] = strlen(message->type) + numDigits(strlen(message->type), 0) + 2;
-    textLen += strlen("cMsgType") + 9 + numDigits(length[2], 0) + length[2] ;
+    length[2] = (int)strlen(message->type) + numDigits(strlen(message->type), 0) + 2;
+    textLen += (int)strlen("cMsgType") + 9 + numDigits(length[2], 0) + length[2] ;
   }
   
   /* add length of "text" member as a string */
   if (message->text != NULL) {
     count++;
-    length[3] = strlen(message->text) + numDigits(strlen(message->text), 0) + 2;
-    textLen += strlen("cMsgText") + 9 + numDigits(length[3], 0) + length[3] ;
+    length[3] = (int)strlen(message->text) + numDigits(strlen(message->text), 0) + 2;
+    textLen += (int)strlen("cMsgText") + 9 + numDigits(length[3], 0) + length[3] ;
   }
     
   /* add length of "sender" member as a string */
   if (message->sender != NULL) {
     count++;
-    length[4] = strlen(message->sender) + numDigits(strlen(message->sender), 0) + 2;
-    textLen += strlen("cMsgSender") + 9 + numDigits(length[4], 0) + length[4] ;
+    length[4] = (int)strlen(message->sender) + numDigits(strlen(message->sender), 0) + 2;
+    textLen += (int)strlen("cMsgSender") + 9 + numDigits(length[4], 0) + length[4] ;
   }
   
   /* add length of "senderHost" member as a string */
   if (message->senderHost != NULL) {
     count++;
-    length[5] = strlen(message->senderHost) + numDigits(strlen(message->senderHost), 0) + 2;
-    textLen += strlen("cMsgSenderHost") + 9 + numDigits(length[5], 0) + length[5] ;
+    length[5] = (int)strlen(message->senderHost) + numDigits(strlen(message->senderHost), 0) + 2;
+    textLen += (int)strlen("cMsgSenderHost") + 9 + numDigits(length[5], 0) + length[5] ;
   }
   
   /* add length of "receiver" member as a string */
   if (message->receiver != NULL) {
     count++;
-    length[6] = strlen(message->receiver) + numDigits(strlen(message->receiver), 0) + 2;
-    textLen += strlen("cMsgReceiver") + 9 + numDigits(length[6], 0) + length[6] ;
+    length[6] = (int)strlen(message->receiver) + numDigits(strlen(message->receiver), 0) + 2;
+    textLen += (int)strlen("cMsgReceiver") + 9 + numDigits(length[6], 0) + length[6] ;
   }
   
   /* add length of "receiverHost" member as a string */
   if (message->receiverHost != NULL) {
     count++;
-    length[7] = strlen(message->receiverHost) + numDigits(strlen(message->receiverHost), 0) + 2;
-    textLen += strlen("cMsgReceiverHost") + 9 + numDigits(length[7], 0) + length[7] ;
+    length[7] = (int)strlen(message->receiverHost) + numDigits(strlen(message->receiverHost), 0) + 2;
+    textLen += (int)strlen("cMsgReceiverHost") + 9 + numDigits(length[7], 0) + length[7] ;
   }
   
   /* ************************************************************************************** */
@@ -5917,7 +5923,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   
   /* length of string to contain ints */
   length[8] = 5*8 + 5 /* 4 sp, 1 nl */;
-  textLen += strlen("cMsgInts") + 2 + 1 + 1 + numDigits(length[8], 0) + length[8] +
+  textLen += (int)strlen("cMsgInts") + 2 + 1 + 1 + numDigits(length[8], 0) + length[8] +
              5; /* 4 sp, 1 nl */
   count++;
 
@@ -5927,7 +5933,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   
   /* length of string to contain times */
   length[9] = 6*16 + 6 /* 5 sp, 1 nl */;
-  textLen += strlen("cMsgTimes") + 2 + 1 + 1 +  numDigits(length[9], 0) + length[9] +
+  textLen += (int)strlen("cMsgTimes") + 2 + 1 + 1 +  numDigits(length[9], 0) + length[9] +
              5; /* 4 sp, 1 nl */
   count++;
 
@@ -5937,12 +5943,12 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   if (message->byteArray != NULL) {
       /* find (exact) size of text-encoded binary data (including ending newline) */
     lenBin = cMsg_b64_encode_len(message->byteArray + message->byteArrayOffset,
-                                 message->byteArrayLength, 1);
+                                 (unsigned int)message->byteArrayLength, 1);
     length[10] = lenBin + numDigits(lenBin, 0) +
                  numDigits(message->byteArrayLength, 0) + 4;
                  /* 1 endian, 2 spaces, 1 newline */
     
-    textLen += strlen("cMsgBinary") + 2 + 1 /* 1 item */ + 1 /* is system */ +
+    textLen += (int)strlen("cMsgBinary") + 2 + 1 /* 1 item */ + 1 /* is system */ +
                numDigits(length[10], 0) + length[10] + 5; /* 4 spaces, 1 newline */
     count++;
   }
@@ -5957,14 +5963,14 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   /* add length of header to message field */
   /* ************************************* */
   /* header of message field in msg's payload is "name type count isSystem? length\n" */
-  totalLen += strlen(name) + 2 /* type len */ + 1 /* 1 digit in count = 1 */
+  totalLen += (int)strlen(name) + 2 /* type len */ + 1 /* 1 digit in count = 1 */
               + 1 /* isSys? */ + numDigits(textLen, 0) + textLen + 5; /* 4 spaces, 1 newline */
  
   totalLen += 1; /* for null terminator */
   
   item->noHeaderLen = textLen;
  
-  s = item->text = (char *) malloc(totalLen);
+  s = item->text = (char *) malloc((size_t)totalLen);
   if (item->text == NULL) {
     payloadItemFree(item, 1);
     free(item);
@@ -5985,56 +5991,56 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   /* add message's domain member as string */
   if (message->domain != NULL) {
     sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgDomain", CMSG_CP_STR, length[0],
-                                            strlen(message->domain), message->domain, &len);
+            (int)strlen(message->domain), message->domain, &len);
     s += len;
   }
   
   /* add message's subject member as string */
   if (message->subject != NULL) {
     sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSubject", CMSG_CP_STR, length[1],
-                                            strlen(message->subject), message->subject, &len);
+            (int)strlen(message->subject), message->subject, &len);
     s += len;
   }
   
   /* add message's type member as string */
   if (message->type != NULL) {
     sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgType", CMSG_CP_STR, length[2],
-                                            strlen(message->type), message->type, &len);
+            (int)strlen(message->type), message->type, &len);
     s += len;
   }
   
   /* add message's text member as string */
   if (message->text != NULL) {
     sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgText", CMSG_CP_STR, length[3],
-                                            strlen(message->text), message->text, &len);
+            (int)strlen(message->text), message->text, &len);
     s += len;
   }
 
   /* add message's sender member as string */
   if (message->sender != NULL) {
     sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSender", CMSG_CP_STR, length[4],
-                                             strlen(message->sender), message->sender, &len);
+            (int)strlen(message->sender), message->sender, &len);
     s += len;
   }
 
   /* add message's senderHost member as string */
   if (message->senderHost != NULL) {
     sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSenderHost", CMSG_CP_STR, length[5],
-                                            strlen(message->senderHost), message->senderHost, &len);
+            (int)strlen(message->senderHost), message->senderHost, &len);
     s += len;
   }
 
   /* add message's receiver member as string */
   if (message->receiver != NULL) {
     sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiver", CMSG_CP_STR, isSystem, length[6],
-                                            strlen(message->receiver), message->receiver, &len);
+            (int)strlen(message->receiver), message->receiver, &len);
     s += len;
   }
 
   /* add message's receiverHost member as string */
   if (message->receiverHost != NULL) {
     sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiverHost", CMSG_CP_STR, isSystem, length[7],
-                                            strlen(message->receiverHost), message->receiverHost, &len);
+            (int)strlen(message->receiverHost), message->receiverHost, &len);
     s += len;
   }
 
@@ -6072,21 +6078,21 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   j64[4] = message->receiverTime.tv_sec;
   j64[5] = message->receiverTime.tv_nsec;
   for (i=0; i<6; i++) {
-      byte = j64[i]>>56 & 0xff;
+      byte = (int) (j64[i]>>56 & 0xff);
       *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-      byte = j64[i]>>48 & 0xff;
+      byte = (int) (j64[i]>>48 & 0xff);
       *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-      byte = j64[i]>>40 & 0xff;
+      byte = (int) (j64[i]>>40 & 0xff);
       *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-      byte = j64[i]>>32 & 0xff;
+      byte = (int) (j64[i]>>32 & 0xff);
       *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-      byte = j64[i]>>24 & 0xff;
+      byte = (int) (j64[i]>>24 & 0xff);
       *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-      byte = j64[i]>>16 & 0xff;
+      byte = (int) (j64[i]>>16 & 0xff);
       *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-      byte = j64[i]>>8 & 0xff;
+      byte = (int) (j64[i]>>8 & 0xff);
       *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-      byte = j64[i] & 0xff;
+      byte = (int) (j64[i] & 0xff);
       *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
       if (i < 5) {
         *s++ = ' ';
@@ -6107,7 +6113,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
 
     /* write the binary-encoded text */
     numChars = cMsg_b64_encode(message->byteArray + message->byteArrayOffset,
-                               message->byteArrayLength, s, 1);
+                               (unsigned int)message->byteArrayLength, s, 1);
     s += numChars;
     if (lenBin != numChars) {
       payloadItemFree(item, 1);
@@ -6128,7 +6134,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   s[0] = '\0';
   
   /* store length of text */
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
 
   /* remove any existing item with that name */
   if (cMsgPayloadContainsName(vmsg, name)) {
@@ -6268,7 +6274,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
       if (message->domain != NULL) {
         count[i]++;
         /* length of text following header line, for this string item */
-        length[i][0] = strlen(message->domain)
+        length[i][0] = (int)strlen(message->domain)
                       + numDigits(strlen(message->domain), 0)
                       + 2 /* 2 newlines */;
         textLen += strlen("cMsgDomain")
@@ -6280,49 +6286,49 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
       /* add length of "subject" member as a string */
       if (message->subject != NULL) {
         count[i]++;
-        length[i][1] = strlen(message->subject) + numDigits(strlen(message->subject), 0) + 2;
+        length[i][1] = (int)strlen(message->subject) + numDigits(strlen(message->subject), 0) + 2;
         textLen += strlen("cMsgSubject") + 9 + numDigits(length[i][1], 0) + length[i][1];
       }
 
       /* add length of "type" member as a string */
       if (message->type != NULL) {
         count[i]++;
-        length[i][2] = strlen(message->type) + numDigits(strlen(message->type), 0) + 2;
+        length[i][2] = (int)strlen(message->type) + numDigits(strlen(message->type), 0) + 2;
         textLen += strlen("cMsgType") + 9 + numDigits(length[i][2], 0) + length[i][2] ;
       }
 
       /* add length of "text" member as a string */
       if (message->text != NULL) {
         count[i]++;
-        length[i][3] = strlen(message->text) + numDigits(strlen(message->text), 0) + 2;
+        length[i][3] = (int)strlen(message->text) + numDigits(strlen(message->text), 0) + 2;
         textLen += strlen("cMsgText") + 9 + numDigits(length[i][3], 0) + length[i][3] ;
       }
 
       /* add length of "sender" member as a string */
       if (message->sender != NULL) {
         count[i]++;
-        length[i][4] = strlen(message->sender) + numDigits(strlen(message->sender), 0) + 2;
+        length[i][4] = (int)strlen(message->sender) + numDigits(strlen(message->sender), 0) + 2;
         textLen += strlen("cMsgSender") + 9 + numDigits(length[i][4], 0) + length[i][4] ;
       }
 
       /* add length of "senderHost" member as a string */
       if (message->senderHost != NULL) {
         count[i]++;
-        length[i][5] = strlen(message->senderHost) + numDigits(strlen(message->senderHost), 0) + 2;
+        length[i][5] = (int)strlen(message->senderHost) + numDigits(strlen(message->senderHost), 0) + 2;
         textLen += strlen("cMsgSenderHost") + 9 + numDigits(length[i][5], 0) + length[i][5] ;
       }
 
       /* add length of "receiver" member as a string */
       if (message->receiver != NULL) {
         count[i]++;
-        length[i][6] = strlen(message->receiver) + numDigits(strlen(message->receiver), 0) + 2;
+        length[i][6] = (int)strlen(message->receiver) + numDigits(strlen(message->receiver), 0) + 2;
         textLen += strlen("cMsgReceiver") + 9 + numDigits(length[i][6], 0) + length[i][6] ;
       }
 
       /* add length of "receiverHost" member as a string */
       if (message->receiverHost != NULL) {
         count[i]++;
-        length[i][7] = strlen(message->receiverHost) + numDigits(strlen(message->receiverHost), 0) + 2;
+        length[i][7] = (int)strlen(message->receiverHost) + numDigits(strlen(message->receiverHost), 0) + 2;
         textLen += strlen("cMsgReceiverHost") + 9 + numDigits(length[i][7], 0) + length[i][7] ;
       }
 
@@ -6352,7 +6358,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
       if (message->byteArray != NULL) {
         /* find (exact) size of text-encoded binary data (including ending newline) */
         lenBin[i] = cMsg_b64_encode_len(message->byteArray + message->byteArrayOffset,
-                                        message->byteArrayLength, 1);
+                                        (unsigned int)message->byteArrayLength, 1);
         length[i][10] = lenBin[i] + numDigits(lenBin[i], 0) +
                         numDigits(message->byteArrayLength, 0) + 4;
                         /* 1 endian, 1 space, 2 newlines */
@@ -6380,7 +6386,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
   
   item->noHeaderLen = textLen;
   
-  s = item->text = (char *) malloc(totalLen);
+  s = item->text = (char *) malloc((size_t)totalLen);
   if (item->text == NULL) {
     for (j=0; j<number; j++) {
       cMsgFreeMessage(&msgArray[j]);
@@ -6409,56 +6415,56 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
     /* add message's domain member as string */
     if (message->domain != NULL) {
       sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgDomain", CMSG_CP_STR, length[i][0],
-                                              strlen(message->domain), message->domain, &len);
+              (int)strlen(message->domain), message->domain, &len);
       s += len;
     }
 
     /* add message's subject member as string */
     if (message->subject != NULL) {
       sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSubject", CMSG_CP_STR, length[i][1],
-                                              strlen(message->subject), message->subject, &len);
+              (int)strlen(message->subject), message->subject, &len);
       s += len;
     }
 
     /* add message's type member as string */
     if (message->type != NULL) {
       sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgType", CMSG_CP_STR, length[i][2],
-                                              strlen(message->type), message->type, &len);
+              (int)strlen(message->type), message->type, &len);
       s += len;
     }
 
     /* add message's text member as string */
     if (message->text != NULL) {
       sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgText", CMSG_CP_STR, length[i][3],
-                                              strlen(message->text), message->text, &len);
+              (int)strlen(message->text), message->text, &len);
       s += len;
     }
 
     /* add message's sender member as string */
     if (message->sender != NULL) {
       sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSender", CMSG_CP_STR, length[i][4],
-                                               strlen(message->sender), message->sender, &len);
+              (int)strlen(message->sender), message->sender, &len);
       s += len;
     }
 
     /* add message's senderHost member as string */
     if (message->senderHost != NULL) {
       sprintf(s, "%s %d 1 1 %d\n%d\n%s\n%n", "cMsgSenderHost", CMSG_CP_STR, length[i][5],
-                                              strlen(message->senderHost), message->senderHost, &len);
+              (int)strlen(message->senderHost), message->senderHost, &len);
       s += len;
     }
 
     /* add message's receiver member as string */
     if (message->receiver != NULL) {
       sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiver", CMSG_CP_STR, isSystem, length[i][6],
-                                              strlen(message->receiver), message->receiver, &len);
+              (int)strlen(message->receiver), message->receiver, &len);
       s += len;
     }
 
     /* add message's receiverHost member as string */
     if (message->receiverHost != NULL) {
       sprintf(s, "%s %d 1 %d %d\n%d\n%s\n%n", "cMsgReceiverHost", CMSG_CP_STR, isSystem, length[i][7],
-                                              strlen(message->receiverHost), message->receiverHost, &len);
+              (int)strlen(message->receiverHost), message->receiverHost, &len);
       s += len;
     }
 
@@ -6496,21 +6502,21 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
     j64[4] = message->receiverTime.tv_sec;
     j64[5] = message->receiverTime.tv_nsec;
     for (j=0; j<6; j++) {
-        byte = j64[j]>>56 & 0xff;
+        byte = (int) (j64[j]>>56 & 0xff);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64[j]>>48 & 0xff;
+        byte = (int) (j64[j]>>48 & 0xff);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64[j]>>40 & 0xff;
+        byte = (int) (j64[j]>>40 & 0xff);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64[j]>>32 & 0xff;
+        byte = (int) (j64[j]>>32 & 0xff);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64[j]>>24 & 0xff;
+        byte = (int) (j64[j]>>24 & 0xff);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64[j]>>16 & 0xff;
+        byte = (int) (j64[j]>>16 & 0xff);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64[j]>>8 & 0xff;
+        byte = (int) (j64[j]>>8 & 0xff);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
-        byte = j64[j] & 0xff;
+        byte = (int) (j64[j] & 0xff);
         *s++ = toASCII[byte][0]; *s++ = toASCII[byte][1];
         if (j < 5) {
           *s++ = ' ';
@@ -6531,7 +6537,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
 
       /* write the binary-encoded text */
       numChars = cMsg_b64_encode(message->byteArray + message->byteArrayOffset,
-                                 message->byteArrayLength, s, 1);
+                                 (unsigned int)message->byteArrayLength, s, 1);
       s += numChars;
       if (lenBin[i] != numChars) {
         for (j=0; j<number; j++) {
@@ -6558,7 +6564,7 @@ static int addMessageArray(void *vmsg, const char *name, const void *vmessage[],
   s[0] = '\0';
   
   /* store length of text */
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
 /*printf("MSG ARRAY TXT:\n%s", item->text); */ 
   
   /* remove any existing item with that name */
@@ -6649,14 +6655,14 @@ if(debug) printf("  encoded len = %d, bin len = %d, endian = %d\n", lenEncoded, 
       /* if there is not enough space available, allocate mem */
       if (msg->byteArrayLength < lenBin) {
         free(msg->byteArray);
-        msg->byteArray = (char *) malloc(lenBin);
+        msg->byteArray = (char *) malloc((size_t)lenBin);
         if (msg->byteArray == NULL) {
           return (CMSG_OUT_OF_MEMORY);
         }
       }
     }
     else {
-      msg->byteArray = (char *) malloc(lenBin);
+      msg->byteArray = (char *) malloc((size_t)lenBin);
       if (msg->byteArray == NULL) {
         return (CMSG_OUT_OF_MEMORY);
       }
@@ -6665,7 +6671,7 @@ if(debug) printf("  encoded len = %d, bin len = %d, endian = %d\n", lenEncoded, 
     msg->byteArrayLength = lenBin;
     msg->byteArrayLengthFull = lenBin;
 
-    numBytes = cMsg_b64_decode(pVal, lenEncoded, msg->byteArray);
+    numBytes = cMsg_b64_decode(pVal, (unsigned int)lenEncoded, msg->byteArray);
     if (numBytes < 0 || numBytes != lenBin) {
 if (debug) printf("addBinaryFromString: decoded string len = %d, should be %d\n", numBytes, lenBin);
       free(msg->byteArray);
@@ -6698,9 +6704,9 @@ if (debug) printf("addBinaryFromString: decoded string len = %d, should be %d\n"
 
   /* create space for binary array */
 if (debug) printf("addBinaryFromString: will reserve %d bytes, calculation shows %d bytes\n",
-                   lenBin, cMsg_b64_decode_len(pVal, lenEncoded));
+                   lenBin, cMsg_b64_decode_len(pVal,(unsigned int) lenEncoded));
                    
-  item->array = (void *)malloc(lenBin);
+  item->array = malloc((size_t)lenBin);
   if (item->array == NULL) {
     payloadItemFree(item, 1);
     free(item);
@@ -6708,7 +6714,7 @@ if (debug) printf("addBinaryFromString: will reserve %d bytes, calculation shows
   }
 
   /* decode text into binary */
-  numBytes = cMsg_b64_decode(pVal, lenEncoded, (char *)item->array);
+  numBytes = cMsg_b64_decode(pVal, (unsigned int)lenEncoded, (char *)item->array);
   if (numBytes < 0 || numBytes != lenBin) {
     if (debug && numBytes != lenBin)
         printf("addBinaryFromString: decoded string len = %d, should be %d\n",
@@ -6719,7 +6725,7 @@ if (debug) printf("addBinaryFromString: will reserve %d bytes, calculation shows
   }
 
   /* space for text rep */
-  s = item->text = (char *) malloc(textLen+1);
+  s = item->text = (char *) malloc((size_t)(textLen+1));
   if (item->text == NULL) {
     payloadItemFree(item, 1);
     free(item);
@@ -6727,13 +6733,13 @@ if (debug) printf("addBinaryFromString: will reserve %d bytes, calculation shows
   }
   
   /* copy in text */
-  memcpy(s, pText, textLen);
+  memcpy(s, pText, (size_t)textLen);
   
   /* add null terminator */
   s[textLen] = '\0';
   
   /* store length of text */
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
 
   /* place payload item in msg's linked list */
   addItem(msg, item);
@@ -6772,7 +6778,7 @@ static int addBinaryArrayFromText(void *vmsg, char *name, int type, int count, i
                                   int noHeaderLen) {
   char *s, **binArray;
   const char *t;
-  int i, j, len, numBytes, debug=0, lenEncoded, lenBin, endian, *endians, *sizes;
+  int i, j, numBytes, debug=0, lenEncoded, lenBin, endian, *endians, *sizes;
   payloadItem *item;
   cMsgMessage_t *msg = (cMsgMessage_t *)vmsg;
 
@@ -6811,7 +6817,7 @@ static int addBinaryArrayFromText(void *vmsg, char *name, int type, int count, i
       t = s+1;
 
       /* create space for binary array */
-      binArray[j] = (char *)malloc(lenBin);
+      binArray[j] = (char *)malloc((size_t)lenBin);
       if (binArray[j] == NULL) {
           for (i=0; i<j; i++) {
               free(binArray[i]);
@@ -6821,10 +6827,10 @@ static int addBinaryArrayFromText(void *vmsg, char *name, int type, int count, i
       }
 
       if (debug) printf("addBinArrayFromTxt: will reserve %d bytes, calculation shows %d bytes\n",
-                        lenBin, cMsg_b64_decode_len(t, lenEncoded));
+                        lenBin, cMsg_b64_decode_len(t, (unsigned int)lenEncoded));
     
       /* decode text into binary */
-      numBytes = cMsg_b64_decode(t, lenEncoded, binArray[j]);
+      numBytes = cMsg_b64_decode(t, (unsigned int)lenEncoded, binArray[j]);
       if (numBytes < 0 || numBytes != lenBin) {
 if (debug && numBytes != lenBin)
     printf("addBinaryArrayFromText: decoded string len = %d, should be %d\n", numBytes, lenBin);
@@ -6870,7 +6876,7 @@ if (debug && numBytes != lenBin)
       return(CMSG_OUT_OF_MEMORY);
   }
  
-  s = item->text = (char *) malloc(textLen+1);
+  s = item->text = (char *) malloc((size_t)(textLen+1));
   if (item->text == NULL) {
       payloadItemFree(item, 1);
       free(item);
@@ -6878,13 +6884,13 @@ if (debug && numBytes != lenBin)
   }
   
   /* copy in text */
-  memcpy(s, pText, textLen);
+  memcpy(s, pText, (size_t)textLen);
     
   /* add null terminator */
   s[textLen] = '\0';
   
   /* store length of text */
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
   
   /* place payload item in msg's linked list */
   addItem(msg, item);
@@ -6956,7 +6962,7 @@ if(debug) printf("read int as %lld\n", int64);
     msg->historyLengthMax = (int) item->val;
   }
 
-  s = item->text = (char *) malloc(textLen+1);
+  s = item->text = (char *) malloc((size_t)(textLen+1));
   if (item->text == NULL) {
     payloadItemFree(item, 1);
     free(item);
@@ -6964,13 +6970,13 @@ if(debug) printf("read int as %lld\n", int64);
   }
   
   /* copy in text */
-  memcpy(s, pText, textLen);
+  memcpy(s, pText, (size_t)textLen);
     
   /* add null terminator */
   s[textLen] = '\0';
   
   /* store length of text */
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
   
   /* place payload item in msg's linked list */
   addItem(msg, item);
@@ -7040,7 +7046,7 @@ static int addIntArrayFromText(void *vmsg, char *name, int type, int count, int 
     }
 
     for (j=0; j<count; j++) {
-      myArray[j] = ((toByte[(int)(*pVal)]<<4) | (toByte[(int)(*(pVal+1))]));
+      myArray[j] = (uint8_t)((toByte[(int)(*pVal)]<<4) | (toByte[(int)(*(pVal+1))]));
       pVal += 3;
 if(debug) {
   if (type == CMSG_CP_UINT8_A)
@@ -7088,10 +7094,10 @@ if(debug) {
         continue;
       }
 
-      myArray[j] = ((toByte[(int)(*(pVal  ))]<<12) |
-                    (toByte[(int)(*(pVal+1))]<<8 ) |
-                    (toByte[(int)(*(pVal+2))]<<4 ) |
-                    (toByte[(int)(*(pVal+3))]    ));
+      myArray[j] = (uint8_t)((toByte[(int)(*(pVal  ))]<<12) |
+                             (toByte[(int)(*(pVal+1))]<<8 ) |
+                             (toByte[(int)(*(pVal+2))]<<4 ) |
+                             (toByte[(int)(*(pVal+3))]    ));
       pVal += 5;
 if(debug) {
   if (type == CMSG_CP_UINT8_A)
@@ -7182,7 +7188,7 @@ if(debug) {
   }
 
   /* 64-bit, int array */
-  else if (type == CMSG_CP_INT64_A || CMSG_CP_UINT64_A) {
+  else if (type == CMSG_CP_INT64_A || type == CMSG_CP_UINT64_A) {
     int64_t *myArray;
     myArray = (int64_t *)malloc(count*sizeof(int64_t));
     if (myArray == NULL) {
@@ -7198,7 +7204,7 @@ if(debug) {
        * if we got a Z to start with, uncompress all the zeros. */
       if ( toByte[(int)(*pVal)] == -2 ) {
         zeros = 0;
-        zeros = (((int64_t)toByte[(int)(*(pVal+1))] <<56) |
+        zeros = (int)(((int64_t)toByte[(int)(*(pVal+1))] <<56) |
                  ((int64_t)toByte[(int)(*(pVal+2))] <<52) |
                  ((int64_t)toByte[(int)(*(pVal+3))] <<48) |
                  ((int64_t)toByte[(int)(*(pVal+4))] <<44) |
@@ -7274,7 +7280,7 @@ if(debug) {
     item->array = (void *)myArray;
   } /* 64 bit array */
 
-  s = item->text = (char *) malloc(textLen+1);
+  s = item->text = (char *) malloc((size_t)textLen+1);
   if (item->text == NULL) {
     payloadItemFree(item, 1);
     free(item);
@@ -7282,13 +7288,13 @@ if(debug) {
   }
 
   /* copy in text */
-  memcpy(s, pText, textLen);
+  memcpy(s, pText, (size_t)textLen);
 
   /* add null terminator */
   s[textLen] = '\0';
 
   /* store length of text */
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
 
   /* place payload item in msg's linked list */
   addItem(msg, item);
@@ -7365,7 +7371,7 @@ static int addRealFromText(void *vmsg, char *name, int type, int count, int isSy
   else {
     float flt;
     /* convert from 8 chars (representing hex) to float */
-    fun.i = ((toByte[(int)(*pVal)]    <<28) |
+    fun.i = (uint32_t)((toByte[(int)(*pVal)]    <<28) |
              (toByte[(int)(*(pVal+1))]<<24) |
              (toByte[(int)(*(pVal+2))]<<20) |
              (toByte[(int)(*(pVal+3))]<<16) |
@@ -7377,7 +7383,7 @@ static int addRealFromText(void *vmsg, char *name, int type, int count, int isSy
     item->dval = (double) flt;
   }
   
-  s = item->text = (char *) malloc(textLen+1);
+  s = item->text = (char *) malloc((size_t)(textLen+1));
   if (item->text == NULL) {
     payloadItemFree(item, 1);
     free(item);
@@ -7385,13 +7391,13 @@ static int addRealFromText(void *vmsg, char *name, int type, int count, int isSy
   }
   
   /* copy in text */
-  memcpy(s, pText, textLen);
+  memcpy(s, pText, (size_t)textLen);
     
   /* add null terminator */
   s[textLen] = '\0';
   
   /* store length of text */
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
   
   /* place payload item in msg's linked list */
   addItem(msg, item);
@@ -7491,22 +7497,22 @@ if(debug) printf("  double[%d] = %.17g\n", j+k, myArray[j+k]);
       }
 
       /* convert from 16 chars (representing hex) to double */
-      dun.i = (((int64_t)toByte[(int)(*pVal)]     <<60) |
-               ((int64_t)toByte[(int)(*(pVal+1))] <<56) |
-               ((int64_t)toByte[(int)(*(pVal+2))] <<52) |
-               ((int64_t)toByte[(int)(*(pVal+3))] <<48) |
-               ((int64_t)toByte[(int)(*(pVal+4))] <<44) |
-               ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
-               ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
-               ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
-               ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
-               ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
-               ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
-               ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
-               ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
-               ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
-               ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
-               ((int64_t)toByte[(int)(*(pVal+15))]   ));
+      dun.i = (uint64_t)(((int64_t)toByte[(int)(*pVal)]     <<60) |
+                         ((int64_t)toByte[(int)(*(pVal+1))] <<56) |
+                         ((int64_t)toByte[(int)(*(pVal+2))] <<52) |
+                         ((int64_t)toByte[(int)(*(pVal+3))] <<48) |
+                         ((int64_t)toByte[(int)(*(pVal+4))] <<44) |
+                         ((int64_t)toByte[(int)(*(pVal+5))] <<40) |
+                         ((int64_t)toByte[(int)(*(pVal+6))] <<36) |
+                         ((int64_t)toByte[(int)(*(pVal+7))] <<32) |
+                         ((int64_t)toByte[(int)(*(pVal+8))] <<28) |
+                         ((int64_t)toByte[(int)(*(pVal+9))] <<24) |
+                         ((int64_t)toByte[(int)(*(pVal+10))]<<20) |
+                         ((int64_t)toByte[(int)(*(pVal+11))]<<16) |
+                         ((int64_t)toByte[(int)(*(pVal+12))]<<12) |
+                         ((int64_t)toByte[(int)(*(pVal+13))]<<8)  |
+                         ((int64_t)toByte[(int)(*(pVal+14))]<<4)  |
+                         ((int64_t)toByte[(int)(*(pVal+15))]   ));
       myArray[j] = dun.d;
       pVal += 17;
 if(debug) printf("  double[%d] = %.17g\n", j, myArray[j]);
@@ -7540,7 +7546,7 @@ if(debug) printf("  double[%d] = %.17g\n", j, myArray[j]);
 if(debug) printf("  unpacking %d zeros\n", int32);
         /* we have int32 number of zeros */
         for (k=0; k<int32; k++) {
-          myArray[j+k] = 0.;
+          myArray[j+k] = 0.F;
 if(debug) printf("  float[%d] = %.8g\n", j+k, myArray[j+k]);
         }
         j += int32 - 1;
@@ -7548,14 +7554,14 @@ if(debug) printf("  float[%d] = %.8g\n", j+k, myArray[j+k]);
         continue;
       }
 
-      fun.i = ((toByte[(int)(*pVal)]    <<28) |
-               (toByte[(int)(*(pVal+1))]<<24) |
-               (toByte[(int)(*(pVal+2))]<<20) |
-               (toByte[(int)(*(pVal+3))]<<16) |
-               (toByte[(int)(*(pVal+4))]<<12) |
-               (toByte[(int)(*(pVal+5))]<<8 ) |
-               (toByte[(int)(*(pVal+6))]<<4 ) |
-               (toByte[(int)(*(pVal+7))]    ));
+      fun.i = (uint32_t) ((toByte[(int)(*pVal)]    <<28) |
+                          (toByte[(int)(*(pVal+1))]<<24) |
+                          (toByte[(int)(*(pVal+2))]<<20) |
+                          (toByte[(int)(*(pVal+3))]<<16) |
+                          (toByte[(int)(*(pVal+4))]<<12) |
+                          (toByte[(int)(*(pVal+5))]<<8 ) |
+                          (toByte[(int)(*(pVal+6))]<<4 ) |
+                          (toByte[(int)(*(pVal+7))]    ));
       myArray[j] = fun.f;
       pVal+=9;
 if(debug) printf("  float[%d] = %.8g\n", j, myArray[j]);
@@ -7564,7 +7570,7 @@ if(debug) printf("  float[%d] = %.8g\n", j, myArray[j]);
     item->array = (void *)myArray;
   }
 
-  s = item->text = (char *) malloc(textLen+1);
+  s = item->text = (char *) malloc((size_t)(textLen+1));
   if (item->text == NULL) {
     payloadItemFree(item, 1);
     free(item);
@@ -7572,13 +7578,13 @@ if(debug) printf("  float[%d] = %.8g\n", j, myArray[j]);
   }
   
   /* copy in text */
-  memcpy(s, pText, textLen);
+  memcpy(s, pText, (size_t)textLen);
     
   /* add null terminator */
   s[textLen] = '\0';
   
   /* store length of text */
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
   
   /* place payload item in msg's linked list */
   addItem(msg, item);
@@ -7631,11 +7637,11 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
   t = s+1;
   
   /* allocate memory to hold string */
-  str = (char *) malloc(len+1);
+  str = (char *) malloc((size_t)(len+1));
   if (str == NULL) return(CMSG_OUT_OF_MEMORY);
   
   /* copy string into memory */
-  memcpy(str, t, len);
+  memcpy(str, t, (size_t)len);
   str[len] = '\0';
   
   /* is regular field in msg */
@@ -7698,7 +7704,7 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
   item->count = count;
   item->noHeaderLen = noHeaderLen;
   
-  s = item->text = (char *) malloc(textLen+1);
+  s = item->text = (char *) malloc((size_t)(textLen+1));
   if (item->text == NULL) {
     payloadItemFree(item, 1);
     free(item);
@@ -7706,13 +7712,13 @@ static int addStringFromText(void *vmsg, char *name, int type, int count, int is
   }
   
   /* copy in text */
-  memcpy(s, pText, textLen);
+  memcpy(s, pText,(size_t) textLen);
     
   /* add null terminator */
   s[textLen] = '\0';
   
   /* store length of text */
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
   
   /* place payload item in msg's linked list */
   addItem(msg, item);
@@ -7768,7 +7774,7 @@ static int addStringArrayFromText(void *vmsg, char *name, int type, int count, i
     if (len < 1) return(CMSG_BAD_FORMAT);
     t = s+1;          
 
-    txtArray[j] = (char *)malloc(len+1);
+    txtArray[j] = (char *)malloc((size_t)(len+1));
     if (txtArray[j] == NULL) {
       for (i=0; i<j; i++) {
         free(txtArray[i]);
@@ -7776,7 +7782,7 @@ static int addStringArrayFromText(void *vmsg, char *name, int type, int count, i
       free(txtArray);
       return(CMSG_OUT_OF_MEMORY);
     }
-    memcpy(txtArray[j], t, len);
+    memcpy(txtArray[j], t, (size_t)len);
     txtArray[j][len] = '\0';
 
     t = s+1+len+1;
@@ -7808,7 +7814,7 @@ static int addStringArrayFromText(void *vmsg, char *name, int type, int count, i
   item->count = count;
   item->noHeaderLen = noHeaderLen;
   
-  s = item->text = (char *) malloc(textLen+1);
+  s = item->text = (char *) malloc((size_t)(textLen+1));
   if (item->text == NULL) {
     payloadItemFree(item, 1);
     free(item);
@@ -7816,13 +7822,13 @@ static int addStringArrayFromText(void *vmsg, char *name, int type, int count, i
   }
   
   /* copy in text */
-  memcpy(s, pText, textLen);
+  memcpy(s, pText, (size_t)textLen);
     
   /* add null terminator */
   s[textLen] = '\0';
   
   /* store length of text */
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
   
   /* place payload item in msg's linked list */
   addItem(msg, item);
@@ -7878,7 +7884,7 @@ static int addMessagesFromText(void *vmsg, const char *name, int type, int count
   
   /* we now own the message(s) */
   item->array = vmessages;
-  s = item->text = (char *) malloc(textLen+1);
+  s = item->text = (char *) malloc((size_t)(textLen+1));
   if (item->text == NULL) {
     payloadItemFree(item, 1);
     free(item);
@@ -7886,13 +7892,13 @@ static int addMessagesFromText(void *vmsg, const char *name, int type, int count
   }
   
   /* copy in text */
-  memcpy(s, pText, textLen);
+  memcpy(s, pText, (size_t)textLen);
     
   /* add null terminator */
   s[textLen] = '\0';
   
   /* store length of text */
-  item->length = strlen(item->text);
+  item->length = (int)strlen(item->text);
 
   /* place payload item in msg's linked list */
   addItem(msg, item);
