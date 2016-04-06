@@ -76,7 +76,7 @@ int   cmsg_file_shutdownServers(void *domainId, const char *server, int flag);
 int   cmsg_file_setShutdownHandler(void *domainId, cMsgShutdownHandler *handler, void *userArg);
 int   cmsg_file_isConnected(void *domainId, int *connected);
 int   cmsg_file_setUDL(void *domainId, const char *udl, const char *remainder);
-int   cmsg_file_getCurrentUDL(void *domainId, char **udl);
+int   cmsg_file_getCurrentUDL(void *domainId, const char **udl);
 int   cmsg_file_getServerHost(void *domainId, const char **ipAddress);
 int   cmsg_file_getServerPort(void *domainId, int *port);
 int   cmsg_file_getInfo(void *domainId, const char *command, char **string);
@@ -212,7 +212,7 @@ int cmsg_file_setUDL(void *domainId, const char *newUDL, const char *newRemainde
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if domainId arg is NULL
  */
-int cmsg_file_getCurrentUDL(void *domainId, char **udl) {
+int cmsg_file_getCurrentUDL(void *domainId, const char **udl) {
     fileDomainInfo *fdi = (fileDomainInfo*)domainId;
     
     /* check args */
@@ -361,7 +361,7 @@ int cmsg_file_send(void *domainId, void *vmsg) {
   /* write msg to file */
   if(fdi->textOnly!=0) {
     cMsgToString(vmsg,&s);
-    stat = fwrite(s,strlen(s),1,fdi->file);
+    stat = (int) fwrite(s,strlen(s),1,fdi->file);
     free(s);
   } else {
     now=time(NULL);
@@ -369,7 +369,7 @@ int cmsg_file_send(void *domainId, void *vmsg) {
     nowBuf[strlen(nowBuf)-1]='\0';
     s=(char*)malloc(strlen(nowBuf)+strlen(msg->text)+64);
     sprintf(s,"%s:    %s\n",nowBuf,msg->text);
-    stat = fwrite(s,strlen(s),1,fdi->file);
+    stat = (int) fwrite(s,strlen(s),1,fdi->file);
     free(s);
   }
 
