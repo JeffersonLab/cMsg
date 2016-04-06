@@ -99,7 +99,7 @@
      {
          *p++ = _base64[(buf >> 18) & 0x3f];
          *p++ = _base64[(buf >> 12) & 0x3f];
-         *p++ = (pos == 0) ? _base64[(buf >> 6) & 0x3f] : '=';
+         *p++ = (char) ((pos == 0) ? _base64[(buf >> 6) & 0x3f] : '=');
          *p++ = '=';
      }
      if (lineBreaks && p > oldEnd)
@@ -107,7 +107,7 @@
          *p++ = '\n';
      }
 
-     return p - dst;
+     return (unsigned int) (p - dst);
  }
 
  
@@ -189,11 +189,11 @@
          pos++;
          if (pos == 4)
          {
-             *p++ = (buf >> 16) & 255;
+             *p++ = (char) ((buf >> 16) & 255);
              if (end == 0 || end > 1)
-                 *p++ = (buf >> 8) & 255;
+                 *p++ = (char) ((buf >> 8) & 255);
              if (end == 0 || end > 2)
-                 *p++ = buf & 255;
+                 *p++ = (char) (buf & 255);
              buf = 0;
              pos = 0;
          }
@@ -205,7 +205,7 @@
         return -3;
      }
  
-     return p - dst;
+     return (int) (p - dst);
  }
  
  
