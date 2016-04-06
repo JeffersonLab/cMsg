@@ -79,7 +79,7 @@ void hashInit(hashTable *tptr, int buckets) {
     } /* while */
 
     /* allocate memory for table */
-    tptr->bucket=(hashNode **) calloc(tptr->size, sizeof(hashNode *));
+    tptr->bucket=(hashNode **) calloc((size_t)tptr->size, sizeof(hashNode *));
 
     return;
 }
@@ -512,7 +512,7 @@ char *hashStats(hashTable *tptr) {
     static char buf[1024];
 
     sprintf(buf, "%u slots, %u entries, and %1.2f ALOS",
-            (int)tptr->size, (int)tptr->entries, alos(tptr));
+            tptr->size, tptr->entries, alos(tptr));
 
     return(buf);
 }
