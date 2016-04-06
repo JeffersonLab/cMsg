@@ -149,8 +149,8 @@ static char *stringToRegexp(const char *s, const char *replaceChars,
     c = strpbrk(s, replaceChars);
     /* Nothing there so just add ^ in front and $ on end and return. */
     if (c == NULL) {
-        len = strlen(s);
-        sub = (char *) calloc(1, len + 3);
+        len = (int)strlen(s);
+        sub = (char *) calloc(1, (size_t)(len + 3));
         if (sub == NULL) return NULL;
         sub[0] = '^';
         strcat(sub, s);
@@ -171,8 +171,8 @@ static char *stringToRegexp(const char *s, const char *replaceChars,
     /* Make string long enough to hold 4x original
      * string + 2 for beginning ^ and ending $ + 1 for ending null.
      */
-    len = strlen(s);
-    sub = (char *) calloc(1, 4*len + 3);
+    len = (int)strlen(s);
+    sub = (char *) calloc(1, (size_t)(4*len + 3));
     if (sub == NULL) return NULL;
 
     /* init strings */
@@ -195,7 +195,7 @@ static char *stringToRegexp(const char *s, const char *replaceChars,
     }
     
     /* add "$" to end */
-    len = strlen(sub);
+    len = (int)strlen(sub);
     sub[len] = '$';
     
     if (replacementsDone != NULL) *replacementsDone = replacements;
@@ -235,8 +235,8 @@ static char *stringReplace(const char *s, const char *replaceChars,
      * place strings one-by-one into a new string. */
 
     /* Make string long enough to hold 6x original string + 1 for ending null. */
-    len = strlen(s);
-    sub = (char *) malloc(6*len + 1);
+    len = (int)strlen(s);
+    sub = (char *) malloc((size_t)(6*len + 1));
     if (sub == NULL) return NULL;
 
     /* init strings */
@@ -803,17 +803,17 @@ static int rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, in
 
     /* escape regexp chars except bar '|' (since that's used in ranges) */
     styp = subtyp = stringEscapeNoBar(subtyp);
-    if (debug) printf("Escaped string = %s, pointer = %p\n", subtyp, subtyp);
+    if (debug) printf("Escaped string = %s, pointer = %p\n", subtyp, (void *)subtyp);
     
     /* make buffers to construct various strings */
-    len = strlen(subtyp) + 1;
-    buf = (char *) malloc(len);
+    len = (int)strlen(subtyp) + 1;
+    buf = (char *) malloc((size_t)len);
     if (buf == NULL) {
         free(styp);
         return(CMSG_OUT_OF_MEMORY);
     }
     
-    b2 = buf2 = (char *) malloc(len);
+    b2 = buf2 = (char *) malloc((size_t)len);
     if (buf2 == NULL) {
         free(buf);free(styp);
         return(CMSG_OUT_OF_MEMORY);
@@ -821,7 +821,7 @@ static int rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, in
     
     /* Build a real regular expression string from the given string by
      * subsituting [0-9]+ for all properly formatted ranges {...}. */
-    regexp = (char *) malloc(3*len);
+    regexp = (char *) malloc((size_t)(3*len));
     if (regexp == NULL) {
         free(buf);free(buf2);free(styp);
         return(CMSG_OUT_OF_MEMORY);
@@ -837,7 +837,7 @@ static int rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, in
     }
 
     /* go thru string and find all matches to {...} */
-    strLen1 = strlen(subtyp);
+    strLen1 = (int)strlen(subtyp);
     do {
         /* look for a match in subject or type */
         err = cMsgRegexec(&compiled, subtyp, 2, matches, 0);
@@ -855,10 +855,10 @@ static int rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, in
         /* found a single range */
         buf[0] = 0;
         len = matches[0].rm_eo - matches[0].rm_so;
-        strncat(buf, subtyp+matches[0].rm_so, len);
+        strncat(buf, subtyp+matches[0].rm_so, (size_t)len);
         if (debug) printf("Captured full range = %s\n", buf);
         /* construct regexp string with [0-9]+ substituted for range */
-        strncat(regexp, subtyp, matches[0].rm_so);
+        strncat(regexp, subtyp, (size_t)matches[0].rm_so);
         strcat(regexp, "([0-9]+)");
         if (debug) printf("regexp = %s\n", regexp);
         
@@ -867,7 +867,7 @@ static int rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, in
             int index=0;
             buf[0] = 0;
             len = matches[1].rm_eo - matches[1].rm_so;
-            strncat(buf, subtyp+matches[1].rm_so, len);
+            strncat(buf, subtyp+matches[1].rm_so, (size_t)len);
             if (debug) printf("Captured 1st sub expression in range = %s\n", buf);
 
             /* reset to full size buffer */
@@ -943,7 +943,7 @@ static int rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, in
                 /* At this point we know things are in the proper format,
                  * so go thru string and find all matches.*/
                 validRange++;
-                strLen2 = strlen(buf2);
+                strLen2 = (int)strlen(buf2);
                 do {
                     /* should never be an error here */
                     cMsgRegexec(&compiled2, buf2, 5, matches2, 0);
@@ -956,7 +956,7 @@ static int rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, in
                     /* find first number */
                     buf[0] = 0;
                     len = matches2[1].rm_eo - matches2[1].rm_so;
-                    strncat(buf, buf2+matches2[1].rm_so, len);
+                    strncat(buf, buf2+matches2[1].rm_so, (size_t)len);
                     if (debug) printf("Captured 1st sub expression num = %s\n", buf);
                     if (strcmp(buf, "i") == 0){
                         range->numbers[0] = -1;
@@ -968,7 +968,7 @@ static int rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, in
                     /* find operator */
                     buf[0] = 0;
                     len = matches2[2].rm_eo - matches2[2].rm_so;
-                    strncat(buf, buf2+matches2[2].rm_so, len);
+                    strncat(buf, buf2+matches2[2].rm_so, (size_t)len);
                     if (debug) printf("Captured sub expression operator = %s\n", buf);
                     if (strcmp(buf, ">") == 0){
                         range->numbers[1] = GT;
@@ -986,7 +986,7 @@ static int rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, in
                     /* find second number */
                     buf[0] = 0;
                     len = matches2[3].rm_eo - matches2[3].rm_so;
-                    strncat(buf, buf2+matches2[3].rm_so, len);
+                    strncat(buf, buf2+matches2[3].rm_so, (size_t)len);
                     if (debug) printf("Captured 2nd sub expression num = %s\n", buf);
                     if (strcmp(buf, "i") == 0){
                         range->numbers[2] = -1;
@@ -1012,7 +1012,7 @@ static int rangeParse(char *subtyp, char **subRegexp, numberRange **subRange, in
                     } else {
                         buf[0] = 0;
                         len = matches2[4].rm_eo - matches2[4].rm_so;
-                        strncat(buf, buf2+matches2[4].rm_so, len);
+                        strncat(buf, buf2+matches2[4].rm_so, (size_t)len);
                         if (debug) printf("Captured sub expression conjunction = %s\n", buf);
                         if (strcmp(buf, "&") == 0){
                             range->numbers[3] = AND;
@@ -1126,7 +1126,7 @@ static int regexpMatch(char *subtyp, regex_t *compiled,
     if (matches == NULL)
         return(CMSG_OUT_OF_MEMORY);
 
-    err = cMsgRegexec(compiled, subtyp, rangeCount+1, matches, 0);
+    err = cMsgRegexec(compiled, subtyp, (size_t)(rangeCount+1), matches, 0);
     if (err != 0) {
         if (debug) printf("  No match\n");
         free(buf);
@@ -1143,7 +1143,7 @@ static int regexpMatch(char *subtyp, regex_t *compiled,
             /* find number */
             buf[0] = 0;
             len = matches[i].rm_eo - matches[i].rm_so;
-            strncat(buf, subtyp+matches[i].rm_so, len);
+            strncat(buf, subtyp+matches[i].rm_so, (size_t)len);
             if (debug) printf("Captured number[%d] = %s\n", i, buf);
             myNum = atoi(buf);
             lastBool = 1;
