@@ -292,9 +292,9 @@ void *rcClientListeningThread(void *arg)
     }
     
     /* check magic numbers to filter out port-scanners */
-    if ( (ntohl(inComing[0]) != CMSG_MAGIC_INT1) ||
-         (ntohl(inComing[1]) != CMSG_MAGIC_INT2) ||
-         (ntohl(inComing[2]) != CMSG_MAGIC_INT3)   ) {
+    if ( (ntohl((uint32_t)inComing[0]) != CMSG_MAGIC_INT1) ||
+         (ntohl((uint32_t)inComing[1]) != CMSG_MAGIC_INT2) ||
+         (ntohl((uint32_t)inComing[2]) != CMSG_MAGIC_INT3)   ) {
       if (cMsgDebug >= CMSG_DEBUG_ERROR) {
         fprintf(stderr, "rcClientListeningThread: wrong magic #s from connecting process\n");
       }
@@ -478,13 +478,13 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
       free((void *) buffer);
 
       /* allocate more memory to accomodate larger msg */
-      bufSize = size + 1000;
+      bufSize = (size_t)(size + 1000);
       buffer  = (char *) calloc(1, bufSize);
       pfreeMem->buffer = buffer;
       if (buffer == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
           fprintf(stderr, "clientThread %d: cannot allocate %d amount of memory\n",
-                  localCount, bufSize);
+                  localCount, (int)bufSize);
         }
         exit(1);
       }
@@ -528,12 +528,12 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
           /* fill in known message fields */
           message->next = NULL;
           clock_gettime(CLOCK_REALTIME, &message->receiverTime);
-          message->domain  = (char *) strdup("rc");
+          message->domain  = strdup("rc");
           if (domain->name != NULL) {
-              message->receiver = (char *) strdup(domain->name);
+              message->receiver = strdup(domain->name);
           }
           if (domain->myHost != NULL) {
-              message->receiverHost = (char *) strdup(domain->myHost);
+              message->receiverHost = strdup(domain->myHost);
           }
           
           /* read the message */
@@ -612,8 +612,6 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
       {
           void *msg;
           cMsgMessage_t *message;
-          int len;
-          char *pchar;
           const char *serverIp = NULL;
           
 /*printf("rc clientThread %d: Got CMSG_RC_CONNECT message\n", localCount);*/
@@ -705,11 +703,11 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
              * that the udp socket does not have to connect and disconnect for each
              * message sent.
              */
-            const int size=CMSG_BIGSOCKBUFSIZE; /* bytes */
+            const int sendBufSize=CMSG_BIGSOCKBUFSIZE; /* bytes */
             struct sockaddr_in addr;
             memset((void *)&addr, 0, sizeof(addr));
             addr.sin_family = AF_INET;
-            addr.sin_port   = htons(domain->sendUdpPort);
+            addr.sin_port   = htons((uint16_t)domain->sendUdpPort);
 /*printf("rc clientThread %d: try to reconnect\n", localCount);*/
             
             /*
@@ -732,7 +730,7 @@ localCount, domain->sendPort, domain->sendUdpPort, domain->sendHost);*/
             }
             
             /* set send buffer size */
-            err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &size, sizeof(size));
+            err = setsockopt(domain->sendUdpSocket, SOL_SOCKET, SO_SNDBUF, (char*) &sendBufSize, sizeof(sendBufSize));
             if (err < 0) {
                 cMsgSocketMutexUnlock(domain);
                 if (cMsgDebug >= CMSG_DEBUG_ERROR) {
