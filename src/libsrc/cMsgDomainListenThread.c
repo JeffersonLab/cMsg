@@ -104,7 +104,7 @@ void *cMsgClientListeningThread(void *arg)
   intptr_t index;
   void *domainId;
   int  err, size, msgId, connfd;
-  int  inComing[2], status, state;
+  int  inComing[2];
   size_t bufSize;
   char *buffer;
   freeMem *pfreeMem=NULL;
@@ -192,7 +192,7 @@ void *cMsgClientListeningThread(void *arg)
       continue;
     }
     
-    size = ntohl(inComing[0]);
+    size = ntohl((uint32_t)inComing[0]);
     
     /* make sure we have big enough buffer */
     if (size > bufSize) {
@@ -204,13 +204,13 @@ void *cMsgClientListeningThread(void *arg)
       free((void *) buffer);
 
       /* allocate more memory to accomodate larger msg */
-      bufSize = size + 1000;
+      bufSize = (size_t) (size + 1000);
       buffer  = (char *) calloc(1, bufSize);
       pfreeMem->buffer = buffer;
       if (buffer == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_SEVERE) {
-          fprintf(stderr, "clientThread: cannot allocate %d amount of memory\n", bufSize);
-          fprintf(stderr, "clientThread: int1,2 = 0x%x, 0x%x\n", size, ntohl(inComing[1]));
+          fprintf(stderr, "clientThread: cannot allocate %d amount of memory\n", (int)bufSize);
+          fprintf(stderr, "clientThread: int1,2 = 0x%x, 0x%x\n", size, ntohl((uint32_t)inComing[1]));
         }
         exit(1);
       }
@@ -220,7 +220,7 @@ void *cMsgClientListeningThread(void *arg)
     }
         
     /* extract command */
-    msgId = ntohl(inComing[1]);
+    msgId = ntohl((uint32_t)inComing[1]);
     
     switch (msgId) {
 
@@ -255,12 +255,12 @@ void *cMsgClientListeningThread(void *arg)
           /* fill in known message fields */
           message->next = NULL;
           clock_gettime(CLOCK_REALTIME, &message->receiverTime);
-          message->domain = (char *) strdup("cmsg");
+          message->domain = strdup("cmsg");
           if (domain->name != NULL) {
-              message->receiver = (char *) strdup(domain->name);
+              message->receiver = strdup(domain->name);
           }
           if (domain->myHost != NULL) {
-              message->receiverHost = (char *) strdup(domain->myHost);
+              message->receiverHost = strdup(domain->myHost);
           }
           
           /* run callbacks for this message */
@@ -322,12 +322,12 @@ void *cMsgClientListeningThread(void *arg)
           /* fill in known message fields */
           message->next = NULL;
           clock_gettime(CLOCK_REALTIME, &message->receiverTime);
-          message->domain  = (char *) strdup("cmsg");
+          message->domain  = strdup("cmsg");
           if (domain->name != NULL) {
-              message->receiver = (char *) strdup(domain->name);
+              message->receiver = strdup(domain->name);
           }
           if (domain->myHost != NULL) {
-              message->receiverHost = (char *) strdup(domain->myHost);
+              message->receiverHost = strdup(domain->myHost);
           }
          
           /* wakeup get caller for this message */
@@ -371,8 +371,8 @@ void *cMsgClientListeningThread(void *arg)
             }
             continue;
           }
-          response = ntohl(inComing[0]);
-          ssid = ntohl(inComing[1]);
+          response = ntohl((uint32_t)inComing[0]);
+          ssid = ntohl((uint32_t)inComing[1]);
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
               fprintf(stderr, "clientThread: got syncSend response from server\n");
           }
@@ -431,7 +431,7 @@ void *cMsgClientListeningThread(void *arg)
 int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
 
   uint64_t llTime;
-  int  i, err, hasPayload, stringLen, lengths[7], inComing[17];
+  int   err, hasPayload, stringLen, lengths[7], inComing[17];
   char *pchar, *tmp;
 
   if (cMsgNetTcpRead(connfd, inComing, sizeof(inComing)) != sizeof(inComing)) {
@@ -442,10 +442,10 @@ int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
   }
 
   /* swap to local endian */
-  msg->version  = ntohl(inComing[0]); /* major version of cMsg */
+  msg->version  = ntohl((uint32_t)inComing[0]); /* major version of cMsg */
                                       /* second int is for future use */
-  msg->userInt = ntohl(inComing[2]);  /* user int */
-  msg->info    = ntohl(inComing[3]);  /* get info */
+  msg->userInt = ntohl((uint32_t)inComing[2]);  /* user int */
+  msg->info    = ntohl((uint32_t)inComing[3]);  /* get info */
   /* mark message as having been sent over the wire and as having an expanded payload */
   msg->info   |= CMSG_WAS_SENT | CMSG_EXPANDED_PAYLOAD;
   cMsgHasPayload(msg, &hasPayload);   /* does message have compound payload? */
@@ -454,26 +454,26 @@ int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
    * Time arrives as the high 32 bits followed by the low 32 bits
    * of a 64 bit integer in units of milliseconds.
    */
-  llTime = (((uint64_t) ntohl(inComing[4])) << 32) |
-           (((uint64_t) ntohl(inComing[5])) & 0x00000000FFFFFFFF);
+  llTime = (((uint64_t) ntohl((uint32_t)inComing[4])) << 32) |
+           (((uint64_t) ntohl((uint32_t)inComing[5])) & 0x00000000FFFFFFFF);
   /* turn long long into struct timespec */
   msg->senderTime.tv_sec  =  llTime/1000;
   msg->senderTime.tv_nsec = (llTime%1000)*1000000;
 
-  llTime = (((uint64_t) ntohl(inComing[6])) << 32) |
-           (((uint64_t) ntohl(inComing[7])) & 0x00000000FFFFFFFF);
+  llTime = (((uint64_t) ntohl((uint32_t)inComing[6])) << 32) |
+           (((uint64_t) ntohl((uint32_t)inComing[7])) & 0x00000000FFFFFFFF);
   msg->userTime.tv_sec  =  llTime/1000;
   msg->userTime.tv_nsec = (llTime%1000)*1000000;
 
-  msg->sysMsgId    = ntohl(inComing[8]);  /* system msg id */
-  msg->senderToken = ntohl(inComing[9]);  /* sender token */
-  lengths[0]       = ntohl(inComing[10]); /* sender length */
-  lengths[1]       = ntohl(inComing[11]); /* senderHost length */
-  lengths[2]       = ntohl(inComing[12]); /* subject length */
-  lengths[3]       = ntohl(inComing[13]); /* type length */
-  lengths[4]       = ntohl(inComing[14]); /* payloadText length */
-  lengths[5]       = ntohl(inComing[15]); /* text length */
-  lengths[6]       = ntohl(inComing[16]); /* binary length */
+  msg->sysMsgId    = ntohl((uint32_t)inComing[8]);  /* system msg id */
+  msg->senderToken = ntohl((uint32_t)inComing[9]);  /* sender token */
+  lengths[0]       = ntohl((uint32_t)inComing[10]); /* sender length */
+  lengths[1]       = ntohl((uint32_t)inComing[11]); /* senderHost length */
+  lengths[2]       = ntohl((uint32_t)inComing[12]); /* subject length */
+  lengths[3]       = ntohl((uint32_t)inComing[13]); /* type length */
+  lengths[4]       = ntohl((uint32_t)inComing[14]); /* payloadText length */
+  lengths[5]       = ntohl((uint32_t)inComing[15]); /* text length */
+  lengths[6]       = ntohl((uint32_t)inComing[16]); /* binary length */
 
   /* length of strings to read in */
   stringLen = lengths[0] + lengths[1] + lengths[2] +
@@ -494,11 +494,11 @@ int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
   /*--------------------*/
   /* allocate memory for sender string */
   if (lengths[0] > 0) {
-    if ( (tmp = (char *) malloc(lengths[0]+1)) == NULL) {
+    if ( (tmp = (char *) malloc((size_t)(lengths[0]+1))) == NULL) {
       return(CMSG_OUT_OF_MEMORY);
     }
     /* read sender string into memory */
-    memcpy(tmp, pchar, lengths[0]);
+    memcpy(tmp, pchar, (size_t)lengths[0]);
     /* add null terminator to string */
     tmp[lengths[0]] = 0;
     /* store string in msg structure */
@@ -515,12 +515,12 @@ int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
   /* read senderHost string */
   /*------------------------*/
   if (lengths[1] > 0) {
-    if ( (tmp = (char *) malloc(lengths[1]+1)) == NULL) {
+    if ( (tmp = (char *) malloc((size_t)lengths[1]+1)) == NULL) {
       if (msg->sender != NULL) free((void *) msg->sender);
       msg->sender = NULL;
       return(CMSG_OUT_OF_MEMORY);
     }
-    memcpy(tmp, pchar, lengths[1]);
+    memcpy(tmp, pchar, (size_t)lengths[1]);
     tmp[lengths[1]] = 0;
     msg->senderHost = tmp;
     pchar += lengths[1];
@@ -534,14 +534,14 @@ int cMsgReadMessage(int connfd, char *buffer, cMsgMessage_t *msg) {
   /* read subject string */
   /*---------------------*/
   if (lengths[2] > 0) {
-    if ( (tmp = (char *) malloc(lengths[2]+1)) == NULL) {
+    if ( (tmp = (char *) malloc((size_t)(lengths[2]+1))) == NULL) {
       if (msg->sender != NULL)     free((void *) msg->sender);
       if (msg->senderHost != NULL) free((void *) msg->senderHost);
       msg->sender     = NULL;
       msg->senderHost = NULL;
       return(CMSG_OUT_OF_MEMORY);
     }
-    memcpy(tmp, pchar, lengths[2]);
+    memcpy(tmp, pchar, (size_t)lengths[2]);
     tmp[lengths[2]] = 0;
     msg->subject = tmp;
     pchar += lengths[2];
@@ -560,7 +560,7 @@ if (strcmp(tmp, "") == 0) printf("subject is blank\n");
   /* read type string */
   /*------------------*/
   if (lengths[3] > 0) {
-    if ( (tmp = (char *) malloc(lengths[3]+1)) == NULL) {
+    if ( (tmp = (char *) malloc((size_t)(lengths[3]+1))) == NULL) {
       if (msg->sender != NULL)     free((void *) msg->sender);
       if (msg->senderHost != NULL) free((void *) msg->senderHost);
       if (msg->subject != NULL)    free((void *) msg->subject);
@@ -569,7 +569,7 @@ if (strcmp(tmp, "") == 0) printf("subject is blank\n");
       msg->subject    = NULL;
       return(CMSG_OUT_OF_MEMORY);
     }
-    memcpy(tmp, pchar, lengths[3]);
+    memcpy(tmp, pchar, (size_t)lengths[3]);
     tmp[lengths[3]] = 0;
     msg->type = tmp;
     pchar += lengths[3];
@@ -617,7 +617,7 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
   /* read text string if it exists */
   /*-------------------------------*/
   if (lengths[5] > 0) {
-      if ( (tmp = (char *) malloc(lengths[5]+1)) == NULL) {
+      if ( (tmp = (char *) malloc((size_t)(lengths[5]+1))) == NULL) {
         if (msg->sender != NULL)     free((void *) msg->sender);
         if (msg->senderHost != NULL) free((void *) msg->senderHost);
         if (msg->subject != NULL)    free((void *) msg->subject);
@@ -629,7 +629,7 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
         msg->type       = NULL;
         return(CMSG_OUT_OF_MEMORY);
       }
-      memcpy(tmp, pchar, lengths[5]);
+      memcpy(tmp, pchar, (size_t)lengths[5]);
       tmp[lengths[5]] = 0;
       msg->text = tmp;
       /* printf("text = %s\n", tmp); */
@@ -644,7 +644,7 @@ if (strcmp(tmp, "") == 0) printf("type is blank\n");
   /*-----------------------------*/
   if (lengths[6] > 0) {
 
-    if ( (tmp = (char *) malloc(lengths[6])) == NULL) {
+    if ( (tmp = (char *) malloc((size_t)lengths[6])) == NULL) {
       if (msg->sender != NULL)     free((void *) msg->sender);
       if (msg->senderHost != NULL) free((void *) msg->senderHost);
       if (msg->subject != NULL)    free((void *) msg->subject);
@@ -710,7 +710,7 @@ static int cMsgWakeGet(cMsgDomainInfo *domain, cMsgMessage_t *msg) {
   void *p; /* avoid compiler warning */
 
   /* find the right sendAndGet */
-  idString = cMsgIntChars(msg->senderToken);
+  idString = cMsgIntChars((uint32_t)msg->senderToken);
   if (idString == NULL) {
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -764,7 +764,7 @@ static int cMsgWakeSyncSend(cMsgDomainInfo *domain, int response, int ssid) {
   void *p; /* avoid compiler warning */
    
   /* find the right syncSend */
-  idString = cMsgIntChars(ssid);
+  idString = cMsgIntChars((uint32_t)ssid);
   if (idString == NULL) {
     return(CMSG_OUT_OF_MEMORY);
   }
@@ -869,7 +869,7 @@ int cMsgRunCallbacks(cMsgDomainInfo *domain, void *msgArg) {
          */
 
         /* remove this entry from the hashTable */
-        idString = cMsgIntChars(id);
+        idString = cMsgIntChars((uint32_t)id);
         if (idString == NULL) {
           cMsgSubAndGetMutexUnlock(domain);
           if (cMsgDebug >= CMSG_DEBUG_INFO) {
