@@ -337,7 +337,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
   
     unsigned short serverPort;
     char   *expid=NULL,*subnet=NULL, *componentName=NULL, buffer[1024];
-    int     err, status, len, i, index=0, localPort;
+    int     err, status, len, i, localPort;
     size_t  expidLen, nameLen;
     int32_t outGoing[7];
     int     myCodaId, multicastTO, dataBufSize, tcpSendBufSize=0, tcpNoDelay=0, off=0;
@@ -767,11 +767,11 @@ printf("receiverThd: packet from host %s on port %hu\n",
             pbuf += sizeof(int32_t);
 
             if (length > 0) {
-                if ( (tmp = (char *) malloc(length + 1)) == NULL) {
+                if ( (tmp = (char *) malloc((size_t)(length + 1))) == NULL) {
                     pthread_exit(NULL);
                     return NULL;
                 }
-                memcpy(tmp, pbuf, length);
+                memcpy(tmp, pbuf, (size_t)length);
                 tmp[length] = 0;
                 pbuf += length;
 /*printf("receiverThd: emu server ip addr = %s\n", tmp);*/
@@ -786,11 +786,11 @@ printf("receiverThd: packet from host %s on port %hu\n",
             pbuf += sizeof(int32_t);
             
             if (length > 0) {
-                if ( (tmp = (char *) malloc(length + 1)) == NULL) {
+                if ( (tmp = (char *) malloc((size_t)(length + 1))) == NULL) {
                     pthread_exit(NULL);
                     return NULL;
                 }
-                memcpy(tmp, pbuf, length);
+                memcpy(tmp, pbuf, (size_t)length);
                 tmp[length] = 0;
                 pbuf += length;
 /*printf("receiverThd: emu server broadcast addr = %s\n", tmp);*/
