@@ -1402,7 +1402,7 @@ printf("  Multicast response has wrong magic numbers, ignore packet\n");
             listItem->bAddr[ipLen] = 0;
             pchar += ipLen;
             
-/*printf("Found ip = %s, bcast = %s\n", listItem->addr, listItem->bAddr);*/
+/*printf("cMsg server has: ip = %s, bcast = %s\n", listItem->addr, listItem->bAddr);*/
             
             /* Put address item into a list for later sorting */
             if (listHead == NULL) {
@@ -1495,6 +1495,10 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId, codaIpList *ipL
         /* try all IP addresses in list until one works */
         while (ipList != NULL) {
             /* first connect to server host & port (default send & rcv buf sizes) */
+            if (cMsgDebug >= CMSG_DEBUG_INFO) {
+                fprintf(stderr, "connectDirect: try connecting to ip = %s, port = %d\n", ipList->addr,
+                       domain->currentUDL.nameServerPort);
+            }
             err = cMsgNetTcpConnect(ipList->addr, NULL,
                                     (unsigned short) domain->currentUDL.nameServerPort,
                                     0, 0, 1, &serverfd, NULL);
@@ -1543,7 +1547,7 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId, codaIpList *ipL
     close(serverfd);
 
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "connectDirect: sendHost = %s, sendPort = %d\n",
+        fprintf(stderr, "connectDirect: connected to host = %s, port = %d\n",
                 domain->currentUDL.nameServerHost, domain->sendPort);
     }
 
@@ -7036,8 +7040,8 @@ if(dbg) {
 
     /* find optional parameters */
     error = CMSG_OK;
-    len = strlen(buffer);
-    while (len > 0) {
+
+    while (pUdl->subRemainder != NULL && strlen(pUdl->subRemainder) > 0) {
         /* find cmsgpassword parameter if it exists*/
         /* look for cmsgpassword=<value> */
         pattern = "[&\\?]cmsgpassword=([^&]+)";
@@ -7049,7 +7053,7 @@ if(dbg) {
         }
 
         /* this is the udl remainder in which we look */
-        remain = strdup(buffer);
+        remain = strdup(pUdl->subRemainder);
 
         /* find matches */
         err = cMsgRegexec(&compiled, remain, 2, matches, 0);
@@ -7061,7 +7065,7 @@ if(dbg) {
           pos = matches[1].rm_eo;
           strncat(buffer, remain+matches[1].rm_so, len);
           pUdl->password = strdup(buffer);
-if(dbg) printf("parseUDL: password 1 = %s\n", buffer);
+if(dbg) printf("parseUDL: password = %s\n", buffer);
     
           /* see if there is another password defined (a no-no) */
           err = cMsgRegexec(&compiled, remain+pos, 2, matches, 0);
@@ -7369,6 +7373,7 @@ if(dbg) printf("Found duplicate domain server port in UDL\n");
             len = matches[1].rm_eo - matches[1].rm_so;
             pos = matches[1].rm_eo;
             strncat(buffer, remain+matches[1].rm_so, len);
+            /*if(dbg) printf("parseUDL: subnet = %s\n", buffer);*/
 
             /* check to make sure it really is a local subnet */
             cMsgNetGetBroadcastAddress(buffer, &subnet);
@@ -7376,7 +7381,7 @@ if(dbg) printf("Found duplicate domain server port in UDL\n");
             /* if it is NOT a local subnet, forget about it */
             if (subnet != NULL) {
                 pUdl->subnet = subnet;
-                if(dbg) printf("parseUDL: subnet 1 = %s\n", buffer);
+                if(dbg) printf("parseUDL: preferred local subnet = %s\n", buffer);
             }
         }
 
