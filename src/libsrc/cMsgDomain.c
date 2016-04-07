@@ -807,14 +807,14 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
     cMsgParsedUDLCopy(&domain->currentUDL, &domain->failovers[failoverIndex]);
 
     /* connect using that UDL info */
-/*printf("\nTrying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
+/*printf("\nconnect: trying to connect with UDL = %s\n", domain->failovers[failoverIndex].udl);*/
     if (domain->currentUDL.mustMulticast) {
         free(domain->currentUDL.nameServerHost);
         domain->currentUDL.nameServerHost = NULL;
-/*printf("Trying to connect with Multicast\n"); */
+/*printf("connect: trying to connect with Multicast\n");*/
         err = connectWithMulticast(domain, &ipList, &domain->currentUDL.nameServerPort);
         if (err != CMSG_OK || ipList == NULL) {
-/*printf("Error trying to connect with Multicast, err = %d\n", err);*/
+/*printf("connect: error trying to connect with Multicast, err = %d\n", err);*/
             cMsgParsedUDLFree(&domain->currentUDL);
             continue;
         }
@@ -823,6 +823,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
         if (ipAddrs == NULL) {
             cMsgNetGetNetworkInfo(&ipAddrs, NULL);
         }
+/*printf("connect: order IP list which came back from cMsg server\n");*/
 
         /* Order the IP list according to the given preferred subnet, if any */
         orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, domain->currentUDL.subnet);
@@ -1496,7 +1497,7 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId, codaIpList *ipL
         while (ipList != NULL) {
             /* first connect to server host & port (default send & rcv buf sizes) */
             if (cMsgDebug >= CMSG_DEBUG_INFO) {
-                fprintf(stderr, "connectDirect: try connecting to ip = %s, port = %d\n", ipList->addr,
+                printf("connectDirect: try connecting to ip = %s, port = %d\n", ipList->addr,
                        domain->currentUDL.nameServerPort);
             }
             err = cMsgNetTcpConnect(ipList->addr, NULL,
@@ -1547,7 +1548,7 @@ static int connectDirect(cMsgDomainInfo *domain, void *domainId, codaIpList *ipL
     close(serverfd);
 
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
-        fprintf(stderr, "connectDirect: connected to host = %s, port = %d\n",
+        printf("connectDirect: connected to host = %s, port = %d\n",
                 domain->currentUDL.nameServerHost, domain->sendPort);
     }
 
