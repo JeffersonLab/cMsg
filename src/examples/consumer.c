@@ -151,8 +151,9 @@ int main(int argc,char **argv) {
       }
       exit(1);
   }
-  
-  /* start receiving messages */
+    cMsgSetDebugLevel(CMSG_DEBUG_INFO);
+
+    /* start receiving messages */
   cMsgReceiveStart(domainId);
   
   /* set the subscribe configuration */
@@ -165,8 +166,7 @@ int main(int argc,char **argv) {
   cMsgSubscribeSetMaxThreads(config, 10);
   cMsgSubscribeSetMessagesPerThread(config, 10);
   */
-  cMsgSetDebugLevel(CMSG_DEBUG_NONE);
-  
+
   /* subscribe */
   cMsgSubscribe(domainId, subject, type, callback, NULL, config, &unSubHandle);
    
