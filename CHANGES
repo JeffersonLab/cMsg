@@ -28,7 +28,7 @@ Version 3.5.1
 
 Version 3.6
     - add emu domain in C language for communication between Rocs and EBs
-    - fix flags for Mac OSX compilation 9/22/4104
+    - fix flags for Mac OSX compilation 9/22/2014
 
 Version 4.0
     - fix bug in java rc client listening thread that does not properly
@@ -68,4 +68,26 @@ Version 5.0
       as a filter on the receiving end or like the password of the cMsg domain.
     - fix bug in parsing emu domain UDL
     - added flush() to emu domain so prestart event can be flushed through CODA's emu
+    - remove unused rc domain code
+    - fix Java bug in which an "ip=local-broadcast-addr" in UDL will cause an attempt for
+      rc server to connect to rc client on that broadcast address.
+    - fix bug in parsing cMsg subdomain UDLs in which namespace can be interpreted as a subdomain
+      name if no cmsg subdomain name given in UDL (both C and Java)
 
+    C code only:
+      - make common network code consistant with et library's
+      - fix MacOSX compile flags
+      - take out support for vxworks & solaris
+      - clean up some of the code
+      - fix bug in cMsgCommonNetwork.h so it could conflict with etCommonNetwork.h
+      - fix bug in cMsg.c in which cMsgSetByteArrayNoCopy & cMsgSetByteArray may free memory improperly
+      - fix bug in cMsgDomainUtil.c in cMsgGetInfoFree in which cond var & mutex were
+        not being freed -> memory leak
+      - bug in decoding cMsg message sent over network that interprets unknown int-type array payload item data
+        as 64-bit int array - probably had no practical effect
+      - fix major bug parsing UDL in cMsg domain - no tag-value pairs at end were parsed
+      - fix rc bug in client in which last 4 bytes of buffer to rc multicast server is an incrementing int
+        (should not be) and writes over the last broadcast address sent in list of IP network
+        interface & corresponding broadcast addresses
+      - rc UDL now includes "ip=<addr>" portion like Java.
+      - fix potential seg fault in freeing memory in connect() function (race condition)
