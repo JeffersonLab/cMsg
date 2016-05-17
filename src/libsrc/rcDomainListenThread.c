@@ -655,10 +655,8 @@ fprintf(stderr, "clientThread %d: bad command (%d), quitting thread\n", localCou
           /* store IP from which this connection was made */
           err = cMsgGetString(msg, "serverIp", &serverIp);
           if (err == CMSG_OK) {
-              if (domain->sendHost != NULL) {
-                  free(domain->sendHost);
-                  domain->sendHost = strdup(serverIp);
-              }
+            if (domain->sendHost != NULL) free(domain->sendHost);
+            domain->sendHost = strdup(serverIp);
           }
           else if (message->senderHost != NULL) {
               if (domain->sendHost != NULL) free(domain->sendHost);
