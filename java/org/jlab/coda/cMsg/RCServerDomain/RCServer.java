@@ -20,6 +20,7 @@ import org.jlab.coda.cMsg.*;
 import org.jlab.coda.cMsg.common.cMsgGetHelper;
 import org.jlab.coda.cMsg.common.*;
 
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -347,7 +348,7 @@ System.out.println("     ip = " + clientHost +
                 }
 
                 if (failed) {
-                    throw new cMsgException("Failed to create socket to rc client");
+                    throw new cMsgException("Failed to create socket to RC client");
                 }
 //System.out.println("RC server: created socket to RC client");
 
@@ -394,6 +395,9 @@ localUdpPort);
                 cMsgPayloadItem pItem = new cMsgPayloadItem("serverIp", socket.getLocalAddress().getHostAddress());
                 msg.addPayloadItem(pItem);
 
+System.out.println("RC server: tell RC client to connect back using IP = " +
+                   socket.getLocalAddress().getHostAddress());
+
                 pItem = new cMsgPayloadItem("clientIp", rcClientHost);
                 msg.addPayloadItem(pItem);
 
@@ -408,17 +412,21 @@ localUdpPort);
                 // Wait until the client establishes a TCP connection back to this
                 // object's TCP listening thread.
                 try {
-System.out.println("RC server connect: wait for client TCP return connection");
-                    listenerThread.startLatch.await();
+System.out.println("RC server connect: wait up to 15 sec for RC client TCP return connection");
+                    boolean connectionMade = listenerThread.startLatch.await(15L, TimeUnit.SECONDS);
+                    if (!connectionMade) {
+                        throw new cMsgException("15 sec timeout waiting for RC client to connect back");
+                    }
                 }
-                catch (InterruptedException e) {}
+                catch (InterruptedException e) {
+                    throw new cMsgException("connect() interrupted", e);
+                }
 System.out.println("RC server connect: complete");
 
                 connected = true;
             }
             catch (IOException e) {
                 if (listenerThread != null) listenerThread.killThread();
-                //if (udpListener != null) udpListener.killThread();
                 throw new cMsgException("cannot connect, IO error", e);
             }
         }
