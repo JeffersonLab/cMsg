@@ -16,8 +16,6 @@
 
 package org.jlab.coda.cMsg;
 
-import org.jlab.coda.et.exception.EtException;
-
 import java.net.*;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.ByteChannel;
