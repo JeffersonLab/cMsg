@@ -1015,10 +1015,6 @@ int cmsg_emu_send(void *domainId, void *vmsg) {
   lenByteArray = msg->byteArrayLength;
   outGoing[1] = htonl((uint32_t)lenByteArray);
 
-  if (domain->gotConnection != 1) {
-    return(CMSG_LOST_CONNECTION);
-  }
-
   /* Cannot run this while connecting/disconnecting */
   /*cMsgConnectReadLock(domain);*/
 
