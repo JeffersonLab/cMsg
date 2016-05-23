@@ -40,7 +40,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <errno.h>
 #include <time.h>
 #include <ctype.h>
 #include <pthread.h>
@@ -63,9 +62,9 @@ typedef struct thdArg_t {
     struct sockaddr_in addr;
     struct sockaddr_in *paddr;
     int   bufferLen;
-    char *expid;
     char *buffer;
     cMsgDomainInfo *domain;
+    codaIpList *ipList;
 } thdArg;
 
 /* built-in limits */
@@ -73,21 +72,9 @@ typedef struct thdArg_t {
 #define WAIT_FOR_THREADS 10
 
 /* local variables */
-/** Pthread mutex to protect one-time initialization and the local generation of unique numbers. */
-static pthread_mutex_t generalMutex = PTHREAD_MUTEX_INITIALIZER;
-
-/** Id number which uniquely defines a subject/type pair. */
-static int subjectTypeId = 1;
 
 /** Size of buffer in bytes for sending messages. */
 static int initialMsgBufferSize = 1500;
-
-/**
- * Read/write lock to prevent connect or disconnect from being
- * run simultaneously with any other function.
- */
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t cond   = PTHREAD_COND_INITIALIZER;
 
 
 /* Local prototypes */
@@ -262,13 +249,13 @@ int cmsg_emu_isConnected(void *domainId, int *connected) {
     return(CMSG_OK);
   }
              
-  cMsgConnectReadLock(domain);
+  /*cMsgConnectReadLock(domain);*/
 
   if (connected != NULL) {
     *connected = domain->gotConnection;
   }
   
-  cMsgConnectReadUnlock(domain);
+  /*cMsgConnectReadUnlock(domain);*/
     
   return(CMSG_OK);
 }
@@ -344,19 +331,16 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     char    temp[CMSG_MAXHOSTNAMELEN];
     unsigned char ttl = 32;
     cMsgDomainInfo *domain;
+    codaIpList *ipList, *orderedIpList;
+    codaIpAddr *ipAddrs = NULL;
 
     pthread_t rThread, bThread;
     thdArg    rArg,    bArg;
-    
-    struct timespec wait, time;
-    struct sockaddr_in servaddr, localaddr;
-    int    gotResponse=0;
 
-    /* for connecting to emu Server w/ TCP */
-    hashNode *hashEntries = NULL;
-    int hashEntryCount=0, gotValidEmuServerHost=0;
-    char *emuServerHost = NULL;
     struct timeval tv;
+    struct timespec wait;
+    struct sockaddr_in servaddr, localaddr;
+
 
     /* clear array */
     memset((void *)buffer, 0, 1024);
@@ -377,7 +361,9 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     domain = (cMsgDomainInfo *) calloc(1, sizeof(cMsgDomainInfo));
     if (domain == NULL) {
         free(expid);
-        return(CMSG_OUT_OF_MEMORY);  
+        free(componentName);
+        if (subnet != NULL) free(subnet);
+        return(CMSG_OUT_OF_MEMORY);
     }
     cMsgDomainInit(domain);  
 
@@ -388,6 +374,8 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
         cMsgDomainFree(domain);
         free(domain);
         free(expid);
+        free(componentName);
+        if (subnet != NULL) free(subnet);
         return(CMSG_OUT_OF_MEMORY);
     }
 
@@ -408,10 +396,11 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     /* create UDP socket */
     domain->sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (domain->sendSocket < 0) {
-        cMsgRestoreSignals(domain);
         cMsgDomainFree(domain);
         free(domain);
         free(expid);
+        free(componentName);
+        if (subnet != NULL) free(subnet);
         return(CMSG_SOCKET_ERROR);
     }
 
@@ -442,19 +431,21 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     err = setsockopt(domain->sendSocket, IPPROTO_IP, IP_MULTICAST_TTL, (void *) &ttl, sizeof(ttl));
     if (err < 0) {
         close(domain->sendSocket);
-        cMsgRestoreSignals(domain);
         cMsgDomainFree(domain);
         free(domain);
         free(expid);
+        free(componentName);
+        if (subnet != NULL) free(subnet);
         return(CMSG_SOCKET_ERROR);
     }
 
     if ( (err = cMsgNetStringToNumericIPaddr(EMU_MULTICAST_ADDR, &servaddr)) != CMSG_OK ) {
         close(domain->sendSocket);
-        cMsgRestoreSignals(domain);
         cMsgDomainFree(domain);
         free(domain);
         free(expid);
+        free(componentName);
+        if (subnet != NULL) free(subnet);
         /* only possible errors are:
            CMSG_NETWORK_ERROR if the numeric address could not be obtained
            CMSG_OUT_OF_MEMORY if out of memory
@@ -503,10 +494,10 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     memset((void *)&rArg.addr, 0, sizeof(rArg.addr));
     rArg.len             = (socklen_t) sizeof(rArg.addr);
     rArg.port            = serverPort;
-    rArg.expid           = expid;
     rArg.sockfd          = domain->sendSocket;
     rArg.domain          = domain;
     rArg.addr.sin_family = AF_INET;
+    rArg.ipList          = NULL;
     
     status = pthread_create(&rThread, NULL, receiverThd, (void *)(&rArg));
     if (status != 0) {
@@ -524,122 +515,95 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     if (status != 0) {
         cmsg_err_abort(status, "Creating multicast sending thread");
     }
-    
+
+    free(expid);
+    free(componentName);
+
     /* Wait for a response. If multicastTO is given in the UDL, use that.
-     * The default wait or the wait if multicastTO is set to 0, is forever.
-     * Round things to the nearest second since we're only multicasting a
-     * message every second anyway.
-     */    
+      * The default wait or the wait if multicastTO is set to 0, is forever.
+      * Round things to the nearest second since we're only multicasting a
+      * message every second anyway.
+      */
     if (multicastTO > 0) {
         wait.tv_sec  = multicastTO;
         wait.tv_nsec = 0;
-        cMsgGetAbsoluteTime(&wait, &time);
-        
-        status = pthread_mutex_lock(&mutex);
-        if (status != 0) {
-            cmsg_err_abort(status, "pthread_mutex_lock");
-        }
- 
-/*printf("emu connect: wait %d seconds for multicast server to answer\n", multicastTO);*/
-        status = pthread_cond_timedwait(&cond, &mutex, &time);
-        if (status == ETIMEDOUT) {
-          /* stop receiving thread */
-          pthread_cancel(rThread);
-        }
-        else if (status != 0) {
-            cmsg_err_abort(status, "pthread_cond_timedwait");
-        }
-        else {
-            gotResponse = 1;
-        }
-        
-        status = pthread_mutex_unlock(&mutex);
-        if (status != 0) {
-            cmsg_err_abort(status, "pthread_mutex_lock");
-        }
+
+/*printf("emu connect: wait on latch for connect to finish in %d seconds\n", multicastTO);*/
+        status = cMsgLatchAwait(&domain->syncLatch, &wait);
     }
     else {
-        status = pthread_mutex_lock(&mutex);
-        if (status != 0) {
-            cmsg_err_abort(status, "pthread_mutex_lock");
-        }
- 
-/*printf("emu connect: wait forever for multicast server to answer\n");*/
-        status = pthread_cond_wait(&cond, &mutex);
-        if (status != 0) {
-            cmsg_err_abort(status, "pthread_cond_timedwait");
-        }
-        gotResponse = 1;
-        
-        status = pthread_mutex_unlock(&mutex);
-        if (status != 0) {
-            cmsg_err_abort(status, "pthread_mutex_lock");
-        }
+/*printf("emu connect: wait on latch FOREVER for connect to finish\n");*/
+        status = cMsgLatchAwait(&domain->syncLatch, NULL);
     }
-    
-    /* stop multicasting thread */
-    pthread_cancel(bThread);
-    free(expid);
-    
-    if (!gotResponse) {
-printf("emu connect: got no response\n");
+
+    if (status < 1 || rArg.ipList == NULL) {
+        printf("emu connect: wait timeout\n");
         close(domain->sendSocket);
-        cMsgRestoreSignals(domain);
+        pthread_cancel(bThread);
         cMsgDomainFree(domain);
         free(domain);
+        if (subnet != NULL) free(subnet);
         return(CMSG_TIMEOUT);
     }
-    
+
+    ipList = rArg.ipList;
+        
+    /* stop multicasting thread */
+    pthread_cancel(bThread);
+
 /*printf("emu connect: got a response from mcast server\n");*/
     close(domain->sendSocket);
- 
-    /* create TCP sending socket and store */
 
-    /* The emu Server may have multiple network interfaces.
-     * The ip address of each is stored in a hash table.
-     * Try one at a time to see which we can use to connect. */
-    hashGetAll(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
+    /*-------------------------------*/
+    /* connect & talk to emu server  */
+    /*-------------------------------*/
 
-    if (!gotValidEmuServerHost) {
-        for (i=0; i < hashEntryCount; i++) {
-            emuServerHost = hashEntries[i].key;
-/*printf("emu connect: from IP list, try making tcp connection to emu server = %s w/ TO = %u sec\n",
-       emuServerHost, (uint32_t) ((&tv)->tv_sec));*/
+    /* Get local network info */
+    cMsgNetGetNetworkInfo(&ipAddrs, NULL);
 
-/*            if ((err = cMsgNetTcpConnectTimeout(emuServerHost, (unsigned short) domain->sendPort,
-                tcpSendBufSize , 0, tcpNoDelay, &tv, &domain->sendSocket, NULL)) == CMSG_OK) { */
-            if ((err = cMsgNetTcpConnect(emuServerHost, NULL, (unsigned short) domain->sendPort,
-                tcpSendBufSize , 0, tcpNoDelay, &domain->sendSocket, NULL)) == CMSG_OK) {
+    /* Order the server IP list according to the given preferred subnet, if any */
+    orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, subnet);
 
-                gotValidEmuServerHost = 1;
-                printf("emu connect: SUCCESS connecting to %s\n", emuServerHost);
-                break;
+    if (subnet != NULL) free(subnet);
+    cMsgNetFreeIpAddrs(ipAddrs);
+    codanetFreeAddrList(ipList);
+
+    /* Try all IP addresses in list until one works */
+    while (orderedIpList != NULL) {
+        /* First connect to server host & port */
+        if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            printf("emu connect: try connecting to ip = %s, port = %d\n",
+                   orderedIpList->addr, serverPort);
+        }
+
+        err = cMsgNetTcpConnectTimeout(orderedIpList->addr, serverPort,
+                                       tcpSendBufSize , 0, tcpNoDelay,
+                                       &tv, &domain->sendSocket, NULL);
+
+        if (err != CMSG_OK) {
+            /* If there is another address to try, try it */
+            if (orderedIpList->next != NULL) {
+                orderedIpList = orderedIpList->next;
+                continue;
             }
-printf("emu connect: failed to connect to %s on port %hu\n", emuServerHost, domain->sendPort);
+            /* if we've tried all addresses in the list, return an error */
+            else {
+                cMsgDomainFree(domain);
+                free(domain);
+                codanetFreeAddrList(orderedIpList);
+                return(err);
+            }
         }
 
-        if (!gotValidEmuServerHost) {
-            if (hashEntries != NULL) free(hashEntries);
-            cMsgRestoreSignals(domain);
-            cMsgDomainFree(domain);
-            free(domain);
-            return(err);
+        /* Quit loop if we've made a connection to server, store good address */
+        if (domain->serverHost != NULL) {
+            free(domain->serverHost);
         }
+        domain->serverHost = strdup(orderedIpList->addr);
+        break;
     }
 
-    /* Even though we free hash entries array, emuServerHost
-     * is still pointing to valid string inside hashtable. */
-    if (hashEntries != NULL) free(hashEntries);
-
-    /* Clear & free memory in table */
-    hashClear(&domain->rcIpAddrTable, &hashEntries, &hashEntryCount);
-    if (hashEntries != NULL) {
-        for (i=0; i < hashEntryCount; i++) {
-            free(hashEntries[i].key);
-        }
-        free(hashEntries);
-     }
-
+    codanetFreeAddrList(orderedIpList);
 
     /* Talk to the server */
     /* magic #s are already set */
@@ -653,6 +617,8 @@ printf("emu connect: failed to connect to %s on port %hu\n", emuServerHost, doma
     /* send data over TCP socket */
     len = cMsgNetTcpWrite(domain->sendSocket, (void *) outGoing, 6*sizeof(int32_t));
     if (len !=  6*sizeof(int32_t)) {
+        cMsgDomainFree(domain);
+        free(domain);
         printf("emu connect: write to server failure\n");
         return(CMSG_NETWORK_ERROR);
     }
@@ -690,17 +656,20 @@ int cmsg_emu_reconnect(void *domainId) {
 static void *receiverThd(void *arg) {
 
     thdArg *threadArg = (thdArg *) arg;
-    int32_t ints[5], length;
-    int     i, magic[3], addressCount, port, minMsgSize;
-    char    buf[1024], *pbuf, *tmp;
+    int32_t ints[5];
+    int     i, magic[3], addressCount, port, totalLen, ipLen;
+    char    buf[1024], *pbuf;
     ssize_t len;
     cMsgDomainInfo *domain = threadArg->domain;
+    codaIpList *listHead=NULL, *listEnd=NULL, *listItem=NULL;
+    struct timespec timeout = {0,1};
 
-    minMsgSize = 5*sizeof(int32_t);
+    totalLen = 5*sizeof(int32_t);
     
     /* release resources when done */
     pthread_detach(pthread_self());
-    
+
+    nextPacket:
     while (1) {
         /* zero buffer */
         memset((void *)buf,0,1024);
@@ -719,7 +688,7 @@ static void *receiverThd(void *arg) {
          *           -> len of server's broadcast address string
          *           -> server's broadcast address in dotted-decimal format
          */
-        if (len < minMsgSize) {
+        if (len < totalLen) {
           /*printf("receiverThd: got packet that's too small\n");*/
           continue;
         }
@@ -727,10 +696,10 @@ static void *receiverThd(void *arg) {
         pbuf = buf;
         memcpy(ints, pbuf, sizeof(ints));
         pbuf += sizeof(ints);
-/*
+
 printf("receiverThd: packet from host %s on port %hu\n",
                 inet_ntoa(threadArg->addr.sin_addr), ntohs(threadArg->addr.sin_port));
-*/
+
         magic[0] = ntohl((uint32_t)ints[0]);
         magic[1] = ntohl((uint32_t)ints[1]);
         magic[2] = ntohl((uint32_t)ints[2]);
@@ -748,63 +717,126 @@ printf("receiverThd: packet from host %s on port %hu\n",
         }
         domain->sendPort = port;
 
+        /*--------------------------*/
+        /*  how many IP addresses?  */
+        /*--------------------------*/
         addressCount = ntohl((uint32_t)ints[4]);
         if (addressCount < 1) {
           printf("receiverThd: received bad IP addresse count (%d)\n", addressCount);
           continue;
         }
 
-        /* clear table containing all ip addresses of server */
-        hashClear(&domain->rcIpAddrTable, NULL, NULL);
+        if (addressCount < 1) {
+            printf("receiverThd: bad number of IP addresses (%d), ignore packet\n", addressCount);
+            addressCount = 0;
+            continue;
+        }
+
+        listHead = NULL;
 
         for (i=0; i < addressCount; i++) {
-            
-            /* get IP address and store in hash table */
-            
-            /* # of chars in string stored in 32 bit int */
-            length = *((int32_t *) pbuf);
-            length = ntohl((uint32_t)length);
-            pbuf += sizeof(int32_t);
+            /******************/
+            /*   IP address   */
+            /******************/
 
-            if (length > 0) {
-                if ( (tmp = (char *) malloc((size_t)(length + 1))) == NULL) {
-                    pthread_exit(NULL);
-                    return NULL;
-                }
-                memcpy(tmp, pbuf, (size_t)length);
-                tmp[length] = 0;
-                pbuf += length;
-/*printf("receiverThd: emu server ip addr = %s\n", tmp);*/
-                hashInsert(&domain->rcIpAddrTable, tmp, NULL, NULL);
-                free(tmp);
+            /* Check for 1 int of data */
+            totalLen +=  sizeof(int);
+            if (len < totalLen) {
+                printf("receiverThd: multicast response has too little data, ignore packet\n");
+                codanetFreeAddrList(listHead);
+                free(listItem);
+                goto nextPacket;
             }
-            
-            /* get broadcast address and store in hash table */
-            
-            length = *((int32_t *) pbuf);
-            length = ntohl((uint32_t)length);
-            pbuf += sizeof(int32_t);
-            
-            if (length > 0) {
-                if ( (tmp = (char *) malloc((size_t)(length + 1))) == NULL) {
-                    pthread_exit(NULL);
-                    return NULL;
-                }
-                memcpy(tmp, pbuf, (size_t)length);
-                tmp[length] = 0;
-                pbuf += length;
-/*printf("receiverThd: emu server broadcast addr = %s\n", tmp);*/
-                hashInsert(&domain->rcIpAddrTable, tmp, NULL, NULL);
-                free(tmp);
+
+            /* Create address item */
+            listItem = (codaIpList *) calloc(1, sizeof(codaIpList));
+            if (listItem == NULL) {
+                printf("receiverThd: out of memory, quit program\n");
+                exit(-1);
             }
-            
-            
-            
-            
-        }              
+
+            /* First read in IP address len */
+            memcpy(&ipLen, pbuf, sizeof(int));
+            ipLen = ntohl((uint32_t)ipLen);
+            pbuf += sizeof(int);
+
+            /* Check to see if IP address is the right size for dot-decimal format */
+            if (ipLen < 7 || ipLen > 20) {
+                printf("receiverThd: multicast response has wrong format, ignore packet\n");
+                codanetFreeAddrList(listHead);
+                free(listItem);
+                goto nextPacket;
+            }
+
+            /* Check for address worth of data */
+            totalLen +=  ipLen;
+            if (len < totalLen) {
+                printf("receiverThd: multicast response has too little data, ignore packet\n");
+                codanetFreeAddrList(listHead);
+                free(listItem);
+                goto nextPacket;
+            }
+
+            /* Put address into a list for later sorting */
+            memcpy(listItem->addr, pbuf, (size_t)ipLen);
+            listItem->addr[ipLen] = 0;
+            pbuf += ipLen;
+
+            /***********************/
+            /*  Broadcast address  */
+            /***********************/
+
+            /* Check for 1 int of data */
+            totalLen +=  sizeof(int);
+            if (len < totalLen) {
+                printf("receiverThd: multicast response has too little data, ignore packet\n");
+                codanetFreeAddrList(listHead);
+                free(listItem);
+                goto nextPacket;
+            }
+
+            /* Len of corresponding broadcast address */
+            memcpy(&ipLen, pbuf, sizeof(int));
+            ipLen = ntohl((uint32_t)ipLen);
+            pbuf += sizeof(int);
+
+            /* Check to see if address is the right size for dot-decimal format */
+            if (ipLen < 7 || ipLen > 20) {
+                printf("receiverThd: multicast response has wrong format, ignore packet\n");
+                codanetFreeAddrList(listHead);
+                free(listItem);
+                goto nextPacket;
+            }
+
+            /* Check for address worth of data */
+            totalLen +=  ipLen;
+            if (len < totalLen) {
+                printf("receiverThd: multicast response has too little data, ignore packet\n");
+                codanetFreeAddrList(listHead);
+                free(listItem);
+                goto nextPacket;
+            }
+
+            /* Put broadcast address into a list for later sorting */
+            memcpy(listItem->bAddr , pbuf, (size_t)ipLen);
+            listItem->bAddr[ipLen] = 0;
+            pbuf += ipLen;
+
+/*printf("receiverThd: found ip = %s\n", listItem->addr);*/
+
+            /* Put address item into a list for later sorting */
+            if (listHead == NULL) {
+                listHead = listEnd = listItem;
+            }
+            else {
+                listEnd->next = listItem;
+                listEnd = listItem;
+            }
+        }
                         
-        /* Tell main thread we are done. */
-        pthread_cond_signal(&cond);
+        /* Tell main thread we got a response. */
+        threadArg->ipList = listHead;
+        cMsgLatchCountDown(&domain->syncLatch, &timeout);
         break;
     }
     
@@ -988,10 +1020,10 @@ int cmsg_emu_send(void *domainId, void *vmsg) {
   }
 
   /* Cannot run this while connecting/disconnecting */
-  cMsgConnectReadLock(domain);
+  /*cMsgConnectReadLock(domain);*/
 
   if (domain->gotConnection != 1) {
-    cMsgConnectReadUnlock(domain);
+    /*cMsgConnectReadUnlock(domain);*/
     return(CMSG_LOST_CONNECTION);
   }
 
@@ -1015,7 +1047,7 @@ int cmsg_emu_send(void *domainId, void *vmsg) {
   }
 
   /* done protecting communications */
-  cMsgConnectReadUnlock(domain);
+  /*cMsgConnectReadUnlock(domain);*/
  
   return(err);
 }
@@ -1214,9 +1246,9 @@ int cmsg_emu_disconnect(void **domainId) {
     if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
     domain = (cMsgDomainInfo *) (*domainId);
     if (domain == NULL) return(CMSG_BAD_ARGUMENT);
-    
+
     /* When changing initComplete / connection status, protect it */
-    cMsgConnectWriteLock(domain);
+    /*cMsgConnectWriteLock(domain);*/
 
     domain->gotConnection = 0;
 
@@ -1227,11 +1259,8 @@ int cmsg_emu_disconnect(void **domainId) {
     if (cMsgDebug >= CMSG_DEBUG_INFO) {
       fprintf(stderr, "cmsg_emu_disconnect: cancel listening & client threads\n");
     }
-   
-    /* Unblock SIGPIPE */
-    cMsgRestoreSignals(domain);
-    
-    cMsgConnectWriteUnlock(domain);
+
+    /*cMsgConnectWriteUnlock(domain);*/
 
     /* Clean up memory */
     cMsgDomainFree(domain);
@@ -1718,29 +1747,3 @@ printf("parseUDL: preferred subnet = %s\n", buffer);
 /*   miscellaneous local functions                                   */
 /*-------------------------------------------------------------------*/
 
-
-/**
- * This routine locks the pthread mutex used when creating unique id numbers
- * and doing the one-time intialization. */
-static void staticMutexLock(void) {
-
-  int status = pthread_mutex_lock(&generalMutex);
-  if (status != 0) {
-    cmsg_err_abort(status, "Failed mutex lock");
-  }
-}
-
-
-/*-------------------------------------------------------------------*/
-
-
-/**
- * This routine unlocks the pthread mutex used when creating unique id numbers
- * and doing the one-time intialization. */
-static void staticMutexUnlock(void) {
-
-  int status = pthread_mutex_unlock(&generalMutex);
-  if (status != 0) {
-    cmsg_err_abort(status, "Failed mutex unlock");
-  }
-}
