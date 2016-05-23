@@ -571,10 +571,10 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     /* Try all IP addresses in list until one works */
     while (orderedIpList != NULL) {
         /* First connect to server host & port */
-        if (cMsgDebug >= CMSG_DEBUG_INFO) {
-            printf("emu connect: try connecting to ip = %s, port = %d\n",
+     //   if (cMsgDebug >= CMSG_DEBUG_INFO) {
+            printf("emu connect: try connecting to ip = %s, port = %d ...\n",
                    orderedIpList->addr, serverPort);
-        }
+     //   }
 
         err = cMsgNetTcpConnectTimeout(orderedIpList->addr, serverPort,
                                        tcpSendBufSize , 0, tcpNoDelay,
@@ -594,6 +594,8 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
                 return(err);
             }
         }
+
+        printf("             Connected\n");
 
         /* Quit loop if we've made a connection to server, store good address */
         if (domain->serverHost != NULL) {
@@ -822,7 +824,7 @@ printf("receiverThd: packet from host %s on port %hu\n",
             listItem->bAddr[ipLen] = 0;
             pbuf += ipLen;
 
-/*printf("receiverThd: found ip = %s\n", listItem->addr);*/
+printf("receiverThd: found ip = %s, broadcast = %s\n", listItem->addr, listItem->bAddr);
 
             /* Put address item into a list for later sorting */
             if (listHead == NULL) {
