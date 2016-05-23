@@ -78,24 +78,24 @@ int main(int argc,char **argv) {
 
   char *myName   = "C rc client";
   char *myDescription = "rc trial";
-  
- /* RC domain UDL is of the form:
-  *        cMsg:rc://<host>:<port>/<expid>?connectTO=<timeout>
-  *
-  *
-  * Remember that for this domain:
-  *<ul>
-  *<li>1) host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
-  *<li>2) port is optional with a default of {@link RC_MULTICAST_PORT}<p>
-  *<li>3) the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
-  *<li>4) multicastTO is the time to wait in seconds before connect returns a
-  *       timeout when a rc multicast server does not answer<p>
-  *<li>5) connectTO is the time to wait in seconds before connect returns a
-  *       timeout while waiting for the rc server to send a special (tcp)
-  *       concluding connect message<p>
-  *</ul><p>
-  */
-  char *UDL = "cMsg:rc://multicast/testExpid?connectTO=0";
+
+   /*
+    * Runcontrol domain UDL is of the form:<p>
+    *   cMsg:rc://host:port/expid?connectTO=timeout&ip=address
+    *
+    * Remember that for this domain:
+    *<ul>
+    *<li>host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
+    *<li>port is optional with a default of {@link RC_MULTICAST_PORT}<p>
+    *<li>the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
+    *<li>connectTO (optional) is the time to wait in seconds before connect returns a
+    *    timeout while waiting for the rc server to send a special (tcp)
+    *    concluding connect message. Defaults to 30 seconds.<p>
+    *<li>ip (optional) is ip address in dot-decimal format which the rc server
+    *    or agent must use to connect to this rc client.
+    */
+
+    char *UDL = "cMsg:rc://multicast/emutest?connectTO=0";
 
   int   i, err, debug = 1, len;
   cMsgSubscribeConfig *config;
