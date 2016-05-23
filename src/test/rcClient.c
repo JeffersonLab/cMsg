@@ -15,18 +15,15 @@
  *----------------------------------------------------------------------------*/
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
-#include <pthread.h>
 
 #include "cMsg.h"
 #include "cMsgDomain.h"
 
-int count = 0, oldInt=-1;
+int count = 0;
 void *domainId;
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 /******************************************************************/
