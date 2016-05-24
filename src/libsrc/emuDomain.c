@@ -1003,11 +1003,15 @@ int cmsg_emu_send(void *domainId, void *vmsg) {
 
   
   if (domain == NULL) {
-    return(CMSG_BAD_ARGUMENT);
+      fprintf(stderr, "cmsg_emu_send: domainId arg is NULL\n");
+      return(CMSG_BAD_ARGUMENT);
   }
       
   /* check args */
-  if (msg == NULL) return(CMSG_BAD_ARGUMENT);
+  if (msg == NULL) {
+      fprintf(stderr, "cmsg_emu_send: message arg pointer is NULL\n");
+      return(CMSG_BAD_ARGUMENT);
+  }
   
   fd = domain->sendSocket;
 
