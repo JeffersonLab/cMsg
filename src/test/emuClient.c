@@ -54,11 +54,8 @@ int main(int argc,char **argv) {
 
     char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10";
 
-    int   i, err, debug = 1, len;
-    cMsgSubscribeConfig *config;
-    void *subHandle1, *subHandle2, *msg, *returnMsg;
-    int  loops = 5;
-    const char **ipArray, *senderHost;
+    int   err, debug = 1;
+    void *msg;
     int32_t data[4*11];
 
 
@@ -89,9 +86,6 @@ int main(int argc,char **argv) {
 
     /* set debug level */
     cMsgSetDebugLevel(CMSG_DEBUG_INFO);
-
-    /* set the subscribe configuration */
-    config = cMsgSubscribeConfigCreate();
 
     sleep(1);
 
