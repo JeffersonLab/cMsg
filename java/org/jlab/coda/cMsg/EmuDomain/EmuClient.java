@@ -41,10 +41,10 @@ public class EmuClient extends cMsgDomainAdapter {
     private int multicastTimeout = 3000;
 
     /** All of server's IP addresses obtained from multicast response. */
-    private volatile ArrayList<String> ipAddresses = new ArrayList<String>(10);
+    private final ArrayList<String> ipAddresses = new ArrayList<String>(10);
 
     /** All of server's broadcast addresses obtained from multicast response. */
-    private volatile ArrayList<String> broadcastAddresses = new ArrayList<String>(10);
+    private final ArrayList<String> broadcastAddresses = new ArrayList<String>(10);
 
     /** Server's IP address used to connect. */
     private String serverIp;
@@ -121,7 +121,7 @@ public class EmuClient extends cMsgDomainAdapter {
      * @throws org.jlab.coda.cMsg.cMsgException if there are problems parsing the UDL or
      *                       communication problems with the server(s)
      */
-    synchronized public void connect() throws cMsgException {
+    public void connect() throws cMsgException {
 
         parseUDL(UDLremainder);
 
@@ -530,7 +530,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
      * Method to close the connection to the domain server. This method results in this object
      * becoming functionally useless.
      */
-    synchronized public void disconnect() {
+    public void disconnect() {
         if (!connected) return;
 
         connected = false;
@@ -548,7 +548,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
      * @throws cMsgException if there are communication problems with the server;
      *                       subject and/or type is null
      */
-    synchronized public void send(final cMsgMessage message) throws cMsgException {
+    public void send(final cMsgMessage message) throws cMsgException {
 
         int binaryLength = message.getByteArrayLength();
 
