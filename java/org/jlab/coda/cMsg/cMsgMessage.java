@@ -27,6 +27,7 @@ import org.jlab.coda.cMsg.common.Base64;
 import org.jlab.coda.cMsg.common.cMsgMessageContextDefault;
 import org.jlab.coda.cMsg.common.cMsgMessageContextInterface;
 import java.lang.*;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.io.*;
@@ -735,6 +736,43 @@ public class cMsgMessage implements Cloneable, Serializable {
         byteArrayCopied = true;
 
         System.arraycopy(b, offset, bytes, 0, length);
+    }
+
+    /**
+     * Copy buffer data into message's byte array.
+     * In this message, the offset will be set to zero,
+     * and the length will be set to buffer.remaining().
+     * If the buffer is null, then internal byte array is set to null,
+     * and both the offset & length are set to 0.
+     * Position of buf is changed temporarily.
+     *
+     * @param buf ByteBuffer with data for byte array of message.
+     * @throws cMsgException if length, offset, or offset+length is out of array bounds
+     */
+    public void setByteArray(ByteBuffer buf) throws cMsgException {
+        if (buf == null) {
+            bytes = null;
+            this.offset = 0;
+            this.length = 0;
+            return;
+        }
+
+        int len = buf.remaining();
+        if (len > bytes.length) {
+            bytes = new byte[len];
+        }
+        this.offset = 0;
+        this.length = len;
+        byteArrayCopied = true;
+
+        if (buf.hasArray()) {
+            System.arraycopy(buf.array(), buf.arrayOffset(), bytes, 0, len);
+        }
+        else {
+            int pos = buf.position();
+            buf.get(bytes, 0, len);
+            buf.position(pos);
+        }
     }
 
     /**
