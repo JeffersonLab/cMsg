@@ -200,7 +200,7 @@ public class cMsgMessage implements Cloneable, Serializable {
     // private/local quantities
 
     /** Was the byte array copied in or only a reference assigned? */
-    boolean byteArrayCopied;
+    boolean byteArrayCopied = true;
 
     /** Maximum number of entries a message keeps when recording the history of various parameters. */
     private int historyLengthMax;
@@ -732,7 +732,9 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         this.offset = 0;
         this.length = length;
-        bytes = new byte[length];
+        if (bytes == null || length > bytes.length) {
+            bytes = new byte[length];
+        }
         byteArrayCopied = true;
 
         System.arraycopy(b, offset, bytes, 0, length);
@@ -758,7 +760,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         }
 
         int len = buf.remaining();
-        if (len > bytes.length) {
+        if (bytes == null || len > bytes.length) {
             bytes = new byte[len];
         }
         this.offset = 0;
