@@ -1097,7 +1097,7 @@ static void *multicastThd(void *arg) {
                 err = cMsgNetMcastSetIf(threadArg->sockfd, ifNames[i], 0);
                 if (err != CMSG_OK) continue;
     
-/*printf("Send multicast to RC Multicast server\n");*/
+printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
                 sendto(threadArg->sockfd, (void *)buffer, bufferLen, 0,
                        (SA *) threadArg->paddr, threadArg->len);
 
