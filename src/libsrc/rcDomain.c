@@ -701,7 +701,7 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
     {
         void *pAddrCount;
         codaIpAddr *ipAddrs, *ipAddrNext;
-        uint32_t  strLen, netOrderInt, addrCount=0, useSpecifiedIp = 0;
+        uint32_t  strLen, netOrderInt, addrCount=0, useSpecifiedIp = 0, netOrderCounter;
         
         err = codanetGetNetworkInfo(&ipAddrs, NULL);
         ipAddrNext = ipAddrs;
@@ -797,7 +797,12 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
             /* now write out how many addrs are coming next */
             netOrderInt = htonl(addrCount);
             memcpy(pAddrCount, (const void *)&netOrderInt, sizeof(int32_t));
-            
+
+            /* Add counter to end of data in order to track how many multicast packets are sent */
+            netOrderCounter = htonl(1);
+            memcpy(buffer + len, (const void *) &netOrderInt, sizeof(uint32_t));
+            len += sizeof(uint32_t);
+
             /* free up mem */
             codanetFreeIpAddrs(ipAddrs);
         }
@@ -806,7 +811,7 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
     if (ipForRcServer != NULL) free(ipForRcServer);
 
     /* create and start a thread which will multicast every second */
-    bArg.len       = (socklen_t) sizeof(struct sockaddr_in);
+    bArg.len       = (socklen_t) (sizeof(struct sockaddr_in));
     bArg.sockfd    = domain->sendSocket;
     bArg.paddr     = servaddr;
     bArg.buffer    = buffer;
@@ -1032,8 +1037,11 @@ static void *multicastThd(void *arg) {
     thdArg *threadArg = (thdArg *) arg;
     struct timespec  wait = {0, 100000000}; /* 0.1 sec */
     struct timespec delay = {0, 500000000}; /* 0.5 sec */
+    struct timespec betweenRounds = {0, 10000000}; /* 0.01 sec */
     char *buffer  = threadArg->buffer;
     int bufferLen = threadArg->bufferLen;
+    uint32_t packetCounter = 1, netOrderCounter;
+    int counterOffset = bufferLen - sizeof(uint32_t);
 
     /* release resources when done */
     pthread_detach(pthread_self());
@@ -1098,8 +1106,19 @@ static void *multicastThd(void *arg) {
                 sleepCount++;
             }
         }
-      
-        if (sleepCount < 1) sleep(1);
+
+        packetCounter++;
+        netOrderCounter = htonl(packetCounter);
+        buffer[counterOffset  ] = (char)(netOrderCounter >> 24);
+        buffer[counterOffset+1] = (char)(netOrderCounter >> 16);
+        buffer[counterOffset+2] = (char)(netOrderCounter >>  8);
+        buffer[counterOffset+3] = (char)(netOrderCounter      );
+
+
+        if (sleepCount < 1) {
+            nanosleep(&betweenRounds, NULL);
+            /*sleep(1);*/
+        }
     }
     
  printf("Send multicast: exiting!\n");

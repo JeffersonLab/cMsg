@@ -282,6 +282,7 @@ public class RunControl extends cMsgDomainAdapter {
             // multicast on local subnets to find RunControl Multicast server
             //--------------------------------------------------------------
             DatagramPacket udpPacket;
+            byte[] multicastData = null;
 
             // create byte array for multicast
             ByteArrayOutputStream baos = new ByteArrayOutputStream(1024);
@@ -358,6 +359,9 @@ public class RunControl extends cMsgDomainAdapter {
                     catch (UnsupportedEncodingException e) {/* never happen*/}
                 }
 
+                // First multicast packet to be sent out
+                out.writeInt(1);
+
                 out.flush();
                 out.close();
 
@@ -375,8 +379,8 @@ public class RunControl extends cMsgDomainAdapter {
                 multicastUdpSocket.setTimeToLive(32);  // Make it through routers
 
                 // create packet to multicast from the byte array
-                byte[] buf = baos.toByteArray();
-                udpPacket = new DatagramPacket(buf, buf.length,
+                multicastData = baos.toByteArray();
+                udpPacket = new DatagramPacket(multicastData, multicastData.length,
                                                rcMulticastServerAddress,
                                                rcMulticastServerPort);
                 baos.close();
@@ -396,7 +400,7 @@ public class RunControl extends cMsgDomainAdapter {
 
             // create a thread which will send our multicast
 //System.out.println("RC connect: RC client " + name + ": will start multicast sender thread");
-            Multicaster sender = new Multicaster(udpPacket);
+            Multicaster sender = new Multicaster(udpPacket, multicastData);
             sender.start();
 
             // Wait for RC Multicast server to pass its info on to the RC server
@@ -1434,9 +1438,19 @@ System.out.println("RC connect: SUCCESSFUL");
      */
     class Multicaster extends Thread {
 
+        // Packet is sending a "1" at end of data
+        // to say it's the first packet being sent.
+        int counter = 1;
+        // Index into data array of beginning of last int (counter)
+        int counterOffset;
+        byte[] data;
         DatagramPacket packet;
 
-        Multicaster(DatagramPacket udpPacket) { packet = udpPacket; }
+        Multicaster(DatagramPacket udpPacket, byte[] multicastData) {
+            packet = udpPacket;
+            data = multicastData;
+            counterOffset = data.length - 4;
+        }
 
 
         public void run() {
@@ -1462,20 +1476,29 @@ System.out.println("RC connect: SUCCESSFUL");
 //                   ", loopback = " + ni.isLoopback() +
 //                   ", has multicast = " + ni.supportsMulticast());
                             if (ni.isUp()) {
-//System.out.println("RC client: sending mcast packet over " + ni.getName());
+System.out.println("RC client: sending packet #" + counter + " over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
-
                                 Thread.sleep(200);
                             }
                         }
+
+                        // Increment integer at very end of data to
+                        // indicate # of packet from this client. Big endian.
+                        counter++;
+                        data[counterOffset  ] = (byte)(counter >> 24);
+                        data[counterOffset+1] = (byte)(counter >> 16);
+                        data[counterOffset+2] = (byte)(counter >>  8);
+                        data[counterOffset+3] = (byte)(counter      );
+                        packet.setData(data);
+
                     }
                     catch (IOException e) {
                         e.printStackTrace();
                     }
 
                     // One second between rounds
-                    Thread.sleep(1000);
+                    Thread.sleep(20);
                 }
             }
             catch (InterruptedException e) {

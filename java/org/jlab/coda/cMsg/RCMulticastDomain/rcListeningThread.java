@@ -334,6 +334,7 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                 }
 
                 ArrayList<String> ipList, broadList;
+                int packetCounter=1;
 //                int fixedIp;
 
                 // if probe from client ...
@@ -389,6 +390,9 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                         }
                         catch (UnsupportedEncodingException e) {/*never happen */}
                     }
+
+                    packetCounter = cMsgUtilities.bytesToInt(buf, pos);
+System.out.println("RC multicast listener: got client packet #" + packetCounter);
 
                     // We must have an active subscription waiting on
                     // this end to process the client's request.
@@ -478,6 +482,13 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                 }
                 catch (cMsgException e) {/* never happen */}
 
+                try {
+                    cMsgPayloadItem pItem = new cMsgPayloadItem("packetCount", packetCounter);
+                    msg.addPayloadItem(pItem);
+                }
+                catch (cMsgException e) {/* never happen */}
+
+                if (packetCounter < 6) continue;
                 // run callbacks for this message
                 runCallbacks(msg);
             }
