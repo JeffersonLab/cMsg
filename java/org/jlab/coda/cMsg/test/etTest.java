@@ -2,10 +2,7 @@ package org.jlab.coda.cMsg.test;
 
 import org.jlab.coda.cMsg.cMsgException;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.nio.channels.FileChannel;
-import java.nio.MappedByteBuffer;
+import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 /**
@@ -76,26 +73,51 @@ public class etTest {
     public void run() throws cMsgException {
 
         try {
-            FileInputStream fis = new FileInputStream("/tmp/javaCShareTest");
-            FileChannel fc = fis.getChannel();
-            MappedByteBuffer buffer = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
-            buffer.order(ByteOrder.LITTLE_ENDIAN);
+            ByteBuffer buf = ByteBuffer.allocate(16);
+            buf.putInt(1);
+            buf.putInt(2);
+            buf.putInt(3);
+            buf.putInt(4);
 
-            while (true) {
-                for (int i=0; i < 10; i++) {
-                    int val = buffer.getInt(i*4);
-                    System.out.print(val + " ");
-                }
-                System.out.println("");
-                Thread.sleep(1000);
+            //buf.position(4).limit(12);
+            buf.position(8).limit(16);
+
+            ByteBuffer slice = buf.slice();
+            slice.order(ByteOrder.LITTLE_ENDIAN);
+
+            buf.position(0).limit(16);
+
+            // Backing array of buf
+            byte[] bufBack = buf.array();
+            System.out.println("buf pos = " + buf.position() + ", lim = " + buf.limit());
+            System.out.println("buf backing array, len = " + bufBack.length);
+            System.out.println("Data is:");
+            System.out.println("" + buf.getInt());
+            System.out.println("" + buf.getInt());
+            System.out.println("" + buf.getInt());
+            System.out.println("" + buf.getInt());
+            // There is where in the backing array the buf starts
+            System.out.println("Backing array offset is " + buf.arrayOffset());
+
+            // Backing array of slice
+            byte[] sliceBack = slice.array();
+            System.out.println("slice pos = " + slice.position() + ", lim = " + slice.limit());
+            System.out.println("slice backing array, len = " + sliceBack.length);
+            System.out.println("Data is:");
+            System.out.println("" + slice.getInt());
+            System.out.println("" + slice.getInt());
+            // There is where in the backing array the slice starts
+            System.out.println("Backing array offset is " + slice.arrayOffset());
+
+            if (bufBack == sliceBack) {
+                System.out.println("Both backing arrays are the same");
+            }
+            else {
+                System.out.println("Both backing arrays are the diff");
             }
 
-
         }
-        catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        catch (IOException e) {
+        catch (Exception e) {
             e.printStackTrace();
         }
 
