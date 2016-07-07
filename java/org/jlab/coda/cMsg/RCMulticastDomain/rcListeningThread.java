@@ -488,7 +488,7 @@ System.out.println("RC multicast listener: got client packet #" + packetCounter)
                 }
                 catch (cMsgException e) {/* never happen */}
 
-                if (packetCounter < 6) continue;
+                //if (packetCounter < 6) continue;
                 // run callbacks for this message
                 runCallbacks(msg);
             }
