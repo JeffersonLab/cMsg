@@ -91,3 +91,7 @@ Version 5.0
         interface & corresponding broadcast addresses
       - rc UDL now includes "ip=<addr>" portion like Java.
       - fix potential seg fault in freeing memory in connect() function (race condition)
+
+Version 5.1
+    Java
+    - add cMsgMessage.setByteArray(ByteBuffer buf) method and make setByteArray(byte[] b) more efficient
