@@ -962,6 +962,11 @@ printf("rc connect: wait timeout or rcConnectComplete is not 1\n");
     /* install default shutdown handler (exits program) */
     cmsg_rc_setShutdownHandler((void *)domain, defaultShutdownHandler, NULL);
 
+    {
+        struct timespec delay = {0, 200000000}; /* 0.2 sec */
+        nanosleep(&delay, NULL);
+    }
+
     domain->gotConnection = 1;
 /*printf("rc connect: DONE\n");*/
     
