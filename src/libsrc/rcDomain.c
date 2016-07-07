@@ -800,7 +800,7 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
 
             /* Add counter to end of data in order to track how many multicast packets are sent */
             netOrderCounter = htonl(1);
-            memcpy(buffer + len, (const void *) &netOrderInt, sizeof(uint32_t));
+            memcpy(buffer + len, (const void *) &netOrderCounter, sizeof(uint32_t));
             len += sizeof(uint32_t);
 
             /* free up mem */
@@ -1102,7 +1102,7 @@ printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
                        (SA *) threadArg->paddr, threadArg->len);
 
                 /* Wait 1/2 second between multicasting on each interface */
-                nanosleep(&delay, NULL);
+                /*nanosleep(&delay, NULL);*/
                 sleepCount++;
             }
         }
@@ -1116,7 +1116,7 @@ printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
 
 
         if (sleepCount < 1) {
-            nanosleep(&betweenRounds, NULL);
+            /*nanosleep(&betweenRounds, NULL);*/
             /*sleep(1);*/
         }
     }
