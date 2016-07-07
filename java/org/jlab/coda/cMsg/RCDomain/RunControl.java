@@ -1479,7 +1479,7 @@ System.out.println("RC connect: SUCCESSFUL");
 System.out.println("RC client: sending packet #" + counter + " over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
-                                Thread.sleep(200);
+                                //Thread.sleep(200);
                             }
                         }
 
@@ -1498,7 +1498,7 @@ System.out.println("RC client: sending packet #" + counter + " over " + ni.getNa
                     }
 
                     // One second between rounds
-                    Thread.sleep(20);
+                    //Thread.sleep(20);
                 }
             }
             catch (InterruptedException e) {
