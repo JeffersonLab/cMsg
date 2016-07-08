@@ -1047,6 +1047,7 @@ static void *multicastThd(void *arg) {
     int bufferLen = threadArg->bufferLen;
     uint32_t packetCounter = 1, netOrderCounter;
     int counterOffset = bufferLen - sizeof(uint32_t);
+    ssize_t ret;
 
     /* release resources when done */
     pthread_detach(pthread_self());
@@ -1100,11 +1101,18 @@ static void *multicastThd(void *arg) {
 
                 /* set socket to send over this interface */
                 err = cMsgNetMcastSetIf(threadArg->sockfd, ifNames[i], 0);
-                if (err != CMSG_OK) continue;
+                if (err != CMSG_OK) {
+printf("RC client: error setting multicast socket to send over %s\n", ifNames[i]);
+                    continue;
+                }
     
 printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
-                sendto(threadArg->sockfd, (void *)buffer, bufferLen, 0,
-                       (SA *) threadArg->paddr, threadArg->len);
+                ret = sendto(threadArg->sockfd, (void *)buffer, bufferLen, 0,
+                             (SA *) threadArg->paddr, threadArg->len);
+
+                if (ret < 0) {
+printf("RC client: error setting multicast packet\n");
+                }
 
                 packetCounter++;
                 netOrderCounter = htonl(packetCounter);
