@@ -963,7 +963,7 @@ printf("rc connect: wait timeout or rcConnectComplete is not 1\n");
     cmsg_rc_setShutdownHandler((void *)domain, defaultShutdownHandler, NULL);
 
     {
-        struct timespec delay = {0, 450000000}; /* 0.45 sec */
+        struct timespec delay = {1, 0}; /* 1 sec */
         nanosleep(&delay, NULL);
     }
 
@@ -1041,8 +1041,8 @@ static void *multicastThd(void *arg) {
     int i, err, useDefaultIf=0, count;
     thdArg *threadArg = (thdArg *) arg;
     struct timespec  wait = {0, 100000000}; /* 0.1 sec */
-    struct timespec delay = {0, 20000000}; /* 0.02 sec */
-    struct timespec betweenRounds = {0, 200000000}; /* 0.2 sec */
+    struct timespec delay = {0, 100000000}; /* 0.1 sec */
+    struct timespec betweenRounds = {0, 400000000}; /* 0.4 sec */
     char *buffer  = threadArg->buffer;
     int bufferLen = threadArg->bufferLen;
     uint32_t packetCounter = 1, netOrderCounter;

@@ -502,7 +502,7 @@ System.out.println("RC connect: made tcp connection to host " + rcServerAddress 
             // create request sending (to domain) channel (This takes longest so do last)
             connected = true;
 
-            Thread.sleep(400);
+            Thread.sleep(1000);
 
         }
         //TODO: get rid of this with the sleep above
@@ -1486,18 +1486,19 @@ System.out.println("RC connect: SUCCESSFUL");
 System.out.println("RC client: sending packet #" + counter + " over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
-                                Thread.sleep(20);
+
+                                // Increment integer at very end of data to
+                                // indicate # of packet from this client. Big endian.
+                                counter++;
+                                data[counterOffset  ] = (byte)(counter >> 24);
+                                data[counterOffset+1] = (byte)(counter >> 16);
+                                data[counterOffset+2] = (byte)(counter >>  8);
+                                data[counterOffset+3] = (byte)(counter      );
+                                packet.setData(data);
+
+                                Thread.sleep(100);
                             }
                         }
-
-                        // Increment integer at very end of data to
-                        // indicate # of packet from this client. Big endian.
-                        counter++;
-                        data[counterOffset  ] = (byte)(counter >> 24);
-                        data[counterOffset+1] = (byte)(counter >> 16);
-                        data[counterOffset+2] = (byte)(counter >>  8);
-                        data[counterOffset+3] = (byte)(counter      );
-                        packet.setData(data);
 
                     }
                     catch (IOException e) {
@@ -1505,7 +1506,7 @@ System.out.println("RC client: sending packet #" + counter + " over " + ni.getNa
                     }
 
                     // One second between rounds
-                    Thread.sleep(100);
+                    Thread.sleep(400);
                 }
             }
             catch (InterruptedException e) {
