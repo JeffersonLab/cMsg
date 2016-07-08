@@ -502,7 +502,7 @@ System.out.println("RC connect: made tcp connection to host " + rcServerAddress 
             // create request sending (to domain) channel (This takes longest so do last)
             connected = true;
 
-            Thread.sleep(200);
+            Thread.sleep(400);
 
         }
         //TODO: get rid of this with the sleep above
@@ -1486,7 +1486,7 @@ System.out.println("RC connect: SUCCESSFUL");
 System.out.println("RC client: sending packet #" + counter + " over " + ni.getName());
                                 multicastUdpSocket.setNetworkInterface(ni);
                                 multicastUdpSocket.send(packet);
-                                //Thread.sleep(200);
+                                Thread.sleep(20);
                             }
                         }
 
@@ -1505,7 +1505,7 @@ System.out.println("RC client: sending packet #" + counter + " over " + ni.getNa
                     }
 
                     // One second between rounds
-                    //Thread.sleep(20);
+                    Thread.sleep(100);
                 }
             }
             catch (InterruptedException e) {
