@@ -963,7 +963,7 @@ printf("rc connect: wait timeout or rcConnectComplete is not 1\n");
     cmsg_rc_setShutdownHandler((void *)domain, defaultShutdownHandler, NULL);
 
     {
-        struct timespec delay = {0, 200000000}; /* 0.2 sec */
+        struct timespec delay = {0, 400000000}; /* 0.4 sec */
         nanosleep(&delay, NULL);
     }
 
@@ -1041,8 +1041,8 @@ static void *multicastThd(void *arg) {
     int i, err, useDefaultIf=0, count;
     thdArg *threadArg = (thdArg *) arg;
     struct timespec  wait = {0, 100000000}; /* 0.1 sec */
-    struct timespec delay = {0, 500000000}; /* 0.5 sec */
-    struct timespec betweenRounds = {0, 10000000}; /* 0.01 sec */
+    struct timespec delay = {0, 20000000}; /* 0.02 sec */
+    struct timespec betweenRounds = {0, 100000000}; /* 0.1 sec */
     char *buffer  = threadArg->buffer;
     int bufferLen = threadArg->bufferLen;
     uint32_t packetCounter = 1, netOrderCounter;
@@ -1107,7 +1107,7 @@ printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
                        (SA *) threadArg->paddr, threadArg->len);
 
                 /* Wait 1/2 second between multicasting on each interface */
-                /*nanosleep(&delay, NULL);*/
+                nanosleep(&delay, NULL);
                 sleepCount++;
             }
         }
@@ -1121,7 +1121,7 @@ printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
 
 
         if (sleepCount < 1) {
-            /*nanosleep(&betweenRounds, NULL);*/
+            nanosleep(&betweenRounds, NULL);
             /*sleep(1);*/
         }
     }
