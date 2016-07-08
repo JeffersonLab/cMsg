@@ -1111,7 +1111,30 @@ printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
                              (SA *) threadArg->paddr, threadArg->len);
 
                 if (ret < 0) {
-printf("RC client: error setting multicast packet\n");
+printf("RC client: error setting multicast packet, errno = %d\n", errno);
+switch(errno) {
+   case EAGAIN:
+printf("           error = EAGAIN\n");
+break;
+   case EBADF:
+printf("           error = EBADF\n");
+break;
+   case ECONNRESET:
+printf("           error = ECONNRESET\n");
+break;
+   case EINVAL:
+printf("           error = EINVAL\n");
+break;
+   case EISCONN:
+printf("           error = EISCONN\n");
+break;
+   case ENOTCONN:
+printf("           error = ENOTCONN\n");
+break;
+   default:
+printf("           error is either EACCES, EDESTADDRREQ, EFAULT, EINTR, EMSGSIZE, ENOBUFS, ENOTSOCK, EOPNOTSUPP, or EPIPE\n");
+break;
+}
                 }
 
                 packetCounter++;
