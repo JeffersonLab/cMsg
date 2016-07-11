@@ -701,7 +701,7 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
     {
         void *pAddrCount;
         codaIpAddr *ipAddrs, *ipAddrNext;
-        uint32_t  strLen, netOrderInt, addrCount=0, useSpecifiedIp = 0, netOrderCounter;
+        uint32_t  strLen, netOrderInt, addrCount=0, useSpecifiedIp = 0;
         
         err = codanetGetNetworkInfo(&ipAddrs, NULL);
         ipAddrNext = ipAddrs;
@@ -797,12 +797,7 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
             /* now write out how many addrs are coming next */
             netOrderInt = htonl(addrCount);
             memcpy(pAddrCount, (const void *)&netOrderInt, sizeof(int32_t));
-
-            /* Add counter to end of data in order to track how many multicast packets are sent */
-            netOrderCounter = htonl(1);
-            memcpy(buffer + len, (const void *) &netOrderCounter, sizeof(uint32_t));
-            len += sizeof(uint32_t);
-
+            
             /* free up mem */
             codanetFreeIpAddrs(ipAddrs);
         }
@@ -811,7 +806,7 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
     if (ipForRcServer != NULL) free(ipForRcServer);
 
     /* create and start a thread which will multicast every second */
-    bArg.len       = (socklen_t) (sizeof(struct sockaddr_in));
+    bArg.len       = (socklen_t) sizeof(struct sockaddr_in);
     bArg.sockfd    = domain->sendSocket;
     bArg.paddr     = servaddr;
     bArg.buffer    = buffer;
@@ -962,11 +957,6 @@ printf("rc connect: wait timeout or rcConnectComplete is not 1\n");
     /* install default shutdown handler (exits program) */
     cmsg_rc_setShutdownHandler((void *)domain, defaultShutdownHandler, NULL);
 
-    {
-        struct timespec delay = {1, 0}; /* 1 sec */
-        nanosleep(&delay, NULL);
-    }
-
     domain->gotConnection = 1;
 /*printf("rc connect: DONE\n");*/
     
@@ -1041,13 +1031,9 @@ static void *multicastThd(void *arg) {
     int i, err, useDefaultIf=0, count;
     thdArg *threadArg = (thdArg *) arg;
     struct timespec  wait = {0, 100000000}; /* 0.1 sec */
-    struct timespec delay = {0, 100000000}; /* 0.1 sec */
-    struct timespec betweenRounds = {0, 400000000}; /* 0.4 sec */
+    struct timespec delay = {0, 500000000}; /* 0.5 sec */
     char *buffer  = threadArg->buffer;
     int bufferLen = threadArg->bufferLen;
-    uint32_t packetCounter = 1, netOrderCounter;
-    int counterOffset = bufferLen - sizeof(uint32_t);
-    ssize_t ret;
 
     /* release resources when done */
     pthread_detach(pthread_self());
@@ -1101,61 +1087,19 @@ static void *multicastThd(void *arg) {
 
                 /* set socket to send over this interface */
                 err = cMsgNetMcastSetIf(threadArg->sockfd, ifNames[i], 0);
-                if (err != CMSG_OK) {
-printf("RC client: error setting multicast socket to send over %s\n", ifNames[i]);
-                    continue;
-                }
+                if (err != CMSG_OK) continue;
     
-printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
-                ret = sendto(threadArg->sockfd, (void *)buffer, bufferLen, 0,
-                             (SA *) threadArg->paddr, threadArg->len);
-
-                if (ret < 0) {
-printf("RC client: error setting multicast packet, errno = %d\n", errno);
-switch(errno) {
-   case EAGAIN:
-printf("           error = EAGAIN\n");
-break;
-   case EBADF:
-printf("           error = EBADF\n");
-break;
-   case ECONNRESET:
-printf("           error = ECONNRESET\n");
-break;
-   case EINVAL:
-printf("           error = EINVAL\n");
-break;
-   case EISCONN:
-printf("           error = EISCONN\n");
-break;
-   case ENOTCONN:
-printf("           error = ENOTCONN\n");
-break;
-   default:
-printf("           error is either EACCES, EDESTADDRREQ, EFAULT, EINTR, EMSGSIZE, ENOBUFS, ENOTSOCK, EOPNOTSUPP, or EPIPE\n");
-break;
-}
-                }
-
-                packetCounter++;
-                netOrderCounter = htonl(packetCounter);
-                buffer[counterOffset  ] = (char)(netOrderCounter >> 24);
-                buffer[counterOffset+1] = (char)(netOrderCounter >> 16);
-                buffer[counterOffset+2] = (char)(netOrderCounter >>  8);
-                buffer[counterOffset+3] = (char)(netOrderCounter      );
+/*printf("Send multicast to RC Multicast server\n");*/
+                sendto(threadArg->sockfd, (void *)buffer, bufferLen, 0,
+                       (SA *) threadArg->paddr, threadArg->len);
 
                 /* Wait 1/2 second between multicasting on each interface */
                 nanosleep(&delay, NULL);
                 sleepCount++;
             }
         }
-
-
-
-        if (sleepCount < 1) {
-            nanosleep(&betweenRounds, NULL);
-            /*sleep(1);*/
-        }
+      
+        if (sleepCount < 1) sleep(1);
     }
     
  printf("Send multicast: exiting!\n");
