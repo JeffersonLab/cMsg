@@ -1987,6 +1987,9 @@ void *cMsgCallbackWorkerThread(void *arg)
     
   end:
 
+  /* avoid error in old C compiler about pthread macro right after label */
+  status = 1;
+
   /* calls cleanup handler */
   pthread_cleanup_pop(0);
   
