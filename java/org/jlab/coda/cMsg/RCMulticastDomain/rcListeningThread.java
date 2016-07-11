@@ -141,7 +141,6 @@ class rcListeningThread extends Thread {
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("Running RC Multicast Listening Thread");
         }
-         debug = cMsgConstants.debugInfo;
         // create a packet to be written into from client
         byte[] buf = new byte[2048];
         DatagramPacket packet = new DatagramPacket(buf, 2048);
@@ -242,8 +241,8 @@ class rcListeningThread extends Thread {
                 int version = cMsgUtilities.bytesToInt(buf, 12);
                 if (version != cMsgConstants.version) {
                     if (debug >= cMsgConstants.debugWarn) {
-System.out.println("RC multicast listener: got cMsg packet version " + version +
-                   " which does NOT match version " + cMsgConstants.version + ", so ignore");
+                        System.out.println("RC multicast listener: got cMsg packet version " + version +
+                        " which does NOT match version " + cMsgConstants.version + ", so ignore");
                     }
                     continue;
                 }
@@ -254,15 +253,15 @@ System.out.println("RC multicast listener: got cMsg packet version " + version +
                 switch (msgType) {
                     // multicasts from rc clients
                     case cMsgNetworkConstants.rcDomainMulticastClient:
-System.out.println("Client wants to connect");
+//System.out.println("Client wants to connect");
                         break;
                     // multicasts from rc servers
                     case cMsgNetworkConstants.rcDomainMulticastServer:
-System.out.println("Server wants to connect");
+//System.out.println("Server wants to connect");
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
-System.out.println("RC multicast listener: told to kill myself by another multicast server, ignore for now");
+//System.out.println("RC multicast listener: told to kill myself by another multicast server, ignore for now");
 //                        server.respondingHost = multicasterHost;
 //                        server.multicastResponse.countDown();
 //                        return;
@@ -270,11 +269,11 @@ System.out.println("RC multicast listener: told to kill myself by another multic
                     // Packet from client just trying to locate rc multicast servers.
                     // Send back a normal response but don't do anything else.
                     case cMsgNetworkConstants.rcDomainMulticastProbe:
-System.out.println("I was probed");
+//System.out.println("I was probed");
                         break;
                     // ignore packets from unknown sources
                     default:
-System.out.println("Unknown command");
+//System.out.println("Unknown command");
                         continue;
                 }
 
