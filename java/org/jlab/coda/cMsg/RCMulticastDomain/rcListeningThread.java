@@ -242,8 +242,8 @@ class rcListeningThread extends Thread {
                 int version = cMsgUtilities.bytesToInt(buf, 12);
                 if (version != cMsgConstants.version) {
                     if (debug >= cMsgConstants.debugWarn) {
-System.out.println("RC multicast listener: got packet of version " + version +
-                   " (possibly v3) which does NOT match our version " + cMsgConstants.version + ", so ignore");
+System.out.println("RC multicast listener: got cMsg packet version " + version +
+                   " which does NOT match version " + cMsgConstants.version + ", so ignore");
                     }
                     continue;
                 }
