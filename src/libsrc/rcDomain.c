@@ -1109,7 +1109,6 @@ printf("RC client: error setting multicast socket to send over %s\n", ifNames[i]
 printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
                 ret = sendto(threadArg->sockfd, (void *)buffer, bufferLen, 0,
                              (SA *) threadArg->paddr, threadArg->len);
-                }
 
                 packetCounter++;
                 netOrderCounter = htonl(packetCounter);
@@ -1123,8 +1122,6 @@ printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
                 sleepCount++;
             }
         }
-
-
 
         if (sleepCount < 1) {
             nanosleep(&betweenRounds, NULL);
