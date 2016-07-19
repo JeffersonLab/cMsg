@@ -71,6 +71,7 @@ class rcListeningThread extends Thread {
         handlerThreads = new ArrayList<ClientHandler>(2);
         // die if no more non-daemon thds running
         setDaemon(true);
+        setName("rc client listener");
     }
 
 
@@ -281,6 +282,7 @@ System.out.println("rcListening thd: connection to rc client already established
 
             // die if no more non-daemon thds running
             setDaemon(true);
+            setName("rc client handler");
             start();
         }
 
