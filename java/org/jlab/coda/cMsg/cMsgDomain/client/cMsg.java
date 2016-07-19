@@ -3625,6 +3625,7 @@ System.out.println("disconnect: IO error");
 
             // die if no more non-daemon thds running
             setDaemon(true);
+            setName("cMsg domain client keepAlive");
         }
 
 
@@ -4055,6 +4056,7 @@ System.out.println("disconnect: IO error");
             this.out = out;
             // die if no more non-daemon thds running
             setDaemon(true);
+            setName("cMsg domain client update server");
         }
 
         /**

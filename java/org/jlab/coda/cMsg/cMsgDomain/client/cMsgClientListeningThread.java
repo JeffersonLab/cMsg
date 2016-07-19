@@ -87,6 +87,7 @@ class cMsgClientListeningThread extends Thread {
         in = new DataInputStream(new BufferedInputStream(socket.getInputStream(), 65536));
         // die if no more non-daemon thds running
         setDaemon(true);
+        setName("cMsg domain client listener");
     }
 
 
