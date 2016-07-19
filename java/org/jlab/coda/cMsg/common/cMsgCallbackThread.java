@@ -67,7 +67,10 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
     /** Setting this to true will kill this thread as soon as possible. */
     private volatile boolean dieNow;
 
+    /** Used to pause callback. */
     private CountDownLatch latch;
+
+    /** Pause callback. */
     private volatile boolean pause;
 
 
@@ -224,6 +227,7 @@ public class cMsgCallbackThread extends Thread implements cMsgSubscriptionHandle
         WorkerThread(boolean permanent) {
             this.permanent = permanent;
             setDaemon(true);
+            setName("cMsg callback worker");
             start();
         }
 
@@ -324,6 +328,7 @@ System.out.println("Error in callback: sub=" + subject + ",type=" + type + ",msg
         count         = 1;
         context       = new myContext();
 
+        setName("cMsg callback main");
         setDaemon(true);
 
         // Start one permanent worker thread
