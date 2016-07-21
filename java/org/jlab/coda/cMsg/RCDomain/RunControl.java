@@ -501,13 +501,6 @@ System.out.println("RC connect: made tcp connection to host " + rcServerAddress 
 
             // create request sending (to domain) channel (This takes longest so do last)
             connected = true;
-
-            Thread.sleep(1000);
-
-        }
-        //TODO: get rid of this with the sleep above
-        catch (Exception e) {
-
         }
         finally {
             connectLock.unlock();
@@ -1496,7 +1489,7 @@ System.out.println("RC client: sending packet #" + counter + " over " + ni.getNa
                                 data[counterOffset+3] = (byte)(counter      );
                                 packet.setData(data);
 
-                                Thread.sleep(100);
+                                Thread.sleep(200);
                             }
                         }
 
@@ -1506,7 +1499,7 @@ System.out.println("RC client: sending packet #" + counter + " over " + ni.getNa
                     }
 
                     // One second between rounds
-                    Thread.sleep(400);
+                    Thread.sleep(1000);
                 }
             }
             catch (InterruptedException e) {
