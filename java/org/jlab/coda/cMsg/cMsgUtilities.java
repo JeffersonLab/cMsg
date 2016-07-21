@@ -348,21 +348,22 @@ public class cMsgUtilities {
 
                     // If this matches an actual local IP address, return it
                     if (ip.equals(addrv4.getHostAddress()))  {
-System.out.println("getMatchingLocalIpAddress: this is a local address");
+//System.out.println("getMatchingLocalIpAddress: this is a local address");
                         return ip;
                     }
 
                     // If this matches a broadcast/subnet address, return
                     // an actual local IP address on this subnet.
                     if (ip.equals(ifAddr.getBroadcast().getHostAddress())) {
-System.out.println("getMatchingLocalIpAddress: broadcast addr, use this IP on that subnet: " +
-                           addrv4.getHostAddress());
+//System.out.println("getMatchingLocalIpAddress: broadcast addr, use this IP on that subnet: " +
+//                           addrv4.getHostAddress());
                         return addrv4.getHostAddress();
                     }
                 }
             }
         }
         catch (SocketException e) {}
+//System.out.println("getMatchingLocalIpAddress:no match");
 
         // no match
         return null;
@@ -475,7 +476,7 @@ System.out.println("orderIPAddresses: ip " + ipAddresses.get(i) + " on local sub
 
             // This address is not on the preferred or any of the
             // local subnets, so put it at the end of the list.
-//System.out.println("Add " + ip + " to list bottom");
+System.out.println("Add " + ipAddresses.get(i) + " to list bottom");
             ipList.addLast(ipAddresses.get(i));
         }
         System.out.println("\n");
@@ -618,8 +619,9 @@ System.out.println("orderIPAddresses: ip " + ipAddresses.get(i) + " on local sub
 
         int[] hostInts = new int[4];
         for (int i = 1; i <= 4; ++i) {
-//System.out.println("   group(" + i + ") = " + matcher.group(i));
             hostInts[i-1] = Integer.parseInt(matcher.group(i));
+//System.out.println("isDottedDecimal: group(" + i + ") = " + matcher.group(i) +
+//                   ", host int = " + hostInts[i-1]);
             if (hostInts[i-1] > 255 || hostInts[i-1] < 0) return null;
         }
 
