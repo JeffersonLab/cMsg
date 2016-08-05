@@ -89,7 +89,7 @@ int main(int argc,char **argv) {
 
     sleep(1);
 
-    /* send stuff to RC Server */
+    /* send stuff to emu Server */
     msg = cMsgCreateMessage();
     cMsgSetUserInt(msg, 1);
 
