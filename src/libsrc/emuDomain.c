@@ -1696,8 +1696,8 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
     /*****************************/        
     /* now look for subnet=value */
     /*****************************/
-    pattern = "[?&]subnet=((?:[0-9]{1,3}.){3}[0-9]{1,3})";
-    
+    pattern = "[?&]subnet=([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.{3}[0-9]{1,3})";
+
     cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
     err = cMsgRegexec(&compiled, val, 2, matches, 0);
     if (err == 0) {
@@ -1712,7 +1712,7 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
 printf("parseUDL: preferred subnet = %s\n", buffer);
         }
     }
-    
+
     /* free up memory */
     cMsgRegfree(&compiled);
         
