@@ -53,6 +53,7 @@ int main(int argc,char **argv) {
      */
 
     char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10";
+    /*char *UDL = "cMsg:emu://46100/emutest/PEB1?codaId=6&timeout=10&subnet=172.19.10.255";*/
 
     int   err, debug = 1;
     void *msg;
