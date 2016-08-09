@@ -826,7 +826,7 @@ int cmsg_cmsg_connect(const char *myUDL, const char *myName, const char *myDescr
 /*printf("connect: order IP list which came back from cMsg server\n");*/
 
         /* Order the IP list according to the given preferred subnet, if any */
-        orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, domain->currentUDL.subnet);
+        orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, domain->currentUDL.subnet, NULL);
     }
 
     err = connectDirect(domain, (void *) index, orderedIpList);
@@ -1010,7 +1010,7 @@ int cmsg_cmsg_reconnect(void *domainId) {
                 }
 
                 /* Order the IP list according to the given preferred subnet, if any */
-                orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, domain->currentUDL.subnet);
+                orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, domain->currentUDL.subnet, NULL);
             }
 
             err = reconnect(domainId, orderedIpList);

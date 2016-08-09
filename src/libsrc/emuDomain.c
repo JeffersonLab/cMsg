@@ -562,7 +562,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     cMsgNetGetNetworkInfo(&ipAddrs, NULL);
 
     /* Order the server IP list according to the given preferred subnet, if any */
-    orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, subnet);
+    orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, subnet, NULL);
 
     if (subnet != NULL) free(subnet);
     cMsgNetFreeIpAddrs(ipAddrs);
@@ -581,6 +581,8 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
                                        &tv, &domain->sendSocket, NULL);
 
         if (err != CMSG_OK) {
+            printf("emu connect: try connecting to ip = %s, port = %d ...\n",
+                   orderedIpList->addr, serverPort);
             /* If there is another address to try, try it */
             if (orderedIpList->next != NULL) {
                 orderedIpList = orderedIpList->next;
@@ -1696,7 +1698,7 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
     /*****************************/        
     /* now look for subnet=value */
     /*****************************/
-    pattern = "[?&]subnet=([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.{3}[0-9]{1,3})";
+    pattern = "[?&]subnet=([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3})";
 
     cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
     err = cMsgRegexec(&compiled, val, 2, matches, 0);
