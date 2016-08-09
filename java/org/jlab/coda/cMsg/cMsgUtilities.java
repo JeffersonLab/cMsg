@@ -475,7 +475,7 @@ System.out.println("orderIPAddresses: ip " + ipAddresses.get(i) + " on local sub
 
             // This address is not on the preferred or any of the
             // local subnets, so put it at the end of the list.
-//System.out.println("Add " + ip + " to list bottom");
+System.out.println("Add " + ipAddresses.get(i) + " to list bottom");
             ipList.addLast(ipAddresses.get(i));
         }
         System.out.println("\n");
