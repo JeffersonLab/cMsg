@@ -3173,7 +3173,7 @@ int codanetGetIpAddrs(char ***ipAddrs, int *count, char *host) {
 *                        returned list
 * @param noSubnetMatch pointer to int filled with 1 (true) if the preferred subnet
 *                      is defined AND (the ipList arg has no item on that subnet OR
- *                     the local host has no active network interface on that subnet).
+*                      the local host has no active network interface on that subnet).
 *                      Else it will be filled with 0 (false).
 *
 * @return a linked list of IP addresses in dot-decimal format with all the
