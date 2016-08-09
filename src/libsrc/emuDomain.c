@@ -327,7 +327,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     int     err, status, len, i, localPort;
     size_t  expidLen, nameLen;
     int32_t outGoing[7];
-    int     myCodaId, multicastTO, dataBufSize, tcpSendBufSize=0, tcpNoDelay=0, off=0;
+    int     myCodaId, multicastTO, dataBufSize, tcpSendBufSize=0, tcpNoDelay=0, off=0, noPrefSubnetMatch=0;
     char    temp[CMSG_MAXHOSTNAMELEN];
     unsigned char ttl = 32;
     cMsgDomainInfo *domain;
@@ -563,6 +563,9 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
 
     /* Order the server IP list according to the given preferred subnet, if any */
     orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, subnet, NULL);
+    if (noPrefSubnetMatch) {
+        printf("emu connect: preferred subnet = %s, but no local interface on that subnet\n", subnet);
+    }
 
     if (subnet != NULL) free(subnet);
     cMsgNetFreeIpAddrs(ipAddrs);
