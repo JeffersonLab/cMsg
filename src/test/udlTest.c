@@ -600,7 +600,9 @@ int main(int argc,char **argv) {
 
         /* find preferred subnet parameter if it exists, */
         /* look for subnet=<value> */
-        pattern = "[&\\?]subnet=([^&]+)";
+        //pattern = "[&\\?]subnet=([^&]+)";
+        pattern = "[?&]subnet=([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3})";
+        printf("parseUDL: regex pattern = %s\n", pattern);
 
         /* compile regular expression */
         err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
@@ -619,11 +621,11 @@ int main(int argc,char **argv) {
             len = matches[1].rm_eo - matches[1].rm_so;
             pos = matches[1].rm_eo;
             strncat(buffer, remain+matches[1].rm_so, len);
-            if(dbg) printf("parseUDL: subnet = %s\n", buffer);
+             printf("parseUDL: subnet = %s\n", buffer);
 
             /* check to make sure it really is a local subnet */
             cMsgNetGetBroadcastAddress(buffer, &subnet);
-            if(dbg) printf("parseUDL: output of cMsgNetGetBroadcastAddress = %s\n", subnet);
+             printf("parseUDL: output of cMsgNetGetBroadcastAddress = %s\n", subnet);
 
             /* if it is NOT a local subnet, forget about it */
             if (subnet != NULL) {
