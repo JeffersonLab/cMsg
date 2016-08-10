@@ -1565,7 +1565,7 @@ printf("parseUDL: \"codaId\" must be set in UDL\n");
     /* find codaId=value (required) */
 	/**********************************/        
     val = strdup(buffer);
-    pattern = "[&?]codaId=([0-9]+)";
+    pattern = "[&\\?]codaId=([0-9]+)";
 
     /* compile regular expression */
     cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
@@ -1606,7 +1606,7 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
 	/******************************/        
     /* now look for timeout=value */
  	/******************************/        
-    pattern = "[?&]timeout=([0-9]+)";
+    pattern = "[\\?&]timeout=([0-9]+)";
 
     cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
     err = cMsgRegexec(&compiled, val, 2, matches, 0);
@@ -1639,7 +1639,7 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
 	/******************************/        
     /* now look for bufSize=value */
  	/******************************/        
-    pattern = "[?&]bufSize=([0-9]+)";
+    pattern = "[\\?&]bufSize=([0-9]+)";
 
     cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
     err = cMsgRegexec(&compiled, val, 2, matches, 0);
@@ -1673,7 +1673,7 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
 	/******************************/        
     /* now look for tcpSend=value */
  	/******************************/        
-    pattern = "[?&]tcpSend=([0-9]+)";
+    pattern = "[\\?&]tcpSend=([0-9]+)";
 
     cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
     err = cMsgRegexec(&compiled, val, 2, matches, 0);
@@ -1699,7 +1699,7 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
     /*****************************/        
     /* now look for subnet=value */
     /*****************************/
-    pattern = "[?&]subnet=([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3})";
+    pattern = "[\\?&]subnet=([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3})";
 
     cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
     err = cMsgRegexec(&compiled, val, 2, matches, 0);
@@ -1722,7 +1722,7 @@ printf("parseUDL: preferred subnet = %s\n", buffer);
     /************************/        
     /* now look for noDelay */
  	/************************/        
-    pattern = "[?&]noDelay";
+    pattern = "[\\?&]noDelay";
 
     cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
     err = cMsgRegexec(&compiled, val, 1, matches, 0);

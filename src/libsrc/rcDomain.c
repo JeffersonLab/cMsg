@@ -3214,7 +3214,7 @@ static int parseUDL(const char *UDLR,
 
 
         /* find ip parameter if it exists, look for ip=<value> */
-        pattern = "ip=([^&]+)";
+        pattern = "ip=([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3})";
 
         /* compile regular expression */
         err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);

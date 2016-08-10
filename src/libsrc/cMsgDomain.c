@@ -7355,7 +7355,7 @@ if(dbg) printf("Found duplicate domain server port in UDL\n");
 
         /* find preferred subnet parameter if it exists, */
         /* look for subnet=<value> */
-        pattern = "[&\\?]subnet=([^&]+)";
+        pattern = "[\\?&]subnet=([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3})";
 
         /* compile regular expression */
         err = cMsgRegcomp(&compiled, pattern, REG_EXTENDED | REG_ICASE);
