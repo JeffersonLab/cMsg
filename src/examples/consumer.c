@@ -186,7 +186,7 @@ int main(int argc,char **argv) {
   //cMsgSetDebugLevel(CMSG_DEBUG_INFO);
 
   /* read time for rate calculations */
-  /*
+
   clock_gettime(CLOCK_REALTIME, &T1);
   clock_gettime(CLOCK_REALTIME, &t1);
 
