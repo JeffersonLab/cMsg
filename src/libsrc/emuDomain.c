@@ -562,7 +562,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     cMsgNetGetNetworkInfo(&ipAddrs, NULL);
 
     /* Order the server IP list according to the given preferred subnet, if any */
-    orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, subnet, NULL);
+    orderedIpList = cMsgNetOrderIpAddrs(ipList, ipAddrs, subnet, &noPrefSubnetMatch);
     if (noPrefSubnetMatch) {
         printf("emu connect: preferred subnet = %s, but no local interface on that subnet\n", subnet);
     }
