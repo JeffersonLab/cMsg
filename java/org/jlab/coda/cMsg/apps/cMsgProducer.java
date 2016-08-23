@@ -283,6 +283,7 @@ public class cMsgProducer {
                     //System.out.println("Got syncSend val = " + j);
                 }
                 else {
+                    msg.setUserInt(i);
                     coda.send(msg);
                 }
                 coda.flush(0);
