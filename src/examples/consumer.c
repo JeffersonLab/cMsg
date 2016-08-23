@@ -223,7 +223,7 @@ int main(int argc,char **argv) {
 
   printf("count = %d, disconnect freq = %9.1f Hz, connect freq = %9.1f Hz, total freq = %9.1f Hz\n",
          100, freq1, freq2, freq);
-  */
+
    
 /*  printf("Connected!, please kill server:\n");
   cMsgGetConnectState(domainId, &connected);
