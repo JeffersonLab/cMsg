@@ -95,3 +95,8 @@ Version 5.0
 Version 5.1
     Java
     - add cMsgMessage.setByteArray(ByteBuffer buf) method and make setByteArray(byte[] b) more efficient
+    - name threads for clarity in profiling tools
+
+    C & Java
+    - add counter to rc client's multicast packets so rc multicast server can tell
+      when client has died and a new one with the same name started up
