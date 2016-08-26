@@ -368,12 +368,15 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
             }
         }
 
-        // binary element of cMsgMessage element
-        nList = e.getElementsByTagName("binary");
-        if (nList != null) {
-            numElements = nList.getLength();
-            if (numElements > 0) {
-                Element el = (Element) nList.item(0);
+        // Binary element of cMsgMessage element
+
+        // Only check the immediate children for the <binary> element,
+        // otherwise we will pick up binary elements in the payload.
+        nList = e.getChildNodes();
+        for (int i=0; i < nList.getLength(); i++) {
+            if (nList.item(i).getNodeName().equalsIgnoreCase("binary")) {
+
+                Element el = (Element) nList.item(i);
                 s = el.getFirstChild().getNodeValue();
 
                 int itemBytes  = Integer.parseInt(el.getAttribute("nbytes"));
@@ -387,7 +390,8 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
                 msg.setByteArrayNoCopy(bytes);
                 try { msg.setByteArrayEndian(itemEndian); }
                 catch (cMsgException e1) {}
-//System.out.println("Got msg binary node, val = \n" + s);
+//System.out.println("fillMsgFromElement: got msg binary node, val = \n" + s);
+                break;
             }
         }
 
