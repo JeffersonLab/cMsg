@@ -16,12 +16,12 @@
 
 package org.jlab.coda.cMsg.remoteExec;
 
-import org.jlab.coda.cMsg.common.Base64;
-
 import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
+import java.text.SimpleDateFormat;
+import java.util.Base64;
 
 
 /**
@@ -41,8 +41,20 @@ public class ExecutorSecurity {
     static String cipherType    = "AES";  // is equivalent to "AES/ECB/PKCS5Padding"
     static String secretKeyType = "AES";
 
+    /** Encoder for binary data. */
+    static final Base64.Encoder b64Encoder;
+
+    /** Decoder for binary data. */
+    static final Base64.Decoder b64Decoder;
+
+
     static {
+
+        b64Encoder = Base64.getEncoder();
+        b64Decoder = Base64.getDecoder();
+
         try {
+
             encipherAES = Cipher.getInstance(cipherType);
             decipherAES = Cipher.getInstance(cipherType);
 
@@ -103,7 +115,7 @@ public class ExecutorSecurity {
             byte[] enc = encipherAES.doFinal(utf8);
 
             // Encode bytes to base64 to get a string
-            return Base64.encodeToString(enc, false);
+            return b64Encoder.encodeToString(enc);
         }
         catch (javax.crypto.BadPaddingException e) { }
         catch (IllegalBlockSizeException e) { }
@@ -120,7 +132,7 @@ public class ExecutorSecurity {
     static public String decrypt(String str) {
         try {
             // Decode base64 to get bytes
-            byte[] dec = Base64.decodeToBytes(str, "UTF8");
+            byte[] dec = b64Decoder.decode(str);
 
             // Decrypt
             byte[] utf8 = decipherAES.doFinal(dec);

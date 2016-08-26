@@ -23,12 +23,17 @@
 package org.jlab.coda.cMsg;
 
 
-import org.jlab.coda.cMsg.common.Base64;
+//import org.jlab.coda.cMsg.common.Base64;
 import org.jlab.coda.cMsg.common.cMsgMessageContextDefault;
 import org.jlab.coda.cMsg.common.cMsgMessageContextInterface;
 import java.lang.*;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.Base64;
+import java.util.Set;
+import java.util.Map;
+import java.util.Date;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 import java.io.*;
 import java.math.BigInteger;
@@ -169,8 +174,18 @@ public class cMsgMessage implements Cloneable, Serializable {
 
     /** Object to format and parse date strings. */
     transient protected static final SimpleDateFormat dateFormatter;
+
+    /** Encoder for binary data. */
+    protected static final Base64.Encoder b64Encoder;
+
+    /** Decoder for binary data. */
+    protected static final Base64.Decoder b64Decoder;
+
+
     static {
         dateFormatter = new SimpleDateFormat(timeFormat);
+        b64Encoder = Base64.getMimeEncoder();
+        b64Decoder = Base64.getMimeDecoder();
     }
 
     /**
@@ -1406,15 +1421,24 @@ public class cMsgMessage implements Cloneable, Serializable {
             sb.append("\" nbytes=\""); sb.append(length);
 
             // put in line breaks after 76 chars (57bytes)
+            byte[] bites;
+            if (offset == 0 && length == bytes.length) {
+                bites = bytes;
+            }
+            else {
+                bites = new byte[length];
+                System.arraycopy(bytes, offset, bites, 0, length);
+            }
+
             if (length > 57) {
                 sb.append("\">\n");
-                sb.append(Base64.encodeToString(bytes, offset, length, true));
+                sb.append(b64Encoder.encodeToString(bites));
                 sb.append(offsett);
                 sb.append("</binary>\n");
             }
             else {
                 sb.append("\">");
-                sb.append(Base64.encodeToString(bytes, offset, length, false));
+                sb.append(b64Encoder.encodeToString(bites));
                 sb.append("</binary>\n");
             }
         }
@@ -1602,13 +1626,13 @@ public class cMsgMessage implements Cloneable, Serializable {
                             // put in line breaks after 76 chars (57bytes)
                             if (b.length > 57) {
                                 sb.append("\">\n");
-                                sb.append(Base64.encodeToString(b, true));
+                                sb.append(b64Encoder.encodeToString(b));
                                 sb.append(indent); sb.append(offsett);
                                 sb.append("</binary>\n");
                             }
                             else {
                                 sb.append("\">");
-                                sb.append(Base64.encodeToString(b, false));
+                                sb.append(b64Encoder.encodeToString(b));
                                 sb.append("</binary>\n");
                             }
                          }
@@ -1794,13 +1818,13 @@ public class cMsgMessage implements Cloneable, Serializable {
                                   // put in line breaks after 76 chars (57 bytes)
                                   if (b[i].length > 57) {
                                       sb.append("\">\n");
-                                      sb.append(Base64.encodeToString(b[i], true));
+                                      sb.append(b64Encoder.encodeToString(b[i]));
                                       sb.append(indent);sb.append(offsett);sb.append(offsett);
                                       sb.append("</binary>\n");
                                   }
                                   else {
                                       sb.append("\">");
-                                      sb.append(Base64.encodeToString(b[i], false));
+                                      sb.append(b64Encoder.encodeToString(b[i]));
                                       sb.append("</binary>\n");
                                   }
                               }
@@ -2681,10 +2705,7 @@ public class cMsgMessage implements Cloneable, Serializable {
         String val = txt.substring(index1, index2);
 
         // decode string into binary (wrong characters are ignored)
-        byte[] b = null;
-        try  { b = Base64.decodeToBytes(val, "US-ASCII"); }
-        catch (UnsupportedEncodingException e) {/*never happen*/}
-
+        byte[] b = b64Decoder.decode(val);
         if (b.length != binLen) {
             System.out.println("reconstituted binary is different length than original binary");
         }
@@ -2760,9 +2781,7 @@ public class cMsgMessage implements Cloneable, Serializable {
 //System.out.println("val = " + val);
 
             // decode string into binary (wrong characters are ignored)
-            try  { vals[i] = Base64.decodeToBytes(val, "US-ASCII"); }
-            catch (UnsupportedEncodingException e) {/*never happen*/}
-            
+            vals[i] = b64Decoder.decode(val);
             if (vals[i].length != binLen) {
                 System.out.println("reconstituted binary is different length than original binary");
             }
@@ -3392,13 +3411,21 @@ public class cMsgMessage implements Cloneable, Serializable {
                     {String[] i = item.getStringArray(); System.out.println(":");
                         for(j=0; j<i.length;j++) System.out.println(indent + "  string[" + j + "] = " + i[j]);} break;
 
-                  case cMsgConstants.payloadBin:
-                    {int sb,sz;
+                  case cMsgConstants.payloadBin: {
+                     int sb, sz;
                      byte[] b = item.getBinary();
                      int end = item.getEndian();
                      // only print up to 1kB
-                     sz = sb = b.length; if (sb > 1024) {sb = 1024;}
-                     String enc = Base64.encodeToString(b,0,sb,true);
+                     sz = sb = b.length;
+                     byte[] byt;
+                     if (sb > 1024) {
+                         sb = 1024;
+                         byt = new byte[sb];
+                         System.arraycopy(b, 0, byt, 0, sb);
+                     } else{
+                         byt = b;
+                     }
+                     String enc = b64Encoder.encodeToString(byt);
                      if (end == cMsgConstants.endianBig)
                           System.out.print(" (binary, big endian):\n" + indent + enc);
                      else System.out.print(" (binary, little endian):\n" + indent + enc);
@@ -3411,9 +3438,17 @@ public class cMsgMessage implements Cloneable, Serializable {
                      int[] end  = item.getEndianArray();
                      // only print up to 1kB
                      System.out.println(":");
+                     byte[] byt, b1k = new byte[1024];
                      for (j=0; j<b.length; j++) {
-                       sz = sb = b[j].length; if (sb > 1024) {sb = 1024;}
-                       enc = Base64.encodeToString(b[j],0,sb,true);
+                       sz = sb = b[j].length;
+                       if (sb > 1024) {
+                             sb = 1024;
+                             byt = b1k;
+                             System.arraycopy(b[j], 0, byt, 0, sb);
+                       } else{
+                             byt = b[j];
+                       }
+                       enc = b64Encoder.encodeToString(byt);
                        if (end[j] == cMsgConstants.endianBig)
                             System.out.print("  binary[" + j + "], big endian = \n" + indent + enc);
                        else System.out.print("  binary[" + j + "], little endian = \n" + indent + enc);
