@@ -23,7 +23,6 @@
 package org.jlab.coda.cMsg;
 
 
-//import org.jlab.coda.cMsg.common.Base64;
 import org.jlab.coda.cMsg.common.cMsgMessageContextDefault;
 import org.jlab.coda.cMsg.common.cMsgMessageContextInterface;
 import java.lang.*;
@@ -692,13 +691,13 @@ public class cMsgMessage implements Cloneable, Serializable {
     /**
      * Copy byte array into message. Offset is set to 0. Length is set to
      * the full length of the copied array.
-     * If the byte array is null, then internal byte array is set to null,
+     * If the byte array is null or length = 0, then internal byte array is set to null,
      * and both the offset & length are set to 0.
      *
      * @param b byte array of message.
      */
     public void setByteArray(byte[] b) {
-        if (b == null) {
+        if (b == null || b.length == 0) {
             bytes  = null;
             offset = 0;
             length = 0;
@@ -714,7 +713,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * Copy byte array into message by copying "length" number of elements
      * starting at "offset". In this message, the offset will be set to zero,
      * and the length will be set to "length".
-     * If the byte array is null, then internal byte array is set to null,
+     * If the byte array is null or length = 0, then internal byte array is set to null,
      * and both the offset & length are set to 0.
      *
      * @param b byte array of message.
@@ -723,7 +722,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @throws cMsgException if length, offset, or offset+length is out of array bounds
      */
     public void setByteArray(byte[] b, int offset, int length) throws cMsgException {
-        if (b == null) {
+        if (b == null || length == 0) {
             bytes = null;
             this.offset = 0;
             this.length = 0;
@@ -759,7 +758,8 @@ public class cMsgMessage implements Cloneable, Serializable {
      * Copy buffer data into message's byte array.
      * In this message, the offset will be set to zero,
      * and the length will be set to buffer.remaining().
-     * If the buffer is null, then internal byte array is set to null,
+     * If the buffer is null or remaining bytes = 0,
+     * then internal byte array is set to null,
      * and both the offset & length are set to 0.
      * Position of buf is changed temporarily.
      *
@@ -767,7 +767,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @throws cMsgException if length, offset, or offset+length is out of array bounds
      */
     public void setByteArray(ByteBuffer buf) throws cMsgException {
-        if (buf == null) {
+        if (buf == null || buf.remaining() == 0) {
             bytes = null;
             this.offset = 0;
             this.length = 0;
@@ -797,13 +797,13 @@ public class cMsgMessage implements Cloneable, Serializable {
      * itself - only the reference is copied.
      * In this message the offset will be set to zero, and the length will be
      * set to length of the array.
-     * If the byte array is null, then internal byte array is set to null,
+     * If the byte array is null or length is 0, then internal byte array is set to null,
      * and both the offset & length are set to 0.
      *
      * @param b byte array of message.
      */
     public void setByteArrayNoCopy(byte[] b) {
-        if (b == null) {
+        if (b == null || b.length == 0) {
             bytes  = null;
             offset = 0;
             length = 0;
@@ -820,7 +820,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * itself - only the reference is copied.
      * In this message the offset will be set to "offset", and the length will be
      * set to "length".
-     * If the byte array is null, then internal byte array is set to null,
+     * If the byte array is null, or length = 0, then internal byte array is set to null,
      * and both the offset & length are set to 0.
      *
      * @param b byte array of message.
@@ -829,7 +829,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @throws cMsgException if length, offset, or offset+length is out of array bounds
      */
     public void setByteArrayNoCopy(byte[] b, int offset, int length) throws cMsgException {
-        if (b == null) {
+        if (b == null || length == 0) {
             bytes = null;
             this.offset = 0;
             this.length = 0;
@@ -1257,7 +1257,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                                 boolean binary, boolean compact,
                                 boolean compactPayload, boolean hasName,
                                 boolean noSystemFields, String pItemName) {
-        
+
         StringBuilder sb = new StringBuilder(2048);
 
         // Create the indent since a message may contain a message, etc.
@@ -1433,6 +1433,7 @@ public class cMsgMessage implements Cloneable, Serializable {
             if (length > 57) {
                 sb.append("\">\n");
                 sb.append(b64Encoder.encodeToString(bites));
+                sb.append("\n");
                 sb.append(offsett);
                 sb.append("</binary>\n");
             }
@@ -1627,6 +1628,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                             if (b.length > 57) {
                                 sb.append("\">\n");
                                 sb.append(b64Encoder.encodeToString(b));
+                                sb.append("\n");
                                 sb.append(indent); sb.append(offsett);
                                 sb.append("</binary>\n");
                             }
@@ -1819,6 +1821,7 @@ public class cMsgMessage implements Cloneable, Serializable {
                                   if (b[i].length > 57) {
                                       sb.append("\">\n");
                                       sb.append(b64Encoder.encodeToString(b[i]));
+                                      sb.append("\n");
                                       sb.append(indent);sb.append(offsett);sb.append(offsett);
                                       sb.append("</binary>\n");
                                   }
