@@ -102,7 +102,7 @@ Version 5.1
       when client has died and a new one with the same name started up
 
 
- Version 5.2
+ Version 5.2    (Java version 8 now required)
     Java
     - switch using the Base64 implementation from an external source to the one
       which is now (Java V8) built into the jvm.
