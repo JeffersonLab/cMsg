@@ -3336,7 +3336,8 @@ public class cMsgMessage implements Cloneable, Serializable {
 
     /**
      * This method prints out the message payload in a readable form.
-     * Simpler than XML.
+     * Simpler than XML. Warning, only up to 1000 chars of a binary
+     * payload are printed out.
      * @param level level of indentation (0 = normal)
      */
     public void payloadPrintout(int level) {
