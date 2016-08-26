@@ -100,3 +100,14 @@ Version 5.1
     C & Java
     - add counter to rc client's multicast packets so rc multicast server can tell
       when client has died and a new one with the same name started up
+
+
+ Version 5.2
+    Java
+    - switch using the Base64 implementation from an external source to the one
+      which is now (Java V8) built into the jvm.
+    - if message is given a byte array of 0 length, the array is set to null
+    - fix indentation of binary XML output of cMsg message
+    - fix bug in parsing XML to cMsgMessage, in which if no main byte array exists
+      in XML message it will assign the first binary data in the payload to the main
+      byte array
