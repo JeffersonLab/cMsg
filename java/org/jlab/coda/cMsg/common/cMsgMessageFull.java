@@ -379,9 +379,8 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
                 int itemBytes  = Integer.parseInt(el.getAttribute("nbytes"));
                 int itemEndian = el.getAttribute("endian").equals("big") ?
                         cMsgConstants.endianBig : cMsgConstants.endianLittle;
-                byte[] bytes = new byte[0];
-                try {bytes = Base64.decodeToBytes(s, "US-ASCII");}
-                catch (UnsupportedEncodingException ex) {/* never happen */}
+
+                byte[] bytes = cMsgMessage.b64Decoder.decode(s);
                 if (bytes.length != itemBytes) {
                     System.out.println("Reconstituted binary array is different size !!!");
                 }
@@ -614,9 +613,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
                     int itemBytes  = Integer.parseInt(el.getAttribute("nbytes"));
                     int itemEndian = el.getAttribute("endian").equals("big") ?
                             cMsgConstants.endianBig : cMsgConstants.endianLittle;
-                    byte[] bytes = new byte[0];
-                    try {bytes = Base64.decodeToBytes(itemValue, "US-ASCII");}
-                    catch (UnsupportedEncodingException e) {/* never happen */}
+                    byte[] bytes = cMsgMessage.b64Decoder.decode(itemValue);
                     if (bytes.length != itemBytes) {
                         System.out.println("Reconstituted binary array is different size !!!");
                     }
@@ -640,8 +637,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
                         itemBytes    = Integer.parseInt(el.getAttribute("nbytes"));
                         endians[ind] = el.getAttribute("endian").equals("big") ?
                                        cMsgConstants.endianBig : cMsgConstants.endianLittle;
-                        try {bArray[ind] = Base64.decodeToBytes(itemValue, "US-ASCII");}
-                        catch (UnsupportedEncodingException e) {/* never happen */}
+                        bArray[ind] = cMsgMessage.b64Decoder.decode(itemValue);
                         if (bArray[ind].length != itemBytes) {
                             System.out.println("Reconstituted binary array is different size !!!");
                         }
