@@ -106,7 +106,8 @@ public class cMsgTestPayload {
                 binSize  = Integer.parseInt(args[i + 1]);
                 binArray = new byte[binSize];
                 for (int j=0; j < binSize; j++) {
-                  binArray[j] = (byte)(j%255);
+                  binArray[j] = (byte)(j%256);
+                  //System.out.println("bin[" + j + "] = " + binArray[j]);
                 }
                 System.out.println("binary size = " + binSize);
                 sendBinary = true;
@@ -207,7 +208,36 @@ public class cMsgTestPayload {
 
             if (msg.hasPayload()) {
                 System.out.println("Received msg has payload = \n" + msg.toString());
-                //msg.payloadPrintout(0);
+
+                byte[] byt = msg.getByteArray();
+                System.out.println("CB Byte Array = " + byt);
+                if (byt != null) {
+                    for (int kk = 0; kk < byt.length; kk++) {
+                        System.out.println("bin[" + kk + "] = " + byt[kk]);
+                    }
+                }
+                System.out.println("CB Byte Array End");
+
+
+                try {
+                    byte[][] myBin = msg.getPayloadItem("BIN_ARRAY").getBinaryArray();
+                    for (int k=0; k<myBin.length; k++) {
+                        System.out.println("bin array #" + (k+1) + ":");
+                        for (int kk=0; kk<myBin[k].length; kk++) {
+                            System.out.println("bin[" + kk + "] = " + myBin[k][kk]);
+                        }
+                    }
+
+
+//                    System.out.println("\n\n");
+//                    byte[] biny = msg.getPayloadItem("BINNIE").getBinary();
+//                    for (int kk=0; kk<biny.length; kk++) {
+//                        System.out.println("bin[" + kk + "] = " + biny[kk]);
+//                    }
+                }
+                catch (cMsgException e) {
+                    e.printStackTrace();
+                }
             }
 
             // delay between messages sent
@@ -216,10 +246,10 @@ public class cMsgTestPayload {
                 catch (InterruptedException e) {}
             }
 
-            try { coda.send(msg); }
-            catch (cMsgException e) {
-                e.printStackTrace();
-            }
+//            try { coda.send(msg); }
+//            catch (cMsgException e) {
+//                e.printStackTrace();
+//            }
         }
 
      }
@@ -261,9 +291,10 @@ public class cMsgTestPayload {
 //        if (sendText) {
 //          msg.setText(text);
 //        }
-//        if (sendBinary) {
-//          msg.setByteArrayNoCopy(binArray);
-//        }
+        if (sendBinary) {
+            //msg.setByteArrayNoCopy(binArray);
+            msg.setByteArray(binArray, 10, 10);
+        }
 
         // send using UDP instead of TCP
         // msg.getContext().setReliableSend(false);
@@ -295,9 +326,9 @@ public class cMsgTestPayload {
 //        cMsgPayloadItem item5 = new cMsgPayloadItem("BYTE", bt);
 //        msg.addPayloadItem(item5);
 //
-//        byte[] ba = {Byte.MIN_VALUE, -1, Byte.MAX_VALUE};
-//        cMsgPayloadItem item6 = new cMsgPayloadItem("BYTE_ARRAY", ba);
-//        msg.addPayloadItem(item6);
+        byte[] ba = {Byte.MIN_VALUE, -1, Byte.MAX_VALUE};
+        cMsgPayloadItem item6 = new cMsgPayloadItem("BYTE_ARRAY", ba);
+        msg.addPayloadItem(item6);
 //
 //        short st = Short.MAX_VALUE;
 //        cMsgPayloadItem item7 = new cMsgPayloadItem("SHORT", st);
@@ -326,8 +357,8 @@ public class cMsgTestPayload {
         for (int j=-128; j < 128; j++) {
           binnie[j+128] = (byte)j;
         }
-        //cMsgPayloadItem item12 = new cMsgPayloadItem("BINNIE", binnie, cMsgConstants.endianLocal);
-//        msg.addPayloadItem(item12);
+        cMsgPayloadItem item12 = new cMsgPayloadItem("BINNIE", binnie, cMsgConstants.endianLocal);
+        msg.addPayloadItem(item12);
 
 
         // array of byte arrays
@@ -345,8 +376,8 @@ public class cMsgTestPayload {
         cMsgPayloadItem item13 = new cMsgPayloadItem("BIN_ARRAY", bb);
         msg.addPayloadItem(item13);
 
-        cMsgPayloadItem item12 = new cMsgPayloadItem("BINNIE", binArray1, cMsgConstants.endianLocal);
-        msg.addPayloadItem(item12);
+//        cMsgPayloadItem item12 = new cMsgPayloadItem("BINNIE", binArray1, cMsgConstants.endianLocal);
+//        msg.addPayloadItem(item12);
 
 //
 //        // Test zero compression
@@ -479,13 +510,18 @@ public class cMsgTestPayload {
 //        ia[0] = -999.;
 //        System.out.println("dblA[0] = " + intA[0]);
 
-
+        //-------------------------------
+        // Send msg to our cb
+        //-------------------------------
+        coda.send(msg);
 
         //-------------------------------
         // End of payload
         //-------------------------------
 
         String XML = msg.toString();
+        byte[] byt = msg.getByteArray();
+        System.out.println("Byte Array = " + byt);
 
         System.out.println("Msg XML:\n" + XML);
 
@@ -495,6 +531,17 @@ public class cMsgTestPayload {
         System.out.println("newMsg subject = " + newMsg.getSubject());
         System.out.println("\n\n\n****************************************************\n\n\n");
 
+
+        byt = newMsg.getByteArray();
+        System.out.println("Byte Array = " + byt);
+        if (byt != null) {
+            for (int kk = 0; kk < byt.length; kk++) {
+                System.out.println("bin[" + kk + "] = " + byt[kk]);
+            }
+        }
+        System.out.println("Byte Array End");
+
+
         byte[][] myBin = newMsg.getPayloadItem("BIN_ARRAY").getBinaryArray();
         for (int k=0; k<myBin.length; k++) {
             System.out.println("bin array #" + (k+1) + ":");
@@ -502,11 +549,13 @@ public class cMsgTestPayload {
                 System.out.println("bin[" + kk + "] = " + myBin[k][kk]);
             }
         }
-        System.out.println("\n\n");
-        byte[] biny = newMsg.getPayloadItem("BINNIE").getBinary();
-            for (int kk=0; kk<biny.length; kk++) {
-                System.out.println("bin[" + kk + "] = " + biny[kk]);
-            }
+
+//
+//        System.out.println("\n\n");
+//        byte[] biny = newMsg.getPayloadItem("BINNIE").getBinary();
+//            for (int kk=0; kk<biny.length; kk++) {
+//                System.out.println("bin[" + kk + "] = " + biny[kk]);
+//            }
 
 
 
