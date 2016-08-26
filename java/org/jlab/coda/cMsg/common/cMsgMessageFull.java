@@ -641,7 +641,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
                         if (bArray[ind].length != itemBytes) {
                             System.out.println("Reconstituted binary array is different size !!!");
                         }
-                        if (true) System.out.println("  bin[" + ind + "] = " + itemValue);
+                        if (debug) System.out.println("  bin[" + ind + "] = " + itemValue);
                         ind++;
                     }
                     payloadItem = new cMsgPayloadItem(itemName, bArray, endians);
