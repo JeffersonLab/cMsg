@@ -380,7 +380,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
                 int itemEndian = el.getAttribute("endian").equals("big") ?
                         cMsgConstants.endianBig : cMsgConstants.endianLittle;
 
-                byte[] bytes = cMsgMessage.b64Decoder.decode(s);
+                byte[] bytes = b64Decoder.decode(s);
                 if (bytes.length != itemBytes) {
                     System.out.println("Reconstituted binary array is different size !!!");
                 }
@@ -613,7 +613,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
                     int itemBytes  = Integer.parseInt(el.getAttribute("nbytes"));
                     int itemEndian = el.getAttribute("endian").equals("big") ?
                             cMsgConstants.endianBig : cMsgConstants.endianLittle;
-                    byte[] bytes = cMsgMessage.b64Decoder.decode(itemValue);
+                    byte[] bytes = b64Decoder.decode(itemValue);
                     if (bytes.length != itemBytes) {
                         System.out.println("Reconstituted binary array is different size !!!");
                     }
@@ -637,7 +637,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
                         itemBytes    = Integer.parseInt(el.getAttribute("nbytes"));
                         endians[ind] = el.getAttribute("endian").equals("big") ?
                                        cMsgConstants.endianBig : cMsgConstants.endianLittle;
-                        bArray[ind] = cMsgMessage.b64Decoder.decode(itemValue);
+                        bArray[ind] = b64Decoder.decode(itemValue);
                         if (bArray[ind].length != itemBytes) {
                             System.out.println("Reconstituted binary array is different size !!!");
                         }
