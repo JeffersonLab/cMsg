@@ -410,9 +410,11 @@ def generateTarFile(env, baseName, majorVersion, minorVersion):
     # name of tarfile (software package dependent)
     tarfile = 'tar/' + baseName + '-' + majorVersion + '.' + minorVersion + '.tgz'
 
-    # Use a Builder instead of env.Tar() since I can't make that work.
+    # Use a Builder instead of env.Tar() since I can't make that work (Timmer 9/1/16).
     # It runs into circular dependencies since we copy tar file to local
-    # ./tar directory
+    # ./tar directory. Down side of this is that once built, scons does not
+    # rebuild the tar file if any source file changes. Tar file must be deleted by
+    # hand and rebuilt.
     tarBuild = Builder(action = tarballer)
     env.Append(BUILDERS = {'Tarball' : tarBuild})
     env.Alias('tar', env.Tarball(target = tarfile, source = None))
