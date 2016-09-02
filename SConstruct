@@ -25,8 +25,8 @@ import coda
 os.umask(002)
 
 # Software version
-versionMajor = '4'
-versionMinor = '0'
+versionMajor = '5'
+versionMinor = '2'
 
 # Determine the os and machine names
 uname    = os.uname();
@@ -57,7 +57,7 @@ else:
 ################################
 # 64 or 32 bit operating system?
 ################################
-    
+
 # How many bits is the operating system?
 # For Linux 64 bit x86 machines, the "machine' variable is x86_64,
 # but for Darwin or Solaris there is no obvious check so run
@@ -171,16 +171,17 @@ if (incdir == None):
 if 'install' in COMMAND_LINE_TARGETS:
     # Determine installation directories
     installDirs = coda.getInstallationDirs(osname, prefix, incdir, libdir, bindir)
-    
+
     mainInstallDir    = installDirs[0]
     osDir             = installDirs[1]
     incInstallDir     = installDirs[2]
     archIncInstallDir = installDirs[3]
     libInstallDir     = installDirs[4]
     binInstallDir     = installDirs[5]
-    
+
     # Create the include directories (make symbolic link if possible)
     coda.makeIncludeDirs(incInstallDir, archIncInstallDir, osDir, archIncLocalLink)
+    # Execute(Mkdir('/tmp/my_temp_directory'))
 
     print 'Main install dir  = ', mainInstallDir
     print 'bin  install dir  = ', binInstallDir
@@ -221,11 +222,15 @@ Help('undoc               remove javadoc (in ./doc)\n')
 # Tar file
 #########################
 
-if 'tar' in COMMAND_LINE_TARGETS:
-    coda.generateTarFile(env, 'cMsg', versionMajor, versionMinor)
+env.Append(TARFLAGS = '-X tar/tarexclude -z')
+
+# name of tarfile
+tarfile = '#/../cMsg' + '-' + versionMajor + '.' + versionMinor + ".tgz"
+
+env.Alias('tar', env.Tar(tarfile, '#'))
 
 # use "tar" on command line to create tar file
-Help('tar                 create tar file (in ./tar)\n')
+Help('tar                 create tar file (in dir containing cMsg dist)\n')
 
 
 ######################################################
