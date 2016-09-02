@@ -387,36 +387,3 @@ def removeDocs(env):
     env.Alias('undoc', env.DocRemove(target = ['#/.undoc'], source = None))
     
     return 1
-
-
-
-###################
-# Tar file
-###################
-
-def generateTarFile(env, baseName, majorVersion, minorVersion):
-    """Generate a gzipped tar file of the current directory."""
-                
-    # Function that does the tar. Note that tar on Solaris is different
-    # (more primitive) than tar on Linux and MacOS. Solaris tar has no -z option
-    # and the exclude file does not allow wildcards. Thus, stick to Linux for
-    # creating the tar file.
-    def tarballer(target, source, env):
-        dirname = os.path.basename(os.path.abspath('.'))
-        cmd = 'tar -X tar/tarexclude -C .. -c -z -f ' + str(target[0]) + ' ./' + dirname
-        pipe = Popen(cmd, shell=True, stdin=PIPE).stdout
-        return pipe
-
-    # name of tarfile (software package dependent)
-    tarfile = 'tar/' + baseName + '-' + majorVersion + '.' + minorVersion + '.tgz'
-
-    # Use a Builder instead of env.Tar() since I can't make that work (Timmer 9/1/16).
-    # It runs into circular dependencies since we copy tar file to local
-    # ./tar directory. Down side of this is that once built, scons does not
-    # rebuild the tar file if any source file changes. Tar file must be deleted by
-    # hand and rebuilt.
-    tarBuild = Builder(action = tarballer)
-    env.Append(BUILDERS = {'Tarball' : tarBuild})
-    env.Alias('tar', env.Tarball(target = tarfile, source = None))
-
-    return 1
