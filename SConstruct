@@ -17,6 +17,7 @@
 # Get various python modules
 import re, sys, os, string, subprocess, SCons.Node.FS
 from subprocess import Popen, PIPE
+from os import sep, symlink
 
 # Get useful python functions we wrote
 import coda
@@ -168,6 +169,13 @@ if (incdir == None):
     archIncLocalLink = '../common/include'
 
 # If we going to install ...
+# Normally, we could depend on the env.Install() command to create all the directories
+# that we need.
+# However, since we want to make links, we must do that before env.Install() is called
+# and regular directories are made.
+# Furthermore, we need for the directory being linked-to to exist already. So we need
+# to create it first. This complicates the installation of include files.
+
 if 'install' in COMMAND_LINE_TARGETS:
     # Determine installation directories
     installDirs = coda.getInstallationDirs(osname, prefix, incdir, libdir, bindir)
@@ -179,9 +187,68 @@ if 'install' in COMMAND_LINE_TARGETS:
     libInstallDir     = installDirs[4]
     binInstallDir     = installDirs[5]
 
-    # Create the include directories (make symbolic link if possible)
-    coda.makeIncludeDirs(incInstallDir, archIncInstallDir, osDir, archIncLocalLink)
-    # Execute(Mkdir('/tmp/my_temp_directory'))
+    #         prefix = prefix or $CODA
+    #         osDir = prefix/osname
+    #
+    #        # Set our install directories
+    #        if incdir != None:
+    #            # archIncLocalLink = None
+    #            incInstallDir = incdir
+    #            archIncInstallDir = incdir
+    #        else:
+    #            # archIncLocalLink = '../common/include'
+    #            incInstallDir = prefix + '/common/include'
+    #            archIncInstallDir = osDir + '/include'
+
+    # Create the include directories right now (make symbolic link if possible)
+
+    ##if Execute(Mkdir(incInstallDir)):
+    ##    print "Problem occurred while creating the directory " + incInstallDir
+    ##    raise SystemExit
+
+    ##if Execute(Mkdir(osDir)):
+    ##    print "Problem occurred while creating the directory " + osDir
+    ##    raise SystemExit
+
+    #if Execute(Mkdir(archIncInstallDir)):
+    #    print "Problem occurred while creating the directory " + archIncInstallDir
+    #    raise SystemExit
+
+    print "osDir = " + osDir
+    print "incInstallDir = " + incInstallDir
+    print "archIncInstallDir = " + archIncInstallDir
+
+    # coda.makeIncludeDirs(incInstallDir, archIncInstallDir, osDir, archIncLocalLink)
+    #
+    # def makeIncludeDirs(includeDir, archIncludeDir, archDir, archIncLocalLink):
+    #
+    # If the architecture include dir does NOT exist, make link to include dir
+    #
+    ##if not os.path.exists(archIncInstallDir):
+    ##    print "In Function"
+    ##    # Create symbolic link: symlink(source, linkname)
+    ##    try:
+    ##	    if (archIncLocalLink == None) or (archIncLocalLink == ''):
+    ##	        # incdir -> incdir
+	##            print "call symlink"
+    ##    	    symlink(incInstallDir, archIncInstallDir)
+    ##        else:
+    ##            # incdir -> ../common/include
+	##    	    symlink(archIncLocalLink, archIncInstallDir)
+    ##    except OSError:
+    ##            # Failed to create symbolic link, so just make it a regular directory
+    ##            Execute(Mkdir(archIncInstallDir))
+
+    ##elif not os.path.isdir(archIncInstallDir):
+    ##    print
+    ##    print "Error:", archIncInstallDir, "is NOT a directory"
+
+    ##else:
+    ##    print
+    ##    print "archIncInstallDir already exists -> " + archIncInstallDir
+
+    #env.Command('liba.so', 'liba.so.0.0.1', 'ln -s ${SOURCE.file} $TARGET')
+
 
     print 'Main install dir  = ', mainInstallDir
     print 'bin  install dir  = ', binInstallDir
