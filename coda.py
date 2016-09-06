@@ -9,47 +9,6 @@ from subprocess import Popen, PIPE
 from SCons.Script  import Configure
 from SCons.Builder import Builder
 
-################
-# File handling
-################
-
-def recursiveDirs(root) :
-    """Return a list of all subdirectories of root, top down,
-       including root, but without .svn and .<arch> directories"""
-    return filter( (lambda a : (a.rfind( ".svn")==-1) and \
-                               (a.rfind( ".Linux")==-1) and \
-                               (a.rfind( ".SunOS")==-1) and \
-                               (a.rfind( ".Darwin")==-1) and \
-                               (a.rfind( ".vxworks")==-1)),  [ a[0] for a in os.walk(root)]  )
-
-
-
-def unique(list) :
-    """Remove duplicates from list"""
-    return dict.fromkeys(list).keys()
-
-
-
-def scanFiles(dir, accept=["*.cpp"], reject=[]) :
-    """Return a list of selected files from a directory & its subdirectories"""
-    sources = []
-    paths = recursiveDirs(dir)
-    for path in paths :
-        for pattern in accept :
-            sources+=glob.glob(path+"/"+pattern)
-    for pattern in reject :
-        sources = filter( (lambda a : a.rfind(pattern)==-1 ),  sources )
-    return unique(sources)
-
-
-
-def subdirsContaining(root, patterns):
-    """Return a list of subdirectories containing files of the given pattern"""
-    dirs = unique(map(os.path.dirname, scanFiles(root, patterns)))
-    dirs.sort()
-    return dirs
-
-
 
 ###################
 # Operating System
