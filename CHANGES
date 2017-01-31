@@ -96,11 +96,14 @@ Version 5.1
     Java
     - add cMsgMessage.setByteArray(ByteBuffer buf) method and make setByteArray(byte[] b) more efficient
     - name threads for clarity in profiling tools
+    - fix protocol of messages sent to check for other rc multicast servers.
 
     C & Java
     - add counter to rc client's multicast packets so rc multicast server can tell
       when client has died and a new one with the same name started up
 
+    C
+    - fix bug parsing emu domain UDL
 
  Version 5.2    (Java version 8 now required)
     Java
@@ -111,3 +114,8 @@ Version 5.1
     - fix bug in parsing XML to cMsgMessage, in which if no main byte array exists
       in XML message it will assign the first binary data in the payload to the main
       byte array
+    - back port fix of protocol of messages sent to check for other rc multicast servers
+      (bug introduced v 5.1, fixed here 11/7/16)
+
+    C
+    - back port of bug fix parsing emu domain UDL (11/8/16)
