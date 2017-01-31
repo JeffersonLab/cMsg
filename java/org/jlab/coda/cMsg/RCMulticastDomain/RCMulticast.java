@@ -195,9 +195,14 @@ public class RCMulticast extends cMsgDomainAdapter {
                 out.writeInt(cMsgNetworkConstants.magicNumbers[0]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[1]);
                 out.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+                // Add this in version 4.0 for future protocol checking
+                out.writeInt(cMsgConstants.version);
                 out.writeInt(cMsgNetworkConstants.rcDomainMulticastServer);
                 // port helps identifies who is probing (this multicast server)
                 out.writeInt(udpPort);
+                // Add this in version 4.0 for uniquely identifying id number
+                // (can't reliably get pid so use time).
+                out.writeInt((int)System.currentTimeMillis());
                 out.writeInt(name.length());
                 out.writeInt(expid.length());
                 try {
