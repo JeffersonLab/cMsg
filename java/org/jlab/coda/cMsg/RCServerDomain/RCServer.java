@@ -256,6 +256,52 @@ public class RCServer extends cMsgDomainAdapter {
         orderIpAddresses(clientIpList, clientBroadcastList);
     }
 
+// BUGGY method that adds double to lists
+//    /**
+//     * Order both the rc server and rc client ip address lists (actually
+//     * create new lists) so that the first addresses on each list are on the
+//     * same subnet. This should facilitate communication between the 2
+//     * with a minimum of waiting.
+//     *
+//     * @param clientIps         list of client IP addresses
+//     * @param clientBroadcasts  list of client broadcast/subnet addresses
+//     */
+//    private void orderIpAddressesOrig(ArrayList<String> clientIps,
+//                                      ArrayList<String> clientBroadcasts) {
+//
+//        // Get all info about the network interfaces on this machine
+//        List<InterfaceAddress> ipInfoList = cMsgUtilities.getAllIpInfo();
+//        InterfaceAddress iAddr;
+//        ListIterator<InterfaceAddress> lit = ipInfoList.listIterator();
+//
+//        clientIpOrderedSet = new ArrayList<String>();
+//        serverIpOrderedSet = new ArrayList<String>();
+//
+//        // Order both client and server IP lists so
+//        // that those on the same subnet come first.
+//        String localBroad;
+//        while (lit.hasNext()) {
+//            iAddr = lit.next();
+//            // Get the local broadcast address
+//            localBroad = iAddr.getBroadcast().getHostAddress();
+//
+//            // For each client broadcast address ...
+//            for (int i=0; i < clientIps.size(); i++) {
+//                // Compare local and client broadcast addresses
+//                if (localBroad.equals(clientBroadcasts.get(i))) {
+//                    // On same subnet, so add to head of lists
+//                    clientIpOrderedSet.add(0, clientIps.get(i));
+//                    serverIpOrderedSet.add(0, iAddr.getAddress().getHostAddress());
+//                }
+//                else {
+//                    // Add to end of lists
+//                    clientIpOrderedSet.add(clientIps.get(i));
+//                    serverIpOrderedSet.add(iAddr.getAddress().getHostAddress());
+//                }
+//            }
+//        }
+//    }
+
 
     /**
      * Order both the rc server and rc client ip address lists (actually
@@ -271,36 +317,61 @@ public class RCServer extends cMsgDomainAdapter {
 
         // Get all info about the network interfaces on this machine
         List<InterfaceAddress> ipInfoList = cMsgUtilities.getAllIpInfo();
-        InterfaceAddress iAddr;
-        ListIterator<InterfaceAddress> lit = ipInfoList.listIterator();
 
         clientIpOrderedSet = new ArrayList<String>();
         serverIpOrderedSet = new ArrayList<String>();
 
         // Order both client and server IP lists so
         // that those on the same subnet come first.
-        String localBroad;
-        while (lit.hasNext()) {
-            iAddr = lit.next();
+
+        // For each client (broadcast) address:
+        // See if it shares its subnet with this host.
+        // If so, put at the top, else but at the bottom.
+        for (int i=0; i < clientIps.size(); i++) {
+
+            boolean onDifferentSubnet = true;
+
+            for (InterfaceAddress iAddr : ipInfoList) {
+                String localBroad = iAddr.getBroadcast().getHostAddress();
+                // Compare local and client broadcast addresses
+                if (localBroad.equals(clientBroadcasts.get(i))) {
+                    // On same subnet, so add to head of list
+                    clientIpOrderedSet.add(0, clientIps.get(i));
+                    onDifferentSubnet = false;
+                    break;
+                }
+            }
+
+            if (onDifferentSubnet) {
+                // On different subnet, so add to end of list
+                clientIpOrderedSet.add(clientIps.get(i));
+            }
+        }
+
+        // Now order the server's IP addresses in the same way
+        for (InterfaceAddress iAddr : ipInfoList) {
             // Get the local broadcast address
-            localBroad = iAddr.getBroadcast().getHostAddress();
+            String localBroad = iAddr.getBroadcast().getHostAddress();
+            boolean onDifferentSubnet = true;
 
             // For each client broadcast address ...
             for (int i=0; i < clientIps.size(); i++) {
                 // Compare local and client broadcast addresses
                 if (localBroad.equals(clientBroadcasts.get(i))) {
                     // On same subnet, so add to head of lists
-                    clientIpOrderedSet.add(0, clientIps.get(i));
                     serverIpOrderedSet.add(0, iAddr.getAddress().getHostAddress());
+                    onDifferentSubnet = false;
+                    break;
                 }
-                else {
-                    // Add to end of lists
-                    clientIpOrderedSet.add(clientIps.get(i));
-                    serverIpOrderedSet.add(iAddr.getAddress().getHostAddress());
-                }
+            }
+
+            if (onDifferentSubnet) {
+                // On different subnet, so add to end of list
+                serverIpOrderedSet.add(iAddr.getAddress().getHostAddress());
             }
         }
     }
+
 
 
     /**
