@@ -968,23 +968,25 @@ System.out.println("RC connect: SUCCESSFUL");
         matcher = pattern.matcher(remainder);
         if (matcher.find()) {
             specifiedLocalIp = matcher.group(1);
-            try {
-                // This may only be a local IP address. If not, throw exception:
-                if (!cMsgUtilities.isHostLocal(specifiedLocalIp)) {
-                    throw new cMsgException("parseUDL: " + specifiedLocalIp +
-                                            " must be a valid local IP address");
-                }
 
+            // This may only be a local IP address. If not, throw exception:
+            if (!cMsgUtilities.isHostLocal(specifiedLocalIp)) {
+                throw new cMsgException("parseUDL: " + specifiedLocalIp +
+                                        " must be a valid local IP address");
+            }
+
+            try {
                 // Get related broadcast addr. Will also check if in dot-decimal format
                 specifiedLocalSubnet = cMsgUtilities.getBroadcastAddress(specifiedLocalIp);
-                // If subnet address cannot be found, forget it ...
-                if (specifiedLocalSubnet == null) {
-                    throw new cMsgException("parseUDL: cannot find the subnet address " +
-                                            "corresponding to " + specifiedLocalIp);
-                }
             }
             catch (cMsgException e) {
                 throw new cMsgException("parseUDL: ip address not in dot-decimal format");
+            }
+
+            // If subnet address cannot be found, forget it ...
+            if (specifiedLocalSubnet == null) {
+                throw new cMsgException("parseUDL: cannot find the subnet address " +
+                                        "corresponding to " + specifiedLocalIp);
             }
 //System.out.println("IP = " + specifiedLocalIp + ", subnet IP = " + specifiedLocalSubnet);
         }
