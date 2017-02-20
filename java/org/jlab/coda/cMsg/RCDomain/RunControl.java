@@ -969,20 +969,22 @@ System.out.println("RC connect: SUCCESSFUL");
         if (matcher.find()) {
             specifiedLocalIp = matcher.group(1);
             try {
+                // This may only be a local IP address. If not, throw exception:
+                if (!cMsgUtilities.isHostLocal(specifiedLocalIp)) {
+                    throw new cMsgException("parseUDL: " + specifiedLocalIp +
+                                            " must be a valid local IP address");
+                }
+
                 // Get related broadcast addr. Will also check if in dot-decimal format
                 specifiedLocalSubnet = cMsgUtilities.getBroadcastAddress(specifiedLocalIp);
-                // If not local, forget it ...
+                // If subnet address cannot be found, forget it ...
                 if (specifiedLocalSubnet == null) {
-                    specifiedLocalIp = null;
-                }
-                else if (specifiedLocalSubnet.equalsIgnoreCase(specifiedLocalIp)) {
-                    // User specified a broadcast address, so we can't use it
-                    specifiedLocalIp = specifiedLocalSubnet = null;
+                    throw new cMsgException("parseUDL: cannot find the subnet address " +
+                                            "corresponding to " + specifiedLocalIp);
                 }
             }
             catch (cMsgException e) {
-                // Not dot-decimal format
-                specifiedLocalIp = specifiedLocalSubnet = null;
+                throw new cMsgException("parseUDL: ip address not in dot-decimal format");
             }
 //System.out.println("IP = " + specifiedLocalIp + ", subnet IP = " + specifiedLocalSubnet);
         }
