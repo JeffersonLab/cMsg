@@ -369,6 +369,7 @@ int cmsg_rc_isConnected(void *domainId, int *connected) {
  *                            could not be created, or socket options could not be set.
  *                            
  * @returns CMSG_NETWORK_ERROR if host name in UDL or rc server's host could not be resolved, or
+ *                             specified ip addr in UDL is not local, or
  *                             no connection to the rc server can be made, or
  *                             a communication error with server occurs.
  */   
@@ -700,112 +701,128 @@ fprintf(stderr, "\ncmsg_rc_connect: bound to local port %d\n\n", localPort);
     /* send our list of presentation (dotted-decimal) IP addrs */
     {
         void *pAddrCount;
-        codaIpAddr *ipAddrs, *ipAddrNext;
-        uint32_t  strLen, netOrderInt, addrCount=0, useSpecifiedIp = 0, netOrderCounter;
+        codaIpAddr *ipAddrs;
+        uint32_t  strLen, netOrderInt, addrCount=0, netOrderCounter;
         
         err = codanetGetNetworkInfo(&ipAddrs, NULL);
-        ipAddrNext = ipAddrs;
-        
+
         /* If error getting address data, send nothing */
         if (err != CMSG_OK) {
-            /* send 0 */
-            *((int32_t *)(buffer + len)) = 0;
-            len += sizeof(int32_t);
+printf("rc connect: error, no local network info available\n");
+            close(domain->sendSocket);
+            cMsgRestoreSignals(domain);
+            pthread_cancel(domain->pendThread);
+            cMsgDomainFree(domain);
+            free(domain);
+            free(buffer);
+            free(servaddr);
+            if (ipForRcServer != NULL) free(ipForRcServer);
+            return(CMSG_NETWORK_ERROR);
         }
-        else {
-            /* keep pointer to place to write # of IP addresses */
-            pAddrCount = (void *) (buffer + len);
-            len += sizeof(int32_t);
 
-            /*
-              * If the user has already specified, in the UDL, which ip address for the
-              * rc server to use to connect back to this client, then scan the network
-              * info to check and see if it's a legitimate local address. If it is,
-              * then pick out its corresponding broadcast address as well. If it isn't
-              * just send everything from GetNetworkInfo.
-              */
-            if (ipForRcServer != NULL) {
-                while (ipAddrNext != NULL) {
-                    /* If user-supplied IP is a local address, we're good.
-                     * Use it as the only address to send. */
-                    if (strcmp((const char *) ipAddrNext->addr, ipForRcServer) == 0) {
-                        /* send len of IP addr */
-                        strLen = (uint32_t) strlen(ipAddrNext->addr);
-                        netOrderInt = htonl(strLen);
-                        memcpy(buffer + len, (const void *) &netOrderInt, sizeof(uint32_t));
-                        len += sizeof(uint32_t);
+        /* keep pointer to place to write # of IP addresses */
+        pAddrCount = (void *) (buffer + len);
+        len += sizeof(int32_t);
 
-                        /* send IP addr */
-                        memcpy(buffer + len, (const void *) ipAddrNext->addr, strLen);
-                        len += strLen;
-/*printf("rc connect: sending IP addr %s to rc multicast server\n", ipAddrNext->addr);*/
+        /*
+         * If the user has already specified, in the UDL, which ip address for the
+         * rc server to use to connect back to this client, then scan the network
+         * info to check and see if it's a legitimate local address. If it is,
+         * then pick out its corresponding broadcast address as well. If it isn't,
+         * error.
+         */
+        if (ipForRcServer != NULL) {
+            int foundLocalAddressMatch = 0;
 
-                        /* send len of broadcast addr */
-                        strLen = (uint32_t)strlen(ipAddrNext->broadcast);
-                        netOrderInt = htonl(strLen);
-                        memcpy(buffer + len, (const void *) &netOrderInt, sizeof(uint32_t));
-                        len += sizeof(uint32_t);
-
-                        /* send broadcast addr */
-                        memcpy(buffer + len, (const void *) ipAddrNext->broadcast, strLen);
-                        len += strLen;
-
-                        addrCount = 1;
-                        useSpecifiedIp = 1;
-
-                        break;
-                    }
-
-                    ipAddrNext = ipAddrNext->next;
-                }
-            }
-
-            /* If we have not used the single, user-specified-in-UDL value
-             * for our ip address, send everything */
-            if (!useSpecifiedIp) {
-                /* re initialize for second search thru network info */
-                ipAddrNext = ipAddrs;
-
-                while (ipAddrNext != NULL) {
+            while (ipAddrs != NULL) {
+                /* If user-supplied IP is a local address, we're good.
+                 * Use it as the only address to send. */
+                if (strcmp((const char *) ipAddrs->addr, ipForRcServer) == 0) {
                     /* send len of IP addr */
-                    strLen = (uint32_t) strlen(ipAddrNext->addr);
+                    strLen = (uint32_t) strlen(ipAddrs->addr);
                     netOrderInt = htonl(strLen);
-                    memcpy(buffer + len, (const void *) &netOrderInt, sizeof(int32_t));
-                    len += sizeof(int32_t);
+                    memcpy(buffer + len, (const void *) &netOrderInt, sizeof(uint32_t));
+                    len += sizeof(uint32_t);
 
                     /* send IP addr */
-                    memcpy(buffer + len, (const void *) ipAddrNext->addr, strLen);
+                    memcpy(buffer + len, (const void *) ipAddrs->addr, strLen);
                     len += strLen;
 /*printf("rc connect: sending IP addr %s to rc multicast server\n", ipAddrNext->addr);*/
 
                     /* send len of broadcast addr */
-                    strLen =(uint32_t)  strlen(ipAddrNext->broadcast);
+                    strLen = (uint32_t)strlen(ipAddrs->broadcast);
                     netOrderInt = htonl(strLen);
-                    memcpy(buffer + len, (const void *) &netOrderInt, sizeof(int32_t));
-                    len += sizeof(int32_t);
+                    memcpy(buffer + len, (const void *) &netOrderInt, sizeof(uint32_t));
+                    len += sizeof(uint32_t);
 
                     /* send broadcast addr */
-                    memcpy(buffer + len, (const void *) ipAddrNext->broadcast, strLen);
+                    memcpy(buffer + len, (const void *) ipAddrs->broadcast, strLen);
                     len += strLen;
-/*printf("rc connect: sending broadcast addr %s to rc multicast server\n", ipAddrNext->broadcast);*/
 
-                    addrCount++;
-                    ipAddrNext = ipAddrNext->next;
+                    addrCount = 1;
+                    foundLocalAddressMatch = 1;
+
+                    break;
                 }
+
+                ipAddrs = ipAddrs->next;
             }
 
-            /* now write out how many addrs are coming next */
-            netOrderInt = htonl(addrCount);
-            memcpy(pAddrCount, (const void *)&netOrderInt, sizeof(int32_t));
-
-            /* Add counter to end of data in order to track how many multicast packets are sent */
-            netOrderCounter = htonl(1);
-            memcpy(buffer + len, (const void *) &netOrderCounter, sizeof(uint32_t));
-            len += sizeof(uint32_t);
-
-            /* free up mem */
-            codanetFreeIpAddrs(ipAddrs);
+            if (!foundLocalAddressMatch) {
+printf("rc connect: error, IP addr %s is not local\n", ipForRcServer);
+                close(domain->sendSocket);
+                cMsgRestoreSignals(domain);
+                pthread_cancel(domain->pendThread);
+                cMsgDomainFree(domain);
+                free(domain);
+                free(buffer);
+                free(servaddr);
+                return(CMSG_NETWORK_ERROR);
+            }
         }
+
+        /* If we have not used the single, user-specified-in-UDL value
+         * for our ip address, send everything */
+        else {
+            while (ipAddrs != NULL) {
+                /* send len of IP addr */
+                strLen = (uint32_t) strlen(ipAddrs->addr);
+                netOrderInt = htonl(strLen);
+                memcpy(buffer + len, (const void *) &netOrderInt, sizeof(int32_t));
+                len += sizeof(int32_t);
+
+                /* send IP addr */
+                memcpy(buffer + len, (const void *) ipAddrs->addr, strLen);
+                len += strLen;
+/*printf("rc connect: sending IP addr %s to rc multicast server\n", ipAddrNext->addr);*/
+
+                /* send len of broadcast addr */
+                strLen =(uint32_t)  strlen(ipAddrs->broadcast);
+                netOrderInt = htonl(strLen);
+                memcpy(buffer + len, (const void *) &netOrderInt, sizeof(int32_t));
+                len += sizeof(int32_t);
+
+                /* send broadcast addr */
+                memcpy(buffer + len, (const void *) ipAddrs->broadcast, strLen);
+                len += strLen;
+/*printf("rc connect: sending broadcast addr %s to rc multicast server\n", ipAddrNext->broadcast);*/
+
+                addrCount++;
+                ipAddrs = ipAddrs->next;
+            }
+        }
+
+        /* now write out how many addrs are coming next */
+        netOrderInt = htonl(addrCount);
+        memcpy(pAddrCount, (const void *)&netOrderInt, sizeof(int32_t));
+
+        /* Add counter to end of data in order to track how many multicast packets are sent */
+        netOrderCounter = htonl(1);
+        memcpy(buffer + len, (const void *) &netOrderCounter, sizeof(uint32_t));
+        len += sizeof(uint32_t);
+
+        /* free up mem */
+        codanetFreeIpAddrs(ipAddrs);
     }
 
     if (ipForRcServer != NULL) free(ipForRcServer);
