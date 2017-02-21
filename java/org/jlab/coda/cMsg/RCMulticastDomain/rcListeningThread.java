@@ -469,12 +469,6 @@ System.out.println("RC multicast listener: got client packet #" + packetCounter)
                     catch (cMsgException e) {/* never happen */}
                 }
 
-//                try {
-//                    cMsgPayloadItem pItem = new cMsgPayloadItem("fixedIp", fixedIp);
-//                    msg.addPayloadItem(pItem);
-//                }
-//                catch (cMsgException e) {/* never happen */}
-
                 try {
                     cMsgPayloadItem pItem = new cMsgPayloadItem("SenderId", senderId);
                     msg.addPayloadItem(pItem);
