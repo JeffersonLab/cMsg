@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.2)
-project(cMsg_5_1)
+project(cMsg_5_2)
 
 include_directories($ENV{CODA}/common/include)
 
@@ -18,12 +18,9 @@ set(SOURCE_FILES
     src/examples/monitor.c
     src/examples/producer.c
     src/examples/shutdowner.c
-    src/examples/vxconsumer.c
-    src/examples/vxproducer.c
 
     src/execsrc/cMsgCommand.cc
     src/execsrc/cMsgMonitor.cc
-    src/execsrc/vxCmsgExecutor.c
 
     src/libsrc/cMsg.h
     src/libsrc/cMsgCommonNetwork.h
@@ -54,7 +51,6 @@ set(SOURCE_FILES
     src/libsrc/rcDomain.c
     src/libsrc/rcDomainListenThread.c
     src/libsrc/rwlock.c
-    src/libsrc/sunConcurrency.c
 
     src/libsrc++/cMsg.hxx
     src/libsrc++/cMsgPrivate.hxx
@@ -80,4 +76,4 @@ set(SOURCE_FILES
     src/test/cpptest.cc
     src/test/rcClient.c)
 
-add_executable(cMsg_5_1 ${SOURCE_FILES})
+add_executable(cMsg_5_2 ${SOURCE_FILES})
