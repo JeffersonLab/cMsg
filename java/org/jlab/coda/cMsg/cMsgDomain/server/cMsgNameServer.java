@@ -1808,8 +1808,8 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
             // about other servers in the cloud
             replyToServerClient();
 
-            // client should respond by making 2 connections to domain server (20 sec timeout)
-            if (!connectionHandler.gotConnections(info, 20)) {
+            // client should respond by making 2 connections to domain server (120 sec timeout)
+            if (!connectionHandler.gotConnections(info, 120)) {
                 // failed to get proper connections from server client, so abort
                 throw new cMsgException("server client did not make connections to domain server");
             }
@@ -2207,8 +2207,8 @@ System.out.println(">> NS: Connection NOT allowed so wait up to 5 sec for connec
             // send client info about domain server
             sendClientConnectionInfo(info, subdomainHandler);
 
-            // client should respond by making 2 connections to domain server (20 sec timeout)
-            if (!connectionHandler.gotConnections(info, 20)) {
+            // client should respond by making 2 connections to domain server (120 sec timeout)
+            if (!connectionHandler.gotConnections(info, 120)) {
 //System.out.println("registerClient: took too long (> 20 sec) for client to make 2 connections to server");
                 // failed to get proper connections from client, so abort
                 subdomainHandler.handleClientShutdown();
