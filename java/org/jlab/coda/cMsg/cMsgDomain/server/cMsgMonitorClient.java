@@ -65,7 +65,7 @@ class cMsgMonitorClient extends Thread {
     private final long updatePeriod = 2000;
 
     /** Time in milliseconds elapsed between client keepalives received before calling client dead. */
-    private final long deadTime = 15000;
+    private final long deadTime = 120000;
 
     /**
      * Do we send and read meaningful monitoring data (false)?
@@ -219,12 +219,17 @@ class cMsgMonitorClient extends Thread {
                 }
 //System.out.println("Done reading");
             }
+            catch (TimeoutException e) {
+                // Let the WriteMonitorData thread kill clients if there's been too long
+                // between reading. Since we cannot control whether a client writes,
+                // checking times from read to read may not work. Do this in write
+                // thread which is scheduled at a regular period.
+            }
             catch (cMsgException e) {
-                // during read: internal cMsg protocol error, or too many tries to read data
+                // during read: internal cMsg protocol error
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("cMsgMonitorClient: client " + cd.getName() +
-                            " has keepalive protocol error or took too long to read data at " +
-                             (new Date()));
+                            " took too long to read data");
                 }
 
                 dssObject = clients.get(cd);
@@ -250,8 +255,7 @@ class cMsgMonitorClient extends Thread {
                 // socket & therefore client dead
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("cMsgMonitorClient: IO error, client " +
-                            cd.getName() + " is dead at " +
-                            (new Date()));
+                            cd.getName() + " protocol error or is dead");
                 }
 
                 dssObject = clients.get(cd);
@@ -392,12 +396,12 @@ class cMsgMonitorClient extends Thread {
      * @param returnOnZero  return immediately if read returns 0 bytes
      *
      * @return number of bytes read
-     * @throws cMsgException if too many tries used to read all the data
-     * @throws IOException   if channel is closed or cannot be read from
+     * @throws TimeoutException if timed out trying to read all the data
+     * @throws IOException      if channel is closed or cannot be read from
      */
     private int readSocketBytes(ByteBuffer buffer, SocketChannel channel, int bytes,
                                 int timeout, boolean returnOnZero)
-            throws cMsgException, IOException {
+            throws TimeoutException, IOException {
 
         if (bytes <= 0) return 0;
 
@@ -428,7 +432,7 @@ class cMsgMonitorClient extends Thread {
                     System.out.println("    readSocketBytes: timed out, read " + count +
                             " out of " + bytes + " bytes");
                 }
-                throw new cMsgException("readSocketBytes: timed out trying to read " + bytes +
+                throw new TimeoutException("readSocketBytes: timed out trying to read " + bytes +
                         " bytes, read only " + count);
             }
 
@@ -471,10 +475,12 @@ class cMsgMonitorClient extends Thread {
      *
      * @param cd             client data object
      * @param timeout        time to wait (milliseconds) for read to complete before throwing exception
-     * @throws cMsgException if timeout while trying to read all the data or internal protocol error
-     * @throws IOException   if channel is closed or cannot be read from
+     * @throws TimeoutException if timeout while trying to read all the data
+     * @throws cMsgException    if internal protocol error
+     * @throws IOException      if channel is closed or cannot be read from
      */
-    private void readMonitorInfo(cMsgClientData cd, int timeout) throws cMsgException, IOException {
+    private void readMonitorInfo(cMsgClientData cd, int timeout)
+            throws TimeoutException, cMsgException, IOException {
 
         // read as much as possible, since we don't want keepalive signals to pile up
         while (true) {
@@ -562,8 +568,8 @@ class cMsgMonitorClient extends Thread {
                     throw new IOException("Keepalive channel to client is closed");
                 }
 
-                // print warning every second or so
-                if  (++tries%100 == 0) {
+                // print warning every 10 second or so
+                if  (++tries%1000 == 0) {
                     System.out.println("writeMonitorInfo: monitor data write not finished" );
                 }
 
