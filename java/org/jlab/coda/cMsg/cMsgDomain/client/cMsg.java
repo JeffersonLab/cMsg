@@ -3927,20 +3927,20 @@ System.out.println("disconnect: IO error");
             byte[] bytes = new byte[4096];
             int len = in.readInt();
 //if (len > 200000)
-//System.out.println("\n  111111 Try to allocate " + len + " bytes for getMonitorInfo() 111111\n");
+//System.out.println("\n  ***** Try to allocate " + len + " bytes for getMonitorInfo() *****\n");
 //System.out.println("  getMonitorInfo: len xml = " + len);
             if (len > 0) {
                 // read all monitor data string
                 if (len > bytes.length) bytes = new byte[len];
                 in.readFully(bytes, 0, len);
                 monitorXML = new String(bytes, 0, len, "US-ASCII");
-//System.out.println("  getMonitorInfo:  read KA from server (len = " + monitorXML.length() + "):");
+//System.out.println("  getMonitorInfo:");
 //System.out.println(monitorXML);
             }
 
             int itemsToFollow = in.readInt();
 //if (itemsToFollow > 2000)
-//System.out.println("\n  121212 " + itemsToFollow + " items to follow 121212\n");
+//System.out.println("\n  ***** " + itemsToFollow + " items to follow *****\n");
 
             if (itemsToFollow > 0) {
 
