@@ -122,7 +122,7 @@ public class cMsgMonitor {
         while (true) {
             msg = coda.monitor(null);
             if (msg == null) continue;
-            System.out.println("GOT MESSAGE: has payload = " + msg.hasPayload());
+//System.out.println("GOT MESSAGE: has payload = " + msg.hasPayload());
             Map<String, cMsgPayloadItem> map = msg.getPayloadItems();
             Set<Map.Entry<String, cMsgPayloadItem>> set = map.entrySet();
             for (Map.Entry<String, cMsgPayloadItem> entry : set) {
@@ -137,10 +137,13 @@ public class cMsgMonitor {
                     System.out.println("  " + ip);
                 }
             }
-            else {
-                System.out.println("\nPlatform is on unknown host");
-            }
+//            else {
+//                System.out.println("\nPlatform is on unknown host");
+//            }
 
+            System.out.println("monitor message:\n" + msg.getText());
+
+            System.out.println("********************************\n");
             // wait
             try { Thread.sleep(period); }
             catch (InterruptedException e) {}
