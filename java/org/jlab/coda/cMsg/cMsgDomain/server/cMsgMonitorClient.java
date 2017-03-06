@@ -229,7 +229,7 @@ class cMsgMonitorClient extends Thread {
                 // during read: internal cMsg protocol error
                 if (debug >= cMsgConstants.debugError) {
                     System.out.println("cMsgMonitorClient: client " + cd.getName() +
-                            " took too long to read data");
+                                       " internal protocol error");
                 }
 
                 dssObject = clients.get(cd);
@@ -559,7 +559,7 @@ class cMsgMonitorClient extends Thread {
         int bytesWritten = 0, totalBytesWritten = 0, tries = 0;
 
         while (outBuf.hasRemaining()) {
-//System.out.println("Write KA info to " + cd.getName());
+//System.out.println("Write " + outBuf.remaining() + " bytes of KA info to " + cd.getName());
             bytesWritten = cd.keepAliveChannel.write(outBuf);
             totalBytesWritten += bytesWritten;
 
@@ -576,7 +576,7 @@ class cMsgMonitorClient extends Thread {
                 try { Thread.sleep(10); }
                 catch (InterruptedException e) {}
             }
-//System.out.println("cMsgMonitorClient: read " + totalBytesWritten + " bytes for " + cd.getName() );
+//System.out.println("cMsgMonitorClient: wrote " + totalBytesWritten + " bytes for " + cd.getName() );
         }
     }
 
@@ -609,6 +609,7 @@ class cMsgMonitorClient extends Thread {
 
                 // for each go-round, send updated monitoring info
                 if (!monitoringOff) {
+//System.out.println("Filling the send buffers");
                     fillSendBuffers();
                 }
 
