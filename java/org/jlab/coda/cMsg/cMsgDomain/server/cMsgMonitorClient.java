@@ -625,7 +625,10 @@ class cMsgMonitorClient extends Thread {
                         writeMonitorInfo(cd, cd.isServer());
 
                         // check for non-responding client
-                        if (clientDead(cd)) {
+                        //if (clientDead(cd)) {
+
+                        // Turn off deleting nonresponsive client
+                        if (false) {
                             // do something
                             if (debug >= cMsgConstants.debugError) {
                                 System.out.println("cMsgMonitorClient: client " + cd.getName() +
