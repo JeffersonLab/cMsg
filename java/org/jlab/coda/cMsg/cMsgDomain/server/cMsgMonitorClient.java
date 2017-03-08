@@ -568,9 +568,11 @@ class cMsgMonitorClient extends Thread {
                     throw new IOException("Keepalive channel to client is closed");
                 }
 
-                // print warning every 10 second or so
+                // print warning
                 if  (++tries%1000 == 0) {
-                    System.out.println("writeMonitorInfo: monitor data write not finished" );
+                    System.out.println("writeMonitorInfo: monitor data write to " +
+                                               cd.getName() + " cannot finish, try later" );
+                    return;
                 }
 
                 try { Thread.sleep(10); }
