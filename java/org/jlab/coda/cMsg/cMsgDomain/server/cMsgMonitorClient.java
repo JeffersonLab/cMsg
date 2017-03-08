@@ -547,8 +547,12 @@ class cMsgMonitorClient extends Thread {
             outBuf = outBuffer;
         }
 
-        // get outBuffer ready for writing
-        outBuf.rewind();
+        // Get outBuffer ready for writing.
+        // If it tried to write before but could not finish,
+        // start up where we left off last time.
+        if (!outBuf.hasRemaining()) {
+            outBuf.rewind();
+        }
 
         // Write monitor info to client.
         // NOTE: If vxworks client, its death will not be detected when
