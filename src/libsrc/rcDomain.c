@@ -1058,8 +1058,8 @@ static void *multicastThd(void *arg) {
     int i, err, useDefaultIf=0, count;
     thdArg *threadArg = (thdArg *) arg;
     struct timespec  wait = {0, 100000000}; /* 0.1 sec */
-    struct timespec delay = {0, 100000000}; /* 0.1 sec */
-    struct timespec betweenRounds = {0, 400000000}; /* 0.4 sec */
+    struct timespec delay = {0, 200000000}; /* 0.2 sec */
+    struct timespec betweenRounds = {1, 0}; /* 1.0 sec */
     char *buffer  = threadArg->buffer;
     int bufferLen = threadArg->bufferLen;
     uint32_t packetCounter = 1, netOrderCounter;
@@ -1104,8 +1104,6 @@ static void *multicastThd(void *arg) {
     pthread_cleanup_push(cleanUpHandler, (void *)pfreeMem);
 
     while (1) {
-        int sleepCount = 0;
-
         if (useDefaultIf) {
             sendto(threadArg->sockfd, (void *)buffer, bufferLen, 0,
                    (SA *) threadArg->paddr, threadArg->len);
@@ -1134,16 +1132,15 @@ printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
                 buffer[counterOffset+2] = (char)(netOrderCounter >>  8);
                 buffer[counterOffset+3] = (char)(netOrderCounter      );
 
-                /* Wait 1/2 second between multicasting on each interface */
-                nanosleep(&delay, NULL);
-                sleepCount++;
+                /* Wait 0.2 second between multicasting on each interface */
+                if (count > 1 && i < (count - 1)) {
+                    nanosleep(&delay, NULL);
+                }
             }
         }
 
-        if (sleepCount < 1) {
-            nanosleep(&betweenRounds, NULL);
-            /*sleep(1);*/
-        }
+        /* Wait 1 second between rounds */
+        nanosleep(&betweenRounds, NULL);
     }
     
  printf("Send multicast: exiting!\n");
