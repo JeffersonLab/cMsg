@@ -73,6 +73,7 @@ int main(int argc, char **argv) {
     m.add("array",inta,sizeof(inta)/sizeof(uint16_t));
 
     uint16_t *ia = m.getUint16Array(string("array"));
+    cout << "print out unsigned short array:\n";
     for(int i=0; i<10; i++) cout << ia[i] << "   ";
     cout << endl;
 
