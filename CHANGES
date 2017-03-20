@@ -116,6 +116,10 @@ Version 5.1
       byte array
     - back port fix of protocol of messages sent to check for other rc multicast servers
       (bug introduced v 5.1, fixed here 11/7/16)
+    - change behavior of cMsgMonitorClient so that if server cannot write keep alive
+      info to client, that client is not removed, but is skipped over until the next
+      round. Communication is picked up where it was left off in the next round.
+
 
     C
     - back port of bug fix parsing emu domain UDL (11/8/16)
