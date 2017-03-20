@@ -1126,11 +1126,11 @@ printf("RC client: sending packet #%u over %s\n", packetCounter, ifNames[i]);
                              (SA *) threadArg->paddr, threadArg->len);
 
                 packetCounter++;
-                netOrderCounter = htonl(packetCounter);
-                buffer[counterOffset  ] = (char)(netOrderCounter >> 24);
-                buffer[counterOffset+1] = (char)(netOrderCounter >> 16);
-                buffer[counterOffset+2] = (char)(netOrderCounter >>  8);
-                buffer[counterOffset+3] = (char)(netOrderCounter      );
+                /* Send in network byte order which is big end first */
+                buffer[counterOffset  ] = (char)(packetCounter >> 24);
+                buffer[counterOffset+1] = (char)(packetCounter >> 16);
+                buffer[counterOffset+2] = (char)(packetCounter >>  8);
+                buffer[counterOffset+3] = (char)(packetCounter      );
 
                 /* Wait 0.2 second between multicasting on each interface */
                 if (count > 1 && i < (count - 1)) {
