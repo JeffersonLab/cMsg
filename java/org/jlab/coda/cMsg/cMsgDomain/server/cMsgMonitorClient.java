@@ -101,6 +101,22 @@ class cMsgMonitorClient extends Thread {
     volatile private boolean killThreads;
 
 
+    /**
+     * Copy a buffer.
+     * @param original  buffer to copy or source
+     * @return    copied buffer or destination
+     */
+    public static ByteBuffer copyBuffer(ByteBuffer original) {
+        int pos = original.position();
+        int lim = original.limit();
+        ByteBuffer clone = ByteBuffer.allocateDirect(original.capacity());
+        original.rewind();//copy from the beginning
+        clone.put(original);
+        clone.position(pos).limit(lim);
+        return clone;
+    }
+
+
     /** Shuts down all client monitoring threads. */
     void shutdown() {
         readingThreadPool.shutdownNow();
@@ -540,19 +556,18 @@ class cMsgMonitorClient extends Thread {
 
         ByteBuffer outBuf;
 
-        if (isServer) {
+        if (cd.kaBuffer != null) {
+            outBuf = cd.kaBuffer;
+        }
+        else if (isServer) {
             outBuf = outBuffer2;
+            outBuf.rewind();
         }
         else {
             outBuf = outBuffer;
-        }
-
-        // Get outBuffer ready for writing.
-        // If it tried to write before but could not finish,
-        // start up where we left off last time.
-        if (!outBuf.hasRemaining()) {
             outBuf.rewind();
         }
+
 
         // Write monitor info to client.
         // NOTE: If vxworks client, its death will not be detected when
@@ -560,10 +575,10 @@ class cMsgMonitorClient extends Thread {
         // todo: writing should always work unless socket buffer full -
         // todo: which should not be the case for monitoring communications
 
-        int bytesWritten = 0, totalBytesWritten = 0, tries = 0;
+        int bytesWritten, totalBytesWritten = 0, tries = 0;
 
         while (outBuf.hasRemaining()) {
-//System.out.println("Write " + outBuf.remaining() + " bytes of KA info to " + cd.getName());
+//System.out.println("Write KA info to " + cd.getName());
             bytesWritten = cd.keepAliveChannel.write(outBuf);
             totalBytesWritten += bytesWritten;
 
@@ -576,14 +591,19 @@ class cMsgMonitorClient extends Thread {
                 if  (++tries%1000 == 0) {
                     System.out.println("writeMonitorInfo: monitor data write to " +
                                                cd.getName() + " cannot finish, try later" );
+                    if (cd.kaBuffer == null) {
+                        cd.kaBuffer = copyBuffer(outBuf);
+                    }
                     return;
                 }
 
                 try { Thread.sleep(10); }
                 catch (InterruptedException e) {}
             }
-//System.out.println("cMsgMonitorClient: wrote " + totalBytesWritten + " bytes for " + cd.getName() );
+//System.out.println("cMsgMonitorClient: read " + totalBytesWritten + " bytes for " + cd.getName() );
         }
+
+        cd.kaBuffer = null;
     }
 
 

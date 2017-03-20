@@ -70,6 +70,8 @@ class cMsgClientData extends cMsgClientInfo {
     /** Direct buffer for reading TCP nonblocking IO. */
     ByteBuffer buffer = ByteBuffer.allocateDirect(16384);
 
+    /** Buffer for sending keep-alive/monitoring info to this client if there are "issues". */
+    ByteBuffer kaBuffer;
 
 
 
