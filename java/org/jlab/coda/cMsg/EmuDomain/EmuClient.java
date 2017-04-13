@@ -21,6 +21,7 @@ import org.jlab.coda.cMsg.common.cMsgDomainAdapter;
 
 import java.io.*;
 import java.net.*;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -254,6 +255,7 @@ public class EmuClient extends cMsgDomainAdapter {
                     tcpSocket = new Socket();
                     tcpSocket.setTcpNoDelay(tcpNoDelay);
                     tcpSocket.setSendBufferSize(tcpSendBufferSize);
+                    tcpSocket.setPerformancePreferences(0,0,1);
                     // Bind this end of the socket to the preferred subnet
                     if (outgoingIp != null) {
                         try {
@@ -268,8 +270,7 @@ System.out.println("      Emu connect: tried but FAILED to bind outgoing data to
                     // Don't waste time if a connection can't be made, timeout = 0.2 sec
                     tcpSocket.connect(new InetSocketAddress(ip, tcpServerPort), 200);
 
-                    domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream(),
-                                                                              cMsgNetworkConstants.bigBufferSize));
+                    domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream()));
 System.out.println("      Emu connect: Made TCP connection to host = " +
                    ip + "; port = " + tcpServerPort);
                     serverIp = ip;
@@ -559,19 +560,21 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
 
             // Type of message is in 1st (lowest) byte.
             // Source (Emu's EventType) of message is in 2nd byte.
-            domainOut.writeInt(message.getUserInt());
-//System.out.println("send: cmd int = 0x" + Integer.toHexString(message.getUserInt()));
+            //domainOut.writeInt(message.getUserInt());
+//System.out.println("emu client send: cmd int = 0x" + Integer.toHexString(message.getUserInt()));
             // Total length of binary (not including this int)
-            domainOut.writeInt(binaryLength);
-//System.out.println("send: bin len = 0x" + Integer.toHexString(binaryLength) + ", " +
+            //domainOut.writeInt(binaryLength);
+//System.out.println("emu client send: bin len = 0x" + Integer.toHexString(binaryLength) + ", " +
 //                           binaryLength);
+            domainOut.writeLong((long)message.getUserInt() << 32L | (binaryLength & 0xffffffffL));
 
             // Write byte array
             try {
                 if (binaryLength > 0) {
-//System.out.println("send: bin len = offset = " + message.getByteArrayOffset());
-//                    Utilities.printBuffer(ByteBuffer.wrap(message.getByteArray()),
-//                                          message.getByteArrayOffset(),binaryLength/4, "sending bytes");
+//System.out.println("emu client send: bin len = offset = " + message.getByteArrayOffset());
+//                    cMsgUtilities.printBuffer(ByteBuffer.wrap(message.getByteArray()),
+//                                              message.getByteArrayOffset(),
+//                                              30, "cMsg sending bytes");
                     domainOut.write(message.getByteArray(),
                                     message.getByteArrayOffset(),
                                     binaryLength);
