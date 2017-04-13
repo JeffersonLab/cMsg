@@ -17,6 +17,7 @@
 package org.jlab.coda.cMsg;
 
 import java.net.*;
+import java.nio.IntBuffer;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.ByteChannel;
 import java.nio.ByteBuffer;
@@ -104,6 +105,46 @@ public class cMsgUtilities {
                 ((b[off+6]&0xffL) <<  8) |
                  (b[off+7]&0xffL));
     }
+
+
+    /**
+     * This method takes a byte buffer and prints out the desired number of words
+     * from the given position. Will <b>not</b> print out the extra 1, 2, or 3
+     * bytes left at the end of the buffer.
+     *
+     * @param buf       buffer to print out
+     * @param position  position of data (bytes) in buffer to start printing
+     * @param words     number of 32 bit words to print in hex
+     * @param label     a label to print as header
+     */
+    final static public void printBuffer(ByteBuffer buf, int position, int words, String label) {
+
+        if (buf == null) {
+            System.out.println("printBuffer: buf arg is null");
+            return;
+        }
+
+        int origPos = buf.position();
+        buf.position(position);
+
+        if (label != null) System.out.println(label + ":");
+
+        IntBuffer ibuf = buf.asIntBuffer();
+        words = words > ibuf.capacity() ? ibuf.capacity() : words;
+        for (int i=0; i < words; i++) {
+            if (i%5 == 0) {
+                System.out.print("\n  Buf(" + (i + 1) + "-" + (i + 5) + ") =  ");
+            }
+
+            System.out.print(String.format("%08x", ibuf.get(i)) + "  ");
+        }
+        System.out.println();
+        System.out.println();
+
+        buf.position(origPos);
+   }
+
+
 
 
     /**
