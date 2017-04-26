@@ -74,9 +74,9 @@ extern "C" {
     } while (0)
 
 /** Major version number. */
-#define CMSG_VERSION_MAJOR 5
+#define CMSG_VERSION_MAJOR 6
 /** Minor version number. */
-#define CMSG_VERSION_MINOR 2
+#define CMSG_VERSION_MINOR 0
 
 /** The maximum number domain types that a client can connect to. */
 #define CMSG_MAX_DOMAIN_TYPES   20
