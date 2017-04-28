@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.2)
-project(cMsg_5_2)
+project(cMsg_6_0)
 
 include_directories($ENV{CODA}/common/include)
 
@@ -76,4 +76,4 @@ set(SOURCE_FILES
     src/test/cpptest.cc
     src/test/rcClient.c)
 
-add_executable(cMsg_5_2 ${SOURCE_FILES})
+add_executable(cMsg_6_0 ${SOURCE_FILES})
