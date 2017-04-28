@@ -196,8 +196,11 @@ typedef struct cMsgDomainInfo_t {
   int sendSocket;       /**< File descriptor for TCP socket to send/receive messages/requests on. */
   int sendUdpSocket;    /**< File descriptor for UDP socket to send messages on. */
   int keepAliveSocket;  /**< File descriptor for socket to tell if server is still alive or not. */
-  int receiveSocket;    /**< File descriptor for TCP socket to receive request responses on (rcDomain). */
+  int receiveSocket;    /**< File descriptor for TCP socket to receive request responses on (rc Domain). */
   int listenSocket;     /**< File descriptor for socket this program listens on for TCP connections (rc Domain). */
+  int sendSocketCount;  /**< Number of sending TCP sockets (emu Domain). */
+  int socketIndex;      /**< Index of next socket to send messsage over (emu Domain). */
+  int *sendSockets;     /**< Array of file descriptors for multiple TCP sockets that send messages (emu Domain). */
 
   int sendPort;         /**< Port to send messages to. */
   int sendUdpPort;      /**< Port to send messages to with UDP protocol. */

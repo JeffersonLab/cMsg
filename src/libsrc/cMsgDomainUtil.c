@@ -747,6 +747,9 @@ void cMsgDomainInit(cMsgDomainInfo *domain) {
   domain->killKAthread        = 0;
 
   domain->sendSocket          = 0;
+  domain->sendSockets         = NULL;
+  domain->socketIndex         = 0;
+  domain->sendSocketCount     = 1;
   domain->sendUdpSocket       = -1;
   domain->keepAliveSocket     = 0;
   domain->receiveSocket       = 0; /* rc domain only */
@@ -877,6 +880,7 @@ void cMsgDomainFree(cMsgDomainInfo *domain) {
   if (domain->msgBuffer      != NULL) {free(domain->msgBuffer);      domain->msgBuffer      = NULL;}
   if (domain->userXML        != NULL) {free(domain->userXML);        domain->userXML        = NULL;}
   if (domain->monitorXML     != NULL) {free(domain->monitorXML);     domain->monitorXML     = NULL;}
+  if (domain->sendSockets    != NULL) {free(domain->sendSockets);    domain->sendSockets    = NULL;}
 
   cMsgParsedUDLFree(&domain->currentUDL);
 
