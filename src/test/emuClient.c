@@ -52,7 +52,8 @@ int main(int argc,char **argv) {
      *</ol><p>
      */
 
-    char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10";
+    //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&sockets=1";
+    char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&sockets=2&subnet=172.19.10.255";
     /*char *UDL = "cMsg:emu://46100/emutest/PEB1?codaId=6&timeout=10&subnet=172.19.10.255";*/
 
     int   err, debug = 1;
@@ -109,16 +110,18 @@ int main(int argc,char **argv) {
 
     cMsgSetByteArrayNoCopy(msg, (char *)data, 4*11);
 
-    printf("Send message to emu server\n");
-    err = cMsgSend(domainId, msg);
-    if (err != CMSG_OK) {
-        printf("ERROR in sending message!!\n");
-        exit(-1);
+    printf("Send messages to emu server\n");
+
+    while (1) {
+        err = cMsgSend(domainId, msg);
+        if (err != CMSG_OK) {
+            printf("ERROR in sending message!!\n");
+            exit(-1);
+        }
     }
 
-
-    printf("Sleep for 10 sec\n");
-    sleep(10);
+    printf("Sleep for 3 sec\n");
+    sleep(3);
 
     cMsgDisconnect(&domainId);
 
