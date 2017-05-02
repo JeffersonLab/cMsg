@@ -1294,11 +1294,11 @@ int cMsgDisconnect(void **domainId) {
     int err;
     intptr_t    index; /* int the size of a ptr */
     cMsgDomain *domain;
-  
+
     if (domainId == NULL) return(CMSG_BAD_ARGUMENT);
     index = (intptr_t) *domainId;
     if (index < 0 || index > LOCAL_ARRAY_SIZE-1) return(CMSG_BAD_ARGUMENT);
-    
+
     generalMutexLock();
     domain = connectPointers[index];
     if (domain == NULL || domain->disconnectCalled) {
@@ -1311,7 +1311,7 @@ int cMsgDisconnect(void **domainId) {
            index, domain, domain->functionsRunning);
 */
     generalMutexUnlock();
-    
+
     if ( (err = domain->functions->disconnect(&domain->implId)) != CMSG_OK ) {
         generalMutexLock();
         domain->disconnectCalled = 0;
@@ -1320,7 +1320,7 @@ int cMsgDisconnect(void **domainId) {
     }
 
     cleanupAfterFunc((int)index);
-  
+
     /* make this id unusable from now on (copied id's will not be affected) */
     *domainId = (void *)(-1);
 
