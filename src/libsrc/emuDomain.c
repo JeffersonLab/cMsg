@@ -341,7 +341,6 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     struct timespec wait;
     struct sockaddr_in servaddr, localaddr;
 
-
     /* clear array */
     memset((void *)buffer, 0, 1024);
     
@@ -455,7 +454,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
         */
         return(err);
     }
-    
+
     /*
      * We send 4 items:
      *   1) Type of multicast (emu domain multicast from client),
@@ -513,7 +512,6 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     bArg.paddr     = &servaddr;
     bArg.buffer    = buffer;
     bArg.bufferLen = len;
-    
     status = pthread_create(&bThread, NULL, multicastThd, (void *)(&bArg));
     if (status != 0) {
         cmsg_err_abort(status, "Creating multicast sending thread");
@@ -531,11 +529,9 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
         wait.tv_sec  = multicastTO;
         wait.tv_nsec = 0;
 
-/*printf("emu connect: wait on latch for connect to finish in %d seconds\n", multicastTO);*/
         status = cMsgLatchAwait(&domain->syncLatch, &wait);
     }
     else {
-/*printf("emu connect: wait on latch FOREVER for connect to finish\n");*/
         status = cMsgLatchAwait(&domain->syncLatch, NULL);
     }
 
@@ -584,6 +580,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     }
 
     /* Try all IP addresses in list until one works */
+    ipList = orderedIpList;
     nextIp:
     while (orderedIpList != NULL) {
 
@@ -611,7 +608,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
                 else {
                     cMsgDomainFree(domain);
                     free(domain);
-                    codanetFreeAddrList(orderedIpList);
+                    codanetFreeAddrList(ipList);
                     return (err);
                 }
             }
@@ -728,8 +725,8 @@ static void *receiverThd(void *arg) {
         memcpy(ints, pbuf, sizeof(ints));
         pbuf += sizeof(ints);
 
-printf("receiverThd: packet from host %s on port %hu\n",
-                inet_ntoa(threadArg->addr.sin_addr), ntohs(threadArg->addr.sin_port));
+/*printf("receiverThd: packet from host %s on port %hu with %d bytes\n",
+                inet_ntoa(threadArg->addr.sin_addr), ntohs(threadArg->addr.sin_port), (int) len);*/
 
         magic[0] = ntohl((uint32_t)ints[0]);
         magic[1] = ntohl((uint32_t)ints[1]);
@@ -763,6 +760,7 @@ printf("receiverThd: packet from host %s on port %hu\n",
             continue;
         }
 
+/*printf("receiverThd: port = %d, # addrs = %d\n", port, addressCount);*/
         listHead = NULL;
 
         for (i=0; i < addressCount; i++) {
@@ -790,6 +788,7 @@ printf("receiverThd: packet from host %s on port %hu\n",
             memcpy(&ipLen, pbuf, sizeof(int));
             ipLen = ntohl((uint32_t)ipLen);
             pbuf += sizeof(int);
+/*printf("receiverThd: iplen = %d\n", ipLen);*/
 
             /* Check to see if IP address is the right size for dot-decimal format */
             if (ipLen < 7 || ipLen > 20) {
@@ -830,6 +829,7 @@ printf("receiverThd: packet from host %s on port %hu\n",
             memcpy(&ipLen, pbuf, sizeof(int));
             ipLen = ntohl((uint32_t)ipLen);
             pbuf += sizeof(int);
+/*printf("receiverThd: broadcast iplen = %d\n", ipLen);*/
 
             /* Check to see if address is the right size for dot-decimal format */
             if (ipLen < 7 || ipLen > 20) {
@@ -853,7 +853,7 @@ printf("receiverThd: packet from host %s on port %hu\n",
             listItem->bAddr[ipLen] = 0;
             pbuf += ipLen;
 
-printf("receiverThd: found ip = %s, broadcast = %s\n", listItem->addr, listItem->bAddr);
+/*printf("receiverThd: found ip = %s, broadcast = %s\n", listItem->addr, listItem->bAddr);*/
 
             /* Put address item into a list for later sorting */
             if (listHead == NULL) {
@@ -1289,7 +1289,7 @@ int cmsg_emu_disconnect(void **domainId) {
     domain->gotConnection = 0;
 
     /* close TCP sending sockets */
-    for (i=0; i < domain->sendSockets; i++) {
+    for (i=0; i < domain->sendSocketCount; i++) {
         close(domain->sendSockets[i]);
     }
 
@@ -1493,7 +1493,7 @@ static int parseUDL(const char *UDLR,
     index = 1;
     if (matches[index].rm_so < 0) {
         /* no match for port & NO DEFAULT as all EBs,ERs must be different from each other */
-printf("parseUDL: port required in UDL\n");
+/*printf("parseUDL: port required in UDL\n");*/
         free(udlRemainder);
         free(buffer);
         return (CMSG_BAD_FORMAT);
