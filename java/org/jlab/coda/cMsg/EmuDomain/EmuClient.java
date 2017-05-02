@@ -21,7 +21,6 @@ import org.jlab.coda.cMsg.common.cMsgDomainAdapter;
 
 import java.io.*;
 import java.net.*;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -36,7 +35,7 @@ import java.util.regex.Pattern;
  * @author Carl Timmer
  * @version 3.5
  */
-public class EmuClient extends cMsgDomainAdapter {
+public final class EmuClient extends cMsgDomainAdapter {
 
     /** Timeout in milliseconds to wait for emu server to respond to multicasts. */
     private int multicastTimeout = 3000;
@@ -59,11 +58,14 @@ public class EmuClient extends cMsgDomainAdapter {
     /** Socket over which to UDP multicast to and receive UDP packets from the server. */
     private MulticastSocket multicastUdpSocket;
 
-    /** Socket over which to send messages to the server over TCP. */
-    private Socket tcpSocket;
+    /** Number of sockets over which to send messages to the server over TCP. */
+    private int socketCount = 1;
 
-    /** Output TCP data stream from this client to the server. */
-    private DataOutputStream domainOut;
+    /** Sockets over which to send messages to the server over TCP. */
+    private Socket[] tcpSocket;
+
+    /** Output TCP data streams from this client to the server. */
+    private DataOutputStream[] domainOut;
 
     /** Signal to coordinate the multicasting and waiting for responses. */
     private CountDownLatch multicastResponse;
@@ -245,53 +247,80 @@ public class EmuClient extends cMsgDomainAdapter {
         // else return null.
         String outgoingIp = cMsgUtilities.getMatchingLocalIpAddress(preferredSubnet);
 
-        // Create a TCP connection to the Emu Server
+        // Create TCP connection(s) to the Emu Server
         IOException ioex = null;
-        boolean gotTcpConnection = false;
+
+        tcpSocket = new Socket[socketCount];
+        domainOut = new DataOutputStream[socketCount];
+        boolean gotAllConnections = true;
+        boolean[] gotTcpConnection = new boolean[socketCount];
 
         if (orderedIps != null && orderedIps.size() > 0) {
+            search:
             for (String ip : orderedIps) {
-                try {
-                    tcpSocket = new Socket();
-                    tcpSocket.setTcpNoDelay(tcpNoDelay);
-                    tcpSocket.setSendBufferSize(tcpSendBufferSize);
-                    tcpSocket.setPerformancePreferences(0,0,1);
-                    // Bind this end of the socket to the preferred subnet
-                    if (outgoingIp != null) {
-                        try {
-                            tcpSocket.bind(new InetSocketAddress(outgoingIp, 0));
+                for (int i=0; i < socketCount; i++) {
+                    try {
+                        tcpSocket[i] = new Socket();
+                        tcpSocket[i].setTcpNoDelay(tcpNoDelay);
+                        tcpSocket[i].setSendBufferSize(tcpSendBufferSize);
+                        tcpSocket[i].setPerformancePreferences(0,0,1);
+                        // Bind this end of the socket to the preferred subnet
+                        if (outgoingIp != null) {
+                            try {
+                                tcpSocket[i].bind(new InetSocketAddress(outgoingIp, 0));
 System.out.println("      Emu connect: bound outgoing data to " + outgoingIp);
-                        }
-                        catch (IOException e) {
-                            // If we cannot bind to this IP address, forget about it
+                            }
+                            catch (IOException e) {
+                                // If we cannot bind to this IP address, forget about it
 System.out.println("      Emu connect: tried but FAILED to bind outgoing data to " + outgoingIp);
+                            }
                         }
-                    }
-                    // Don't waste time if a connection can't be made, timeout = 0.2 sec
-                    tcpSocket.connect(new InetSocketAddress(ip, tcpServerPort), 200);
+                        // Don't waste time if a connection can't be made, timeout = 0.2 sec
+                        tcpSocket[i].connect(new InetSocketAddress(ip, tcpServerPort), 200);
 
-                    domainOut = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream()));
+                        domainOut[i] = new DataOutputStream(new BufferedOutputStream(tcpSocket[i].getOutputStream()));
 System.out.println("      Emu connect: Made TCP connection to host = " +
                    ip + "; port = " + tcpServerPort);
-                    serverIp = ip;
-                    gotTcpConnection = true;
-                    break;
-                }
-                catch (SocketTimeoutException e) {
-                    System.out.println("      Emu connect: connection TIMEOUT");
-                    ioex = e;
-                }
-                catch (IOException e) {
-                    System.out.println("      Emu connect: connection failed");
-                    ioex = e;
+                        serverIp = ip;
+                        gotTcpConnection[i] = true;
+
+                        // If last socket, we're done
+                        if (i == socketCount - 1) {
+                            break search;
+                        }
+                    }
+                    catch (SocketTimeoutException e) {
+                        System.out.println("      Emu connect: connection TIMEOUT");
+                        ioex = e;
+                    }
+                    catch (IOException e) {
+                        System.out.println("      Emu connect: connection failed");
+                        ioex = e;
+                    }
                 }
             }
         }
 
-        if (!gotTcpConnection) {
-            if (domainOut != null) try {domainOut.close();}  catch (IOException e1) {}
-            if (tcpSocket != null) try {tcpSocket.close();}  catch (IOException e1) {}
-            throw new cMsgException("Cannot make TCP connection to Emu server", ioex);
+        for (int i=0; i < socketCount; i++) {
+            gotAllConnections = gotAllConnections && gotTcpConnection[i];
+        }
+
+        if (!gotAllConnections) {
+            if (domainOut != null) {
+                for (int i=0; i < socketCount; i++) {
+                    try {domainOut[i].close();}
+                    catch (IOException e) {}
+                }
+            }
+
+            if (tcpSocket != null) {
+                for (int i=0; i < socketCount; i++) {
+                    try {tcpSocket[i].close();}
+                    catch (IOException e) {}
+                }
+            }
+            
+            throw new cMsgException("Cannot make all TCP connections to Emu server", ioex);
         }
 
         try {
@@ -311,16 +340,23 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
     /** Talk to emu server over TCP connection. */
     private void talkToServer() throws IOException {
         try {
-            // Send emu server some info
-            domainOut.writeInt(cMsgNetworkConstants.magicNumbers[0]);
-            domainOut.writeInt(cMsgNetworkConstants.magicNumbers[1]);
-            domainOut.writeInt(cMsgNetworkConstants.magicNumbers[2]);
+            for (int i=0; i < socketCount; i++) {
+                // Send emu server some info
+                domainOut[i].writeInt(cMsgNetworkConstants.magicNumbers[0]);
+                domainOut[i].writeInt(cMsgNetworkConstants.magicNumbers[1]);
+                domainOut[i].writeInt(cMsgNetworkConstants.magicNumbers[2]);
 
-            // version, coda id, buffer size, isBigEndian
-            domainOut.writeInt(cMsgConstants.version);
-            domainOut.writeInt(codaID);
-            domainOut.writeInt(maxSize);
-            domainOut.flush();
+                // Version, coda id, buffer size
+                domainOut[i].writeInt(cMsgConstants.version);
+                domainOut[i].writeInt(codaID);
+                domainOut[i].writeInt(maxSize);
+
+                // How many sockets, relative position of socket
+                domainOut[i].writeInt(socketCount);
+                domainOut[i].writeInt(i+1);
+                
+                domainOut[i].flush();
+            }
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -333,7 +369,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      *
      * Emu domain UDL is of the form:<p>
-     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&noDelay</b><p>
+     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&sockets=&lt;count&gt;&noDelay</b><p>
      *
      * Remember that for this domain:
      *<ol>
@@ -346,6 +382,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
      *<li>optional bufSize (max size in bytes of a single send) defaults to 2.1MB<p>
      *<li>optional tcpSend is the TCP send buffer size in bytes<p>
      *<li>optional subnet is the preferred subnet used to connect to server<p>
+     *<li>optional sockets is the number of TCP sockets to use when connecting to server<p>
      *<li>optional noDelay is the TCP no-delay parameter turned on<p>
      *</ol><p>
      *
@@ -495,6 +532,22 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
             }
         }
 
+        // now look for ?tcpSend=value or &tcpSend=value
+        pattern = Pattern.compile("[\\?&]sockets=([0-9]+)", Pattern.CASE_INSENSITIVE);
+        matcher = pattern.matcher(remainder);
+        if (matcher.find()) {
+            try {
+                socketCount = Integer.parseInt(matcher.group(1));
+                if (socketCount < 1) {
+                    socketCount = 1;
+                }
+//System.out.println("socket count = " + socketCount);
+            }
+            catch (NumberFormatException e) {
+                // ignore error and keep value of 1
+            }
+        }
+
         // now look for ?noDelay or &noDelay
         pattern = Pattern.compile("[\\?&]noDelay", Pattern.CASE_INSENSITIVE);
         matcher = pattern.matcher(remainder);
@@ -519,7 +572,9 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
      */
     public void flush(int timeout) throws cMsgException {
         try {
-            domainOut.flush();
+            for (int i=0; i < socketCount; i++) {
+                domainOut[i].flush();
+            }
         }
         catch (IOException e) {
             throw new cMsgException(e);
@@ -533,17 +588,19 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
      */
     public void disconnect() {
         if (!connected) return;
-
         connected = false;
-        try {domainOut.flush();} catch (IOException e) {}
+        for (int i=0; i < socketCount; i++) {
+            try {domainOut[i].flush();}  catch (IOException e) {}
+            try {tcpSocket[i].close();}  catch (IOException e) {}
+            try {domainOut[i].close();}  catch (IOException e) {}
+        }
         multicastUdpSocket.close();
-        try {tcpSocket.close();} catch (IOException e) {}
-        try {domainOut.close();} catch (IOException e) {}
     }
 
 
     /**
      * Method to send a message to the Emu domain server.
+     * If more than one socket is being used, alternate between them.
      *
      * @param message {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server;
@@ -551,6 +608,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
      */
     public void send(final cMsgMessage message) throws cMsgException {
 
+        int sendIndex = message.getSysMsgId();
         int binaryLength = message.getByteArrayLength();
 
         try {
@@ -558,32 +616,22 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
                 throw new IOException("not connected to server");
             }
 
-            // Type of message is in 1st (lowest) byte.
-            // Source (Emu's EventType) of message is in 2nd byte.
-            //domainOut.writeInt(message.getUserInt());
-//System.out.println("emu client send: cmd int = 0x" + Integer.toHexString(message.getUserInt()));
-            // Total length of binary (not including this int)
-            //domainOut.writeInt(binaryLength);
-//System.out.println("emu client send: bin len = 0x" + Integer.toHexString(binaryLength) + ", " +
-//                           binaryLength);
-            domainOut.writeLong((long)message.getUserInt() << 32L | (binaryLength & 0xffffffffL));
+            // Type of message is in 1st int.
+            // Total length of binary (not including this int) is in 2nd int
+            domainOut[sendIndex].writeLong((long)message.getUserInt() << 32L | (binaryLength & 0xffffffffL));
 
             // Write byte array
             try {
                 if (binaryLength > 0) {
-//System.out.println("emu client send: bin len = offset = " + message.getByteArrayOffset());
-//                    cMsgUtilities.printBuffer(ByteBuffer.wrap(message.getByteArray()),
-//                                              message.getByteArrayOffset(),
-//                                              30, "cMsg sending bytes");
-                    domainOut.write(message.getByteArray(),
-                                    message.getByteArrayOffset(),
-                                    binaryLength);
+                    domainOut[sendIndex].write(message.getByteArray(),
+                                               message.getByteArrayOffset(),
+                                               binaryLength);
                 }
             }
             catch (UnsupportedEncodingException e) {
             }
 
-            //domainOut.flush();
+            //domainOut[sendIndex].flush();
         }
         catch (IOException e) {
             e.printStackTrace();
@@ -606,7 +654,6 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
 
         public void run() {
 
-//System.out.println("Emu client " + name + ": STARTED multicast receiving thread");
             /* A slight delay here will help the main thread (calling connect)
              * to be already waiting for a response from the server when we
              * multicast to the server here (prompting that response). This
