@@ -600,7 +600,6 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
 
     /**
      * Method to send a message to the Emu domain server.
-     * If more than one socket is being used, alternate between them.
      *
      * @param message {@inheritDoc}
      * @throws cMsgException if there are communication problems with the server;
@@ -611,34 +610,30 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
         int sendIndex = message.getSysMsgId();
         int binaryLength = message.getByteArrayLength();
 
-        try {
-            if (!connected) {
-                throw new IOException("not connected to server");
-            }
+        if (!connected) {
+            throw new cMsgException("not connected to server");
+        }
 
+        try {
             // Type of message is in 1st int.
             // Total length of binary (not including this int) is in 2nd int
             domainOut[sendIndex].writeLong((long)message.getUserInt() << 32L | (binaryLength & 0xffffffffL));
 
             // Write byte array
-            try {
-                if (binaryLength > 0) {
-                    domainOut[sendIndex].write(message.getByteArray(),
-                                               message.getByteArrayOffset(),
-                                               binaryLength);
-                }
+            if (binaryLength > 0) {
+                domainOut[sendIndex].write(message.getByteArray(),
+                                           message.getByteArrayOffset(),
+                                           binaryLength);
             }
-            catch (UnsupportedEncodingException e) {
-            }
-
-            //domainOut[sendIndex].flush();
+        }
+        catch (UnsupportedEncodingException e) {
         }
         catch (IOException e) {
             e.printStackTrace();
             if (debug >= cMsgConstants.debugError) {
                 System.out.println("send: " + e.getMessage());
             }
-            throw new cMsgException(e.getMessage());
+            throw new cMsgException(e);
         }
     }
 
