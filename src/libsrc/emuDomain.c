@@ -14,23 +14,14 @@
  *             Fax:   (757) 269-5800             Newport News, VA 23606       *
  *                                                                            *
  *----------------------------------------------------------------------------*
- *
- *
- * Description:
- *
- *  Implements the emu domain used by CODA components - for communication between
- *  Rocs & Ebs and between Ebs and other Ebs. The idea is to avoid using ET
- *  systems to transfer data and use a simple socket.
- *
- *----------------------------------------------------------------------------*/
 
 /**
  * @file
  * This file contains the emu domain implementation of the cMsg user API.
  * This a messaging system programmed by the Data Acquisition Group at Jefferson
- * Lab. The emu domain allows CODA components between themselves - for for
+ * Lab. The emu domain allows CODA components between themselves - for
  * communication between Rocs & Ebs and between Ebs and other Ebs. The idea is to
- * avoid using an ET system to transfer data and use a simple socket.
+ * avoid using an ET system to transfer data and use simple sockets.
  */  
  
 
