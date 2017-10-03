@@ -196,7 +196,7 @@ public class RunControl extends cMsgDomainAdapter {
 
         try {
             if (connected) return;
-//System.out.println("RC connect: connecting");
+System.out.println("RC connect: connecting");
 
             // set the latches
             multicastResponse = new CountDownLatch(1);
@@ -256,7 +256,7 @@ public class RunControl extends cMsgDomainAdapter {
                 }
             }
 
-//System.out.println("RC connect: start listening thread on port " + port);
+System.out.println("RC connect: start listening thread on port " + port);
             // launch thread and start listening on receive socket
             listeningThread = new rcListeningThread(this, serverChannel);
             listeningThread.start();
@@ -277,7 +277,7 @@ public class RunControl extends cMsgDomainAdapter {
                 }
             }
 
-//System.out.println("RC connect: create multicast packet");
+System.out.println("RC connect: listening thread started, create multicast packet");
             //--------------------------------------------------------------
             // multicast on local subnets to find RunControl Multicast server
             //--------------------------------------------------------------
@@ -396,10 +396,9 @@ public class RunControl extends cMsgDomainAdapter {
                 }
                 throw new cMsgException(e.getMessage(), e);
             }
-//System.out.println("RC connect: start sender thread");
 
             // create a thread which will send our multicast
-//System.out.println("RC connect: RC client " + name + ": will start multicast sender thread");
+System.out.println("RC connect: RC client " + name + ": will start multicast sender thread");
             Multicaster sender = new Multicaster(udpPacket, multicastData);
             sender.start();
 
@@ -411,7 +410,7 @@ public class RunControl extends cMsgDomainAdapter {
             boolean completed = false;
             if (connectTimeout > 0) {
                 try {
-//System.out.println("RC connect: waiting for a response to final connection (with timeout)");
+System.out.println("RC connect: waiting for a response to final connection (with timeout)");
                     if (connectCompletion.await(connectTimeout, TimeUnit.MILLISECONDS)) {
                         completed = true;
                     }
@@ -420,7 +419,7 @@ public class RunControl extends cMsgDomainAdapter {
             }
             // wait forever
             else {
-//System.out.println("RC connect: waiting for a response to final connection (no timeout)");
+System.out.println("RC connect: waiting for a response to final connection (no timeout)");
                 try { connectCompletion.await(); completed = true;}
                 catch (InterruptedException e) {
                     e.printStackTrace();
@@ -435,13 +434,13 @@ public class RunControl extends cMsgDomainAdapter {
             }
 
             if (!completed) {
-//System.out.println("RC connect: Did NOT complete the connection");
+System.out.println("RC connect: Did NOT complete the connection withing timeout");
                 sender.interrupt();
                 listeningThread.killThread();
                 throw new cMsgException("No connect from the RC server received");
             }
             else {
-//System.out.println("RC connect: Completed the connection from RC server");
+System.out.println("RC connect: Completed the connection from RC server");
             }
 
             // Stop sending multicast packets now
@@ -453,8 +452,8 @@ public class RunControl extends cMsgDomainAdapter {
             IOException ioex = null;
 
             try {
-//System.out.println("RC connect: Try making tcp connection to RC server (host = " + rcServerAddress.getHostName() + ", " +
-//                           rcServerAddress.getHostAddress() + "; port = " + rcTcpServerPort + ")");
+System.out.println("RC connect: Try making tcp connection to RC server (host = " + rcServerAddress.getHostName() + ", " +
+                           rcServerAddress.getHostAddress() + "; port = " + rcTcpServerPort + ")");
                 tcpSocket = new Socket();
                 // don't waste time if a connection cannot be made, timeout = 2 seconds
                 tcpSocket.connect(new InetSocketAddress(rcServerAddress, rcTcpServerPort), 2000);
@@ -466,11 +465,11 @@ System.out.println("RC connect: made tcp connection to host " + rcServerAddress 
                 gotTcpConnection = true;
             }
             catch (SocketTimeoutException e) {
-//System.out.println("RC connect: connection TIMEOUT");
+System.out.println("RC connect: connection TIMEOUT");
                 ioex = e;
             }
             catch (IOException e) {
-//System.out.println("RC connect: connection failed");
+System.out.println("RC connect: connection failed");
                 ioex = e;
             }
 
