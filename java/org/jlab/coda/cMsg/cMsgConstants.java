@@ -304,9 +304,12 @@ public class cMsgConstants {
 
 
     // Commands in Emu domain
+    /** Evio file format data. */
     public static final int    emuEvioFileFormat = 1;
     /** Will shutdown socket on other end. */
     public static final int    emuEnd            = 2;
+    /** Evio file format data containing only END event. */
+    public static final int    emuEvioEndEvent   = 3;
 
     /** Must be same as org.jlab.coda.emu.support.data.EventType.ROC_RAW. */
     public static final int    emuEventTypeRoc  = 0;
