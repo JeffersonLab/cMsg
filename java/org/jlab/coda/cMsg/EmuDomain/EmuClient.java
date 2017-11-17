@@ -196,6 +196,8 @@ public final class EmuClient extends cMsgDomainAdapter {
             throw new cMsgException(e.getMessage(), e);
         }
 
+        debug = cMsgConstants.debugWarn;
+
         // create a thread which will receive any responses to our multicast
         MulticastReceiver receiver = new MulticastReceiver();
         receiver.start();
@@ -703,7 +705,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
 
                     // How many addresses are being sent?
                     int addressCount = cMsgUtilities.bytesToInt(buf, index); index += 4;
-//System.out.println("Emu client: multicast receiver, addressCount = " + addressCount);
+System.out.println("Emu client: multicast receiver, addressCount = " + addressCount);
 
                     if (addressCount < 1) {
                         if (debug >= cMsgConstants.debugWarn) {
@@ -747,7 +749,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
                         // Get & store dotted-decimal IP address
                         ip = new String(buf, index, len, "US-ASCII"); index += len;
                         ipAddresses.add(ip);
-//System.out.println("Emu client: multicast receiver, server IP = " + ip);
+System.out.println("Emu client: multicast receiver, server IP = " + ip);
 
                         totalLen += 4;
                         if (packet.getLength() < totalLen) {
@@ -776,7 +778,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
                         // Get & store dotted-decimal broadcast addresses
                         ip = new String(buf, index, len, "US-ASCII"); index += len;
                         broadcastAddresses.add(ip);
-//System.out.println("Emu client: multicast receiver, server broadcast = " + ip);
+System.out.println("Emu client: multicast receiver, server broadcast = " + ip);
                     }
 
                 }
