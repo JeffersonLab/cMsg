@@ -278,21 +278,20 @@ public class cMsgUtilities {
                         // probably IPv6 so ignore
                         continue;
                     }
-//System.out.println("getMatchingLocalIpAddress: ip (" + ip + ") =? local addr(" +
-//addrv4.getHostAddress() + ")");
+System.out.println("getBroadcastAddress: ip (" + ip + ") =? local addr(" + addrv4.getHostAddress() + ")");
 
                     // If this matches an actual local IP address,
                     // return its broadcast address
                     if (ip.equals(addrv4.getHostAddress()))  {
-//System.out.println("getMatchingLocalIpAddress: ==== this is a local address");
+System.out.println("getBroadcastAddress: ==== this is a local address");
                         return ifAddr.getBroadcast().getHostAddress();
                     }
 
-//System.out.println("getMatchingLocalIpAddress: ip (" + ip + ") =? broad addr(" +
-//                    ifAddr.getBroadcast().getHostAddress() + ")");
+System.out.println("getBroadcastAddress: ip (" + ip + ") =? broad addr(" +
+                    ifAddr.getBroadcast().getHostAddress() + ")");
                     // If this matches a broadcast/subnet address, return it as is.
                     if (ip.equals(ifAddr.getBroadcast().getHostAddress())) {
-//System.out.println("getMatchingLocalIpAddress: ==== broadcast addr: " + ip);
+System.out.println("getBroadcastAddress: ==== broadcast addr: " + ip);
                         return ip;
                     }
                 }
@@ -301,6 +300,7 @@ public class cMsgUtilities {
         catch (SocketException e) {}
 
         // no match
+System.out.println("getBroadcastAddress: no match, return null");
         return null;
     }
 
@@ -449,7 +449,9 @@ public class cMsgUtilities {
         String prefSubnet = null;
         try {
             // Will be null if not local
+System.out.println("orderIPAddresses: preferred address = " + preferredAddress + ", new get its subnet addr");
             prefSubnet = getBroadcastAddress(preferredAddress);
+System.out.println("orderIPAddresses: preferred subnet address = " + prefSubnet);
         }
         catch (cMsgException e) {
             // preferredAddresses is null or not in dotted-decimal format, so ignore
