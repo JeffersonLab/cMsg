@@ -179,7 +179,6 @@ public final class EmuClient extends cMsgDomainAdapter {
 
             // create packet to multicast from the byte array
             byte[] buf = baos.toByteArray();
-            System.out.println("");
             udpPacket = new DatagramPacket(buf, buf.length,
                                            multicastServerAddress,
                                            multicastServerPort);
@@ -270,11 +269,11 @@ public final class EmuClient extends cMsgDomainAdapter {
                         if (outgoingIp != null) {
                             try {
                                 tcpSocket[i].bind(new InetSocketAddress(outgoingIp, 0));
-System.out.println("      Emu connect: bound outgoing data to " + outgoingIp);
+//System.out.println("      Emu connect: bound outgoing data to " + outgoingIp);
                             }
                             catch (IOException e) {
                                 // If we cannot bind to this IP address, forget about it
-System.out.println("      Emu connect: tried but FAILED to bind outgoing data to " + outgoingIp);
+//System.out.println("      Emu connect: tried but FAILED to bind outgoing data to " + outgoingIp);
                             }
                         }
                         // Don't waste time if a connection can't be made, timeout = 0.2 sec
@@ -705,7 +704,7 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
 
                     // How many addresses are being sent?
                     int addressCount = cMsgUtilities.bytesToInt(buf, index); index += 4;
-System.out.println("Emu client: multicast receiver, addressCount = " + addressCount);
+//System.out.println("Emu client: multicast receiver, addressCount = " + addressCount);
 
                     if (addressCount < 1) {
                         if (debug >= cMsgConstants.debugWarn) {
@@ -749,7 +748,7 @@ System.out.println("Emu client: multicast receiver, addressCount = " + addressCo
                         // Get & store dotted-decimal IP address
                         ip = new String(buf, index, len, "US-ASCII"); index += len;
                         ipAddresses.add(ip);
-System.out.println("Emu client: multicast receiver, server IP = " + ip);
+//System.out.println("Emu client: multicast receiver, server IP = " + ip);
 
                         totalLen += 4;
                         if (packet.getLength() < totalLen) {
@@ -778,7 +777,7 @@ System.out.println("Emu client: multicast receiver, server IP = " + ip);
                         // Get & store dotted-decimal broadcast addresses
                         ip = new String(buf, index, len, "US-ASCII"); index += len;
                         broadcastAddresses.add(ip);
-System.out.println("Emu client: multicast receiver, server broadcast = " + ip);
+//System.out.println("Emu client: multicast receiver, server broadcast = " + ip);
                     }
 
                 }

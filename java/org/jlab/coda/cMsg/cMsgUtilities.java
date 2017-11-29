@@ -278,20 +278,20 @@ public class cMsgUtilities {
                         // probably IPv6 so ignore
                         continue;
                     }
-System.out.println("getBroadcastAddress: ip (" + ip + ") =? local addr(" + addrv4.getHostAddress() + ")");
+//System.out.println("getBroadcastAddress: ip (" + ip + ") =? local addr(" + addrv4.getHostAddress() + ")");
 
                     // If this matches an actual local IP address,
                     // return its broadcast address
                     if (ip.equals(addrv4.getHostAddress()))  {
-System.out.println("getBroadcastAddress: ==== this is a local address");
+//System.out.println("getBroadcastAddress: ==== this is a local address");
                         return ifAddr.getBroadcast().getHostAddress();
                     }
 
-System.out.println("getBroadcastAddress: ip (" + ip + ") =? broad addr(" +
-                    ifAddr.getBroadcast().getHostAddress() + ")");
+//System.out.println("getBroadcastAddress: ip (" + ip + ") =? broad addr(" +
+//                    ifAddr.getBroadcast().getHostAddress() + ")");
                     // If this matches a broadcast/subnet address, return it as is.
                     if (ip.equals(ifAddr.getBroadcast().getHostAddress())) {
-System.out.println("getBroadcastAddress: ==== broadcast addr: " + ip);
+//System.out.println("getBroadcastAddress: ==== broadcast addr: " + ip);
                         return ip;
                     }
                 }
@@ -300,7 +300,7 @@ System.out.println("getBroadcastAddress: ==== broadcast addr: " + ip);
         catch (SocketException e) {}
 
         // no match
-System.out.println("getBroadcastAddress: no match, return null");
+//System.out.println("getBroadcastAddress: no match, return null");
         return null;
     }
 
@@ -449,20 +449,20 @@ System.out.println("getBroadcastAddress: no match, return null");
         String prefSubnet = null;
         try {
             // Will be null if not local
-System.out.println("orderIPAddresses: preferred address = " + preferredAddress + ", new get its subnet addr");
+//System.out.println("orderIPAddresses: preferred address = " + preferredAddress + ", new get its subnet addr");
             prefSubnet = getBroadcastAddress(preferredAddress);
-System.out.println("orderIPAddresses: preferred subnet address = " + prefSubnet);
+//System.out.println("orderIPAddresses: preferred subnet address = " + prefSubnet);
         }
         catch (cMsgException e) {
             // preferredAddresses is null or not in dotted-decimal format, so ignore
         }
 
-System.out.println("orderIPAddresses: preferred subnet: " + prefSubnet);
-        if (broadAddresses != null) {
-            System.out.println("broadcastAddress NOT NULL:");
-            for (String s : broadAddresses)
-            System.out.println(s);
-        }
+//System.out.println("orderIPAddresses: preferred subnet: " + prefSubnet);
+//        if (broadAddresses != null) {
+//System.out.println("broadcastAddress NOT NULL:");
+//            for (String s : broadAddresses)
+//System.out.println(s);
+//        }
 
         // Iterate through argument list of addresses
         outerLoop:
@@ -493,8 +493,8 @@ System.out.println("orderIPAddresses: preferred subnet: " + prefSubnet);
                             }
 
                             String localBroadcastAddr = ifAddr.getBroadcast().getHostAddress();
-System.out.println("orderIPAddresses: compare preferred " + prefSubnet +
-                           " to server's broadcast " + ipSubNet + " and to local broadcast " + localBroadcastAddr);
+//System.out.println("orderIPAddresses: compare preferred " + prefSubnet +
+//                           " to server's broadcast " + ipSubNet + " and to local broadcast " + localBroadcastAddr);
 
                             // If the 2 are on the same subnet as the preferred address,
                             // place it on the preferred list.
@@ -502,14 +502,14 @@ System.out.println("orderIPAddresses: compare preferred " + prefSubnet +
                                 prefSubnet.equals(ipSubNet) &&
                                 prefSubnet.equals(localBroadcastAddr)) {
 
-System.out.println("orderIPAddresses: add to preferred list, ip " + ipAddresses.get(i) + " on preferred subnet: " + prefSubnet);
+//System.out.println("orderIPAddresses: add to preferred list, ip " + ipAddresses.get(i) + " on preferred subnet: " + prefSubnet);
                                 preferred.add(ipAddresses.get(i));
                                 continue outerLoop;
                             }
                             // If the 2 are on the same subnet but not on the preferred address,
                             // place it first on the regular list.
                             else if (localBroadcastAddr.equals(ipSubNet)) {
-System.out.println("orderIPAddresses: add to non-preferred list, ip " + ipAddresses.get(i) + " on local subnet: " + localBroadcastAddr);
+//System.out.println("orderIPAddresses: add to non-preferred list, ip " + ipAddresses.get(i) + " on local subnet: " + localBroadcastAddr);
                                 ipList.addFirst(ipAddresses.get(i));
                                 continue outerLoop;
                             }
@@ -521,10 +521,10 @@ System.out.println("orderIPAddresses: add to non-preferred list, ip " + ipAddres
 
             // This address is not on the preferred or any of the
             // local subnets, so put it at the end of the list.
-System.out.println("Add " + ipAddresses.get(i) + " to bottom of non-preferred list");
+//System.out.println("Add " + ipAddresses.get(i) + " to bottom of non-preferred list");
             ipList.addLast(ipAddresses.get(i));
         }
-        System.out.println("\n");
+//        System.out.println("\n");
 
         // Add any preferred addresses to top of list
         ipList.addAll(0, preferred);
