@@ -508,6 +508,116 @@ System.out.println("RC server connect: complete");
         return;
     }
 
+    //----------------------------------------------------------
+    //  Methods for testing RC client's communication & protocol
+    //----------------------------------------------------------
+
+    /**
+     * Method for testing rc client communications with this test server.
+     * Use this in conjunction with org.jlab.coda.emu.support.test.RcProtocolTest .
+     * First run this, then run that program with the UDP & TCP ports and IP
+     * addresses printed out in the program below.
+     */
+    public void testConnect() {
+
+        try {
+            // Start listening for tcp connections
+            listenerThread = new rcListeningThread(this);
+            listenerThread.start();
+
+            // Wait for indication listener thread is actually running before
+            // continuing on. This thread must be running before we talk to
+            // the client since the client tries to communicate with it.
+            synchronized (listenerThread) {
+                if (!listenerThread.isAlive()) {
+                    try {
+                        listenerThread.wait();
+                    }
+                    catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+            // Get the port selected for listening on
+            localTcpPort = listenerThread.getTcpPort();
+
+            // Get the port selected for communicating on
+            localUdpPort = listenerThread.getUdpPort();
+System.out.println("RC test server: listening on TCP port = " + localTcpPort +
+                   " and UDP port = " + localUdpPort);
+
+            // Print list of our IP addresses
+            System.out.println("Rc test server IP addresses:");
+            Collection<String> c = cMsgUtilities.getAllIpAddresses();
+            for (String ip : c) {
+                System.out.println("    " + ip);
+            }
+
+            // Create a little subscription to print incoming messages
+            class rcCallback extends cMsgCallbackAdapter {
+                public void callback(cMsgMessage msg, Object userObject) {
+                    //System.out.println("Got RC test message:" + msg);
+                    System.out.print(".");
+                }
+            }
+
+            rcCallback cb = new rcCallback();
+            cMsgSubscriptionHandle handle = testSubscribe("*", "*", cb, null);
+            start();
+
+
+            Thread.sleep(200000);
+
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    /** Run as a stand-alone RC server to test incoming messages. */
+    public static void main(String[] args) {
+        try {
+            RCServer server = new RCServer();
+            server.testConnect();
+        }
+        catch (cMsgException e) {
+            System.out.println(e.toString());
+            System.exit(-1);
+        }
+    }
+
+    /**
+     * This is a method to subscribe to receive messages
+     * of a subject and type from the test rc client.
+     *
+     * @param subject {@inheritDoc}
+     * @param type    {@inheritDoc}
+     * @param cb      {@inheritDoc}
+     * @param userObj {@inheritDoc}
+     * @return {@inheritDoc}
+     */
+    public cMsgSubscriptionHandle testSubscribe(String subject, String type,
+                                                cMsgCallbackInterface cb, Object userObj) {
+
+        // First generate a unique id for the receiveSubscribeId field.
+        // (Left over from cMsg domain).
+        int id = uniqueId.getAndIncrement();
+
+        // Add a new subscription & callback
+        cMsgCallbackThread cbThread = new cMsgCallbackThread(cb, userObj, domain, subject, type);
+        cMsgSubscription newSub = new cMsgSubscription(subject, type, id, cbThread);
+        unsubscriptions.put(cbThread, newSub);
+        subscriptions.add(newSub);
+
+        return cbThread;
+    }
+
+
+    //----------------------------------------------------------
+    //----------------------------------------------------------
+
 
     /**
      * This method results in this object
