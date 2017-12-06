@@ -96,6 +96,7 @@ class rcListeningThread extends Thread {
         public void uncaughtException(Thread t, Throwable e) {
             // Close all streams & sockets before exiting thread
 System.out.println("rcListeningThread: invoke listening thread EXIT HANDLER to close sockets");
+e.printStackTrace();
             try {
                 if (rcListeningThread.this.in != null) rcListeningThread.this.in.close();
             } catch (Exception ex) {}
@@ -639,6 +640,9 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
     private cMsgMessageFull readIncomingMessageNB(ByteBuffer buffer) {
 
         int len;
+        // Buffer read from TCP starts at 0.
+        // Buffer read from UDP starts at 20.
+        int bufOffset = buffer.position();
 
         // create a message
         cMsgMessageFull msg = new cMsgMessageFull();
@@ -649,7 +653,7 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
         msg.setInfo(buffer.getInt() | cMsgMessage.wasSent | cMsgMessage.expandedPayload);
         msg.setSenderToken(buffer.getInt());
 
-        // time message was sent = 2 ints (hightest byte first)
+        // time message was sent = 2 ints (highest byte first)
         // in milliseconds since midnight GMT, Jan 1, 1970
         long time = (buffer.getLong());
         msg.setSenderTime(new Date(time));
@@ -666,8 +670,25 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
         int lengthText        = buffer.getInt();
         int lengthBinary      = buffer.getInt();
 
+//System.out.println("Lengths:\nsender     -> " + lengthSender +
+//                           "\nsubject    -> " + lengthSubject +
+//                           "\ntype       -> " + lengthType +
+//                           "\npayloadTxt -> " + lengthPayloadTxt +
+//                           "\ntext       -> " + lengthText +
+//                           "\nbinary     -> " + lengthBinary);
+
+        int totalLen = lengthSender + lengthSubject + lengthType +
+                       lengthPayloadTxt + lengthText + lengthBinary + 14*4;
+        int stringLimit = totalLen - lengthBinary;
+
+//        System.out.println("Length total -> " + totalLen + ", buffer.limit() = " + buffer.limit());
+//        System.out.println("String limit -> " + stringLimit);
+
         // decode buffer as ASCII into CharBuffer
         Charset cs = Charset.forName("ASCII");
+
+        // Buffer position advances as it decodes! Limit it to string data.
+        buffer.limit(bufOffset + stringLimit);
         CharBuffer chBuf = cs.decode(buffer);
 
         // read sender
@@ -696,6 +717,16 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
             }
             catch (cMsgException e) {
                 System.out.println("msg payload is in the wrong format: " + e.getMessage());
+                System.out.println("\nSo far we have: ");
+                System.out.println("    sender  = " + msg.getSender());
+                System.out.println("    subject = " + msg.getSubject());
+                System.out.println("    type    = " + msg.getType());
+                System.out.println("    payload text: ---------------\n" + s);
+                System.out.println("    -----------------------------\n");
+                int startPos = bufOffset + 14*4 + lengthSender + lengthSubject + lengthType;
+                cMsgUtilities.printBytes(buffer, startPos , buffer.limit() - lengthText, "Bad payload bytes:");
+                System.out.println("    -----------------------------\n");
+                cMsgUtilities.printBytes(buffer, bufOffset, totalLen + bufOffset, "Bad msg, all bytes:");
             }
         }
 
@@ -709,8 +740,10 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
         // read binary array
         if (lengthBinary > 0) {
             byte[] array = new byte[lengthBinary];
-            buffer.position(buffer.position()+len);
+            buffer.limit(bufOffset + totalLen);
+            // We're already in position to read binary data
             buffer.get(array, 0, lengthBinary);
+            //cMsgUtilities.printBytes(array, 0, lengthBinary, "binary data");
             msg.setByteArrayNoCopy(array);
         }
 
