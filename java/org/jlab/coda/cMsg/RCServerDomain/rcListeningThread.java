@@ -726,7 +726,8 @@ System.out.println("rcListeningThread: " + server.getName() + " not enough data 
                 int startPos = bufOffset + 14*4 + lengthSender + lengthSubject + lengthType;
                 cMsgUtilities.printBytes(buffer, startPos , buffer.limit() - lengthText, "Bad payload bytes:");
                 System.out.println("    -----------------------------\n");
-                cMsgUtilities.printBytes(buffer, bufOffset, totalLen + bufOffset, "Bad msg, all bytes:");
+                int endPos = buffer.limit() > bufOffset + totalLen ? buffer.limit() : (bufOffset + totalLen);
+                cMsgUtilities.printBytes(buffer, bufOffset, endPos, "Bad msg, all bytes:");
             }
         }
 
