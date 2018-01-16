@@ -16,6 +16,8 @@
 
 package org.jlab.coda.cMsg;
 
+import org.jlab.coda.cMsg.common.Base64;
+
 import java.io.Serializable;
 import java.math.BigInteger;
 import java.lang.Number;
@@ -1401,7 +1403,8 @@ public final class cMsgPayloadItem implements Cloneable, Serializable {
         // Create string to hold all data to be transferred over
         // the network for this item. So first convert binary to
         // text (with linebreaks every 76 chars & newline at end).
-        String encodedBin = cMsgMessage.b64Encoder.encodeToString(bin);
+//        String encodedBin = cMsgMessage.b64Encoder.encodeToString(bin);
+        String encodedBin = Base64.encodeToString(bin, true);
         // 4 = endian value (1 digit) + 2 spaces + 1 newline
         noHeaderLen += numDigits(encodedBin.length()) +
                        numDigits(bin.length) +
@@ -1471,7 +1474,8 @@ public final class cMsgPayloadItem implements Cloneable, Serializable {
         for (int i=0; i<count; i++) {
             // First convert binary to text, where the "true" arg
             // means put linebreaks in string rep including one at the end
-            encodedStrs[i] = cMsgMessage.b64Encoder.encodeToString(b[i]);
+//encodedStrs[i] = cMsgMessage.b64Encoder.encodeToString(b[i]);
+            encodedStrs[i] = Base64.encodeToString(b[i], true);
             // 4 = endian value (1 digit) + 2 spaces + 1 newline
             noHeaderLen += numDigits(encodedStrs[i].length()) +
                            numDigits(b[i].length) +
@@ -1673,7 +1677,10 @@ public final class cMsgPayloadItem implements Cloneable, Serializable {
                 System.arraycopy(msg.getByteArray(), msg.getByteArrayOffset(),
                                  bites, 0, byteArrayLen);
             }
-            String encodedBin = cMsgMessage.b64Encoder.encodeToString(bites);
+            String encodedBin = Base64.encodeToString(bites, true);
+//            String encodedBin = Base64.encodeToString(msg.getByteArray(), msg.getByteArrayOffset(),
+//                                                      msg.getByteArrayLength(), true);
+//String encodedBin = cMsgMessage.b64Encoder.encodeToString(bites);
 
             int len = numDigits(encodedBin.length()) +
                       numDigits(msg.getByteArrayLength()) +
@@ -1859,7 +1866,8 @@ public final class cMsgPayloadItem implements Cloneable, Serializable {
                     System.arraycopy(msg.getByteArray(), msg.getByteArrayOffset(),
                                      bites, 0, byteArrayLen);
                 }
-                String encodedBin = cMsgMessage.b64Encoder.encodeToString(bites);
+                String encodedBin = Base64.encodeToString(bites, true);
+//String encodedBin = cMsgMessage.b64Encoder.encodeToString(bites);
 
                 int len = numDigits(encodedBin.length()) +
                           numDigits(msg.getByteArrayLength()) +
