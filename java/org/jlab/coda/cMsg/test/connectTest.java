@@ -18,8 +18,8 @@ public class connectTest {
     private String  type = "TYPE";
     private String  name = "connectTest";
     private String  description = "java connect tester";
-    private String  UDL = "cMsg://localhost/cMsg/myNameSpace";
-    //private String  UDL = "cMsg://multicast/cMsg/myNameSpace";
+    //private String  UDL = "cMsg://localhost/cMsg/myNameSpace";
+    private String  UDL = "cMsg://multicast:12345/cMsg/myNameSpace";
     private boolean debug;
     private long    count;
     private int     delay, loops=300;
@@ -84,7 +84,7 @@ public class connectTest {
     /** Method to print out correct program command line usage. */
     private static void usage() {
         System.out.println("\nUsage:\n\n" +
-                "   java VardanProducer\n" +
+                "   java connectTest\n" +
                 "        [-n <name>]          set client name\n"+
                 "        [-d <description>]   set description of client\n" +
                 "        [-u <UDL>]           set UDL to connect to cMsg\n" +
@@ -102,7 +102,7 @@ public class connectTest {
     public static void main(String[] args) {
         try {
             connectTest consumer = new connectTest(args);
-            consumer.run();
+            consumer.runCycle();
         }
         catch (cMsgException e) {
             e.printStackTrace();
@@ -186,6 +186,33 @@ public class connectTest {
         return;
     }
 
+    /**
+     * This method is executed as a thread.
+     */
+    public void runCycle() throws cMsgException {
+
+        if (debug) {
+            System.out.println("Running cMsg connectTest");
+        }
+
+        count = 0;
+
+        while (true) {
+            // connect to cMsg server
+            cMsg coda = new cMsg(UDL, name, description);
+            coda.setDebug(cMsgConstants.debugInfo);
+
+            coda.connect();
+            if (coda.isConnected()) {
+                // create a message
+                cMsgMessage msg = new cMsgMessage();
+                msg.setSubject(subject);
+                msg.setType(type);
+                coda.send(msg);
+            }
+            coda.disconnect();
+        }
+    }
 
 
 }
