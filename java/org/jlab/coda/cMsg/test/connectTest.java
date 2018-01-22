@@ -21,6 +21,7 @@ public class connectTest {
     //private String  UDL = "cMsg://localhost/cMsg/myNameSpace";
     private String  UDL = "cMsg://multicast:12345/cMsg/myNameSpace";
     private boolean debug;
+    private boolean randomName;
     private long    count;
     private int     delay, loops=300;
     private long    time1, time2;
@@ -63,6 +64,9 @@ public class connectTest {
             else if (args[i].equalsIgnoreCase("-t")) {
                 type= args[i + 1];
                 i++;
+            }
+            else if (args[i].equalsIgnoreCase("-random")) {
+                randomName = true;
             }
             else if (args[i].equalsIgnoreCase("-debug")) {
                 debug = true;
@@ -196,9 +200,13 @@ public class connectTest {
         }
 
         count = 0;
+        long counter = 0L;
 
         while (true) {
             // connect to cMsg server
+            if (randomName) {
+                name = "connectTest_" + counter++;
+            }
             cMsg coda = new cMsg(UDL, name, description);
             coda.setDebug(cMsgConstants.debugInfo);
 
