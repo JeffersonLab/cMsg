@@ -94,6 +94,7 @@ public class connectTest {
                 "        [-u <UDL>]           set UDL to connect to cMsg\n" +
                 "        [-s <subject>]       set subject of sent messages\n" +
                 "        [-t <type>]          set type of sent messages\n" +
+                "        [-random]            generate a unique name to use for each connection\n" +
                 "        [-debug]             turn on printout\n" +
                 "        [-delay]             time in millisec to wait between sends\n" +
                 "        [-h]                 print this help\n");
