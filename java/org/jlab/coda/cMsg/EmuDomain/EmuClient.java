@@ -278,12 +278,14 @@ System.out.println("      Emu connect: socket " + i + " bound outgoing data to "
 System.out.println("      Emu connect: socket " + i + " tried but FAILED to bind outgoing data to " + outgoingIp);
                             }
                         }
+System.out.println("      Emu connect: socket " + i + " try making TCP connection to host = " + ip +
+                   "; port = " + tcpServerPort);
                         // Don't waste too much time if a connection can't be made, timeout = 5 sec
                         tcpSocket[i].connect(new InetSocketAddress(ip, tcpServerPort), 5000);
 
                         domainOut[i] = new DataOutputStream(new BufferedOutputStream(tcpSocket[i].getOutputStream()));
-System.out.println("      Emu connect: socket " + i + " made TCP connection to host = " + ip +
-                           "; port = " + tcpServerPort);
+System.out.println("      Emu connect: socket " + i + " MADE TCP connection to host = " + ip +
+                   "; port = " + tcpServerPort);
                         serverIp = ip;
                         gotTcpConnection[i] = true;
 
