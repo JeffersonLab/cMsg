@@ -58,6 +58,12 @@ public final class EmuClient extends cMsgDomainAdapter {
     /** Socket over which to UDP multicast to and receive UDP packets from the server. */
     private MulticastSocket multicastUdpSocket;
 
+    /** Are we multicasting to find server or doing a direct TCP connection? */
+    private boolean multicasting;
+
+    /** If multicasting, this is multicast addr, else TCP server's IP address. */
+    private String serverIpAddress;
+
     /** Number of sockets over which to send messages to the server over TCP. */
     private int socketCount = 1;
 
@@ -297,17 +303,20 @@ System.out.println("      Emu connect: socket " + i + " MADE TCP connection to h
                     catch (SocketTimeoutException e) {
 System.out.println("      Emu connect: socket " + i + " TIMEOUT (5 sec) connecting to " + ip);
                         ioex = e;
-                        // Go to the next address if first socket fails
-                        for (int j=0; j < socketCount; j++) {
-                            gotTcpConnection[j] = false;
+                        // Go to the next address if first socket fails, if it's after the
+                        // first, there's some kind of problem so throw exception.
+                        if (i > 0) {
+                            throw new cMsgException("Connect error with Emu server", e);
                         }
                         break;
                     }
                     catch (IOException e) {
 System.out.println("      Emu connect: socket " + i + " failure connecting to " + ip);
                         ioex = e;
-                        for (int j=0; j < socketCount; j++) {
-                            gotTcpConnection[j] = false;
+                        // Go to the next address if first socket fails, if it's after the
+                        // first, there's some kind of problem so throw exception.
+                        if (i > 0) {
+                            throw new cMsgException("Connect error with Emu server", e);
                         }
                         break;
                     }
@@ -588,7 +597,7 @@ System.out.println("      Emu connect: socket " + i + " failure connecting to " 
      * Remember that for this domain:
      *<ol>
      *<li>host is optional and may be "multicast" (default) or in dotted decimal form<p>
-     *<li>port is required - UDP multicast port<p>
+     *<li>port is required - UDP multicast port if host = "multicast", or TCP port<p>
      *<li>expid is required, it is NOT taken from the environmental variable EXPID<p>
      *<li>optional timeout for connecting to emu server, defaults to 3 seconds<p>
      *<li>optional bufSize (max size in bytes of a single send) defaults to 2.1MB<p>
@@ -637,20 +646,19 @@ System.out.println("      Emu connect: socket " + i + " failure connecting to " 
             throw new cMsgException("invalid UDL");
         }
 
-        boolean multicasting = false;
-
         // if host given ...
         if (udlHost == null) {
-            udlHost = "multicast";
+            serverIpAddress = "multicast";
         }
 
         // if the host is "localhost", find the actual, fully qualified  host name
         if (udlHost.equalsIgnoreCase("multicast")) {
-            udlHost = cMsgNetworkConstants.rcMulticast;
+            serverIpAddress = cMsgNetworkConstants.rcMulticast;
             multicasting = true;
 System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
         }
         else {
+            serverIpAddress = udlHost;
             try {
                 if (InetAddress.getByName(udlHost).isMulticastAddress()) {
 System.out.println("Will multicast to " + udlHost);
@@ -665,24 +673,33 @@ System.out.println("Will direct connect to " + udlHost);
                 }
             }
             catch (UnknownHostException e) {
-                udlHost = cMsgNetworkConstants.rcMulticast;
+                serverIpAddress = cMsgNetworkConstants.rcMulticast;
                 multicasting = true;
 System.out.println("Will multicast to " + cMsgNetworkConstants.rcMulticast);
             }
         }
 
-        // Get multicast server port
+        // Get port
+        int port;
         try {
-            multicastServerPort = Integer.parseInt(udlPort);
+            port = Integer.parseInt(udlPort);
         }
         catch (NumberFormatException e) {
             throw new cMsgException("parseUDL: bad port number");
         }
 
-        if (multicastServerPort < 1024 || multicastServerPort > 65535) {
+        if (port < 1024 || port > 65535) {
             throw new cMsgException("parseUDL: illegal port number");
         }
-System.out.println("multicast port = " + multicastServerPort);
+
+        if (multicasting) {
+            multicastServerPort = port;
+            System.out.println("multicast port = " + multicastServerPort);
+        }
+        else {
+           tcpServerPort = port;
+           System.out.println("tcp server port = " + tcpServerPort);
+        }
 
         // Get expid
         if (udlExpid == null) {
