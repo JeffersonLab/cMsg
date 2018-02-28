@@ -74,7 +74,7 @@ public class cMsgClientInfo {
     /** Socket channel used to get messages to and receive messages/requests from client. */
     protected SocketChannel messageChannel;
 
-    /** Object for delivering messges to this client. */
+    /** Object for delivering messages to this client. */
     protected cMsgMessageDeliverer deliverer;
 
 
