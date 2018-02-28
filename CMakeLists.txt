@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 project(cMsg_6_0)
 
-include_directories($ENV{CODA}/common/include)
+include_directories(/daqfs/home/timmer/coda/cMsg.GIT/src/libsrc /daqfs/home/timmer/coda/cMsg.GIT/src/libsrc++ $ENV{CODA}/common/include)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
