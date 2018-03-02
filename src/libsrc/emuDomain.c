@@ -822,19 +822,20 @@ static int directConnect(cMsgDomainInfo *domain, char *subnet,
     nextIp:
     while (orderedIpList != NULL) {
 
+        /* Do we force the communication to go over a specific network interface?
+         * If the preferred subnet is the same at the current IP's subnet, yes. */
+        if (subnet != NULL) {
+            /* won't return error */
+            if (outgoingIp != NULL) free(outgoingIp);
+            cMsgNetGetMatchingLocalIpAddress(subnet, &outgoingIp);
+        }
+
+        /* First connect to server host & port */
+        printf("emu connect: try connecting %d socket(s) directly to ip = %s, port = %d thru local ip = %d ...\n",
+               socketCount, orderedIpList->addr, serverPort, outgoingIp);
+
         /* For each socket, make a connection */
         for (i=0; i < socketCount; i++) {
-
-            // Is there a local address on same subnet as serverIp address?
-            if (subnet != NULL) {
-                /* won't return error */
-                if (outgoingIp != NULL) free(outgoingIp);
-                cMsgNetGetMatchingLocalIpAddress(subnet, &outgoingIp);
-            }
-
-            /* First connect to server host & port */
-            printf("emu connect: try connecting directly to ip = %s, port = %d thru local ip = %d ...\n",
-                   orderedIpList->addr, serverPort, outgoingIp);
 
             err = cMsgNetTcpConnectTimeout2(orderedIpList->addr, outgoingIp, serverPort,
                                            tcpSendBufSize, 0, tcpNoDelay,
@@ -1694,7 +1695,7 @@ static int parseUDL(const char *UDLR,
     size_t     len, bufLength;
     char       *myServerIP, *udlRemainder, *val, *myExpid = NULL, *myComponent=NULL;
     char       *buffer;
-    const char *pattern = "([^:/?]+)?:?([0-9]+)/([^/]+)/([^?&]+)(.*)";
+    const char *pattern = "([^:/?[0-9]]+)?:?([0-9]+)/([^/]+)/([^?&]+)(.*)";
     regmatch_t matches[6]; /* we have 6 potential matches: 1 whole, 5 sub */
     regex_t    compiled;
     
@@ -1728,7 +1729,7 @@ static int parseUDL(const char *UDLR,
     }
     
     /* find matches */
-    err = cMsgRegexec(&compiled, udlRemainder, 5, matches, 0);
+    err = cMsgRegexec(&compiled, udlRemainder, 6, matches, 0);
     if (err != 0) {
         /* no match */
         free(udlRemainder);
@@ -1815,8 +1816,8 @@ static int parseUDL(const char *UDLR,
     else {
         buffer[0] = 0;
         len = matches[index].rm_eo - matches[index].rm_so;
-        strncat(buffer, udlRemainder+matches[index].rm_so, len);        
-        Port = atoi(buffer);        
+        strncat(buffer, udlRemainder+matches[index].rm_so, len);
+        Port = atoi(buffer);
     }
 
     if (Port < 1024 || Port > 65535) {
@@ -1828,7 +1829,7 @@ static int parseUDL(const char *UDLR,
     if (port != NULL) {
       *port = (unsigned short)Port;
     }
-/*printf("parseUDL: port = %hu\n", Port);*/
+printf("parseUDL: port = %hu\n", Port);
 
     /**************/
     /* find expid */
@@ -1850,7 +1851,7 @@ static int parseUDL(const char *UDLR,
             *expid = myExpid;
         }
     }
-/*printf("parseUDL: expid = %s\n", myExpid);*/
+printf("parseUDL: expid = %s\n", myExpid);
 
     /***********************/
     /* find component name */
@@ -1873,7 +1874,7 @@ static int parseUDL(const char *UDLR,
             *compName = myComponent;
         }
     }
-/*printf("parseUDL: component name = %s\n", myComponent);*/
+printf("parseUDL: component name = %s\n", myComponent);
 
     /******************/
     /* find remainder */
@@ -1891,24 +1892,11 @@ printf("parseUDL: codaId required in UDL\n");
     else {
         len = matches[index].rm_eo - matches[index].rm_so;
         strncat(buffer, udlRemainder+matches[index].rm_so, len);
-                
+
         if (remainder != NULL) {
             *remainder = strdup(buffer);
         }
-/*printf("parseUDL: remainder = %s, len = %d\n", buffer, len);*/
-    }
-
-    len = strlen(buffer);
-    /* 9 chars min => ?codaId=1 */
-    if (len < 9) { 
-        if (remainder != NULL) free(remainder);
-        free(udlRemainder);
-    	free(buffer);
-        free(myExpid);
-        free(myComponent);
-        cMsgRegfree(&compiled);
-printf("parseUDL: \"codaId\" must be set in UDL\n");
-       return(CMSG_BAD_FORMAT);
+printf("parseUDL: remainder = %s, len = %d\n", buffer, len);
     }
 
 	/**********************************/        
@@ -1922,7 +1910,7 @@ printf("parseUDL: \"codaId\" must be set in UDL\n");
 
     /* find matches */
     err = cMsgRegexec(&compiled, val, 2, matches, 0);
-        
+
     /* if there's a match ... */
     if (err == 0) {
         /* find id */
@@ -1935,7 +1923,7 @@ printf("parseUDL: \"codaId\" must be set in UDL\n");
             if (codaId != NULL) {
                 *codaId = t;
             }        
-/*printf("parseUDL: codaId = %d\n", t);*/
+printf("parseUDL: codaId = %d\n", t);
         }
         else {
             if (remainder != NULL) free(remainder);
@@ -1971,7 +1959,7 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
            if (timeout != NULL) {
              *timeout = t;
            }        
-/*printf("parseUDL: timeout (sec) = %d\n", t);*/
+printf("parseUDL: timeout (sec) = %d\n", t);
         }
         else if (timeout != NULL) {
             /* default to infinite wait */
@@ -2005,7 +1993,7 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
            if (bufSize != NULL) {
              *bufSize = t;
            }        
-/*printf("parseUDL: bufSize (bytes) = %d\n", t);*/
+printf("parseUDL: bufSize (bytes) = %d\n", t);
         }
         else if (bufSize != NULL) {
             /* default to 2.1MB */
@@ -2039,7 +2027,7 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
             if (tcpSend != NULL) {
                 *tcpSend = t;
             }
-/*printf("parseUDL: tcpSend buffer (bytes) = %d\n", t);*/
+printf("parseUDL: tcpSend buffer (bytes) = %d\n", t);
         }
     }
 
@@ -2065,7 +2053,7 @@ printf("parseUDL: UDL needs to specify \"codaId\"\n");
             if (sockets != NULL) {
                 *sockets = t;
             }
-/*printf("parseUDL: sockets = %d\n", t);*/
+printf("parseUDL: sockets = %d\n", t);
         }
     }
 
@@ -2106,7 +2094,7 @@ printf("parseUDL: preferred subnet = %s\n", buffer);
        if (noDelay != NULL) {
            *noDelay = 1;
        }
-/*printf("parseUDL: noDelay = on\n");*/
+printf("parseUDL: noDelay = on\n");
     }
     else if (noDelay != NULL) {
        *noDelay = 0;
