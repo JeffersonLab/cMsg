@@ -381,9 +381,6 @@ const char *cMsgPayloadFieldDescription(const void *vmsg, const char *name);
   int cMsgSetDebugLevel(int level);
 
 
-  /* for emu domain */
-  void setDirectConnectDestination(char **ipAddrs, char **bcastAddrs, int ipLen);
-
 #ifdef __cplusplus
 }
 #endif
