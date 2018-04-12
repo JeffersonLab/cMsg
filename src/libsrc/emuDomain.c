@@ -92,7 +92,7 @@ static int parseUDL(const char *UDLR,
                     int  *sockets,
                     char **subnet,
                     char **remainder);
-static int directConnect(cMsgDomainInfo *domain, char *subnet,
+static int directConnect(cMsgDomainInfo *domain, char *serverIP, char *subnet,
                          unsigned short serverPort, int tcpSendBufSize,
                          int tcpNoDelay, int socketCount, int codaId,
                          int dataBufSiz);
@@ -156,6 +156,9 @@ domainTypeInfo emuDomainTypeInfo = {
   "emu",
   &functions
 };
+
+/* for emu domain */
+void setDirectConnectDestination(codaIpList *ipList);
 
 
 /*-------------------------------------------------------------------*/
@@ -400,18 +403,22 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     domain->sendSocketCount = socketCount;
 
     if (!multicasting) {
-        if (!haveDestinationInfo) {
-            /* We run into a contradiction here. The user wants to make a direct connection,
-             * but setDirectConnectDestination has not yet been called with the proper info
-             * to make it happen. So we default to multicasting...
-             */
-            multicasting = 1;
-            strcpy(serverIP, EMU_MULTICAST_ADDR);
+        /* If server IP explicitly given in UDL or IP info from run control was stored by
+            * calling setDirectConnectDestination, use that to connect directly. */
+        if (strlen(serverIP) > 0 || haveDestinationInfo) {
+            err = directConnect(domain, serverIP, subnet, serverPort, tcpSendBufSize,
+                                tcpNoDelay, socketCount, myCodaId, dataBufSize);
+            /* return id */
+            *domainId = (void *) domain;
+            return err;
         }
-        else {
-            return directConnect(domain, subnet, serverPort, tcpSendBufSize,
-                                 tcpNoDelay, socketCount, myCodaId, dataBufSize);
-        }
+
+        /* We run into a contradiction here. The user wants to make a direct connection,
+         * but setDirectConnectDestination has not yet been called with the proper info
+         * to make it happen. So we default to multicasting...
+         */
+        multicasting = 1;
+        strcpy(serverIP, EMU_MULTICAST_ADDR);
     }
 
     /*-------------------------------------------------------
@@ -695,47 +702,19 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
  *
  * Setting both length args to zero, erases all destination info.
  *
- * @param ipAddrs    array of IP addresses in dot-decimal format.
- * @param bcastAddrs array of broadcast addresses in dot-decimal format,
- *                   each corresponding to the entry in ipAddrs.
- * @param ipLen      number of elements in both arrays.
+ * @param ipList linked list of IP/broad cast address pairs in dot-decimal format.
  */
-void setDirectConnectDestination(char **ipAddrs, char **bcastAddrs, int ipLen) {
-
-    codaIpList *listItem, *listEnd=NULL;
-
+void setDirectConnectDestination(codaIpList *ipList) {
     /* Clear memory */
     cMsgNetFreeAddrList(directIpList);
     haveDestinationInfo = 0;
     directIpList = NULL;
 
-    /* Length = 0 means no destination info available */
-    if (ipLen == 0) {
+    if (ipList == NULL) {
         return;
     }
 
-    int i;
-
-    for (i=0; i < ipLen; i++) {
-        /* Create address item */
-        listItem = (codaIpList *) calloc(1, sizeof(codaIpList));
-        if (listItem == NULL) {
-            printf("setDirectConnectDestination: out of memory\n");
-            exit(-1);
-        }
-
-        strncpy(listItem->addr,  ipAddrs[i], CODA_IPADDRSTRLEN);
-        strncpy(listItem->bAddr, bcastAddrs[i], CODA_IPADDRSTRLEN);
-
-        if (directIpList == NULL) {
-            directIpList = listEnd = listItem;
-        }
-        else {
-            listEnd->next = listItem;
-            listEnd = listItem;
-        }
-    }
-
+    directIpList = ipList;
     haveDestinationInfo = 1;
 }
 
@@ -744,6 +723,8 @@ void setDirectConnectDestination(char **ipAddrs, char **bcastAddrs, int ipLen) {
  * This routine is called if connecting directly to an emu domain TCP server.
  *
  * @param domain          pointer to emu domain info.
+ * @param serverIP        if the server's IP address is given explicitly in UDL for a direct connection,
+ *                        this is it
  * @param subnet          the subnet corresponding to the serverIP address
  * @param serverPort      the TCP server port to connect to
  * @param tcpSendBufSize  the TCP send buffer size in bytes (0 = OS default).
@@ -774,7 +755,7 @@ void setDirectConnectDestination(char **ipAddrs, char **bcastAddrs, int ipLen) {
  *                             no connection to the emu server can be made, or
  *                             a communication error with server occurs.
  */
-static int directConnect(cMsgDomainInfo *domain, char *subnet,
+static int directConnect(cMsgDomainInfo *domain, char *serverIP, char *subnet,
                          unsigned short serverPort, int tcpSendBufSize,
                          int tcpNoDelay, int socketCount, int codaId,
                          int dataBufSize) {
@@ -783,7 +764,7 @@ static int directConnect(cMsgDomainInfo *domain, char *subnet,
     int32_t outGoing[8];
     struct timeval tv;
     char *outgoingIp = NULL;
-    codaIpList *ipList, *orderedIpList;
+    codaIpList *ipList = NULL, *orderedIpList;
     codaIpAddr *ipAddrs = NULL;
 
     /* 20 sec timeout to connect to server */
@@ -791,37 +772,20 @@ static int directConnect(cMsgDomainInfo *domain, char *subnet,
     tv.tv_usec = 0;
 
 
-    /* Get local network info */
-    cMsgNetGetNetworkInfo(&ipAddrs, NULL);
-
-    /* Order the server IP list according to the given destination & preferred subnet, if any */
-    orderedIpList = cMsgNetOrderIpAddrs(directIpList, ipAddrs, subnet, &noPrefSubnetMatch);
-    if (noPrefSubnetMatch) {
-        printf("emu connect: preferred subnet = %s, but no local interface on that subnet\n", subnet);
-    }
-
-    if (subnet != NULL) free(subnet);
-    cMsgNetFreeIpAddrs(ipAddrs);
-    codanetFreeAddrList(ipList);
-
-    /* malloc memory needed to store all socket fds */
+    /* Malloc memory needed to store all socket fds */
     domain->sendSockets = (int *) malloc(socketCount * sizeof(int));
     if (domain->sendSockets == NULL) {
         cMsgDomainFree(domain);
         free(domain);
-        codanetFreeAddrList(orderedIpList);
         return(CMSG_OUT_OF_MEMORY);
     }
-
-    /* Try all IP addresses in list until one works */
-    ipList = orderedIpList;
 
     /*------------------------*/
     /* connect to emu server  */
     /*------------------------*/
-    nextIp:
-    while (orderedIpList != NULL) {
 
+    /* If the emu server's IP address was explicitly set in the UDL, use that */
+    if (strlen(serverIP) > 0) {
         /* Do we force the communication to go over a specific network interface?
          * If the preferred subnet is the same at the current IP's subnet, yes. */
         if (subnet != NULL) {
@@ -831,46 +795,101 @@ static int directConnect(cMsgDomainInfo *domain, char *subnet,
         }
 
         /* First connect to server host & port */
-        printf("emu connect: try connecting %d socket(s) directly to ip = %s, port = %d thru local ip = %d ...\n",
-               socketCount, orderedIpList->addr, serverPort, outgoingIp);
+/*printf("emu connect: try connecting %d socket(s) directly to ip = %s, port = %d thru local ip = %s ...\n",
+               socketCount, serverIP, serverPort, outgoingIp); */
 
         /* For each socket, make a connection */
-        for (i=0; i < socketCount; i++) {
-
-            err = cMsgNetTcpConnectTimeout2(orderedIpList->addr, outgoingIp, serverPort,
-                                           tcpSendBufSize, 0, tcpNoDelay,
-                                           &tv, &domain->sendSockets[i], NULL);
+        for (i = 0; i < socketCount; i++) {
+            err = cMsgNetTcpConnectTimeout2(serverIP, outgoingIp, serverPort,
+                                            tcpSendBufSize, 0, tcpNoDelay,
+                                            &tv, &domain->sendSockets[i], NULL);
 
             if (err != CMSG_OK) {
-                /* If there is another address to try, try it */
-                if (orderedIpList->next != NULL) {
-                    orderedIpList = orderedIpList->next;
-                    //continue;
-                    goto nextIp;
-                }
-                /* if we've tried all addresses in the list, return an error */
-                else {
-                    cMsgDomainFree(domain);
-                    free(domain);
-                    codanetFreeAddrList(ipList);
-                    if (outgoingIp != NULL) free(outgoingIp);
-                    return (err);
-                }
+                cMsgDomainFree(domain);
+                free(domain);
+                if (outgoingIp != NULL) free(outgoingIp);
+                return (err);
             }
         }
 
-        printf("             Connected\n");
+        printf("          Connected\n");
 
-        /* Quit loop if we've made a connection to server, store good address */
+        /* Store good address */
         if (domain->serverHost != NULL) {
             free(domain->serverHost);
         }
-        domain->serverHost = strdup(orderedIpList->addr);
-        break;
+        domain->serverHost = strdup(serverIP);
     }
 
+    /* If the emu server's IP address was specified in the UDL as "direct" use list RC sent */
+    else {
+        /* Get local network info */
+        cMsgNetGetNetworkInfo(&ipAddrs, NULL);
+
+        /* Order the server IP list according to the given destination & preferred subnet, if any */
+        orderedIpList = cMsgNetOrderIpAddrs(directIpList, ipAddrs, subnet, &noPrefSubnetMatch);
+        if (noPrefSubnetMatch) {
+            printf("emu connect: preferred subnet = %s, but no local interface on that subnet\n", subnet);
+        }
+
+        /* Try all IP addresses in list until one works */
+        ipList = orderedIpList;
+
+
+        nextIp:
+        while (orderedIpList != NULL) {
+
+            if (subnet != NULL) {
+                /* won't return error */
+                if (outgoingIp != NULL) free(outgoingIp);
+                cMsgNetGetMatchingLocalIpAddress(subnet, &outgoingIp);
+            }
+
+            /* First connect to server host & port */
+/*printf("emu connect: try connecting %d socket(s) directly to ip = %s, port = %d thru local ip = %s ...\n",
+                   socketCount, orderedIpList->addr, serverPort, outgoingIp);*/
+
+            /* For each socket, make a connection */
+            for (i = 0; i < socketCount; i++) {
+
+                err = cMsgNetTcpConnectTimeout2(orderedIpList->addr, outgoingIp, serverPort,
+                                                tcpSendBufSize, 0, tcpNoDelay,
+                                                &tv, &domain->sendSockets[i], NULL);
+
+                if (err != CMSG_OK) {
+                    /* If there is another address to try, try it */
+                    if (orderedIpList->next != NULL) {
+                        orderedIpList = orderedIpList->next;
+                        //continue;
+                        goto nextIp;
+                    }
+                        /* if we've tried all addresses in the list, return an error */
+                    else {
+                        cMsgDomainFree(domain);
+                        free(domain);
+                        codanetFreeAddrList(ipList);
+                        if (outgoingIp != NULL) free(outgoingIp);
+                        return (err);
+                    }
+                }
+            }
+
+            printf("          Connected\n");
+
+            /* Quit loop if we've made a connection to server, store good address */
+            if (domain->serverHost != NULL) {
+                free(domain->serverHost);
+            }
+            domain->serverHost = strdup(orderedIpList->addr);
+            break;
+        }
+
+        codanetFreeAddrList(ipList);
+        cMsgNetFreeIpAddrs(ipAddrs);
+    }
+
+    if (subnet != NULL) free(subnet);
     if (outgoingIp != NULL) free(outgoingIp);
-    codanetFreeAddrList(ipList);
 
     /*---------------------*/
     /* talk to emu server  */
@@ -1640,8 +1659,11 @@ int cmsg_emu_shutdownServers(void *domainId, const char *server, int flag) {
  *
  * Remember that for this domain:
  *<ol>
- *<li>host is optional and may be "multicast" (default, 239.230.0.0) or "direct"<p>
- *<li>port is required - UDP multicast port if host = "multicast", or TCP port<p>
+ *<li>host is optional and may be: 1) "multicast" (default, 239.230.0.0), 2) "direct" in which case the
+ *    caller must have previously called the routine setDirectConnectDestination() in order to statically
+ *    store the IP addresses of the destination TCP server, or 3) a dot-decimal format IP address of the
+ *    TCP server or multicast address. <p>
+ *<li>port is required - UDP multicast port if host = "multicast" or multicast address, else TCP port<p>
  *<li>expid is required<p>
  *<li>compName is required - destination CODA component name<p>
  *<li>codaId (coda id of data sender) is required<p>
@@ -1695,8 +1717,10 @@ static int parseUDL(const char *UDLR,
     size_t     len, bufLength;
     char       *myServerIP, *udlRemainder, *val, *myExpid = NULL, *myComponent=NULL;
     char       *buffer;
-    const char *pattern = "([^:/?[0-9]]+)?:?([0-9]+)/([^/]+)/([^?&]+)(.*)";
-    regmatch_t matches[6]; /* we have 6 potential matches: 1 whole, 5 sub */
+    const char *pattern = "(([^:/?]+):)?([0-9]+)/([^/]+)/([^?&]+)(.*)";
+    /* we have 7 potential matches: 1st = whole, 6 sub (1st sub is ignored since it has : */
+    int        matchCount=7;
+    regmatch_t matches[matchCount];
     regex_t    compiled;
     
     if (UDLR == NULL) {
@@ -1729,7 +1753,7 @@ static int parseUDL(const char *UDLR,
     }
     
     /* find matches */
-    err = cMsgRegexec(&compiled, udlRemainder, 6, matches, 0);
+    err = cMsgRegexec(&compiled, udlRemainder, matchCount, matches, 0);
     if (err != 0) {
         /* no match */
         free(udlRemainder);
@@ -1740,15 +1764,30 @@ static int parseUDL(const char *UDLR,
     
     /* free up memory */
     cMsgRegfree(&compiled);
+    /*
+    int i;
+    for (i=0; i < matchCount; i++) {
+        if (matches[i].rm_so < 0) {
+            printf("parseUDL: have NO match at i = %d\n", i);
+        }
+        else {
+            buffer[0] = 0;
+            len = matches[i].rm_eo - matches[i].rm_so;
+            strncat(buffer, udlRemainder+matches[i].rm_so, len);
+            printf("parseUDL: have a match at i = %d, %s\n", i, buffer);
+        }
+    }
+     */
 
     /***********************************/
     /* find direct / multicast  */
     /***********************************/
-    index = 1;
+    index = 2;
     buffer[0] = 0;
     if (matches[index].rm_so < 0) {
         // If server is not in UDL, multicast by default
         myServerIP = strdup("multicast");
+        /*printf("parseUDL: server is NOT in UDL\n");*/
     }
     else {
         len = matches[index].rm_eo - matches[index].rm_so;
@@ -1760,13 +1799,13 @@ static int parseUDL(const char *UDLR,
         free((void *)myServerIP);
         myMulticasting = 0;
         myServerIP = NULL;
-        printf("Will directly connect to emu TCP server\n");
+printf("parseUDL: server IP = \"direct\", will directly connect to emu TCP server\n");
     }
     else if (strcasecmp("multicast", myServerIP) == 0) {
         free((void *)myServerIP);
         myServerIP = strdup(EMU_MULTICAST_ADDR);
         myMulticasting = 1;
-        printf("Will multicast to %s\n", myServerIP);
+printf("parseUDL: server IP = \"multicast\", will multicast to %s\n", myServerIP);
     }
     else {
         // IS dotted decimal?
@@ -1775,7 +1814,7 @@ static int parseUDL(const char *UDLR,
 
         // If the server IP is NOT dot decimal, print warning and go to multicasting
         if (!isDotDec) {
-            printf("parseUDL: server IP is NOT in dot-decimal format so multicast\n");
+printf("parseUDL: server IP is NOT in dot-decimal format so multicast to %s\n", EMU_MULTICAST_ADDR);
             free((void *)myServerIP);
             myServerIP = strdup(EMU_MULTICAST_ADDR);
             myMulticasting = 1;
@@ -1783,7 +1822,12 @@ static int parseUDL(const char *UDLR,
         else {
             // Check to see if it's a multicast address
             if (dec[0] >= 224 && dec[0] <= 239) {
+                printf("parseUDL: server IP is a MULTICAST addres so multicast to %s\n", myServerIP);
                 myMulticasting = 1;
+            }
+            else {
+                myMulticasting = 0;
+                printf("parseUDL: server IP = %s, will directly connect\n", myServerIP);
             }
         }
     }
@@ -1800,7 +1844,7 @@ static int parseUDL(const char *UDLR,
     if (multicasting != NULL) {
         *multicasting = myMulticasting;
     }
-    printf("parseUDL: server IP = %s\n", myServerIP);
+    /*printf("parseUDL: server IP = %s\n", myServerIP);*/
 
     /*************/
     /* find port */
@@ -1896,7 +1940,7 @@ printf("parseUDL: codaId required in UDL\n");
         if (remainder != NULL) {
             *remainder = strdup(buffer);
         }
-printf("parseUDL: remainder = %s, len = %d\n", buffer, len);
+/*printf("parseUDL: remainder = %s, len = %d\n", buffer, len);*/
     }
 
 	/**********************************/        
