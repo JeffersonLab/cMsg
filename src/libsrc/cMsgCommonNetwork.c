@@ -2599,6 +2599,53 @@ void codanetFreeAddrList(codaIpList *addr) {
 
 
 /**
+ * This routine adds an item, containing new ip and broadcast addresses,
+ * to the given linked list. If the list arg is NULL, a new list will be
+ * created and returned.
+ *
+ * @param addr   pointer to linked list to be added to. If a new list is to be started,
+ *               this can be NULL and the new list head returned.
+ * @param ip     ip address in dot-decimal form.
+ * @param broad  broadcast address in dot-decimal form.
+ * @returns      NULL if nothing added or list not created;
+ *               list head if addresses are added to list or
+ *               new list created.
+`*/
+codaIpList* codanetAddToAddrList(codaIpList *addr, const char *ip, const char *broad) {
+
+    codaIpList *head = addr, *next, *newItem;
+
+    if (addr == NULL) {
+        /* create a new list */
+        newItem = (codaIpList *)calloc(1, sizeof(codaIpList));
+        if (newItem == NULL) {
+            return NULL;
+        }
+        strncpy(newItem->addr,  ip,    CODA_IPADDRSTRLEN);
+        strncpy(newItem->bAddr, broad, CODA_IPADDRSTRLEN);
+        return newItem;
+    }
+
+    while (addr != NULL) {
+        next = addr->next;
+        if (next == NULL) {
+            /* This is the last item in the list, add to its end */
+            newItem = (codaIpList *)calloc(1, sizeof(codaIpList));
+            if (newItem == NULL) {
+                return NULL;
+            }
+            strncpy(newItem->addr,  ip,    CODA_IPADDRSTRLEN);
+            strncpy(newItem->bAddr, broad, CODA_IPADDRSTRLEN);
+            addr->next = newItem;
+            return head;
+        }
+        addr = next;
+    }
+    return head;
+}
+
+
+/**
  * This routine finds all broadcast addresses, eliminates duplicates and
  * returns the data in the arguments.
  *
@@ -3303,7 +3350,6 @@ codaIpList *codanetOrderIpAddrs(codaIpList *ipList, codaIpAddr *netinfo,
     }
     /* No list combining needed here */
     else if (firstPrefItem != NULL && firstItem == NULL) {
-        printf("et_orderIpAddrs: only items in preferred subnet list\n");
         return firstPrefItem;
     }
     /* No list combining needed here either */
