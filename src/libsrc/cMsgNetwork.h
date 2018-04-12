@@ -23,7 +23,7 @@
 #include <arpa/inet.h>   /* htonl stuff */
 #include <netinet/tcp.h> /* TCP_NODELAY def */
 
-#include <cMsgCommonNetwork.h> 
+#include "cMsgCommonNetwork.h"
 
 
 /*
