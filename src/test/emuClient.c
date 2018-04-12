@@ -15,23 +15,31 @@
  *----------------------------------------------------------------------------*/
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <time.h>
 
 #include "cMsg.h"
 #include "cMsgDomain.h"
+#include "cMsgCommonNetwork.h"
 
 
 void *domainId;
 
 
-
-/******************************************************************/
+/**
+ * Run the following to receive what this program is sending:<p>
+ * java org.jlab.coda.emu.test.EmuDomainReceiver -h<p>
+ * This will show all options. Run with a port and component name that
+ * matches the UDL in the code below.
+ */
 int main(int argc,char **argv) {
 
     char *myName   = "C_emu_client";
     char *myDescription = "emu trial";
+
+    codaIpList *listHead=NULL, *listEnd=NULL, *listItem;
 
     /*
      * Emu domain UDL is of the form:<p>
@@ -53,10 +61,14 @@ int main(int argc,char **argv) {
      */
 
     //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&sockets=1";
-    char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&sockets=2&subnet=172.19.10.255";
-    /*char *UDL = "cMsg:emu://46100/emutest/PEB1?codaId=6&timeout=10&subnet=172.19.10.255";*/
+    //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&sockets=2&subnet=172.19.10.255";
+    //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&sockets=2&subnet=undefined";
+    //char *UDL = "cMsg:emu://direct:46100/emutest/Eb1?codaId=0&timeout=10&sockets=2&subnet=undefined";
+    //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&sockets=2&subnet=undefined";
+    //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&subnet=172.19.10.255";
+    char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&subnet=129.57.29.255";
 
-    int   err, debug = 1;
+    int   err, debug = 1, direct = 1;
     void *msg;
     int32_t data[4*11];
 
@@ -75,6 +87,31 @@ int main(int argc,char **argv) {
         printf("  connecting to, %s\n", UDL);
     }
 
+    /* If connecting directly, provide the IP information of destination. */
+    if (direct) {
+
+        /* Create address list */
+        listHead = cMsgNetAddToAddrList(NULL, "132.8.9.10", "132.8.9.255");
+        if (listHead == NULL) {
+            printf("  out of memory, quit program\n");
+            exit(-1);
+        }
+
+        listItem = cMsgNetAddToAddrList(listHead, "172.19.5.100", "172.19.5.255");
+        if (listItem == NULL) {
+            printf("  out of memory, quit program\n");
+            exit(-1);
+        }
+
+        listItem = cMsgNetAddToAddrList(listHead, "129.57.29.64", "129.57.29.255");
+        if (listItem == NULL) {
+            printf("  out of memory, quit program\n");
+            exit(-1);
+        }
+
+        setDirectConnectDestination(listHead);
+    }
+
     /* connect to cMsg server */
     err = cMsgConnect(UDL, myName, myDescription, &domainId);
     if (err != CMSG_OK) {
@@ -83,8 +120,6 @@ int main(int argc,char **argv) {
         }
         exit(1);
     }
-    printf("CONNECTED\n");
-
 
     /* set debug level */
     cMsgSetDebugLevel(CMSG_DEBUG_INFO);
