@@ -97,6 +97,7 @@ extern "C" {
 #define   codanetFreeIpAddrs               cMsgNetFreeIpAddrs
 #define   codanetGetNetworkInfo            cMsgNetGetNetworkInfo
 #define   codanetFreeAddrList              cMsgNetFreeAddrList
+#define   codanetPrintAddrList             cMsgNetPrintAddrList
 #define   codanetAddToAddrList             cMsgNetAddToAddrList
 #define   codanetGetBroadcastAddrs         cMsgNetGetBroadcastAddrs
 #define   codanetGetIpAddrs                cMsgNetGetIpAddrs
@@ -271,7 +272,8 @@ extern void  codanetFreeInterfaceInfo(struct ifi_info *ifihead);
 extern void  codanetFreeIpAddrs(codaIpAddr *ipaddr);
 extern int   codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info);
 extern void  codanetFreeAddrList(codaIpList *addr);
-extern codaIpList*   codanetAddToAddrList(codaIpList *addr, const char *ip, const char *broad);
+extern void  codanetPringAddrList(codaIpList *addr);
+extern codaIpList*   codanetAddToAddrList(codaIpList *addr, const char **ip, const char **broad, int count);
 extern int   codanetGetBroadcastAddrs(codaIpList **addrs, codaDotDecIpAddrs *bcaddrs);
 extern int   codanetGetIpAddrs(char ***ipAddrs, int *count, char *host);
 extern int   codanetMcastSetIf(int sockfd, const char *ifname, uint32_t ifindex);
