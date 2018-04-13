@@ -2586,7 +2586,7 @@ int codanetGetNetworkInfo(codaIpAddr **ipaddrs, codaNetInfo *info)
 
 /**
  * This routine frees allocated memory of a linked list containing IP addresses.
- * @param addr pointer to first element of linked list to be freed
+ * @param addr pointer to first element of linked list to be freed.
 ` */
 void codanetFreeAddrList(codaIpList *addr) {
     codaIpList *next;
@@ -2599,48 +2599,84 @@ void codanetFreeAddrList(codaIpList *addr) {
 
 
 /**
- * This routine adds an item, containing new ip and broadcast addresses,
- * to the given linked list. If the list arg is NULL, a new list will be
- * created and returned.
+ * This routine prints out a linked list containing IP addresses.
+ * @param addr pointer to first element of linked list to be printed.
+ */
+void codanetPrintAddrList(codaIpList *addr) {
+    int i=0;
+    while (addr != NULL) {
+        printf("Element %d:\n       ip = %s\n    broad = %s\n", i++, addr->addr, addr->bAddr);
+        addr = addr->next;
+    }
+}
+
+
+/**
+ * This routine adds new ip and broadcast addresses to the given linked list.
+ * Each item added ot the linked list is an ip/broadcast pair.
+ * If the list arg is NULL, a new list will be created and returned.
  *
  * @param addr   pointer to linked list to be added to. If a new list is to be started,
  *               this can be NULL and the new list head returned.
- * @param ip     ip address in dot-decimal form.
- * @param broad  broadcast address in dot-decimal form.
- * @returns      NULL if nothing added or list not created;
+ * @param ip     array of pointers to ip addresses in dot-decimal form.
+ * @param broad  array of pointers to broadcast addresses in dot-decimal form
+ *               corresponding to ip addresses.
+ * @param count  number of array entries.
+ * @returns      NULL if nothing added, list not created, count < 1;
  *               list head if addresses are added to list or
  *               new list created.
 `*/
-codaIpList* codanetAddToAddrList(codaIpList *addr, const char *ip, const char *broad) {
+codaIpList* codanetAddToAddrList(codaIpList *addr, const char **ip, const char **broad, int count) {
 
+    int i;
     codaIpList *head = addr, *next, *newItem;
 
+    if (count < 1) return NULL;
+
+    /* Create a new list */
     if (addr == NULL) {
-        /* create a new list */
-        newItem = (codaIpList *)calloc(1, sizeof(codaIpList));
-        if (newItem == NULL) {
-            return NULL;
+        for (i=0; i < count; i++) {
+            newItem = (codaIpList *)calloc(1, sizeof(codaIpList));
+            if (newItem == NULL) {
+                codanetFreeAddrList(head);
+                return NULL;
+            }
+
+            strncpy(newItem->addr, ip[i], CODA_IPADDRSTRLEN);
+            strncpy(newItem->bAddr, broad[i], CODA_IPADDRSTRLEN);
+
+            if (i == 0) {
+                head = newItem;
+            }
+            else {
+                addr->next = newItem;
+            }
+            addr = newItem;
         }
-        strncpy(newItem->addr,  ip,    CODA_IPADDRSTRLEN);
-        strncpy(newItem->bAddr, broad, CODA_IPADDRSTRLEN);
-        return newItem;
+
+        /*codanetPrintAddrList(head);*/
+        return head;
     }
 
     while (addr != NULL) {
         next = addr->next;
         if (next == NULL) {
-            /* This is the last item in the list, add to its end */
-            newItem = (codaIpList *)calloc(1, sizeof(codaIpList));
-            if (newItem == NULL) {
-                return NULL;
+            for (i=0; i < count; i++) {
+                newItem = (codaIpList *)calloc(1, sizeof(codaIpList));
+                if (newItem == NULL) {
+                    return NULL;
+                }
+                strncpy(newItem->addr, ip[i], CODA_IPADDRSTRLEN);
+                strncpy(newItem->bAddr, broad[i], CODA_IPADDRSTRLEN);
+                addr->next = newItem;
+                addr = newItem;
             }
-            strncpy(newItem->addr,  ip,    CODA_IPADDRSTRLEN);
-            strncpy(newItem->bAddr, broad, CODA_IPADDRSTRLEN);
-            addr->next = newItem;
             return head;
         }
         addr = next;
     }
+
+    /*codanetPrintAddrList(head);*/
     return head;
 }
 
