@@ -158,7 +158,7 @@ domainTypeInfo emuDomainTypeInfo = {
 };
 
 /* for emu domain */
-void setDirectConnectDestination(codaIpList *ipList);
+void setDirectConnectDestination(const char **ip, const char **broad, int count);
 
 
 /*-------------------------------------------------------------------*/
@@ -702,14 +702,22 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
  *
  * Setting both length args to zero, erases all destination info.
  *
- * @param ipList linked list of IP/broad cast address pairs in dot-decimal format.
+ * @param ip     array of pointers to ip addresses in dot-decimal form.
+ * @param broad  array of pointers to broadcast addresses in dot-decimal form
+ *               corresponding to ip addresses.
+ * @param count  number of array entries.
  */
-void setDirectConnectDestination(codaIpList *ipList) {
+void setDirectConnectDestination(const char **ip, const char **broad, int count) {
+    codaIpList *ipList = NULL;
+
     /* Clear memory */
     cMsgNetFreeAddrList(directIpList);
     haveDestinationInfo = 0;
     directIpList = NULL;
 
+    /* Store the addresses in a linked list of structures */
+    printf("setDirectConnectDestination: add ip & broad addresses to list\n");
+    ipList = cMsgNetAddToAddrList(NULL, ip, broad, count);
     if (ipList == NULL) {
         return;
     }
