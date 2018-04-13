@@ -63,10 +63,10 @@ int main(int argc,char **argv) {
     //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&sockets=1";
     //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&sockets=2&subnet=172.19.10.255";
     //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&sockets=2&subnet=undefined";
-    //char *UDL = "cMsg:emu://direct:46100/emutest/Eb1?codaId=0&timeout=10&sockets=2&subnet=undefined";
+    char *UDL = "cMsg:emu://direct:46100/emutest/Eb1?codaId=0&timeout=10&sockets=1&subnet=undefined";
     //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&sockets=2&subnet=undefined";
     //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&subnet=172.19.10.255";
-    char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&subnet=129.57.29.255";
+    //char *UDL = "cMsg:emu://46100/emutest/Eb1?codaId=0&timeout=10&subnet=129.57.29.255";
 
     int   err, debug = 1, direct = 1;
     void *msg;
@@ -89,28 +89,28 @@ int main(int argc,char **argv) {
 
     /* If connecting directly, provide the IP information of destination. */
     if (direct) {
+        int len;
+        const char **ipListArray;
+        const char **baListArray;
 
-        /* Create address list */
-        listHead = cMsgNetAddToAddrList(NULL, "132.8.9.10", "132.8.9.255");
-        if (listHead == NULL) {
-            printf("  out of memory, quit program\n");
-            exit(-1);
-        }
+        /* Create address lists for testing */
+        const char *ipList[3] = {"132.8.9.10", "172.19.5.100", "129.57.29.64"};
+        const char *baList[3] = {"132.8.9.255", "172.19.5.255", "129.57.29.255"};
 
-        listItem = cMsgNetAddToAddrList(listHead, "172.19.5.100", "172.19.5.255");
-        if (listItem == NULL) {
-            printf("  out of memory, quit program\n");
-            exit(-1);
-        }
+        /* Create a cmsg message */
+        void *msg = cMsgCreateMessage();
 
-        listItem = cMsgNetAddToAddrList(listHead, "129.57.29.64", "129.57.29.255");
-        if (listItem == NULL) {
-            printf("  out of memory, quit program\n");
-            exit(-1);
-        }
+        /* Add 2 payloads of a string array each */
+        cMsgAddStringArray(msg, "ipList_Roc1", ipList, 3);
+        cMsgAddStringArray(msg, "baList_Roc1", baList, 3);
 
-        setDirectConnectDestination(listHead);
-    }
+        /* Extract the 2 string arrays from the msg payloads */
+        cMsgGetStringArray(msg, "ipList_Roc1", &ipListArray, &len);
+        cMsgGetStringArray(msg, "baList_Roc1", &baListArray, &len);
+
+        /* Put string arrays into a static location in lib so cMsgConnect can get to it. */
+        setDirectConnectDestination(ipListArray, baListArray, len);
+    };
 
     /* connect to cMsg server */
     err = cMsgConnect(UDL, myName, myDescription, &domainId);
