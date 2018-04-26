@@ -405,10 +405,7 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
     if (!multicasting) {
         /* If server IP explicitly given in UDL or IP info from run control was stored by
          * calling setDirectConnectDestination, use that to connect directly. */
-printf("emu connect: Try a direct connection, haveDestinationInfo = %d, serverIP = %s, strlen(serverIP) = %d\n",
-haveDestinationInfo, serverIP, strlen(serverIP));
         if (strlen(serverIP) > 0 || haveDestinationInfo) {
-printf("emu connect: Call directConnect()\n");
             err = directConnect(domain, serverIP, subnet, serverPort, tcpSendBufSize,
                                 tcpNoDelay, socketCount, myCodaId, dataBufSize);
             /* return id */
@@ -726,13 +723,10 @@ void setDirectConnectDestination(const char **ip, const char **broad, int count)
     directIpList = NULL;
 
     /* Store the addresses in a linked list of structures */
-printf("setDirectConnectDestination: add ip & broad addresses to list, count arg = %d\n", count);
     ipList = cMsgNetAddToAddrList(NULL, ip, broad, count);
     if (ipList == NULL) {
-printf("setDirectConnectDestination: resulting list is NULL\n");
         return;
     }
-cMsgNetPrintAddrList(ipList);
     directIpList = ipList;
     haveDestinationInfo = 1;
 }
