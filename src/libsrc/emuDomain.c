@@ -404,19 +404,27 @@ int cmsg_emu_connect(const char *myUDL, const char *myName, const char *myDescri
 
     if (!multicasting) {
         /* If server IP explicitly given in UDL or IP info from run control was stored by
-            * calling setDirectConnectDestination, use that to connect directly. */
+         * calling setDirectConnectDestination, use that to connect directly. */
         if (strlen(serverIP) > 0 || haveDestinationInfo) {
+printf("emu connect: Try a direct connection by calling directConnect()\n");
             err = directConnect(domain, serverIP, subnet, serverPort, tcpSendBufSize,
                                 tcpNoDelay, socketCount, myCodaId, dataBufSize);
             /* return id */
             *domainId = (void *) domain;
+            if (err != CMSG_OK) {
+                printf("emu connect: Making a direct connection failed, err = %d\n", err);
+            }
+            else {
+                printf("emu connect: Making a direct connection is successful\n");
+            }
             return err;
         }
 
+printf("emu connect: Making a direct connection failed, try multicasting\n");
         /* We run into a contradiction here. The user wants to make a direct connection,
-         * but setDirectConnectDestination has not yet been called with the proper info
-         * to make it happen. So we default to multicasting...
-         */
+              * but setDirectConnectDestination has not yet been called with the proper info
+              * to make it happen. So we default to multicasting...
+              */
         multicasting = 1;
         strcpy(serverIP, EMU_MULTICAST_ADDR);
     }
