@@ -2604,8 +2604,9 @@ void codanetFreeAddrList(codaIpList *addr) {
  */
 void codanetPrintAddrList(codaIpList *addr) {
     int i=0;
+    printf("IP List:\n");
     while (addr != NULL) {
-        printf("Element %d:\n       ip = %s\n    broad = %s\n", i++, addr->addr, addr->bAddr);
+        printf("   element %d:    ip = %s,    broad = %s\n", i++, addr->addr, addr->bAddr);
         addr = addr->next;
     }
 }
