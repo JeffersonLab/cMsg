@@ -391,7 +391,7 @@ class rcListeningThread extends Thread {
                     }
 
                     packetCounter = cMsgUtilities.bytesToInt(buf, pos);
-System.out.println("RC multicast listener: got client packet #" + packetCounter);
+System.out.println("RC multicast listener: got client packet #" + packetCounter + " from " + multicasterName);
 
                     // We must have an active subscription waiting on
                     // this end to process the client's request.
