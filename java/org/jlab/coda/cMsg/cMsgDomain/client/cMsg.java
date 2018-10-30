@@ -3916,6 +3916,8 @@ System.out.println("disconnect: IO error");
         }
 
 
+        private byte[] monitorBytes = new byte[200000];
+
         /**
          * This method reads monitoring data from the server.
          * @throws IOException if communication error
@@ -3924,17 +3926,16 @@ System.out.println("disconnect: IO error");
             // read monitor info from server
 //System.out.println("  getMonitorInfo: Try reading first KA int from server, isInterrupted = " +
 //                    Thread.currentThread().isInterrupted());
-            byte[] bytes = new byte[4096];
             int len = in.readInt();
-//if (len > 200000)
-//System.out.println("\n  ***** Try to allocate " + len + " bytes for getMonitorInfo() *****\n");
-//System.out.println("  getMonitorInfo: len xml = " + len);
+//if (len > monitorBytes.length) {
+//    System.out.println("\n  ***** Try to allocate " + len + " bytes for getMonitorInfo() *****\n");
+//    System.out.println("  getMonitorInfo: len xml = " + len);
+//}
             if (len > 0) {
                 // read all monitor data string
-                if (len > bytes.length) bytes = new byte[len];
-                in.readFully(bytes, 0, len);
-                monitorXML = new String(bytes, 0, len, "US-ASCII");
-//System.out.println("  getMonitorInfo:");
+                if (len > monitorBytes.length) monitorBytes = new byte[len];
+                in.readFully(monitorBytes, 0, len);
+                monitorXML = new String(monitorBytes, 0, len, "US-ASCII");
 //System.out.println(monitorXML);
             }
 
@@ -3982,16 +3983,16 @@ System.out.println("disconnect: IO error");
 //                                    ", hlen = " + Integer.toHexString(hlen) +
 //                                    ", plen = " + Integer.toHexString(plen));
                             if (hlen > 0) {
-                                if (hlen > bytes.length) bytes = new byte[hlen];
-                                in.readFully(bytes, 0, hlen);
-                                s = new String(bytes, 0, hlen, "US-ASCII");
+                                if (hlen > monitorBytes.length) monitorBytes = new byte[hlen];
+                                in.readFully(monitorBytes, 0, hlen);
+                                s = new String(monitorBytes, 0, hlen, "US-ASCII");
                                 isLocal = cMsgUtilities.isHostLocal(s);
                                 haveLocalCloudServer |= isLocal;
                             }
                             if (plen > 0) {
-                                if (plen > bytes.length) bytes = new byte[plen];
-                                in.readFully(bytes, 0, plen);
-                                passwd = new String(bytes, 0, plen, "US-ASCII");
+                                if (plen > monitorBytes.length) monitorBytes = new byte[plen];
+                                in.readFully(monitorBytes, 0, plen);
+                                passwd = new String(monitorBytes, 0, plen, "US-ASCII");
                             }
                             name = s+":"+tcpPort;
 //System.out.println("  getMonitorInfo: cloud server => tcpPort = " +tcpPort +
