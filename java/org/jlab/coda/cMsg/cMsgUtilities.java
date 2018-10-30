@@ -200,6 +200,11 @@ public class cMsgUtilities {
             return;
         }
 
+        if (offset < 0 || bytes < 0) {
+            System.out.println("printBuffer: offset and bytes args must be >= 0");
+            return;
+        }
+
         int limit = bytes + offset > array.length ? array.length : bytes + offset;
 
         if (label != null) System.out.println(label + ":");
