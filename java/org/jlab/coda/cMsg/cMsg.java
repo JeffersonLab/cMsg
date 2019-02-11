@@ -21,6 +21,7 @@ import org.jlab.coda.cMsg.cMsgCallbackInterface;
 import org.jlab.coda.cMsg.common.cMsgDomainInterface;
 import org.jlab.coda.cMsg.common.cMsgShutdownHandlerInterface;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.*;
@@ -505,7 +506,7 @@ public class cMsg {
 
         // Get connection class name and create object
         try {
-            domainConnection = (cMsgDomainInterface) (Class.forName(domainConnectionClass).newInstance());
+            domainConnection = (cMsgDomainInterface) (Class.forName(domainConnectionClass).getConstructor().newInstance());
         }
         catch (InstantiationException e) {
             cMsgException ex = new cMsgException("cannot instantiate "+ domainConnectionClass +
@@ -517,6 +518,16 @@ public class cMsg {
             cMsgException ex = new cMsgException("cannot access "+ domainConnectionClass +
                                                  " class");
             ex.setReturnCode(cMsgConstants.error);
+            throw ex;
+        }
+        catch (InvocationTargetException e) {
+            cMsgException ex = new cMsgException("error in constructor");
+            ex.setReturnCode(cMsgConstants.errorNoClassFound);
+            throw ex;
+        }
+        catch (NoSuchMethodException e) {
+            cMsgException ex = new cMsgException("no handler class found");
+            ex.setReturnCode(cMsgConstants.errorNoClassFound);
             throw ex;
         }
         catch (ClassNotFoundException e) {

@@ -815,10 +815,11 @@ System.out.println("startProcess: io error gathering (error) output");
 
             try {
                 Class c = Class.forName(className);
+                Constructor conn = c.getConstructor();
 
                 // if no args, use no-arg constructor
                 if (msg == null) {
-                    returnObject = c.newInstance();
+                    returnObject = conn.newInstance();
                 }
                 else {
                     // number of constructor arguments contained in userInt
@@ -976,7 +977,7 @@ System.out.println("startProcess: io error gathering (error) output");
 
                             case REFERENCE_NOARG:
 //System.out.println("Use no-arg constructor of " + classNames[i]);
-                                args[i] = argClasses[i].newInstance();
+                                args[i] = argClasses[i].getConstructor().newInstance();
                                 break;
 
                             case NULL:

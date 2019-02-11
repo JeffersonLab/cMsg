@@ -17,6 +17,7 @@
 package org.jlab.coda.cMsg.cMsgDomain.server;
 
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
 import java.net.*;
 import java.lang.*;
 import java.util.*;
@@ -1058,7 +1059,7 @@ System.out.println("Server to join not in \"host:port\" format:\n" + e.getMessag
 
         // Get handler class name and create handler object
         try {
-            clientHandler = (cMsgSubdomainInterface) (Class.forName(clientHandlerClass).newInstance());
+            clientHandler = (cMsgSubdomainInterface) (Class.forName(clientHandlerClass).getConstructor().newInstance());
         }
         catch (InstantiationException e) {
             cMsgException ex = new cMsgException("cannot instantiate "+ clientHandlerClass +
@@ -1070,6 +1071,16 @@ System.out.println("Server to join not in \"host:port\" format:\n" + e.getMessag
             cMsgException ex = new cMsgException("cannot access "+ clientHandlerClass +
                                                  " class");
             ex.setReturnCode(cMsgConstants.error);
+            throw ex;
+        }
+        catch (InvocationTargetException e) {
+            cMsgException ex = new cMsgException("error in constructor");
+            ex.setReturnCode(cMsgConstants.errorNoClassFound);
+            throw ex;
+        }
+        catch (NoSuchMethodException e) {
+            cMsgException ex = new cMsgException("no handler class found");
+            ex.setReturnCode(cMsgConstants.errorNoClassFound);
             throw ex;
         }
         catch (ClassNotFoundException e) {

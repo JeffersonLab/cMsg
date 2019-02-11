@@ -288,20 +288,7 @@ class cMsgDomainServer extends Thread {
         }
     }
 
-
-
-    /**
-     * Method to be run when this server's client is dead or disconnected and
-     * the server threads will be killed. <p/>
-     * Finalize methods are run after an object has become unreachable and
-     * before the garbage collector is run;
-     */
-    public void finalize() throws cMsgException {
-        try { super.finalize();}
-        catch (Throwable throwable) { }
-    }
-
-
+    
     /** Method to gracefully shutdown this object's threads and clean things up. */
     synchronized void shutdown() {
 //System.out.println("SHUTTING DOWN domain server");
