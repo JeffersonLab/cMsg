@@ -876,7 +876,7 @@ System.out.println("CODA id = " + codaID);
         if (matcher.find()) {
             try {
                 multicastTimeout = 1000 * Integer.parseInt(matcher.group(1));
-System.out.println("timeout = " + multicastTimeout + " seconds");
+System.out.println("timeout = " + (multicastTimeout/1000) + " seconds");
             }
             catch (NumberFormatException e) {
                 // ignore error and keep default value of 2.1MB
