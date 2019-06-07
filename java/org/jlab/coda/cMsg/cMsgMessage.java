@@ -2649,7 +2649,7 @@ public class cMsgMessage implements Cloneable, Serializable {
 
         int index2, len;
         String[] vals = new String[count];
-//System.out.println("addStringArrayFromText Inn" + txt);
+//System.out.println("addStringArrayFromText In: " + txt);
         for (int i = 0; i < count; i++) {
             // first item is length of string
             index2 = txt.indexOf('\n', index1);
