@@ -723,7 +723,7 @@ System.out.println("      Emu connect direct: socket " + i + " MADE TCP connecti
      * Make this able to extract an optional host (previously it was always multicast).
      *
      * Emu domain UDL is of the form:<p>
-     *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?codaId=&lt;id&gt;?broad=&lt;ip&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&sockets=&lt;count&gt;&noDelay</b><p>
+     *   <b>emu://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?codaId=&lt;id&gt;?broad=&lt;ip&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&sockets=&lt;count&gt;&noDelay</b><p>
      *
      * Remember that for this domain:
      *<ol>
@@ -784,7 +784,7 @@ System.out.println("      Emu connect direct: socket " + i + " MADE TCP connecti
             serverIpAddress = "multicast";
         }
 
-        // if the host is "localhost", find the actual, fully qualified  host name
+        // if the host not "multicast", find the actual, fully qualified  host name
         if (udlHost.equalsIgnoreCase("multicast")) {
             serverIpAddress = cMsgNetworkConstants.rcMulticast;
             multicasting = true;
