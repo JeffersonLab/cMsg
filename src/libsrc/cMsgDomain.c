@@ -6577,7 +6577,7 @@ static int sendMonitorInfo(cMsgDomainInfo *domain, int connfd) {
         strcat(xml, indent2);
         strcat(xml, "<callback id=\"");
         pchar = xml + strlen(xml);
-        sprintf(pchar, "%d%s%lu%s%d", num++, "\" received=\"",
+        sprintf(pchar, "%d%s%llu%s%d", num++, "\" received=\"",
                 cb->msgCount, "\" cueSize=\"", cb->messages);
         strcat(xml, "\"/>\n");
 
@@ -6638,7 +6638,7 @@ static int sendMonitorInfo(cMsgDomainInfo *domain, int connfd) {
     strcat(xml, indent1);
     strcat(xml, "<time>");
     pchar = xml + strlen(xml);
-    sprintf(pchar, "%d", current_time);
+    sprintf(pchar, "%lld", current_time);
     strcat(xml, "</time>\n");
 
 #ifdef linux
@@ -6951,11 +6951,11 @@ if(dbg) printf("parseUDL: mustMulticast = %d\n", mustMulticast);
 
     if (mustMulticast == 1) {
       pUdl->nameServerUdpPort = Port;
-if(dbg) printf("parseUDL: UDP port = %hu\n", Port );
+if(dbg) printf("parseUDL: UDP port = %d\n", Port );
     }
     else {
       pUdl->nameServerPort = Port;
-if(dbg) printf("parseUDL: TCP port = %hu\n", Port );
+if(dbg) printf("parseUDL: TCP port = %d\n", Port );
     }
 
 

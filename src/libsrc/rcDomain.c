@@ -1076,7 +1076,7 @@ static void *multicastThd(void *arg) {
      */
     nanosleep(&wait, NULL);
     
-    err = cMsgNetGetIfNames(&ifNames, &count);
+    err = cMsgNetGetIfAndLoopbackNames(&ifNames, &count);
     if (err != CMSG_OK || count < 1 || ifNames == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
             fprintf(stderr, "multicastThd: cannot find network interface info, use defaults\n");
@@ -2272,7 +2272,7 @@ static void *receiverThd(void *arg) {
 printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
                 inet_ntoa(addr.sin_addr),
                 ntohs(addr.sin_port), len);
-
+*/
         /* server is sending 9 ints + string */
         if (len < 9 * sizeof(int)) continue;
 

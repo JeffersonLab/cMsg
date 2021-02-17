@@ -2723,12 +2723,13 @@ int codanetGetBroadcastAddrs(codaIpList **addrs, codaDotDecIpAddrs *bcaddrs)
  *                If NULL, nothing is returned here.
  * @param count   number of names returned.
  *                If NULL, nothing is returned here.
+ * @param includeLoopback if true, include loopback address in the returned names.
  *
  * @returns ET/CMSG_OK                        if successful
  * @returns ET/CMSG_ERROR                     if cannot find network interface info
  * @returns ET_ERROR_NOMEM/CMSG_OUT_OF_MEMORY if no more memory
  */
-int codanetGetIfNames(char ***ifNames, int *count) {
+static int getIfNames(char ***ifNames, int *count, int includeLoopback) {
 
     char   **array;
     int    index=0, numIfs=0;
@@ -2746,10 +2747,10 @@ int codanetGetIfNames(char ***ifNames, int *count) {
     /* first count # of interfaces */
     for (;ifi != NULL; ifi = ifi->ifi_next) {
         /* ignore loopback */
-        if (ifi->ifi_flags & IFF_LOOPBACK) {
+        if (!includeLoopback && (ifi->ifi_flags & IFF_LOOPBACK)) {
             continue;
         }
-    
+
         /* if the interface is up */
         if (ifi->ifi_flags & IFF_UP) {
             numIfs++;
@@ -2795,6 +2796,44 @@ int codanetGetIfNames(char ***ifNames, int *count) {
     return CODA_OK;
 }
 
+
+/**
+ * This routine returns an allocated array of local network interfaces names
+ * and the array size in the arguments. To free all allocated memory,
+ * free each of ifNames' count elements, then free ifNames itself.
+ * Loopback is NOT included.
+ *
+ * @param ifNames pointer which gets filled with allocated array of local interfaces names.
+ *                If NULL, nothing is returned here.
+ * @param count   number of names returned.
+ *                If NULL, nothing is returned here.
+ *
+ * @returns ET/CMSG_OK                        if successful
+ * @returns ET/CMSG_ERROR                     if cannot find network interface info
+ * @returns ET_ERROR_NOMEM/CMSG_OUT_OF_MEMORY if no more memory
+ */
+int codanetGetIfNames(char ***ifNames, int *count) {
+    return getIfNames(ifNames, count, 0);
+}
+
+/**
+ * This routine returns an allocated array of local network interfaces names
+ * and the array size in the arguments. To free all allocated memory,
+ * free each of ifNames' count elements, then free ifNames itself.
+ * The loopback interface is included.
+ *
+ * @param ifNames pointer which gets filled with allocated array of local interfaces names.
+ *                If NULL, nothing is returned here.
+ * @param count   number of names returned.
+ *                If NULL, nothing is returned here.
+ *
+ * @returns ET/CMSG_OK                        if successful
+ * @returns ET/CMSG_ERROR                     if cannot find network interface info
+ * @returns ET_ERROR_NOMEM/CMSG_OUT_OF_MEMORY if no more memory
+ */
+int codanetGetIfAndLoopbackNames(char ***ifNames, int *count) {
+    return getIfNames(ifNames, count, 1);
+}
 
 /**
  * Given a dot-decimal IP address as an argument, this method will return that

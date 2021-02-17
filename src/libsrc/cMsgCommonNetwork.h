@@ -102,6 +102,7 @@ extern "C" {
 #define   codanetOrderIpAddrs              cMsgNetOrderIpAddrs
 #define   codanetMcastSetIf                cMsgNetMcastSetIf
 #define   codanetGetIfNames                cMsgNetGetIfNames
+#define   codanetGetIfAndLoopbackNames     cMsgNetGetIfAndLoopbackNames
 #define   codanetGetMatchingLocalIpAddress cMsgNetGetMatchingLocalIpAddress
 #define   codanetGetBroadcastAddress       cMsgNetGetBroadcastAddress
 
@@ -135,12 +136,12 @@ struct ifi_info {
     struct sockaddr  *ifi_netmask;/* subnet mask */
     struct ifi_info  *ifi_next;   /* next of these structures */
 };
-/*****************************************************************************
+/*****************************************************************************/
 
 
-/* *****************************************************************
+/******************************************************************
  *      items to handle multiple network addresses or names        *
- * *****************************************************************/
+ ******************************************************************/
 /* max # of network addresses/names per host we'll examine */
 #define CODA_MAXADDRESSES 10
 /*
@@ -274,6 +275,7 @@ extern int   codanetGetBroadcastAddrs(codaIpList **addrs, codaDotDecIpAddrs *bca
 extern int   codanetGetIpAddrs(char ***ipAddrs, int *count, char *host);
 extern int   codanetMcastSetIf(int sockfd, const char *ifname, uint32_t ifindex);
 extern int   codanetGetIfNames(char ***ifNames, int *count);
+extern int   codanetGetIfAndLoopbackNames(char ***ifNames, int *count);
 extern codaIpList *codanetOrderIpAddrs(codaIpList *ipList, codaIpAddr *netinfo,
                                        char* preferredSubnet, int* noSubnetMatch);
 extern int   codanetGetMatchingLocalIpAddress(char *ip, char **matchingIp);

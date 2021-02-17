@@ -122,10 +122,6 @@ typedef void (cMsgCallbackFunc) (void *msg, void *userArg);
 extern "C" {
 #endif
 
-#ifdef Darwin
-#define CLOCK_REALTIME 0
-int clock_gettime(int dummy, struct timespec *t1);
-#endif
 
   /* basic functions */
   int 	cMsgConnect           (const char *myUDL, const char *myName, const char *myDescription,

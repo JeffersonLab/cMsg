@@ -1478,7 +1478,7 @@ printf("parseUDL: port required in UDL\n");
     if (port != NULL) {
       *port = (unsigned short)Port;
     }
-/*printf("parseUDL: port = %hu\n", Port);*/
+/*printf("parseUDL: port = %d\n", Port);*/
 
     /**************/
     /* find expid */
