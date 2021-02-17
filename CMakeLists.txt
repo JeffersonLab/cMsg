@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
-project(cMsg_6_0)
+project(cMsg_5_2)
 
-include_directories(/daqfs/home/timmer/coda/cMsg.GIT/src/libsrc /daqfs/home/timmer/coda/cMsg.GIT/src/libsrc++ $ENV{CODA}/common/include)
+include_directories($ENV{CODA}/common/include)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
@@ -76,4 +76,4 @@ set(SOURCE_FILES
     src/test/cpptest.cc
     src/test/rcClient.c)
 
-add_executable(cMsg_6_0 ${SOURCE_FILES})
+add_executable(cMsg_5_2 ${SOURCE_FILES})
