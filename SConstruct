@@ -23,7 +23,7 @@ from os import sep, symlink
 import coda
 
 # Created files & dirs will have this permission
-os.umask(002)
+os.umask(2)
 
 # Software version
 versionMajor = '6'
@@ -41,15 +41,15 @@ path = os.getenv('PATH', '')
 ldLibPath = os.getenv('LD_LIBRARY_PATH', '')
 
 if path == '':
-    print
-    print "Error: set PATH environmental variable"
-    print
+    print()
+    print("Error: set PATH environmental variable")
+    print()
     raise SystemExit
 
 if ldLibPath == '':
-    print
-    print "Warning: LD_LIBRARY_PATH environmental variable not defined"
-    print
+    print()
+    print("Warning: LD_LIBRARY_PATH environmental variable not defined")
+    print()
     env = Environment(ENV = {'PATH' : os.environ['PATH']})
 else:
     env = Environment(ENV = {'PATH' : os.environ['PATH'], 'LD_LIBRARY_PATH' : os.environ['LD_LIBRARY_PATH']})
@@ -65,9 +65,9 @@ else:
 # a configure-type test.
 is64bits = coda.is64BitMachine(env, platform, machine)
 if is64bits:
-    print "We're on a 64-bit machine"
+    print("We're on a 64-bit machine")
 else:
-    print "We're on a 32-bit machine"
+    print("We're on a 32-bit machine")
 
 
 #############################################
@@ -80,13 +80,13 @@ Help('\nlocal scons OPTIONS:\n')
 # debug option
 AddOption('--dbg', dest='ddebug', default=False, action='store_true')
 debug = GetOption('ddebug')
-if debug: print "Enable debugging"
+if debug: print("Enable debugging")
 Help('--dbg               compile with debug flag\n')
 
 # 32 bit option
 AddOption('--32bits', dest='use32bits', default=False, action='store_true')
 use32bits = GetOption('use32bits')
-if use32bits: print "use 32-bit libs & executables even on 64 bit system"
+if use32bits: print("use 32-bit libs & executables even on 64 bit system")
 Help('--32bits            compile 32bit libs & executables on 64bit system\n')
 
 # install directory option
@@ -117,7 +117,7 @@ Help('--bindir=<dir>      copy binary  files to directory <dir> when doing insta
 # Debug/optimization flags
 debugSuffix = ''
 if debug:
-#    debugSuffix = '-dbg'
+    debugSuffix = '-dbg'
 # Compile with -g and add debugSuffix to all executable names
     env.Append(CCFLAGS = ['-g'], PROGSUFFIX = debugSuffix)
 else:
@@ -146,7 +146,7 @@ if platform == 'Darwin':
 if is64bits and use32bits:
     osname = osname + '-32'
 
-print "OSNAME =", osname
+print("OSNAME =", osname)
 
 # hidden sub directory into which variant builds go
 archDir = '.' + osname + debugSuffix
@@ -203,20 +203,20 @@ if 'install' in COMMAND_LINE_TARGETS:
     # Create the include directories right now (make symbolic link if possible)
 
     ##if Execute(Mkdir(incInstallDir)):
-    ##    print "Problem occurred while creating the directory " + incInstallDir
+    ##    print("Problem occurred while creating the directory " + incInstallDir)
     ##    raise SystemExit
 
     ##if Execute(Mkdir(osDir)):
-    ##    print "Problem occurred while creating the directory " + osDir
+    ##    print("Problem occurred while creating the directory " + osDir)
     ##    raise SystemExit
 
     #if Execute(Mkdir(archIncInstallDir)):
-    #    print "Problem occurred while creating the directory " + archIncInstallDir
+    #    print("Problem occurred while creating the directory " + archIncInstallDir)
     #    raise SystemExit
 
-    print "osDir = " + osDir
-    print "incInstallDir = " + incInstallDir
-    print "archIncInstallDir = " + archIncInstallDir
+    print("osDir = " + osDir)
+    print("incInstallDir = " + incInstallDir)
+    print("archIncInstallDir = " + archIncInstallDir)
 
     # coda.makeIncludeDirs(incInstallDir, archIncInstallDir, osDir, archIncLocalLink)
     #
@@ -225,12 +225,12 @@ if 'install' in COMMAND_LINE_TARGETS:
     # If the architecture include dir does NOT exist, make link to include dir
     #
     ##if not os.path.exists(archIncInstallDir):
-    ##    print "In Function"
+    ##    print("In Function")
     ##    # Create symbolic link: symlink(source, linkname)
     ##    try:
     ##	    if (archIncLocalLink == None) or (archIncLocalLink == ''):
     ##	        # incdir -> incdir
-	##            print "call symlink"
+	##            print("call symlink")
     ##    	    symlink(incInstallDir, archIncInstallDir)
     ##        else:
     ##            # incdir -> ../common/include
@@ -240,25 +240,25 @@ if 'install' in COMMAND_LINE_TARGETS:
     ##            Execute(Mkdir(archIncInstallDir))
 
     ##elif not os.path.isdir(archIncInstallDir):
-    ##    print
-    ##    print "Error:", archIncInstallDir, "is NOT a directory"
+    ##    print()
+    ##    print("Error:", archIncInstallDir, "is NOT a directory")
 
     ##else:
-    ##    print
-    ##    print "archIncInstallDir already exists -> " + archIncInstallDir
+    ##    print()
+    ##    print("archIncInstallDir already exists -> " + archIncInstallDir)
 
     #env.Command('liba.so', 'liba.so.0.0.1', 'ln -s ${SOURCE.file} $TARGET')
 
 
-    print 'Main install dir  = ', mainInstallDir
-    print 'bin  install dir  = ', binInstallDir
-    print 'lib  install dir  = ', libInstallDir
-    print 'inc  install dirs = ', incInstallDir, ", ", archIncInstallDir
+    print('Main install dir  = ', mainInstallDir)
+    print('bin  install dir  = ', binInstallDir)
+    print('lib  install dir  = ', libInstallDir)
+    print('inc  install dirs = ', incInstallDir, ", ", archIncInstallDir)
 
 else:
-    print 'No installation being done'
+    print('No installation being done')
 
-print
+print()
 
 # use "install" on command line to install libs & headers
 Help('install             install libs, headers, and binaries\n')
