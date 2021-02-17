@@ -2272,7 +2272,7 @@ static void *receiverThd(void *arg) {
 printf("Multicast response from: %s, on port %hu, with msg len = %hd\n",
                 inet_ntoa(addr.sin_addr),
                 ntohs(addr.sin_port), len);
-
+*/
         /* server is sending 9 ints + string */
         if (len < 9 * sizeof(int)) continue;
 

@@ -305,26 +305,6 @@ char *strndup(const char *s1, size_t count) {
 #endif
 
 
-/*-------------------------------------------------------------------*/
-#ifdef Darwin
-int clock_gettime(int clk_id /*ignored*/, struct timespec *tp)
-{
-  struct timeval now;
-    
-  int rv = gettimeofday(&now, NULL);
-    
-  if (rv != 0) {
-    return rv;
-  }
-    
-  tp->tv_sec = now.tv_sec;
-  tp->tv_nsec = now.tv_usec * 1000;
-    
-  return 0;
-}
-#endif
-
-
 /*-------------------------------------------------------------------*
  * Mutex functions
  *-------------------------------------------------------------------*/

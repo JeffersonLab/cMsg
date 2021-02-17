@@ -67,11 +67,6 @@
 #define hton64(x) NTOH64(x)
 #endif
 
-
-#if defined __APPLE__
-#  define socklen_t int
-#endif
-
 #ifdef linux
 #ifndef _SC_IOV_MAX
 #  define _SC_IOV_MAX _SC_T_IOV_MAX

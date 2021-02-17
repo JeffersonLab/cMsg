@@ -5814,7 +5814,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
   if (!isValidFieldName(name, isSystem))    return(CMSG_BAD_FORMAT);
   if (isSystem) isSystem = 1;
 
-  memset((void *)length, 0, 12*sizeof(int));
+  memset((void *)length, 0, 11*sizeof(int));
   
   /* payload item to add to msg */
   item = (payloadItem *) calloc(1, sizeof(payloadItem));

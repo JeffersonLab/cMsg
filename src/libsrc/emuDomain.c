@@ -13,7 +13,7 @@
  *             Phone: (757) 269-5130             12000 Jefferson Ave.         *
  *             Fax:   (757) 269-5800             Newport News, VA 23606       *
  *                                                                            *
- *----------------------------------------------------------------------------*
+ *----------------------------------------------------------------------------*/
 
 /**
  * @file
@@ -1886,7 +1886,7 @@ printf("parseUDL: server IP is NOT in dot-decimal format so multicast to %s\n", 
     if (port != NULL) {
       *port = (unsigned short)Port;
     }
-printf("parseUDL: port = %hu\n", Port);
+printf("parseUDL: port = %d\n", Port);
 
     /**************/
     /* find expid */
