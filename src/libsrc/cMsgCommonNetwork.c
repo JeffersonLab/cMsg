@@ -2774,7 +2774,7 @@ static int getIfNames(char ***ifNames, int *count, int includeLoopback) {
     ifi = ifihead;
     for (;ifi != NULL; ifi = ifi->ifi_next) {
         /* ignore loopback */
-        if (ifi->ifi_flags & IFF_LOOPBACK) {
+        if (!includeLoopback && (ifi->ifi_flags & IFF_LOOPBACK)) {
             continue;
         }
     
