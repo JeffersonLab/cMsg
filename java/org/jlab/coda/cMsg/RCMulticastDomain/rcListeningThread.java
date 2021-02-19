@@ -108,13 +108,13 @@ class rcListeningThread extends Thread {
             // Be sure to join the multicast address group of all network interfaces
             // (something not mentioned in any javadocs or books!).
             Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
-System.out.println("Join multicast address group of these interfaces:");
+//System.out.println("Join multicast address group of these interfaces:");
             while (enumer.hasMoreElements()) {
                 NetworkInterface ni = enumer.nextElement();
                 if (ni.isUp()) {
                     try {
                         multicastSocket.joinGroup(sa, ni);
-printNI(ni);
+//printNI(ni);
                     }
                     catch (IOException e) {
                         System.out.println("Error joining multicast group over " + ni.getName());
@@ -137,11 +137,6 @@ printNI(ni);
 
     /** This method is executed as a thread. */
     public void run() {
-
-        // TODO: Added this for debugging 2/19/2021
-        int oldDebug = debug;
-        debug = cMsgConstants.debugInfo;
-
 
         if (debug >= cMsgConstants.debugInfo) {
             System.out.println("Running RC Multicast Listening Thread");
@@ -258,27 +253,27 @@ printNI(ni);
                 switch (msgType) {
                     // multicasts from rc clients
                     case cMsgNetworkConstants.rcDomainMulticastClient:
-System.out.println("Client wants to connect");
+//System.out.println("Client wants to connect");
                         break;
                     // multicasts from rc servers
                     case cMsgNetworkConstants.rcDomainMulticastServer:
-System.out.println("Server wants to connect");
+//System.out.println("Server wants to connect");
                         break;
                     // kill this server since one already exists on this port/expid
                     case cMsgNetworkConstants.rcDomainMulticastKillSelf:
-System.out.println("RC multicast listener: told to kill myself by another multicast server, ignore for now");
-                        server.respondingHost = multicasterHost;
-                        server.multicastResponse.countDown();
-                        return;
-//                        continue;
+//System.out.println("RC multicast listener: told to kill myself by another multicast server, ignore for now");
+//                        server.respondingHost = multicasterHost;
+//                        server.multicastResponse.countDown();
+//                        return;
+                        continue;
                     // Packet from client just trying to locate rc multicast servers.
                     // Send back a normal response but don't do anything else.
                     case cMsgNetworkConstants.rcDomainMulticastProbe:
-System.out.println("I was probed");
+//System.out.println("I was probed");
                         break;
                     // ignore packets from unknown sources
                     default:
-System.out.println("Unknown command");
+//System.out.println("Unknown command");
                         continue;
                 }
 
@@ -333,7 +328,7 @@ System.out.println("Unknown command");
                 // this packet comes from this very server.
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastServer &&
                     multicasterUdpPort == server.localTempPort) {
-System.out.println("RC multicast listener : ignore own start-up udp messages");
+//System.out.println("RC multicast listener : ignore own start-up udp messages");
                     continue;
                 }
 
@@ -344,15 +339,15 @@ System.out.println("RC multicast listener : ignore own start-up udp messages");
                 // if probe from client ...
                 if (msgType == cMsgNetworkConstants.rcDomainMulticastProbe) {
                     try {
-if (multicasterTcpPort == 1) {
-    System.out.println("RC multicast listener: got probe from cMsgFindServers");
-}
-else if (multicasterTcpPort == 0) {
-    System.out.println("RC multicast listener: got probe from client monitor()");
-}
+//if (multicasterTcpPort == 1) {
+//    System.out.println("RC multicast listener: got probe from cMsgFindServers");
+//}
+//else if (multicasterTcpPort == 0) {
+//    System.out.println("RC multicast listener: got probe from client monitor()");
+//}
                         sendPacket = new DatagramPacket(outBuf, outBuf.length, multicasterAddress, multicasterUdpPort);
-System.out.println("RC multicast listener: send probe response to " + multicasterName + " on " + multicasterHost +
-", expid = " + server.expid);
+//System.out.println("RC multicast listener: send probe response to " + multicasterName + " on " + multicasterHost +
+//", expid = " + server.expid);
                         multicastSocket.send(sendPacket);
                     }
                     catch (IOException e) {
@@ -379,16 +374,16 @@ System.out.println("RC multicast listener: send probe response to " + multicaste
                     for (int i=0; i < listLen; i++) {
                         try {
                             stringLen = cMsgUtilities.bytesToInt(buf, pos); pos += 4;
-System.out.println("     ip len = " + listLen);
+//System.out.println("     ip len = " + listLen);
                             ss = new String(buf, pos, stringLen, "US-ASCII");
-System.out.println("     ip = " + ss);
+//System.out.println("     ip = " + ss);
                             ipList.add(ss);
                             pos += stringLen;
 
                             stringLen = cMsgUtilities.bytesToInt(buf, pos); pos += 4;
-System.out.println("     broad len = " + listLen);
+//System.out.println("     broad len = " + listLen);
                             ss = new String(buf, pos, stringLen, "US-ASCII");
-System.out.println("     broad = " + ss);
+//System.out.println("     broad = " + ss);
                             broadList.add(ss);
                             pos += stringLen;
                         }
@@ -403,7 +398,7 @@ System.out.println("RC multicast listener: got client packet #" + packetCounter)
                     // So before we accept a client, make
                     // sure we are able to process the connection.
                     if (!server.acceptingClients || !server.hasSubscription || !server.isReceiving()) {
-System.out.println("RC multicast listener: server not accepting clients, ignore multicast");
+//System.out.println("RC multicast listener: server not accepting clients, ignore multicast");
                         continue;
                     }
                 }
@@ -425,11 +420,11 @@ System.out.println("RC multicast listener: server not accepting clients, ignore 
                         cMsgUtilities.intToBytes(cMsgConstants.version, buf, 12);
                         cMsgUtilities.intToBytes(cMsgNetworkConstants.rcDomainMulticastKillSelf, buf, 16);
                         DatagramPacket pkt = new DatagramPacket(buf, 16, multicasterAddress, server.udpPort);
-System.out.println("RC multicast listener: send response packet (kill yourself) to server");
+//System.out.println("RC multicast listener: send response packet (kill yourself) to server");
                         multicastSocket.send(pkt);
                     }
                     else {
-System.out.println("RC multicast listener: starting up but was probed by another starting server. So quit");
+//System.out.println("RC multicast listener: starting up but was probed by another starting server. So quit");
                         server.respondingHost = multicasterHost;
                         server.multicastResponse.countDown();
                         return;
@@ -437,7 +432,7 @@ System.out.println("RC multicast listener: starting up but was probed by another
                     continue;
                 }
 
-System.out.println("RC multicast listener: pass msg on to subscriptions");
+//System.out.println("RC multicast listener: pass msg on to subscriptions");
                 if (debug >= cMsgConstants.debugInfo) {
                     System.out.println("RC multicast listener: client " + multicasterName + " is now connected");
                 }
@@ -501,8 +496,7 @@ System.out.println("RC multicast listener: pass msg on to subscriptions");
             if (!multicastSocket.isClosed())  multicastSocket.close();
         }
 
-    debug = oldDebug;
-    return;
+        return;
     }
 
 
