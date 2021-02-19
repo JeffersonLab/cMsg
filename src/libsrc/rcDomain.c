@@ -1076,7 +1076,7 @@ static void *multicastThd(void *arg) {
      */
     nanosleep(&wait, NULL);
     
-    err = cMsgNetGetIfNames(&ifNames, &count);
+    err = cMsgNetGetIfAndLoopbackNames(&ifNames, &count);
     if (err != CMSG_OK || count < 1 || ifNames == NULL) {
         if (cMsgDebug >= CMSG_DEBUG_ERROR) {
             fprintf(stderr, "multicastThd: cannot find network interface info, use defaults\n");
