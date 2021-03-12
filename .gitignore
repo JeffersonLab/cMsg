@@ -1,6 +1,6 @@
-# ignore all files/dirs beginning with .
+# ignore all files/dirs beginning with . or _
 .*
-
+_*
 # except this one
 !.gitignore
 
