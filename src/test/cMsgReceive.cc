@@ -7,9 +7,10 @@
 
 
 // system includes
-using namespace std;
 #include <iostream>
 #include <unistd.h>
+
+using namespace std;
 
 
 // for cMsg

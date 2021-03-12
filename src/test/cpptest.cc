@@ -76,7 +76,7 @@ int main(int argc,char **argv) {
   
   vector<string> *v = msg.getStringVector("heyho");
   for (ii=0; ii<v->size(); ii++) {
-    printf("  str array[%d] = %s\n",ii, (*v)[ii].c_str());
+    printf("  str array[%zu] = %s\n",ii, (*v)[ii].c_str());
   }
   delete(v);
   
