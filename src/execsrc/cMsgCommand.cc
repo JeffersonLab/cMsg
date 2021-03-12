@@ -7,15 +7,15 @@
 
 
 // system includes
-using namespace std;
 #include <iostream>
 #include <unistd.h>
 #include <sstream>
 #include <vector>
 
+using namespace std;
 
 // for cMsg
-#include <cMsg.hxx>
+#include "cMsg.hxx"
 #ifndef VXWORKS
 #include <strings.h> // for strncasecmp
 #endif
