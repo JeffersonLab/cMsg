@@ -5,9 +5,16 @@
 !.gitignore
 
 # ignore generated files/dirs
+cmake-*
+cmake_install.cmake
 coda.pyc
 build/
-doc/doxygen/C/
-doc/doxygen/CC/
-doc/javadoc/
 doxyerrors.log
+/target/
+doc/javadoc
+doc/doxygen/CC
+doc/doxygen/C
+doc/source/
+config.log
+Makefile
+src/libsrc/.*
