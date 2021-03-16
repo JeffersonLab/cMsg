@@ -5,14 +5,14 @@
 
 
 // system includes
-using namespace std;
 #include <iostream>
 #include <unistd.h>
 #include <strings.h>
 
+using namespace std;
 
 // for cMsg
-#include <cMsg.hxx>
+#include "cMsg.hxx"
 
 using namespace cmsg;
 
