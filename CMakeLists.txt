@@ -183,7 +183,7 @@ include_directories(cmsgRegex PUBLIC src/regexp)
 
 # Shared cMsg C library
 add_library(cMsg SHARED ${C_LIB_FILES})
-target_link_libraries(cMsg cmsgRegex)
+target_link_libraries(cMsg cmsgRegex dl)
 include_directories(cMsg PUBLIC src/libsrc src/regexp)
 
 
