@@ -25,17 +25,19 @@ import java.util.Collection;
 import java.util.Arrays;
 
 /**
- * This class represents an item in a cMsg message's payload.
+ * <p>This class represents an item in a cMsg message's payload.
  * The value of each item is stored in this class along with a text
  * representation of that item. Following is the text format of various
- * types of payload items where [nl] means newline.<p/>
+ * types of payload items where [nl] means newline.</p>
  *
- * Note that there is only 1 space or newline between all entries. The only exception
+ * <p>Note that there is only 1 space or newline between all entries. The only exception
  * to the 1 space spacing is between the last two entries on each "header" line (the line
  * that contains the item_name). There may be several spaces between the last 2
- * entries on these lines.<p/>
+ * entries on these lines.</p>
  *
- *<b><i>for (arrays of) string items:</i></b><p/>
+ *<pre>    item_count[nl]</pre>
+ *
+ *<p><b><i>for (arrays of) string items:</i></b></p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
  *    string_length_1[nl]
  *    string_characters_1[nl]
@@ -43,34 +45,33 @@ import java.util.Arrays;
  *     .
  *     .
  *    string_length_N[nl]
- *    string_characters_N</pre><p/>
+ *    string_characters_N</pre>
  *
- *<b><i>for (arrays of) binary (converted into text) items:</i></b><p>
+ *<p><b><i>for (arrays of) binary (converted into text) items:</i></b></p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
  *    string_length_1   original_binary_byte_length_1   endian_1[nl]
- *    string_characters_1[nl]</pre><p>
+ *    string_characters_1[nl]
  *     .
  *     .
  *     .
  *    string_length_N   original_binary_byte_length_N   endian_N[nl]
- *    string_characters_N</pre><p>
+ *    string_characters_N</pre>
  *
- *<b><i>for primitive type items:</i></b><p/>
+ *<p><b><i>for primitive type items:</i></b></p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
- *    value_1   value_2   ...   value_N[nl]</pre><p/>
+ *    value_1   value_2   ...   value_N[nl]</pre>
  *
- *<b>A cMsg message is formatted as a compound payload. Each message has
- *   a number of fields (payload items).<p/>
+ *<p><b>A cMsg message is formatted as a compound payload. Each message has
+ *   a number of fields (payload items).<br>
  *
- *  <i>for message items:</i></b><p/>
+ *  <i>for message items:</i></b></p>
  *<pre>                                                                            _
  *    item_name   item_type   item_count   isSystemItem?   item_length[nl]   /
- *    message_1_in_compound_payload_text_format[nl]                         <  field_count[nl]
+ *    message_1_in_compound_payload_text_format[nl]                         &lt;  field_count[nl]
  *        .                                                                  \ list_of_payload_format_items
  *        .                                                                   -
  *        .
- *    message_N_in_compound_payload_text_format[nl]</pre>
- *
+ *    message_N_in_compound_payload_text_format[nl]</pre> *
  */
 public final class cMsgPayloadItem implements Cloneable, Serializable {
 
@@ -98,7 +99,7 @@ public final class cMsgPayloadItem implements Cloneable, Serializable {
      * <LI>{@link cMsgConstants#payloadUint64}      for an unsigned 64 bit int
      * <LI>{@link cMsgConstants#payloadMsg}         for a  cMsg message
      * <LI>{@link cMsgConstants#payloadBin}         for    binary
-     * <p/>
+     * <br>
      * <LI>{@link cMsgConstants#payloadStrA}        for a   String array
      * <LI>{@link cMsgConstants#payloadFltA}        for a   4 byte float array
      * <LI>{@link cMsgConstants#payloadDblA}        for an  8 byte float array
@@ -1096,6 +1097,7 @@ public final class cMsgPayloadItem implements Cloneable, Serializable {
      * The objects must be one of either {@link Byte}, {@link Short}, {@link Integer},
      * {@link Long}, {@link Float}, or {@link Double}.
      *
+     * @param <T>  class that extends the Number interface.
      * @param name name of item
      * @param ta array of Number objects to be part of the payload
      * @throws cMsgException if invalid name
@@ -3120,7 +3122,7 @@ public final class cMsgPayloadItem implements Cloneable, Serializable {
      * <LI>{@link cMsgConstants#payloadUint64}      for an unsigned 64 bit int
      * <LI>{@link cMsgConstants#payloadMsg}         for a  cMsg message
      * <LI>{@link cMsgConstants#payloadBin}         for    binary
-     * <p/>
+     * <br>
      * <LI>{@link cMsgConstants#payloadStrA}        for a   String array
      * <LI>{@link cMsgConstants#payloadFltA}        for a   4 byte float array
      * <LI>{@link cMsgConstants#payloadDblA}        for an  8 byte float array

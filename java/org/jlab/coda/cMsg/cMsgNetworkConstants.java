@@ -83,7 +83,7 @@ public class cMsgNetworkConstants {
     public static final int    rcDomainMulticastClient = 2;
     /** Int to send in UDP packet to rc multicast server if RC domain and sender is server. */
     public static final int    rcDomainMulticastServer = 4;
-    /** Tell RCMulticast server to kill himself since server at that port & expid already exists. */
+    /** Tell RCMulticast server to kill himself since server at that port and expid already exists. */
     public static final int    rcDomainMulticastKillSelf = 8;
     /** Client is just trying to find RCMulticast servers. */
     public static final int    rcDomainMulticastProbe = 16;
@@ -92,7 +92,7 @@ public class cMsgNetworkConstants {
     public static final int    emuDomainMulticastClient = 2;
     /** Int to send in UDP packet to Emu multicast server if Emu domain and sender is server. */
     public static final int    emuDomainMulticastServer = 4;
-    /** Tell Emu multicast server to kill himself since server at that port & expid already exists. */
+    /** Tell Emu multicast server to kill himself since server at that port and expid already exists. */
     public static final int    emuDomainMulticastKillSelf = 8;
     /** Client is just trying to find Emu multicast servers. */
     public static final int    emuDomainMulticastProbe = 16;

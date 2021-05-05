@@ -47,6 +47,8 @@ public interface IExecutorThread {
      * a Commander may want to wait until it finished running. In that
      * case, this method can be run so things to wait for it to finish.
      * In a Thread object, this can be used to wrap join();
+     *
+     * @throws InterruptedException if thread interrupted.
      */
     public void waitUntilDone() throws InterruptedException;
 }

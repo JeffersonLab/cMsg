@@ -94,8 +94,6 @@ public class cMsgPayloadProducer {
                 System.exit(-1);
             }
         }
-
-        return;
     }
 
 
@@ -117,6 +115,7 @@ public class cMsgPayloadProducer {
 
     /**
      * Run as a stand-alone application.
+     * @param args arguments.
      */
     public static void main(String[] args) {
         try {
@@ -156,6 +155,7 @@ public class cMsgPayloadProducer {
 
     /**
      * This method is executed as a thread.
+     * @throws cMsgException if error.
      */
     public void run() throws cMsgException {
 

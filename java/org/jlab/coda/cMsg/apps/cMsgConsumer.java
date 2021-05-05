@@ -83,8 +83,6 @@ public class cMsgConsumer {
                 System.exit(-1);
             }
         }
-
-        return;
     }
 
 
@@ -104,6 +102,7 @@ public class cMsgConsumer {
 
     /**
      * Run as a stand-alone application.
+     * @param args arguments
      */
     public static void main(String[] args) {
         try {
@@ -193,6 +192,7 @@ public class cMsgConsumer {
 
     /**
      * This method is executed as a thread.
+     * @throws cMsgException if errors.
      */
     public void run() throws cMsgException {
 

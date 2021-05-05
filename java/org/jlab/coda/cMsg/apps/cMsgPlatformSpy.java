@@ -51,8 +51,6 @@ public class cMsgPlatformSpy  implements Runnable {
                 System.exit(-1);
             }
         }
-
-        return;
     }
 
 
@@ -66,7 +64,10 @@ public class cMsgPlatformSpy  implements Runnable {
     }
 
 
-    /** Run as a stand-alone application. */
+    /**
+     * Run as a stand-alone application.
+     * @param args arguments.
+     */
     public static void main(String[] args) {
         cMsgPlatformSpy spy = new cMsgPlatformSpy(args);
         spy.run();

@@ -42,7 +42,7 @@ public class cMsgUtilities {
      * @param off offset into the byte array (0 = start at first element)
      * @return integer value
      */
-    static public final int bytesToInt(byte[] b, int off) {
+    static public int bytesToInt(byte[] b, int off) {
         return (((b[off]  &0xff) << 24) |
                 ((b[off+1]&0xff) << 16) |
                 ((b[off+2]&0xff) <<  8) |
@@ -56,7 +56,7 @@ public class cMsgUtilities {
       * @param b byte array
       * @param off offset into the byte array
       */
-     public static final void intToBytes(int intVal, byte[] b, int off) {
+     public static void intToBytes(int intVal, byte[] b, int off) {
        b[off]   = (byte) ((intVal & 0xff000000) >>> 24);
        b[off+1] = (byte) ((intVal & 0x00ff0000) >>> 16);
        b[off+2] = (byte) ((intVal & 0x0000ff00) >>>  8);
@@ -71,7 +71,7 @@ public class cMsgUtilities {
      * @param off offset into the byte array (0 = start at first element)
      * @return integer value
      */
-    public static final short bytesToShort(byte[] b, int off) {
+    public static short bytesToShort(byte[] b, int off) {
         return  (short) ( ((b[off+1] & 0xff) << 8)  | (b[off] & 0xff) );
     }
 
@@ -82,7 +82,7 @@ public class cMsgUtilities {
      * @param b byte array
      * @param off offset into the byte array
      */
-    public static final void shortToBytes(short val, byte[] b, int off) {
+    public static void shortToBytes(short val, byte[] b, int off) {
       b[off]   = (byte) ((val & 0x0000ff00) >>>  8);
       b[off+1] = (byte)  (val & 0x000000ff);
     }
@@ -95,7 +95,7 @@ public class cMsgUtilities {
      * @param off offset into the byte array (0 = start at first element)
      * @return ling value
      */
-    static public final long bytesToLong(byte[] b, int off) {
+    static public long bytesToLong(byte[] b, int off) {
         return (((b[off]  &0xffL) << 56) |
                 ((b[off+1]&0xffL) << 48) |
                 ((b[off+2]&0xffL) << 40) |
@@ -117,7 +117,7 @@ public class cMsgUtilities {
      * @param words     number of 32 bit words to print in hex
      * @param label     a label to print as header
      */
-    final static public void printBuffer(ByteBuffer buf, int position, int words, String label) {
+    static public void printBuffer(ByteBuffer buf, int position, int words, String label) {
 
         if (buf == null) {
             System.out.println("printBuffer: buf arg is null");
@@ -154,7 +154,7 @@ public class cMsgUtilities {
      * @param bytes     number of bytes to print in hex
      * @param label     a label to print as header
      */
-    final static public void printBytes(ByteBuffer buf, int position, int bytes, String label) {
+    static public void printBytes(ByteBuffer buf, int position, int bytes, String label) {
 
         if (buf == null) {
             System.out.println("printBuffer: buf arg is null");
@@ -193,7 +193,7 @@ public class cMsgUtilities {
      * @param bytes   number of bytes to print in hex
      * @param label   a label to print as header
      */
-    final static public void printBytes(byte[] array, int offset, int bytes, String label) {
+    static public void printBytes(byte[] array, int offset, int bytes, String label) {
 
         if (array == null) {
             System.out.println("printBuffer: array arg is null");
@@ -727,7 +727,7 @@ public class cMsgUtilities {
      * is returned. This only works for IPv4.
      *
      * @param ipAddress IPV4 address
-     * @returns IPV4 address in numeric form if arg is valid dot-decimal address, else null
+     * @return IPV4 address in numeric form if arg is valid dot-decimal address, else null
      *          (in network byte order with highest order byte in element 0).
      */
     public static byte[] isDottedDecimal(String ipAddress)
@@ -761,8 +761,9 @@ public class cMsgUtilities {
     /**
       * Determine whether a given host name refers to the local host.
       * @param hostName host name that is checked to see if its local or not
+      * @return {@code true} if arg is name of local host, else {@code false}.
       */
-     public static final boolean isHostLocal(String hostName) {
+     public static boolean isHostLocal(String hostName) {
         if (hostName == null || hostName.length() < 1) return false;
         if (hostName.equals("127.0.0.1")) return true;
 
@@ -794,8 +795,9 @@ public class cMsgUtilities {
      * Determine whether two given host names refers to the same host.
      * @param hostName1 host name that is checked to see if it is the same as the other arg or not.
      * @param hostName2 host name that is checked to see if it is the same as the other arg or not.
+     * @return {@code true} if both args refer to the same host, else {@code false}.
      */
-     public static final boolean isHostSame(String hostName1, String hostName2) {
+     public static boolean isHostSame(String hostName1, String hostName2) {
         // arg check
         if (hostName1 == null || hostName1.length() < 1) return false;
         if (hostName2 == null || hostName2.length() < 1) return false;
@@ -830,7 +832,7 @@ public class cMsgUtilities {
 
 
 
-    static public final ByteChannel wrapChannel2(final ByteChannel channel)
+    static public ByteChannel wrapChannel2(final ByteChannel channel)
     {
         return channel;
     }
@@ -845,7 +847,7 @@ public class cMsgUtilities {
      * @param channel the SelectableChannel which has sync problems
      * @return a ByteChannel which does not have sync problems
      */
-     static public final ByteChannel wrapChannel(final ByteChannel channel) {
+     static public ByteChannel wrapChannel(final ByteChannel channel) {
         return new ByteChannel() {
             public int write(ByteBuffer src) throws IOException {
                 return channel.write(src);
@@ -875,7 +877,7 @@ public class cMsgUtilities {
       * @return number of bytes read
       * @throws IOException If channel is closed or cannot be read from
       */
-     static public final int readSocketBytesPlain(ByteBuffer buffer, SocketChannel channel, int bytes)
+     static public int readSocketBytesPlain(ByteBuffer buffer, SocketChannel channel, int bytes)
              throws IOException {
 
          int n, count = 0;
@@ -905,7 +907,7 @@ public class cMsgUtilities {
       * @return number of bytes read
       * @throws IOException If channel is closed or cannot be read from
       */
-     static public final int readSocketBytes(ByteBuffer buffer, SocketChannel channel, int bytes, int debug)
+     static public int readSocketBytes(ByteBuffer buffer, SocketChannel channel, int bytes, int debug)
              throws IOException {
 
          int n, tries = 0, count = 0, maxTries=200;
@@ -949,7 +951,7 @@ public class cMsgUtilities {
      * @param debug level of debug output
      * @return error explanation
      */
-    static public final String printError(int error, int debug) {
+    static public String printError(int error, int debug) {
       String reason;
 
       switch (error) {
@@ -1083,7 +1085,7 @@ public class cMsgUtilities {
      * @throws org.jlab.coda.cMsg.cMsgException if input string is not in the proper form (host:port)
      *                       or the host is unknown
      */
-    static public final String constructServerName(String s) throws cMsgException {
+    static public String constructServerName(String s) throws cMsgException {
 
         // Separate the server name from the server port.
         // First check for ":"

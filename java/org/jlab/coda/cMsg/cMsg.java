@@ -29,43 +29,43 @@ import java.util.concurrent.TimeoutException;
 import java.io.*;
 
 /**
- * This class is instantiated by a client in order to connect to a domain.
+ * <p>This class is instantiated by a client in order to connect to a domain.
  * The instantiated object will be the main means by which the client will
- * interact with cMsg.<p>
- * This class is the "top level" API and acts as a multiplexor to direct a cMsg
+ * interact with cMsg.</p>
+ * <p>This class is the "top level" API and acts as a multiplexor to direct a cMsg
  * client to the proper domain based on the Uniform Domain Locator (UDL) given.
  * Note that not all of the methods of this object are implemented in a particular
  * domain and thus may return an exeception.
- * The UDL has the general form:<p>
- *   <b>cMsg:&lt;domainType&gt;://&lt;domain dependent remainder&gt;</b><p>
+ * The UDL has the general form:</p>
+ *   <p><b>cMsg:&lt;domainType&gt;://&lt;domain dependent remainder&gt;</b></p>
  * <ul>
- * <li>initial cMsg: is not necessary<p>
- * <li>cMsg and domainType are case independent<p>
- * </ul><p>
- * For the cMsg domain the UDL has the more specific form:<p>
- *   <b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ...</b><p>
+ * <li><p>initial cMsg: is not necessary</p>
+ * <li><p>cMsg and domainType are case independent</p>
+ * </ul>
+ * <p>For the cMsg domain the UDL has the more specific form:</p>
+ *   <p><b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&amp;tag2=value2 ...</b></p>
  *
  * <ul>
- * <li>port is not necessary to specify but is the name server's TCP port if connecting directly
+ * <li><p>port is not necessary to specify but is the name server's TCP port if connecting directly
  *    or the server's UDP port if multicasting. Defaults used if not specified are
  *    {@link cMsgNetworkConstants#nameServerTcpPort} if connecting directly, else
- *    {@link cMsgNetworkConstants#nameServerUdpPort} if multicasting<p>
- * <li>host can be "localhost" and may also be in dotted form (129.57.35.21)<p>
- * <li>if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
- *    if subdomainType is not cMsg, it is required<p>
- * <li>the domain name is case insensitive as is the subdomainType<p>
- * <li>remainder is passed on to the subdomain plug-in<p>
- * <li>client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;<p>
- * <li>multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;<p>
- * <li>the tag=value part of UDL parsed here is given by regime=low or regime=high means:<p>
+ *    {@link cMsgNetworkConstants#nameServerUdpPort} if multicasting</p>
+ * <li><p>host can be "localhost" and may also be in dotted form (129.57.35.21)</p>
+ * <li><p>if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
+ *    if subdomainType is not cMsg, it is required</p>
+ * <li><p>the domain name is case insensitive as is the subdomainType</p>
+ * <li><p>remainder is passed on to the subdomain plug-in</p>
+ * <li><p>client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;</p>
+ * <li><p>multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;</p>
+ * <li><p>the tag=value part of UDL parsed here is given by regime=low or regime=high means:</p>
  *   <ul>
- *   <li>low message/data throughtput client if regime=low, meaning many clients are serviced
- *       by a single server thread and all msgs retain time order<p>
- *   <li>high message/data throughput client if regime=high, meaning each client is serviced
+ *   <li><p>low message/data throughtput client if regime=low, meaning many clients are serviced
+ *       by a single server thread and all msgs retain time order</p>
+ *   <li><p>high message/data throughput client if regime=high, meaning each client is serviced
  *       by multiple threads to maximize throughput. Msgs are NOT guaranteed to be handled in
- *       time order<p>
- *   <li>if regime is not specified (default), it is assumed to be medium, where a single thread is
- *       dedicated to a single client and msgs are guaranteed to be handled in time order<p>
+ *       time order</p>
+ *   <li><p>if regime is not specified (default), it is assumed to be medium, where a single thread is
+ *       dedicated to a single client and msgs are guaranteed to be handled in time order</p>
  *   </ul>
  * </ul>
  */
@@ -152,11 +152,11 @@ public class cMsg {
      * Set level of debug output.
      * Argument may be one of:
      * <ul>
-     * <li>{@link cMsgConstants#debugNone} for no outuput<p>
-     * <li>{@link cMsgConstants#debugSevere} for severe error output<p>
-     * <li>{@link cMsgConstants#debugError} for all error output<p>
-     * <li>{@link cMsgConstants#debugWarn} for warning and error output<p>
-     * <li>{@link cMsgConstants#debugInfo} for information, warning, and error output<p>
+     * <li><p>{@link cMsgConstants#debugNone} for no output</p>
+     * <li><p>{@link cMsgConstants#debugSevere} for severe error output</p>
+     * <li><p>{@link cMsgConstants#debugError} for all error output</p>
+     * <li><p>{@link cMsgConstants#debugWarn} for warning and error output</p>
+     * <li><p>{@link cMsgConstants#debugInfo} for information, warning, and error output</p>
      * </ul>
      *
      * @param debug level of debug output
@@ -543,7 +543,7 @@ public class cMsg {
     /**
       * Method to connect to a particular domain.
       *
-      * @throws cMsgException
+      * @throws cMsgException if cMsg error.
       */
      public void connect() throws cMsgException {
         connection.connect();
@@ -554,7 +554,7 @@ public class cMsg {
      * Method to close the connection to the domain. This method results in this object
      * becoming functionally useless.
      *
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void disconnect() throws cMsgException {
         connection.disconnect();
@@ -573,7 +573,7 @@ public class cMsg {
      * Method to send a message to the domain for further distribution.
      *
      * @param message message
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void send(cMsgMessage message) throws cMsgException {
         connection.send(message);
@@ -586,7 +586,7 @@ public class cMsg {
      * @param message message
      * @param timeout time in milliseconds to wait for a response
      * @return response from domain
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public int syncSend(cMsgMessage message, int timeout) throws cMsgException {
         return connection.syncSend(message, timeout);
@@ -595,7 +595,7 @@ public class cMsg {
     /**
      * Method to force cMsg client to send pending communications with domain.
      * @param timeout time in milliseconds to wait for completion
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void flush(int timeout) throws cMsgException {
         connection.flush(timeout);
@@ -609,7 +609,7 @@ public class cMsg {
      * @param type type of message desired from domain
      * @param timeout time in milliseconds to wait for a message
      * @return response message
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      * @throws TimeoutException if timeout occurs
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
@@ -627,7 +627,7 @@ public class cMsg {
      * @param message message sent to domain
      * @param timeout time in milliseconds to wait for a response message
      * @return response message
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      * @throws TimeoutException if timeout occurs
      */
     public cMsgMessage sendAndGet(cMsgMessage message, int timeout)
@@ -644,7 +644,7 @@ public class cMsg {
      *                method is called upon receiving a message of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
      * @return handle object to be used for unsubscribing
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public cMsgSubscriptionHandle subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException {
@@ -673,7 +673,7 @@ public class cMsg {
      *
      * @param  command directive for monitoring process
      * @return response message containing monitoring information; or null if none
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public cMsgMessage monitor(String command)
             throws cMsgException {
@@ -702,7 +702,7 @@ public class cMsg {
      *
      * @param client client(s) to be shutdown
      * @param includeMe  if true, it is permissible to shutdown calling client
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void shutdownClients(String client, boolean includeMe) throws cMsgException {
         connection.shutdownClients(client, includeMe);
@@ -718,7 +718,7 @@ public class cMsg {
      * @param server server(s) to be shutdown
      * @param includeMyServer  if true, it is permissible to shutdown calling client's
      *                         cMsg domain server
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void shutdownServers(String server, boolean includeMyServer) throws cMsgException {
         connection.shutdownClients(server, includeMyServer);
@@ -762,7 +762,7 @@ public class cMsg {
     /**
      * Set the UDL of the client.
      * @param UDL UDL of client
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void setUDL(String UDL) throws cMsgException {
         connection.setUDL(UDL);
