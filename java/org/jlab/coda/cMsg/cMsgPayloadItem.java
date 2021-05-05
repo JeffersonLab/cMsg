@@ -23,15 +23,15 @@ import java.util.Collection;
 import java.util.Arrays;
 
 /**
- * This class represents an item in a cMsg message's payload.
+ * <p>This class represents an item in a cMsg message's payload.
  * The value of each item is stored in this class along with a text
  * representation of that item. Following is the text format of various
- * types of payload items where [nl] means newline.<p/>
+ * types of payload items where [nl] means newline.</p>
  *
- * Note that there is only 1 space or newline between all entries. The only exception
+ * <p>Note that there is only 1 space or newline between all entries. The only exception
  * to the 1 space spacing is between the last two entries on each "header" line (the line
  * that contains the item_name). There may be several spaces between the last 2
- * entries on these lines.<p/>
+ * entries on these lines.</p>
  *
  *<pre>    item_count[nl]</pre>
  *
