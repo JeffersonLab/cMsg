@@ -84,6 +84,7 @@ public class cMsgFindServers {
 
     /**
      * Run as a stand-alone application.
+     * @param args arguments.
      */
     public static void main(String[] args) {
             cMsgFindServers sfinder = new cMsgFindServers(args);

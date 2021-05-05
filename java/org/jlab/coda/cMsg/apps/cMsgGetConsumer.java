@@ -24,7 +24,7 @@ import java.util.concurrent.TimeoutException;
 /**
  * This is an example class which creates a cMsg client that synchronously either
  * sends and receives messages by calling {@link cMsg#sendAndGet} or subscribes to a
- * subject & type and receives a response by calling {@link cMsg#subscribeAndGet}.
+ * subject and type and receives a response by calling {@link cMsg#subscribeAndGet}.
  * To receive a response to a sendAndGet's send, the {@link cMsgGetResponder} must also
  * be running.
  */
@@ -147,6 +147,7 @@ public class cMsgGetConsumer {
 
     /**
      * Run as a stand-alone application.
+     * @param args arguments.
      */
     public static void main(String[] args) {
         try {
@@ -187,6 +188,7 @@ public class cMsgGetConsumer {
 
     /**
      * This method is executed as a thread.
+     * @throws cMsgException if error.
      */
     public void run() throws cMsgException {
 

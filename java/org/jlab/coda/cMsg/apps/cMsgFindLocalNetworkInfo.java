@@ -27,7 +27,10 @@ import java.util.List;
  */
 public class cMsgFindLocalNetworkInfo {
 
-    /** Run as a stand-alone application. */
+    /**
+     * Run as a stand-alone application.
+     * @param args arguments.
+     */
     public static void main(String[] args) {
 
         String canonicalIP = null;

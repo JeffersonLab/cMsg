@@ -72,8 +72,6 @@ public class cMsgMonitor {
                 System.exit(-1);
             }
         }
-
-        return;
     }
 
 
@@ -89,7 +87,10 @@ public class cMsgMonitor {
     }
 
 
-    /** Run as a stand-alone application. */
+    /**
+     * Run as a stand-alone application.
+     * @param args arguments.
+     */
     public static void main(String[] args) {
         try {
             cMsgMonitor mon = new cMsgMonitor(args);
@@ -104,6 +105,7 @@ public class cMsgMonitor {
 
     /**
      * This method is executed as a thread.
+     * @throws cMsgException if error.
      */
     public void run() throws cMsgException {
 

@@ -130,8 +130,6 @@ public class cMsgProducer {
                 System.exit(-1);
             }
         }
-
-        return;
     }
 
 
@@ -157,6 +155,7 @@ public class cMsgProducer {
 
     /**
      * Run as a stand-alone application.
+     * @param args arguments.
      */
     public static void main(String[] args) {
         try {
@@ -212,6 +211,7 @@ public class cMsgProducer {
 
     /**
      * This method is executed as a thread.
+     * @throws cMsgException if error.
      */
     public void run() throws cMsgException {
 

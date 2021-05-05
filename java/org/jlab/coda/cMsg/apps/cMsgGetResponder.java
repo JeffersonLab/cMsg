@@ -87,8 +87,6 @@ public class cMsgGetResponder {
                 System.exit(-1);
             }
         }
-
-        return;
     }
 
 
@@ -108,6 +106,7 @@ public class cMsgGetResponder {
 
     /**
      * Run as a stand-alone application.
+     * @param args arguments.
      */
     public static void main(String[] args) {
         try {
@@ -179,6 +178,7 @@ public class cMsgGetResponder {
 
     /**
      * This method is executed as a thread.
+     * @throws cMsgException if error.
      */
     public void run() throws cMsgException {
 

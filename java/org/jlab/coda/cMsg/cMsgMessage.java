@@ -40,33 +40,33 @@ import java.text.SimpleDateFormat;
 
 
 /**
- * This class implements a message in the cMsg messaging system.
+ * <p>This class implements a message in the cMsg messaging system.
  * Each cMsgMessage object contains many different fields. User-settable fields
  * include a time, an int, a text, and a binary array field. However, the most
  * complex field (and thus deserving a full explanation) is the compound payload.
  * In short, the payload allows a string to store messages of arbitrary
  * length and complexity. All types of ints (1,2,4,8 bytes, BigInteger), 4,8-byte floats,
  * strings, binary, whole messages and arrays of all these types can be stored
- * and retrieved from the compound payload. These methods are thread-safe.<p>
+ * and retrieved from the compound payload. These methods are thread-safe.</p>
  *
- * Although XML would be a format well-suited to this task, it takes more time and memory
+ * <p>Although XML would be a format well-suited to this task, it takes more time and memory
  * to decode XML than a simple format. Thus, a simple, easy-to-parse format
  * was developed to implement the payload. A side benefit is no external XML parsing
- * package is needed.<p>
+ * package is needed.</p>
  *
- * Following is the text format of a complete compound payload (where [nl] means
+ * <p>Following is the text format of a complete compound payload (where [nl] means
  * newline). Each payload consists of a number of items. The very first line is the
  * number of items in the payload. That is followed by the text representation of
- * each item. The first line of each item consists of 5 entries.
+ * each item. The first line of each item consists of 5 entries.</p>
  *
- * Note that there is only 1 space or newline between all entries. The only exception
+ * <p>Note that there is only 1 space or newline between all entries. The only exception
  * to the 1 space spacing is between the last two entries on each "header" line (the line
  * that contains the item_name). There may be several spaces between the last 2
- * entries on these lines.<p></b>
+ * entries on these lines.</p>
  *
- *<pre>    item_count[nl]</pre><p>
+ *<pre>    item_count[nl]</pre>
  *
- *<b><i>for (arrays of) string items:</i></b><p/>
+ *<p><b><i>for (arrays of) string items:</i></b></p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
  *    string_length_1[nl]
  *    string_characters_1[nl]
@@ -74,38 +74,38 @@ import java.text.SimpleDateFormat;
  *     .
  *     .
  *    string_length_N[nl]
- *    string_characters_N</pre><p/>
+ *    string_characters_N</pre>
  *
- *<b><i>for (arrays of) binary (converted into text) items:</i></b><p>
+ *<p><b><i>for (arrays of) binary (converted into text) items:</i></b></p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
  *    string_length_1   original_binary_byte_length_1   endian_1[nl]
- *    string_characters_1[nl]</pre><p>
+ *    string_characters_1[nl]
  *     .
  *     .
  *     .
  *    string_length_N   original_binary_byte_length_N   endian_N[nl]
- *    string_characters_N</pre><p>
+ *    string_characters_N</pre>
  *
- *<b><i>for primitive type items:</i></b><p/>
+ *<p><b><i>for primitive type items:</i></b></p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
- *    value_1   value_2   ...   value_N[nl]</pre><p/>
+ *    value_1   value_2   ...   value_N[nl]</pre>
  *
- *<b>A cMsg message is formatted as a compound payload. Each message has
- *   a number of fields (payload items).<p/>
+ *<p><b>A cMsg message is formatted as a compound payload. Each message has
+ *   a number of fields (payload items).<br>
  *
- *  <i>for message items:</i></b><p/>
+ *  <i>for message items:</i></b></p>
  *<pre>                                                                            _
  *    item_name   item_type   item_count   isSystemItem?   item_length[nl]   /
- *    message_1_in_compound_payload_text_format[nl]                         <  field_count[nl]
+ *    message_1_in_compound_payload_text_format[nl]                         &lt;  field_count[nl]
  *        .                                                                  \ list_of_payload_format_items
  *        .                                                                   -
  *        .
  *    message_N_in_compound_payload_text_format[nl]</pre>
  *
- * Notice that this format allows a message to store a message which stores a message
+ * <p>Notice that this format allows a message to store a message which stores a message
  * which stores a message, ad infinitum. In other words, recursive message storing.
  * The item_length in each case is the length in bytes of the rest of the item (not
- * including the newline at the end). Note that accessor methods can return null objects.
+ * including the newline at the end). Note that accessor methods can return null objects.</p>
  *
  * @author Elliott Wolin
  * @author Carl Timmer
@@ -239,7 +239,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * Was it sent over the wire? -- stored in 5th bit.
      * Does it have a compound payload? -- stored in 6th bit.
      * Is the payload expanded? -- stored in 7th bit.
-     * Does local server have no subscriber for send of send&Get? -- stored in 8th bit.
+     * Does local server have no subscriber for send of sendAndGet? -- stored in 8th bit.
      *
      * @see #isGetRequest
      * @see #isGetResponse
@@ -527,7 +527,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * Setting this quantity to zero effectively turns off keeping any history.
      *
      * @param historyLengthMax the maximum number of entries this message keeps of its history of various parameters
-     * @throws cMsgException if historyLengthMax is < 0 or > historyLengthAbsoluteMax
+     * @throws cMsgException if historyLengthMax is &lt; 0 or &gt; historyLengthAbsoluteMax
      */
     public void setHistoryLengthMax(int historyLengthMax) throws cMsgException {
         if (historyLengthMax < 0) {
@@ -692,7 +692,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * Copy byte array into message. Offset is set to 0. Length is set to
      * the full length of the copied array.
      * If the byte array is null or length = 0, then internal byte array is set to null,
-     * and both the offset & length are set to 0.
+     * and both the offset and length are set to 0.
      *
      * @param b byte array of message.
      */
@@ -714,7 +714,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * starting at "offset". In this message, the offset will be set to zero,
      * and the length will be set to "length".
      * If the byte array is null or length = 0, then internal byte array is set to null,
-     * and both the offset & length are set to 0.
+     * and both the offset and length are set to 0.
      *
      * @param b byte array of message.
      * @param offset index into byte array to bytes to be copied.
@@ -760,7 +760,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * and the length will be set to buffer.remaining().
      * If the buffer is null or remaining bytes = 0,
      * then internal byte array is set to null,
-     * and both the offset & length are set to 0.
+     * and both the offset and length are set to 0.
      * Position of buf is changed temporarily.
      *
      * @param buf ByteBuffer with data for byte array of message.
@@ -798,7 +798,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * In this message the offset will be set to zero, and the length will be
      * set to length of the array.
      * If the byte array is null or length is 0, then internal byte array is set to null,
-     * and both the offset & length are set to 0.
+     * and both the offset and length are set to 0.
      *
      * @param b byte array of message.
      */
@@ -821,7 +821,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * In this message the offset will be set to "offset", and the length will be
      * set to "length".
      * If the byte array is null, or length = 0, then internal byte array is set to null,
-     * and both the offset & length are set to 0.
+     * and both the offset and length are set to 0.
      *
      * @param b byte array of message.
      * @param offset index into byte array to bytes of interest.
@@ -949,11 +949,11 @@ public class cMsgMessage implements Cloneable, Serializable {
     /**
      * Set endianness of the byte array data. Accepted values are:
      * <ul>
-     * <li>{@link cMsgConstants#endianBig} for a big endian<p>
-     * <li>{@link cMsgConstants#endianLittle} for a little endian<p>
-     * <li>{@link cMsgConstants#endianLocal} for same endian as local host<p>
-     * <li>{@link cMsgConstants#endianNotLocal} for opposite endian as local host<p>
-     * <li>{@link cMsgConstants#endianSwitch} for opposite current endian<p>
+     * <li><p>{@link cMsgConstants#endianBig} for a big endian</p>
+     * <li><p>{@link cMsgConstants#endianLittle} for a little endian</p>
+     * <li><p>{@link cMsgConstants#endianLocal} for same endian as local host</p>
+     * <li><p>{@link cMsgConstants#endianNotLocal} for opposite endian as local host</p>
+     * <li><p>{@link cMsgConstants#endianSwitch} for opposite current endian</p>
      * </ul>
      *
      * @param endian endianness of the byte array data

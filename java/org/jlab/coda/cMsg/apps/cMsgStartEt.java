@@ -48,8 +48,6 @@ public class cMsgStartEt {
                 System.exit(-1);
             }
         }
-
-        return;
     }
 
 
@@ -63,7 +61,10 @@ public class cMsgStartEt {
     }
 
 
-    /** Run as a stand-alone application. */
+    /**
+     * Run as a stand-alone application.
+     * @param args arguments.
+     */
     public static void main(String[] args) {
         cMsgStartEt prog = new cMsgStartEt(args);
         prog.run();

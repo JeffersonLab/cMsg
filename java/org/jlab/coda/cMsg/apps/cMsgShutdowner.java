@@ -81,8 +81,6 @@ public class cMsgShutdowner {
                 System.exit(-1);
             }
         }
-
-        return;
     }
 
 
@@ -103,6 +101,7 @@ public class cMsgShutdowner {
 
     /**
      * Run as a stand-alone application.
+     * @param args arguments.
      */
     public static void main(String[] args) {
         try {
@@ -125,6 +124,7 @@ public class cMsgShutdowner {
 
     /**
      * Run as a stand-alone application.
+     * @throws cMsgException if error.
      */
     public void run() throws cMsgException {
         if (debug) {

@@ -42,7 +42,7 @@ import org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsgMessageDeliverer;
  * a single JVM and they both service clients in the cMsg subdomain,
  * then there will be undesirable effects. In other words, the
  * cMsg subdomain uses static data in some of its implementing
- * classes ({@link cMsgServerBridge} & {@link org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg}).
+ * classes ({@link cMsgServerBridge} and {@link org.jlab.coda.cMsg.cMsgDomain.subdomains.cMsg}).
  *
  * @author Carl Timmer
  * @version 1.0
@@ -634,7 +634,10 @@ public class cMsgNameServer extends Thread implements IExecutorThread {
     }
 
 
-    /** Run as a stand-alone application. */
+    /**
+     * Run as a stand-alone application.
+     * @param args arguments.
+     */
     public static void main(String[] args) {
 
         int debug = cMsgConstants.debugNone;
