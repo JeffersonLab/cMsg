@@ -42,7 +42,7 @@ public class Monitor extends JPanel {
     /** ComboBox widget that holds the udl to connect to. */
     private JComboBox comboBox;
 
-    /** Map to keep track of connections to & monitors of cMsg systems. */
+    /** Map to keep track of connections to and monitors of cMsg systems. */
     final Map<String, MonitorPanel> monitors =
             Collections.synchronizedMap(new HashMap<String, MonitorPanel>(20));
 

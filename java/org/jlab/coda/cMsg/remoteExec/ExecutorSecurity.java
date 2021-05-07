@@ -151,7 +151,7 @@ public class ExecutorSecurity {
     /**
      * Here's an example that uses this class to generate a key and
      * use that to encrypt and decrypt a string.
-     * @param args
+     * @param args arguments
      */
     public static void main(String[] args) {
         try {

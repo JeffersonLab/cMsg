@@ -91,7 +91,10 @@ public class EmuClient extends cMsgDomainAdapter {
 
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @throws cMsgException if cMsg error.
+     */
     public EmuClient() throws cMsgException {
         domain = "emu";
     }
@@ -333,21 +336,21 @@ System.out.println("      Emu connect: Made TCP connection to host = " +
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      *
      * Emu domain UDL is of the form:<p>
-     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?codaId=&lt;id&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&noDelay</b><p>
+     *   <b>cMsg:emu://&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?codaId=&lt;id&gt;&amp;timeout=&lt;sec&gt;&amp;bufSize=&lt;size&gt;&amp;tcpSend=&lt;size&gt;&amp;subnet=&lt;subnet&gt;&amp;noDelay</b><p>
      *
      * Remember that for this domain:
      *<ol>
-     *<li>multicast address is always 239.230.0.0<p>
-     *<li>port is required - UDP multicast port<p>
-     *<li>expid is required <p>
-     *<li>compName is required - destination CODA component name<p>
-     *<li>codaId is required<p>
-     *<li>optional timeout for connecting to emu server, defaults to 3 seconds<p>
-     *<li>optional bufSize (max size in bytes of a single send) defaults to 2.1MB<p>
-     *<li>optional tcpSend is the TCP send buffer size in bytes<p>
-     *<li>optional subnet is the preferred subnet used to connect to server<p>
-     *<li>optional noDelay is the TCP no-delay parameter turned on<p>
-     *</ol><p>
+     *<li><p>multicast address is always 239.230.0.0</p>
+     *<li><p>port is required - UDP multicast port</p>
+     *<li><p>expid is required</p>
+     *<li><p>compName is required - destination CODA component name</p>
+     *<li><p>codaId is required</p>
+     *<li><p>optional timeout for connecting to emu server, defaults to 3 seconds</p>
+     *<li><p>optional bufSize (max size in bytes of a single send) defaults to 2.1MB</p>
+     *<li><p>optional tcpSend is the TCP send buffer size in bytes</p>
+     *<li><p>optional subnet is the preferred subnet used to connect to server</p>
+     *<li><p>optional noDelay is the TCP no-delay parameter turned on</p>
+     *</ol>
      *
      * @param udlRemainder partial UDL to parse
      * @throws cMsgException if udlRemainder is null

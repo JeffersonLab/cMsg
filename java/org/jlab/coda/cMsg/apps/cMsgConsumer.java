@@ -36,7 +36,10 @@ public class cMsgConsumer {
     private long    count;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param args arguments.
+     */
     cMsgConsumer(String[] args) {
         decodeCommandLine(args);
     }

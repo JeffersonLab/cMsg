@@ -312,9 +312,9 @@ System.out.println("Error inside callback (user's code): sub = " + subject + ",t
      *
      * @param callback callback to be run when message arrives
      * @param arg user-supplied argument for callback
-     * @param domain
-     * @param subject
-     * @param type
+     * @param domain subscription's domain
+     * @param subject subscription's subject
+     * @param type subscription's tyoe
      */
     public cMsgCallbackThread(cMsgCallbackInterface callback, Object arg,
                               String domain, String subject, String type) {

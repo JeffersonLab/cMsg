@@ -139,7 +139,10 @@ public class RCServer extends cMsgDomainAdapter {
     }
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @throws cMsgException if cannot find host name.
+     */
     public RCServer() throws cMsgException {
         domain = "rcs";
         subscriptions    = Collections.synchronizedSet(new HashSet<cMsgSubscription>(20));

@@ -45,8 +45,8 @@ import java.util.*;
  *
  * Gets database parameters from UDL.
  *
- *  UDL:<p>
- *    cMsg:cMsg://host:port/Database?driver=myDriver&url=myURL&account=myAccount&password=myPassword<p>
+ * <p>UDL:</p>
+ *    <p>cMsg:cMsg://host:port/Database?driver=myDriver&amp;url=myURL&amp;account=myAccount&amp;password=myPassword</p>
  *
  * @author Elliott Wolin
  * @version 1.0

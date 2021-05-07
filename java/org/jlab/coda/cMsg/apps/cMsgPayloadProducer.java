@@ -37,7 +37,10 @@ public class cMsgPayloadProducer {
     private boolean debug;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param args arguments.
+     */
     cMsgPayloadProducer(String[] args) {
         decodeCommandLine(args);
     }

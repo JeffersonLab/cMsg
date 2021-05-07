@@ -924,7 +924,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
 
     
     /**
-     * {@inheritDoc}<p/>
+     * {@inheritDoc}<br>
      * This method makes the protected method {@link cMsgMessage#isNullGetServerResponse}
      * available to others.
      * @return {@inheritDoc}
@@ -935,10 +935,9 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
 
 
     /**
-     * {@inheritDoc}<p/>
+     * {@inheritDoc}<br>
      * This method makes the protected method {@link cMsgMessage#setNullGetServerResponse}
      * available to others.
-     * @return {@inheritDoc}
      */
     public void setNullGetServerResponse(boolean ngsr) {
         super.setNullGetServerResponse(ngsr);
@@ -946,7 +945,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
 
 
     /**
-     * {@inheritDoc}<p/>
+     * {@inheritDoc}<br>
      * This method makes the protected method {@link cMsgMessage#isExpandedPayload}
      * available to others.
      * @return {@inheritDoc}
@@ -959,7 +958,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
 
     /**
      * {@inheritDoc}
-     * @param ep {@inheritDoc}<p/>
+     * @param ep {@inheritDoc}<br>
      * This method makes the protected method {@link cMsgMessage#setExpandedPayload}
      * available to others.
      */
@@ -968,7 +967,7 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
 
 
     /**
-     * {@inheritDoc}<p/>
+     * {@inheritDoc}<br>
      * This method makes the protected method {@link cMsgMessage#expandPayload}
      * available to others.
      */
@@ -993,14 +992,9 @@ public class cMsgMessageFull extends cMsgMessage implements Serializable {
 
 
     /**
-     * {@inheritDoc}<p/>
+     * {@inheritDoc}<br>
      * This method makes the protected method {@link cMsgMessage#setFieldsFromText}
      * available to others.
-     *
-     * @param text {@inheritDoc}
-     * @param flag {@inheritDoc}
-     * @return {@inheritDoc}
-     * @throws {@inheritDoc}
      */
     @Override
     public int setFieldsFromText(String text, int flag) throws cMsgException {

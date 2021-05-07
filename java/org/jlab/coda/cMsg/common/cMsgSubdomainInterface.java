@@ -42,7 +42,7 @@ public interface cMsgSubdomainInterface {
      * of the UDL the client used to talk to the domain server.
      *
      * @param UDLRemainder last part of the UDL appropriate to the subdomain handler
-     * @throws org.jlab.coda.cMsg.cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void setUDLRemainder(String UDLRemainder) throws cMsgException;
 
@@ -51,7 +51,7 @@ public interface cMsgSubdomainInterface {
      * Method to register a domain client.
      *
      * @param info information about client
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void registerClient(cMsgClientInfo info) throws cMsgException;
 
@@ -60,7 +60,7 @@ public interface cMsgSubdomainInterface {
      * Method to handle a message sent by a domain client.
      *
      * @param message message from sender
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void handleSendRequest(cMsgMessageFull message) throws cMsgException;
 
@@ -71,7 +71,7 @@ public interface cMsgSubdomainInterface {
      *
      * @param message message from sender
      * @return response from subdomain handler
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public int handleSyncSendRequest(cMsgMessageFull message) throws cMsgException;
 
@@ -83,7 +83,7 @@ public interface cMsgSubdomainInterface {
      * @param subject subject subscribed to
      * @param type    type subscribed to
      * @param id      unique id
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void handleSubscribeAndGetRequest(String subject, String type, int id)
             throws cMsgException;
@@ -95,7 +95,7 @@ public interface cMsgSubdomainInterface {
      * @param subject subject subscribed to
      * @param type    type subscribed to
      * @param id      unique id
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void handleUnsubscribeAndGetRequest(String subject, String type, int id)
             throws cMsgException;
@@ -106,7 +106,7 @@ public interface cMsgSubdomainInterface {
      * message which is responded to by its receiver(s).
      *
      * @param message message requesting a response message
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void handleSendAndGetRequest(cMsgMessageFull message) throws cMsgException;
 
@@ -115,7 +115,7 @@ public interface cMsgSubdomainInterface {
      * Method to remove a sendAndGet request previously sent by a domain client.
      *
      * @param id unique (senderToken) id refering to specific sendAndGet
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void handleUnSendAndGetRequest(int id) throws cMsgException;
 
@@ -126,7 +126,7 @@ public interface cMsgSubdomainInterface {
      * @param subject subject subscribed to
      * @param type    type subscribed to
      * @param id      unique id
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void handleSubscribeRequest(String subject, String type, int id)
             throws cMsgException;
@@ -138,7 +138,7 @@ public interface cMsgSubdomainInterface {
      * @param subject  subject of subscription
      * @param type     type of subscription
      * @param id       unique id
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void handleUnsubscribeRequest(String subject, String type, int id)
             throws cMsgException;
@@ -149,7 +149,7 @@ public interface cMsgSubdomainInterface {
      *
      * @param client client(s) to be shutdown
      * @param includeMe   if true, this client may be shutdown too
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void handleShutdownClientsRequest(String client, boolean includeMe)
             throws cMsgException;
@@ -159,7 +159,7 @@ public interface cMsgSubdomainInterface {
     /**
      * Method to handle a client or domain server (and therefore subdomain handler) shutdown.
      *
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public void handleClientShutdown() throws cMsgException;
 

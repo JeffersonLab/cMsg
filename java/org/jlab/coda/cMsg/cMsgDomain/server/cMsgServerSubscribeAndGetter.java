@@ -40,7 +40,7 @@ class cMsgServerSubscribeAndGetter implements Runnable {
     cMsgNotifier notifier;
 
     /** Contains all subscriptions made by this server. */
-    Set subscriptions;
+    Set<cMsgServerSubscribeInfo> subscriptions;
 
     /** Contains information about this particular subscription. */
     cMsgServerSubscribeInfo sub;
@@ -49,11 +49,18 @@ class cMsgServerSubscribeAndGetter implements Runnable {
     cMsgCallbackAdapter cb;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param nameServer name server
+     * @param notifier notifier
+     * @param cb callback
+     * @param subscriptions set of subscriptions
+     * @param sub server client's subscription
+     */
     public cMsgServerSubscribeAndGetter(cMsgNameServer nameServer,
                                         cMsgNotifier notifier,
                                         cMsgCallbackAdapter cb,
-                                        Set subscriptions,
+                                        Set<cMsgServerSubscribeInfo> subscriptions,
                                         cMsgServerSubscribeInfo sub) {
         this.cb = cb;
         this.sub = sub;

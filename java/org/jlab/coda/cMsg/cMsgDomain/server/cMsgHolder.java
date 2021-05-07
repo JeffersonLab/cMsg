@@ -69,25 +69,41 @@ class cMsgHolder {
     public cMsgHolder() {
     }
 
-    /** Constructor for holding request from client. */
+    /**
+     * Constructor for holding request from client.
+     * @param array request
+     * @param data client data
+     * @param isUdpChannel is this a udp channel
+     */
     public cMsgHolder(byte[] array, cMsgClientData data, boolean isUdpChannel) {
         this.array = array;
         this.data  = data;
         this.isUdpChannel  = isUdpChannel;
     }
 
-    /** Constructor for holding send and sendAndGet information from client. */
+    /**
+     * Constructor for holding send and sendAndGet information from client.
+     * @param message cmsg message holding send and sendAndGet info from client.
+     */
     public cMsgHolder(cMsgMessageFull message) {
         this.message = message;
     }
 
-    /** Constructor for holding syncSend information from client. */
+    /**
+     * Constructor for holding syncSend information from client.
+     * @param message syncSend info from client.
+     * @param i syncSend id.
+     */
     public cMsgHolder(cMsgMessageFull message, int i) {
         this.message = message;
         this.ssid = i;
     }
 
-    /** Constructor for holding shutdown information from client. */
+    /**
+     * Constructor for holding shutdown information from client.
+     * @param client client to shutdown.
+     * @param include in a shutdownClients or shutdownServers call, include self or own server?
+     */
     public cMsgHolder(String client, boolean include) {
         this.client  = client;
         this.include = include;

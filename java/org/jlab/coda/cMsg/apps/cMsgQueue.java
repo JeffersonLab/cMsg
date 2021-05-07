@@ -601,7 +601,7 @@ public class cMsgQueue {
 
 
     /** Gets blob name for this particular database.
-     * @param  Database connection
+     * @param  conn connection
      * @return String containing blob name
      */
     static String getBlobName(Connection conn) {

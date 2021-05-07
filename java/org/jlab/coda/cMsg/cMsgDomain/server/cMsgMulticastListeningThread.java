@@ -69,6 +69,7 @@ class cMsgMulticastListeningThread extends Thread {
      *
      * @param nameServer the cMsg name server that started this thread
      * @param port cMsg name server's main tcp listening port
+     * @param multicastPort cMsg name server's multicast listening port
      * @param socket udp socket on which to receive multicasts from cMsg clients
      * @param password cMsg server's client password
      * @param debug cMsg server's debug level

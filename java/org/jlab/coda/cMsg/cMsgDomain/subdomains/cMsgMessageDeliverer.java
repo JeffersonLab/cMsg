@@ -27,28 +27,28 @@ import java.nio.channels.Channels;
 import java.nio.ByteBuffer;
 
 /**
- * This class delivers messages from the subdomain handler objects in the cMsg
- * domain to a particular client.<p>
- * Various types of messages may be sent. These are defined to be: <p>
+ * <p>This class delivers messages from the subdomain handler objects in the cMsg
+ * domain to a particular client.</p>
+ * <p>Various types of messages may be sent. These are defined to be:</p>
  * <ul>
- * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgGetResponse} for a message sent in
- * response to a {@link org.jlab.coda.cMsg.cMsg#sendAndGet}<p>
- * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerGetResponse} for a message sent in
+ * <li><p>{@link org.jlab.coda.cMsg.cMsgConstants#msgGetResponse} for a message sent in
+ * response to a {@link org.jlab.coda.cMsg.cMsg#sendAndGet}</p>
+ * <li><p>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerGetResponse} for a message sent in
  * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#serverSendAndGet}
- * with a return acknowlegment<p>
- * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgSubscribeResponse} for a message sent in
+ * with a return acknowlegment</p>
+ * <li><p>{@link org.jlab.coda.cMsg.cMsgConstants#msgSubscribeResponse} for a message sent in
  * response to a {@link org.jlab.coda.cMsg.cMsg#subscribe}
- * with a return acknowlegment<p>
- * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgShutdownClients} for a message to shutdown
- * the receiving client<p>
- * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgSyncSendResponse} for an int sent in
- * response to a {@link org.jlab.coda.cMsg.cMsg#syncSend}<p>
- * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerRegistrationLockResponse} for an int sent in
- * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#registrationLock}<p>
- * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerCloudLockResponse} for an int sent in
- * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#cloudLock}<p>
- * <li>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerSendClientNamesResponse} for an int sent in
- * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#getClientNamesAndNamespaces}<p>
+ * with a return acknowlegment</p>
+ * <li><p>{@link org.jlab.coda.cMsg.cMsgConstants#msgShutdownClients} for a message to shutdown
+ * the receiving client</p>
+ * <li><p>{@link org.jlab.coda.cMsg.cMsgConstants#msgSyncSendResponse} for an int sent in
+ * response to a {@link org.jlab.coda.cMsg.cMsg#syncSend}</p>
+ * <li><p>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerRegistrationLockResponse} for an int sent in
+ * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#registrationLock}</p>
+ * <li><p>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerCloudLockResponse} for an int sent in
+ * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#cloudLock}</p>
+ * <li><p>{@link org.jlab.coda.cMsg.cMsgConstants#msgServerSendClientNamesResponse} for an int sent in
+ * response to a {@link org.jlab.coda.cMsg.cMsgDomain.client.cMsgServerClient#getClientNamesAndNamespaces}</p>
  * </ul>
  */
 public class cMsgMessageDeliverer implements cMsgDeliverMessageInterface {

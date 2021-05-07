@@ -157,8 +157,7 @@ public class cMsgServerClient extends cMsg {
 
     /**
      * Method to connect to the domain server from a cMsg server acting as a bridge.
-     * This method is only called by the bridge object
-     * {@link org.jlab.coda.cMsg.cMsgDomain.server.cMsgServerBridge}.
+     * This method is only called by the cMsgDomain.server.cMsgServerBridge object.
      *
      * @param fromNsTcpPort TCP listening port of name server calling this method
      * @param fromNsMulticastPort UDP multicast listening port of name server calling this method
@@ -931,6 +930,8 @@ public class cMsgServerClient extends cMsg {
      * ints the same. That way the server can reliably check for mismatched versions.
      *
      * @param socket socket communication to server
+     * @param cloudStatus relationship this server has to server cloud.
+     *                    Can be INCLOUD, NONCLOUD, or BECOMINGCLOUD.
      * @param fromNSTcpPort TCP listening port of name server calling this method
      * @param fromNSMulticastPort UDP multicast listening port of name server calling this method
      * @param isOriginator true if originating the connection between the 2 servers and
@@ -939,6 +940,7 @@ public class cMsgServerClient extends cMsg {
      * @param clientPassword password for a client connecting to this server
      * @throws cMsgException error returned from server
      * @throws IOException if there are communication problems with the name server
+     * @return list of servers.
      */
     HashSet<String> talkToNameServerFromServer(Socket socket,
                                                int cloudStatus,

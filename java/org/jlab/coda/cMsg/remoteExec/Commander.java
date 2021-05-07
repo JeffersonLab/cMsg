@@ -86,9 +86,9 @@ public class Commander {
      * @param udl   UDL to connect to cMsg server.
      * @param name  unique name used to connect to cMsg server.
      * @param password  unique string used to connect to cMsg server.
-     *                  It may be null but must be <= 16 characters if not null.
+     *                  It may be null but must be ^lt;= 16 characters if not null.
      * @param description description used to connect to cMsg server.
-     * @throws cMsgException if error connecting to cMsg server; password is > 16 characters
+     * @throws cMsgException if error connecting to cMsg server; password is &gt; 16 characters
      */
     public Commander(String udl, String name, String description, String password) throws cMsgException {
         if (password != null) {
@@ -1217,7 +1217,7 @@ System.out.println("startProcess: Executor set to stopped");
      * @param exec Executor to start process with.
      * @param cmd command that Executor will run inside xterm. May be null.
      *            Must <b>not</b> have args.
-     * @param geometry geometry info in the form WxH+-X+-Y with W & H in chars, X & Y in pixels;
+     * @param geometry geometry info in the form WxH+-X+-Y with W and H in chars, X and Y in pixels;
      *                 for example 75x10+0+200 or 75x10-10-20. May be null.
      * @param title window title. May be null.
      * @return object containing id number and any process output/error captured
@@ -1264,13 +1264,15 @@ System.out.println("startProcess: Executor set to stopped");
      * fill the screen in a conveniently packed manner.
      *
      * @param exec Executor to use.
+     * @param title title of xterm windows.
      * @param count number of windows to make.
      * @param widthChars width of each xterm in characters.
      * @param heightChars number of lines in each xterm.
      *
      * @return list of CommandReturn objects.
      *
-     * @throws cMsgException
+     * @throws cMsgException when starting the xterm, if cmsg communication fails or takes too long or
+     *                       internal protocol error
      */
     public List<CommandReturn> startWindows(ExecutorInfo exec, String title,
                                             int count, int widthChars, int heightChars)
@@ -1303,7 +1305,8 @@ System.out.println("startProcess: Executor set to stopped");
      *
      * @return list of CommandReturn objects.
      *
-     * @throws cMsgException
+     * @throws cMsgException when starting xterm, if cmsg communication fails or takes too long,
+     *                       internal protocol error, or white space in cmd
      */
     public List<CommandReturn> startCommandInWindows(List<ExecutorInfo> executors,
                                                      String command,
@@ -1339,7 +1342,8 @@ System.out.println("startProcess: Executor set to stopped");
      *
      * @return list of CommandReturn objects.
      *
-     * @throws cMsgException
+     * @throws cMsgException when starting xterm, if cmsg communication fails or takes too long,
+     *                       internal protocol error, or white space in cmd
      */
     public List<CommandReturn> startCommandsInWindows(List<ExecutorInfo> executors,
                                                       List<String> commands,
@@ -1364,7 +1368,10 @@ System.out.println("startProcess: Executor set to stopped");
     //-------------------------------------------
 
 
-    /** Run the command "ls" inside an xterm in all Executors. */
+    /**
+     * Run the command "ls" inside an xterm in all Executors.
+     * @param args arguments.
+     */
     public static void main0(String[] args) {
 
         try {
@@ -1391,7 +1398,10 @@ System.out.println("startProcess: Executor set to stopped");
     }
 
 
-    /** Start up 20 xterms in one Executor, then shut them down one-by-one. */
+    /**
+     * RStart up 20 xterms in one Executor, then shut them down one-by-one.
+     * @param args arguments.
+     */
     public static void main1(String[] args) {
 
         try {
@@ -1433,6 +1443,7 @@ System.out.println("startProcess: Executor set to stopped");
     /**
      * Run the ExampleThread object as a thread in a single
      * Executor, wait 5 sec, and then shut it down.
+     * @param args arguments.
      */
     public static void main2(String[] args) {
         try {
@@ -1490,6 +1501,7 @@ System.out.println("startProcess: Executor set to stopped");
     /**
      * Run a cMsg server a thread in a single
      * Executor, wait 5 sec, and then shut it down.
+     * @param args arguments.
      */
     public static void main3(String[] args) {
         try {
@@ -1550,7 +1562,10 @@ System.out.println("startProcess: Executor set to stopped");
     }
 
 
-    /** Kill all Executors & their spawned processes either 1-by-1 or all at once. */
+    /**
+     * Kill all Executors and their spawned processes either 1-by-1 or all at once.
+     * @param args arguments.
+     */
     public static void main4(String[] args) {
 
         boolean killAtOnce = true;
@@ -1591,6 +1606,7 @@ System.out.println("startProcess: Executor set to stopped");
     /**
      * Take keyboard input, pass as commands to one Executor,
      * and print results - like a simple remote terminal.
+     * @param args arguments.
      */
     public static void main(String[] args) {
         try {

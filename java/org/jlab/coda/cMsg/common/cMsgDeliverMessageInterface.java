@@ -22,12 +22,12 @@ import org.jlab.coda.cMsg.cMsgException;
 import java.io.IOException;
 
 /**
- * Classes that implement this interface provide a means for a subdomain handler
+ * <p>Classes that implement this interface provide a means for a subdomain handler
  * object to talk to its client - providing the client with responses to its requests.
  * It is assumed that a single object of this type talks to one specific client. Thus
  * the deliverMessage method does not have an argument
  * specifying the client. The implementing class should store and use this information
- * aside from the use of this interface.<p>
+ * aside from the use of this interface.</p>
  */
 public interface cMsgDeliverMessageInterface {
 
@@ -41,8 +41,8 @@ public interface cMsgDeliverMessageInterface {
      *
      * @param msg     message to sent to client
      * @param msgType type of communication with the client
-     * @throws org.jlab.coda.cMsg.cMsgException
-     * @throws java.io.IOException
+     * @throws cMsgException if cMsg error.
+     * @throws java.io.IOException if IO error.
      */
     public void deliverMessage(cMsgMessage msg, int msgType)
             throws cMsgException, IOException;
@@ -52,8 +52,8 @@ public interface cMsgDeliverMessageInterface {
      *
      * @param strs array of strings to sent to client
      * @param msgType type of communication with the client
-     * @throws cMsgException
-     * @throws java.io.IOException
+     * @throws cMsgException if cMsg error.
+     * @throws java.io.IOException if IO error.
      */
     public void deliverMessage(String[] strs, int msgType)
             throws cMsgException, IOException;
@@ -64,8 +64,8 @@ public interface cMsgDeliverMessageInterface {
      * @param i integer to sent to client
      * @param j integer to sent to client
      * @param msgType type of communication with the client
-     * @throws cMsgException
-     * @throws java.io.IOException
+     * @throws cMsgException if cMsg error.
+     * @throws java.io.IOException if IO error.
      */
     public void deliverMessage(int i, int j, int msgType)
             throws cMsgException, IOException;

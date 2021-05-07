@@ -333,7 +333,8 @@ class cMsgDomainServerSelect extends Thread {
      * has already created 2 permanent TCP sockets to this server.
      *
      * @param info information on client trying to connect to this domain server
-     * @return
+     * @return true if client added, else false.
+     * @throws IOException if socket to client cannot be opened
      */
     synchronized boolean addClient(cMsgClientData info) throws IOException {
 
@@ -368,12 +369,12 @@ class cMsgDomainServerSelect extends Thread {
 
 
     /**
-     * Method to be run when this server's clients are dead or disconnected and
-     * the server threads will be killed. <p/>
+     * <p>Method to be run when this server's clients are dead or disconnected and
+     * the server threads will be killed. </p>
      * Finalize methods are run after an object has become unreachable and
-     * before the garbage collector is run;
+     * before the garbage collector is run.
      */
-    public void finalize() throws cMsgException {
+    public void finalize() {
         try { super.finalize();}
         catch (Throwable throwable) { }
     }

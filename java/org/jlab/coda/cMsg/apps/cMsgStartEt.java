@@ -17,7 +17,10 @@ public class cMsgStartEt {
     boolean debug;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param args arguments.
+     */
     cMsgStartEt(String[] args) {
         decodeCommandLine(args);
     }

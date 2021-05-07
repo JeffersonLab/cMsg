@@ -56,7 +56,10 @@ public class cMsgFindServers {
     private boolean inXML;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param args arguments.
+     */
     cMsgFindServers(String[] args) {
         rcPorts   = new HashSet<Integer>(100);
         cmsgPorts = new HashSet<Integer>(100);

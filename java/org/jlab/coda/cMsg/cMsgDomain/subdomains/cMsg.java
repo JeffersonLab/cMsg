@@ -307,7 +307,7 @@ public class cMsg extends cMsgSubdomainAdapter {
      * In the cMsg subdomain of the cMsg domain, each client sends messages to a namespace.
      * If no namespace is specified, the namespace is "/default".
      * The namespace is specified in the client supplied UDL as follows:
-     *     cMsg:cMsg://<host>:<port>/cMsg/<namespace>
+     *     cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/cMsg/&lt;namespace&gt;
      * A single beginning forward slash is enforced in a namespace.
      * A question mark will terminate but will not be included in the namespace.
      * All trailing forward slashes will be removed.

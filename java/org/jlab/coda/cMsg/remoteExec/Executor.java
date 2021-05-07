@@ -92,7 +92,7 @@ public class Executor {
      * @param udl UDL for connecting to cMsg server.
      * @param name client name for connecting to cMsg server.
      * @throws cMsgException if cannot find our hostname or host platform information;
-     *                       udl arg is null; password != null && > 16 characters
+     *                       udl arg is null; password != null &amp;&amp; &gt; 16 characters
      */
     public Executor(String password, String udl, String name) throws cMsgException {
 
@@ -1186,6 +1186,7 @@ System.out.println("startProcess: io error gathering (error) output");
 
     /**
      * Run as a stand-alone application
+     * @param args arguments.
      */
     public static void main(String[] args) {
         try {

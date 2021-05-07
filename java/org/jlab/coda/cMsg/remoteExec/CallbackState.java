@@ -33,7 +33,7 @@ public enum CallbackState {
     /** Callback is scheduled to be run. */
     PENDING   ("pending"),
     /** Callback was cancelled by killing executor with calls to
-     * {@link Commander#kill  or {@link Commander#killAll(boolean)}. */
+     * {@link Commander#kill}  or {@link Commander#killAll(boolean)}. */
     KILLED   ("killed"),
     /** Callback was cancelled by stopping executor process or thread with
      *  calls to {@link Commander#stop}  or {@link Commander#stopAll}. */

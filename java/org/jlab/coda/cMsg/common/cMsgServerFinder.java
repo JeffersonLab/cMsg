@@ -88,7 +88,10 @@ public class cMsgServerFinder {
         this(cMsgConstants.debugNone);
     }
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param debug level of debug output
+     */
     public cMsgServerFinder(int debug) {
         this.debug = debug;
 
@@ -138,11 +141,11 @@ public class cMsgServerFinder {
      * Set level of debug output.
      * Argument may be one of:
      * <ul>
-     * <li>{@link cMsgConstants#debugNone} for no outuput<p>
-     * <li>{@link cMsgConstants#debugSevere} for severe error output<p>
-     * <li>{@link cMsgConstants#debugError} for all error output<p>
-     * <li>{@link cMsgConstants#debugWarn} for warning and error output<p>
-     * <li>{@link cMsgConstants#debugInfo} for information, warning, and error output<p>
+     * <li><p>{@link cMsgConstants#debugNone} for no output</p>
+     * <li><p>{@link cMsgConstants#debugSevere} for severe error output</p>
+     * <li><p>{@link cMsgConstants#debugError} for all error output</p>
+     * <li><p>{@link cMsgConstants#debugWarn} for warning and error output</p>
+     * <li><p>{@link cMsgConstants#debugInfo} for information, warning, and error output</p>
      * </ul>
      *
      * @param debug level of debug output

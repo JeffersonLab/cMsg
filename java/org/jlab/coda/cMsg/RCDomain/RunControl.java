@@ -524,7 +524,7 @@ System.out.println("RC connect: SUCCESSFUL");
      * @param  command time in milliseconds to wait for a response to multicasts (1000 default)
      * @return response message containing the host running the rc multicast server contacted;
      *         null if no response is found
-     * @throws cMsgException
+     * @throws cMsgException if cMsg error.
      */
     public cMsgMessage monitor(final String command) throws cMsgException {
 
@@ -815,20 +815,20 @@ System.out.println("RC connect: SUCCESSFUL");
     /**
      * Method to parse the Universal Domain Locator (UDL) into its various components.
      *
-     * Runcontrol domain UDL is of the form:<p>
-     *   <b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;?connectTO=&lt;timeout&gt;&ip=&lt;address&gt;</b><p>
+     * <p>Runcontrol domain UDL is of the form:</p>
+     *   <p><b>cMsg:rc://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;?connectTO=&lt;timeout&gt;&amp;ip=&lt;address&gt;</b></p>
      *
      * Remember that for this domain:
      *<ul>
-     *<li>host is required and may also be "multicast", "localhost", or in dotted decimal form<p>
-     *<li>port is optional with a default of {@link cMsgNetworkConstants#rcMulticastPort}<p>
-     *<li>the experiment id or expid is required, it is NOT taken from the environmental variable EXPID<p>
-     *<li>connectTO (optional) is the time to wait in seconds before connect returns a
+     *<li><p>host is required and may also be "multicast", "localhost", or in dotted decimal form</p>
+     *<li><p>port is optional with a default of {@link cMsgNetworkConstants#rcMulticastPort}</p>
+     *<li><p>the experiment id or expid is required, it is NOT taken from the environmental variable EXPID</p>
+     *<li><p>connectTO (optional) is the time to wait in seconds before connect returns a
      *    timeout while waiting for the rc server to send a special (tcp)
-     *    concluding connect message. Defaults to 30 seconds.<p>
-     *<li>ip (optional) is ip address in dot-decimal format which the rc server
-     *    or agent must use to connect to this rc client.<p>
-     *</ul><p>
+     *    concluding connect message. Defaults to 30 seconds.</p>
+     *<li><p>ip (optional) is ip address in dot-decimal format which the rc server
+     *    or agent must use to connect to this rc client.</p>
+     *</ul>
      *
      * @param udlRemainder partial UDL to parse
      * @throws cMsgException if udlRemainder is null

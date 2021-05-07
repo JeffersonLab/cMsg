@@ -96,6 +96,7 @@ class rcListeningThread extends Thread {
      * Constructor.
      * @param server rc server that created this object
      * @param port udp port on which to receive transmissions from rc clients
+     * @throws cMsgException if multicast port is taken.
      */
     public rcListeningThread(RCMulticast server, int port) throws cMsgException {
 

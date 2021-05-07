@@ -41,9 +41,9 @@ import java.nio.channels.*;
 /**
  * cMsg subdomain handler for Queue subdomain.<p>
  *
- * UDL:  cMsg://host:port/Queue/myQueueName?driver=myDriver&url=myURL&account=myAccount&password=myPassword<p>
+ * UDL:  cMsg://host:port/Queue/myQueueName?driver=myDriver&amp;url=myURL&amp;account=myAccount&amp;password=myPassword<p>
  *
- * e.g. cMsg://localhost/Queue/ejw?driver=com.mysql.jdbc.Driver&url=jdbc:mysql://halldweb1/test&account=wolin<p>
+ * e.g. cMsg://localhost/Queue/ejw?driver=com.mysql.jdbc.Driver&amp;url=jdbc:mysql://halldweb1/test&amp;account=wolin<p>
  *
  * Stores/retrieves cMsgMessageFull messages from SQL database.
  * Gets database parameters from UDL.
@@ -356,7 +356,7 @@ public class Queue extends cMsgSubdomainAdapter {
     /**
      * Returns message at head of queue.
      *
-     * @param message message to generate sendAndGet response to (contents ignored)
+     * @param msg message to generate sendAndGet response to (contents ignored)
      * @throws cMsgException if error reading database or delivering message to client
      */
     synchronized public void handleSendAndGetRequest(cMsgMessageFull msg) throws cMsgException {

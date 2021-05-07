@@ -259,7 +259,7 @@ class cMsgDomainServer extends Thread {
     /**
      * Start reading and writing over the sockets. Start threads to process client requests.
      *
-     * @throws IOException if streams to & from client cannot be opened
+     * @throws IOException if streams to and from client cannot be opened
      */
     void startThreads() throws IOException {
 
@@ -291,12 +291,12 @@ class cMsgDomainServer extends Thread {
 
 
     /**
-     * Method to be run when this server's client is dead or disconnected and
-     * the server threads will be killed. <p/>
+     * <p>Method to be run when this server's client is dead or disconnected and
+     * the server threads will be killed. </p>
      * Finalize methods are run after an object has become unreachable and
-     * before the garbage collector is run;
+     * before the garbage collector is run.
      */
-    public void finalize() throws cMsgException {
+    public void finalize() {
         try { super.finalize();}
         catch (Throwable throwable) { }
     }

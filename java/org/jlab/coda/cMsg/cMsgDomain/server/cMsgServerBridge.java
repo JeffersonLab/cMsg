@@ -185,7 +185,12 @@ class cMsgServerBridge {
 //-----------------------------------------------------------------------------
 
 
-    /** Get a callback for a sendAndGet call. */
+    /**
+     * Get a callback for a sendAndGet call.
+     * @param id incoming message's senderToken needs to be changed to this value
+     * @param sysMsgId incoming message's sysMsgId needs to be changed to this value
+     * @return sendAndGet callback
+     */
     static public cMsgCallbackAdapter getSendAndGetCallback(int id, int sysMsgId) {
         return new SendAndGetCallback(id, sysMsgId);
     }
@@ -201,7 +206,7 @@ class cMsgServerBridge {
      * @param serverName name of server to connect to in the form "host:port"
      * @param thisNsTcpPort the TCP port THIS name server is listening on
      * @param thisNsUdpPort the Udp multicast port THIS name server is listening on
-     * @throws cMsgException
+     * @throws cMsgException if local host name cannot be found
      */
     public cMsgServerBridge(cMsgNameServer nameServer,
                             String serverName,
@@ -266,7 +271,7 @@ class cMsgServerBridge {
      * Sets the name of the server this bridge's client is connected to.
      * This is used when multicasting to find the server and the host is not
      * immediately known in order to construct the name (as host:port).
-     * @param serverName
+     * @param serverName name of the server this bridge's client is connected to.
      */
     public void setServerName(String serverName) {
         this.serverName = serverName;
@@ -332,7 +337,6 @@ class cMsgServerBridge {
     void cloudUnlock() throws IOException {
 //System.out.println("      << BR: try unlocking cloud");
         client.cloudUnlock();
-        return;
     }
 
 
@@ -357,7 +361,6 @@ class cMsgServerBridge {
      */
     void registrationUnlock() throws IOException {
         client.registrationUnlock();
-        return;
     }
 
 
@@ -389,7 +392,6 @@ class cMsgServerBridge {
 
 //System.out.println("Bridge: call serverSubscribe with ns = " + namespace);
         client.serverSubscribe(subject, type, namespace, subCallback, namespace);
-        return;
     }
 
 
@@ -407,7 +409,6 @@ class cMsgServerBridge {
 
 //System.out.println("Bridge: call serverUnsubscribe with ns = " + namespace);
         client.serverUnsubscribe(subject, type, namespace, subCallback, namespace);
-        return;
     }
 
     /**
@@ -426,7 +427,6 @@ class cMsgServerBridge {
         // the other from system getting send a propagating msg.
         idStorage.put(msg.getSenderToken(), id);
 //System.out.println("bridge   sendAndGet: store id " + id + " with token " + msg.getSenderToken());
-        return;
     }
 
 
@@ -449,7 +449,6 @@ class cMsgServerBridge {
 //System.out.println("bridge unSendAndGet: removed msg id " +  id +
 //                            " and new id " + newId.intValue());
          client.serverUnSendAndGet(newId);
-         return;
      }
 
 
@@ -459,6 +458,7 @@ class cMsgServerBridge {
      * @param subject subject of message desired from server
      * @param type type of message desired from server
      * @param namespace  message namespace
+     * @param cb  callback
      * @throws IOException there are communication problems with the server
      */
     public void subscribeAndGet(String subject, String type,
@@ -467,7 +467,6 @@ class cMsgServerBridge {
 
 //System.out.println("Bridge: call serverSubscribe with ns = " + namespace);
         client.serverSubscribe(subject, type, namespace, cb, namespace);
-        return;
     }
 
 
@@ -479,13 +478,13 @@ class cMsgServerBridge {
      * @param subject subject of message desired from server
      * @param type type of message desired from server
      * @param namespace  message namespace
+     * @param cb  callback
      * @throws IOException there are communication problems with the server
      */
     public void unsubscribeAndGet(String subject, String type,
                                   String namespace, cMsgCallbackInterface cb)
             throws IOException {
         client.serverUnsubscribe(subject, type, namespace, cb, namespace);
-        return;
     }
 
 

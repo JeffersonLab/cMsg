@@ -165,8 +165,9 @@ class cMsgMonitorClient extends Thread {
     /**
      * Method to add another client for monitoring.
      * @param info information on client
+     * @param dss cMsgDomainServerSelect object
      */
-    void addClient(cMsgClientData info, cMsgDomainServerSelect dss) throws IOException {
+    void addClient(cMsgClientData info, cMsgDomainServerSelect dss) {
         // Put client's channel in list to be registered with the selector for reading
         // (once selector is woken up).
         clients2register.put(info, "");
@@ -180,8 +181,9 @@ class cMsgMonitorClient extends Thread {
     /**
      * Method to add another client for monitoring.
      * @param info information on client
+     * @param ds cMsgDomainServer object
      */
-    void addClient(cMsgClientData info, cMsgDomainServer ds) throws IOException {
+    void addClient(cMsgClientData info, cMsgDomainServer ds) {
         // Put client's channel in list to be registered with the selector for reading
         // (once selector is woken up).
         clients2register.put(info, "");
