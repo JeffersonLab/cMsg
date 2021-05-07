@@ -21,14 +21,14 @@ import org.jlab.coda.cMsg.common.cMsgMessageFull;
 
 
 /**
- * This class provides a very basic (non-functional/dummy) implementation
+ * <p>This class provides a very basic (non-functional/dummy) implementation
  * of the cMsgSubdomainInterface interface. This class is used
  * by a cMsg domain server to respond to client demands. It contains
  * some methods that hide the details of communication
  * with the client. A fully implementated subclass of this
  * class must handle all communication with a particular subdomain
  * (such as SmartSockets or JADE agents).
- * <p/>
+ * </p>
  * Understand that each client using cMsg will have its own handler object
  * from either an implemenation of the cMsgSubdomainInterface interface or a
  * subclass of this class. One client may concurrently use the same

@@ -35,7 +35,10 @@ public class cMsgShutdowner {
     private boolean debug, shutMeDown;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param args arguments.
+     */
     cMsgShutdowner(String[] args) {
         decodeCommandLine(args);
     }

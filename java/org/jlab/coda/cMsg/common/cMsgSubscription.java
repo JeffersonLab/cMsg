@@ -739,12 +739,12 @@ public class cMsgSubscription extends cMsgGetHelper {
 
 
     /**
-     * This method checks to see if there is a match between a given (message's) subject & type
+     * This method checks to see if there is a match between a given (message's) subject and type
      * pair and this subscription's subject and type. If this subscription's subject and
      * type has no wildcards characters, then a straight string compare is done.
      * This subscription's subject and type may include wildcards where "*" means any or
      * no characters, "?" means exactly 1 character, "#" means 1 or no positive integer,
-     * and a defined range (eg. {i>5 & i<10 | i=66}) matches 1 integer and applies the given
+     * and a defined range (eg. {i&gt;5 &amp; i&lt;10 | i=66}) matches 1 integer and applies the given
      * logic to see if there is a match with that integer. If such wildcards exist,
      * a match using regular expressions is done.
      *
@@ -848,7 +848,7 @@ public class cMsgSubscription extends cMsgGetHelper {
 
 
     /**
-     * This method checks to see if there is a match between a given msgSubject & msgType
+     * This method checks to see if there is a match between a given msgSubject and msgType
      * pair and this subscription's msgSubject and msgType. The subscription's msgSubject and
      * msgType may include wildcards where "*" means any or no characters and "?" means
      * exactly 1 character. There is a match only if both msgSubject and msgType strings match

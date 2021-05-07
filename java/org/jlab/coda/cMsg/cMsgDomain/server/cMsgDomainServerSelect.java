@@ -333,7 +333,8 @@ class cMsgDomainServerSelect extends Thread {
      * has already created 2 permanent TCP sockets to this server.
      *
      * @param info information on client trying to connect to this domain server
-     * @return
+     * @return true if client added, else false.
+     * @throws IOException if socket to client cannot be opened
      */
     synchronized boolean addClient(cMsgClientData info) throws IOException {
 

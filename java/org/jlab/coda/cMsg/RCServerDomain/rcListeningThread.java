@@ -147,6 +147,8 @@ e.printStackTrace();
      * Constructor for regular clients.
      *
      * @param server RC server that created this object
+     * @throws cMsgException if TCP socket cannot be created or cannot bind to a port, or
+     *                       if UDP socket cannot be created.
      */
     public rcListeningThread(RCServer server) throws cMsgException {
 
@@ -169,7 +171,7 @@ e.printStackTrace();
     /**
      * Creates a UDP receiving socket for a runcontrol client to send to.
      *
-     * @throws IOException if socket cannot be created
+     * @throws cMsgException if socket cannot be created
      */
     private void createUDPServerChannel() throws cMsgException {
         // For the client who wants to do sends with udp,

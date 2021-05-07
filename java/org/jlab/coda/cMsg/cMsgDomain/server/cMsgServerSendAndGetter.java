@@ -37,14 +37,19 @@ class cMsgServerSendAndGetter implements Runnable {
      */
     cMsgNotifier notifier;
 
-    /** A list of all cMsgServerSendAndGetter objects (threads) for this client. */
-    ConcurrentHashMap sendAndGetters;
+    /** A map of all cMsgServerSendAndGetter objects (threads) for this client. */
+    ConcurrentHashMap<Integer, cMsgServerSendAndGetter> sendAndGetters;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param nameServer server
+     * @param notifier notifier
+     * @param sendAndGetters map of all cMsgServerSendAndGetter objects (threads) for this client
+     */
     public cMsgServerSendAndGetter(cMsgNameServer nameServer,
                                    cMsgNotifier notifier,
-                                   ConcurrentHashMap sendAndGetters) {
+                                   ConcurrentHashMap<Integer, cMsgServerSendAndGetter> sendAndGetters) {
         this.notifier = notifier;
         this.nameServer = nameServer;
         this.sendAndGetters = sendAndGetters;

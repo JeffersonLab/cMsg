@@ -228,9 +228,8 @@ public class CA extends cMsgSubdomainAdapter {
      * {@inheritDoc}
      *
      * @param UDLRemainder {@inheritDoc}
-     * @throws cMsgException
      */
-    public void setUDLRemainder(String UDLRemainder) throws cMsgException {
+    public void setUDLRemainder(String UDLRemainder) {
         myUDLRemainder=UDLRemainder;
     }
 
@@ -489,7 +488,7 @@ public class CA extends cMsgSubdomainAdapter {
     /**
      * {@inheritDoc}
      *
-     * @throws cMsgException
+     * @throws cMsgException if channel access exception thrown
      */
     public void handleClientShutdown() throws cMsgException {
 

@@ -20,7 +20,10 @@ public class cMsgPlatformSpy  implements Runnable {
     boolean debug;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param args arguments.
+     */
     cMsgPlatformSpy(String[] args) {
         decodeCommandLine(args);
     }

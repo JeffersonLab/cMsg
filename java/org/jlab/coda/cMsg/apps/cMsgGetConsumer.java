@@ -44,7 +44,10 @@ public class cMsgGetConsumer {
     private boolean send, debug;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param args arguments.
+     */
     cMsgGetConsumer(String[] args) {
         decodeCommandLine(args);
     }

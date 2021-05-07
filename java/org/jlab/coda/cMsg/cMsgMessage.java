@@ -1099,7 +1099,7 @@ public class cMsgMessage implements Cloneable, Serializable {
     /////////////
 
     /**
-     * This method escapes the chars <, >, " for putting strings into XML.
+     * This method escapes the chars &lt;, &gt;, " for putting strings into XML.
      * @param s string to be escaped
      * @return escaped string
      */
@@ -1159,20 +1159,20 @@ public class cMsgMessage implements Cloneable, Serializable {
      */
 
     /**
-     * This method escapes CDATA constructs which will appear inside of XML CDATA sections.
+     * <p>This method escapes CDATA constructs which will appear inside of XML CDATA sections.
      * It is not possible to have nested cdata sections. Actually the CDATA ending
      * sequence, ]]> , is what cannot be containing in a surrounding CDATA section.
      * This restriction can be
-     * cleverly circumvented by inserting "<![CDATA[]]]]><![CDATA[>" after each CDATA ending
+     * cleverly circumvented by inserting "&lt;![CDATA[]]]]&gt;&lt;![CDATA[&gt;" after each CDATA ending
      * sequence. This creates independent CDATA sections which are not nested.</p>
      *
      * This method assumes that there are no nested cdata sections in the input string.
      * Nothing is done to the string if:
      * <UL>
-     * <LI>there is no ]]> so no escaping is necessary
-     * <LI>there is no <![CDATA[ so s contains malformed XML
-     * <LI>a particular <![CDATA[ has no corresponding ]]> so s contains malformed XML
-     * <LI>]]> comes before <![CDATA[ so s contains malformed XML
+     * <LI>there is no ]]&gt; so no escaping is necessary
+     * <LI>there is no &lt;![CDATA[ so s contains malformed XML
+     * <LI>a particular &lt;![CDATA[ has no corresponding ]]&gt; so s contains malformed XML
+     * <LI>]]&gt; comes before &lt;![CDATA[ so s contains malformed XML
      * </UL>
      *
      * @param s string to be escaped

@@ -46,7 +46,10 @@ public class cMsgProducer {
     private boolean debug, useSyncSend;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param args arguments.
+     */
     cMsgProducer(String[] args) {
         decodeCommandLine(args);
     }

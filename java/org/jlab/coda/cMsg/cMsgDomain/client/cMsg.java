@@ -3042,37 +3042,37 @@ System.out.println("disconnect: IO error");
 
 
     /**
-     * Method to parse the Universal Domain Locator (UDL) into its various components.
-     * The general cMsg domain UDL is of the form:<p>
+     * <p>Method to parse the Universal Domain Locator (UDL) into its various components.
+     * The general cMsg domain UDL is of the form:</p>
      *
-     *   <b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&tag2=value2 ...</b><p>
+     *   <p><b>cMsg:cMsg://&lt;host&gt;:&lt;port&gt;/&lt;subdomainType&gt;/&lt;subdomain remainder&gt;?tag=value&amp;tag2=value2 ...</b></p>
      *
      * <ul>
-     * <li>port is not necessary to specify but is the name server's TCP port if connecting directly
+     * <li><p>port is not necessary to specify but is the name server's TCP port if connecting directly
      *     or the server's UDP port if multicasting. If not specified, defaults are
      *     {@link cMsgNetworkConstants#nameServerTcpPort} if connecting directly, else
-     *     {@link cMsgNetworkConstants#nameServerUdpPort} if multicasting<p>
-     * <li>host can be "localhost" and may also be in dotted form (129.57.35.21), but may not contain a colon.
-     *     It can also be "multicast"<p>
-     * <li>if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
-     *     if subdomainType is not cMsg, it is required<p>
-     * <li>the domain name is case insensitive as is the subdomainType<p>
-     * <li>remainder is passed on to the subdomain plug-in<p>
-     * <li>client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;<p>
-     * <li>domain server port is in tag=value part of UDL as domainPort=&lt;port&gt;<p>
-     * <li>multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;<p>
-     * <li>subnet is in tag=value part of UDL as subnet=&lt;preferred subnet in dot-decimal&gt;<p>
-     * <li>failover is in tag=value part of UDL as failover=&lt;cloud, cloudonly, or any&gt;<p>
-     * <li>cloud is in tag=value part of UDL as failover=&lt;local or any&gt;<p>
-     * <li>the tag=value part of UDL parsed here as regime=low or regime=high means:<p>
+     *     {@link cMsgNetworkConstants#nameServerUdpPort} if multicasting</p>
+     * <li><p>host can be "localhost" and may also be in dotted form (129.57.35.21), but may not contain a colon.
+     *     It can also be "multicast"</p>
+     * <li><p>if domainType is cMsg, subdomainType is automatically set to cMsg if not given.
+     *     if subdomainType is not cMsg, it is required</p>
+     * <li><p>the domain name is case insensitive as is the subdomainType</p>
+     * <li><p>remainder is passed on to the subdomain plug-in</p>
+     * <li><p>client's password is in tag=value part of UDL as cmsgpassword=&lt;password&gt;</p>
+     * <li><p>domain server port is in tag=value part of UDL as domainPort=&lt;port&gt;</p>
+     * <li><p>multicast timeout is in tag=value part of UDL as multicastTO=&lt;time out in seconds&gt;</p>
+     * <li><p>subnet is in tag=value part of UDL as subnet=&lt;preferred subnet in dot-decimal&gt;</p>
+     * <li><p>failover is in tag=value part of UDL as failover=&lt;cloud, cloudonly, or any&gt;</p>
+     * <li><p>cloud is in tag=value part of UDL as failover=&lt;local or any&gt;</p>
+     * <li><p>the tag=value part of UDL parsed here as regime=low or regime=high means:</p>
      *   <ul>
-     *   <li>low message/data throughput client if regime=low, meaning many clients are serviced
-     *       by a single server thread and all msgs retain time order<p>
-     *   <li>high message/data throughput client if regime=high, meaning each client is serviced
+     *   <li><p>low message/data throughput client if regime=low, meaning many clients are serviced
+     *       by a single server thread and all msgs retain time order</p>
+     *   <li><p>high message/data throughput client if regime=high, meaning each client is serviced
      *       by multiple threads to maximize throughput. Msgs are NOT guaranteed to be handled in
-     *       time order<p>
-     *   <li>if regime is not specified (default), it is assumed to be medium, where a single thread is
-     *       dedicated to a single client and msgs are guaranteed to be handled in time order<p>
+     *       time order</p>
+     *   <li><p>if regime is not specified (default), it is assumed to be medium, where a single thread is
+     *       dedicated to a single client and msgs are guaranteed to be handled in time order</p>
      *   </ul>
      * </ul>
      *
@@ -3512,7 +3512,27 @@ System.out.println("disconnect: IO error");
             local               = isLocal;
         }
 
-        /** Constructor used in parsing UDL. */
+        /**
+         * Constructor used in parsing UDL.
+         * @param s1 UDL
+         * @param s2 UDLremainder
+         * @param s3 subdomain
+         * @param s4 subRemainder
+         * @param s5 password
+         * @param s6 nameServerHost
+         * @param s7 preferredSubnet
+         *
+         * @param i1 nameServerTcpPort
+         * @param i2 domainServerTcpPort
+         * @param i3 nameServerUdpPort
+         * @param i4  multicastTimeout
+         * @param i5 regime
+         * @param i6 failover
+         * @param i7 cloud
+         *
+         * @param b1 mustMulticast
+         * @param b2 local
+         */
         ParsedUDL(String s1, String s2, String s3, String s4, String s5, String s6, String s7,
                   int i1, int i2, int i3, int i4, int i5, int i6, int i7, boolean b1, boolean b2) {
             UDL                 = s1;
@@ -3521,7 +3541,8 @@ System.out.println("disconnect: IO error");
             subRemainder        = s4;
             password            = s5;
             nameServerHost      = s6;
-            preferredSubnet     = s6;
+            preferredSubnet     = s7;
+
             nameServerTcpPort   = i1;
             domainServerTcpPort = i2;
             nameServerUdpPort   = i3;
@@ -3532,7 +3553,6 @@ System.out.println("disconnect: IO error");
             mustMulticast       = b1;
             local               = b2;
         }
-
 
         /** Take all of this object's parameters and copy to this client's members. */
         public String toString() {

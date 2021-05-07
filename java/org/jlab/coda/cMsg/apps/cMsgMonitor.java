@@ -33,7 +33,10 @@ public class cMsgMonitor {
     private boolean debug;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param args arguments.
+     */
     cMsgMonitor(String[] args) {
         decodeCommandLine(args);
     }

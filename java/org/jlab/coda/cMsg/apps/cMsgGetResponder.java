@@ -40,7 +40,10 @@ public class cMsgGetResponder {
     private cMsg    coda;
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param args arguments.
+     */
     cMsgGetResponder(String[] args) {
         decodeCommandLine(args);
     }

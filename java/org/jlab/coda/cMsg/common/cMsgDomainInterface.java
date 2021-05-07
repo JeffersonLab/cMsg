@@ -42,7 +42,7 @@ public interface cMsgDomainInterface {
     /**
      * Method to connect to a particular domain.
      *
-     * @throws org.jlab.coda.cMsg.cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      */
     public void connect() throws cMsgException;
 
@@ -50,7 +50,7 @@ public interface cMsgDomainInterface {
      * Method to close the connection to the domain. This method results in this object
      * becoming functionally useless.
      *
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      */
     public void disconnect() throws cMsgException;
 
@@ -65,7 +65,7 @@ public interface cMsgDomainInterface {
      * Method to send a message to the domain for further distribution.
      *
      * @param message message to send
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      */
     public void send(cMsgMessage message) throws cMsgException;
 
@@ -76,14 +76,14 @@ public interface cMsgDomainInterface {
      * @param message message to send
      * @param timeout time in milliseconds to wait for a response
      * @return response from subdomain handler (0 for cMsg domain/subdomain)
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      */
     public int syncSend(cMsgMessage message, int timeout) throws cMsgException;
 
     /**
      * Method to force cMsg client to send pending communications with domain.
      * @param timeout time in milliseconds to wait for completion
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      */
     public void flush(int timeout) throws cMsgException;
 
@@ -95,7 +95,7 @@ public interface cMsgDomainInterface {
      * @param type type of message desired from server
      * @param timeout time in milliseconds to wait for a message
      * @return response message
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      * @throws TimeoutException if timeout occurs
      */
     public cMsgMessage subscribeAndGet(String subject, String type, int timeout)
@@ -112,7 +112,7 @@ public interface cMsgDomainInterface {
      * @param message message sent to server
      * @param timeout time in milliseconds to wait for a response message, zero means wait forever.
      * @return response message
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      * @throws TimeoutException if timeout occurs
      */
     public cMsgMessage sendAndGet(cMsgMessage message, int timeout)
@@ -127,7 +127,7 @@ public interface cMsgDomainInterface {
      *                of subject and type
      * @param userObj any user-supplied object to be given to the callback method as an argument
      * @return handle object to be used for unsubscribing
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      */
     public cMsgSubscriptionHandle subscribe(String subject, String type, cMsgCallbackInterface cb, Object userObj)
             throws cMsgException;
@@ -137,7 +137,7 @@ public interface cMsgDomainInterface {
      * from the domain.
      *
      * @param handle the object returned from a subscribe call
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      */
     public void unsubscribe(cMsgSubscriptionHandle handle)
            throws cMsgException;
@@ -148,7 +148,7 @@ public interface cMsgDomainInterface {
      *
      * @param  command directive for monitoring process
      * @return response message containing monitoring information
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      */
     public cMsgMessage monitor(String command)
             throws cMsgException;
@@ -168,7 +168,7 @@ public interface cMsgDomainInterface {
      *
      * @param client client(s) to be shutdown
      * @param includeMe  if true, it is permissible to shutdown calling client
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      */
     public void shutdownClients(String client, boolean includeMe) throws cMsgException;
 
@@ -178,7 +178,7 @@ public interface cMsgDomainInterface {
      * @param server server(s) to be shutdown
      * @param includeMyServer  if true, it is permissible to shutdown calling client's
      *                         cMsg server
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      */
     public void shutdownServers(String server, boolean includeMyServer) throws cMsgException;
 
@@ -235,7 +235,7 @@ public interface cMsgDomainInterface {
     /**
      * Set the UDL of the client.
      * @param UDL UDL of client
-     * @throws cMsgException
+     * @throws org.jlab.coda.cMsg.cMsgException for cMsg error.
      */
     public void setUDL(String UDL) throws cMsgException;
 

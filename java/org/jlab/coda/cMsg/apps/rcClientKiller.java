@@ -72,7 +72,10 @@ public class rcClientKiller {
 
 
 
-    /** Constructor. */
+    /**
+     * Constructor.
+     * @param args arguments.
+     */
     rcClientKiller(String[] args) {
         decodeCommandLine(args);
     }

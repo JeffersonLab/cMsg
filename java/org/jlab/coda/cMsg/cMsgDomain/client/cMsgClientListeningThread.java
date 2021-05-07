@@ -76,6 +76,9 @@ class cMsgClientListeningThread extends Thread {
      *
      * @param myClient cMsg client that created this object
      * @param sock main communication socket with server
+     * @throws  IOException  if an I/O error occurs when creating the
+     *          input stream, the socket is closed, the socket is
+     *          not connected, or the socket input has been shutdown.
      */
     public cMsgClientListeningThread(cMsg myClient, Socket sock) throws IOException {
 
@@ -96,6 +99,9 @@ class cMsgClientListeningThread extends Thread {
      *
      * @param myClient cMsg server client that created this object
      * @param sock main communication socket with server
+     * @throws  IOException  if an I/O error occurs when creating the
+     *          input stream, the socket is closed, the socket is
+     *          not connected, or the socket input has been shutdown.
      */
     public cMsgClientListeningThread(cMsgServerClient myClient, Socket sock) throws IOException {
         this((cMsg)myClient, sock);

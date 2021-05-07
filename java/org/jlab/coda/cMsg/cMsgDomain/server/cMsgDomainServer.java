@@ -259,7 +259,7 @@ class cMsgDomainServer extends Thread {
     /**
      * Start reading and writing over the sockets. Start threads to process client requests.
      *
-     * @throws IOException if streams to & from client cannot be opened
+     * @throws IOException if streams to and from client cannot be opened
      */
     void startThreads() throws IOException {
 
