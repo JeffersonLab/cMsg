@@ -650,8 +650,8 @@ char* cMsgMessage::getByteArray(void) {
  * Gets endian-ness of message byte array.
  * Valid return values are:
  *<ul>
- *<li>{@link CMSG_ENDIAN_BIG}
- *<li>{@link CMSG_ENDIAN_LITTLE}
+ *<li>CMSG_ENDIAN_BIG
+ *<li>CMSG_ENDIAN_LITTLE
  *</ul>
  *
  * @return Endian-ness value
@@ -671,11 +671,11 @@ int cMsgMessage::getByteArrayEndian(void) {
  * Sets endian-ness of message byte array.
  * Valid values are:
  *<ul>
- *<li>{@link CMSG_ENDIAN_BIG}
- *<li>{@link CMSG_ENDIAN_LITTLE}
- *<li>{@link CMSG_ENDIAN_LOCAL}
- *<li>{@link CMSG_ENDIAN_NOTLOCAL}
- *<li>{@link CMSG_ENDIAN_SWITCH}
+ *<li>CMSG_ENDIAN_BIG
+ *<li>CMSG_ENDIAN_LITTLE
+ *<li>CMSG_ENDIAN_LOCAL
+ *<li>CMSG_ENDIAN_NOTLOCAL
+ *<li>CMSG_ENDIAN_SWITCH
  *</ul>
  *
  * @param endian Endian-ness value

@@ -83,9 +83,9 @@ FILE_PATTERNS          = *.c \
                          *.CC \
                          *.C++ \
 RECURSIVE              = YES
-EXCLUDE                = 
+EXCLUDE                = cMsgPrivate.hxx
 EXCLUDE_SYMLINKS       = NO
-EXCLUDE_PATTERNS       = */.* *Private.hxx*
+EXCLUDE_PATTERNS       = */.*
 EXAMPLE_PATH           = 
 EXAMPLE_PATTERNS       = *
 EXAMPLE_RECURSIVE      = NO
@@ -185,8 +185,8 @@ ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = NO
 EXPAND_ONLY_PREDEF     = NO
 SEARCH_INCLUDES        = YES
-INCLUDE_PATH           = 
-INCLUDE_FILE_PATTERNS  = 
+INCLUDE_PATH           = $(TOPLEVEL)/src/libsrc
+INCLUDE_FILE_PATTERNS  = *.h
 PREDEFINED             = 
 EXPAND_AS_DEFINED      = 
 SKIP_FUNCTION_MACROS   = YES

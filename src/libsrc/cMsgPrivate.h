@@ -384,7 +384,7 @@ typedef struct payloadItem_t {
 
 
 /** This structure holds a message. */
-typedef struct cMsg_t {
+struct cMsg_t {
   /* general quantities */
   int     version;       /**< Major version of cMsg. */
   int     sysMsgId;      /**< Unique id set by system to track sendAndGet's. */
@@ -439,8 +439,10 @@ typedef struct cMsg_t {
   cMsgMessageContext context; /**< struct with info about context of this message. */
   
   struct cMsg_t *next; /**< For using messages in a linked list. */
-} cMsgMessage_t;
+};
 
+/** Typedef for cMsg_t structure. Split statement for the sake of doxygen. */
+typedef struct cMsg_t cMsgMessage_t;
 
 /** Commands/Requests sent from client to server. */
 enum requestMsgId {

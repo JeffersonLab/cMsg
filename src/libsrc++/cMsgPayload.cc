@@ -40,9 +40,7 @@ namespace cmsg {
     /**
      * This method removes all the user-added items in the payload.
      * The payload may still contain fields added by the cMsg system.
-     * If there are no items left in the payload, this method is equivalent to
-     * {@link cMsgMessage#payloadWipeout}. 
-     */   
+     */
     void cMsgMessage::payloadClear(void) {
         cMsgPayloadClear(myMsgPointer);
     }
@@ -166,7 +164,7 @@ namespace cmsg {
      * This method copies the payload from another message.
      * The original payload is overwritten.
      *
-     * @param reference to message to copy payload from
+     * @param msg reference to message to copy payload from
      * @throws cMsgException if no memory
      */
     void cMsgMessage::payloadCopy(const cMsgMessage &msg) throw(cMsgException) {
@@ -1332,14 +1330,14 @@ uint64_t *cMsgMessage::getUint64Array(const string &name) const throw(cMsgExcept
 /**
  * This method adds a named binary field to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than
- * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
+ * CMSG_PAYLOAD_NAME_LEN, or contain white space or quotes.
  *
  * @param name name of field to add
  * @param src  pointer to binary data to add
  * @param size size in bytes of data to add
- * @param endian endian value of binary data, may be {@link CMSG_ENDIAN_BIG},
- *               {@link CMSG_ENDIAN_LITTLE}, {@link CMSG_ENDIAN_LOCAL}, or
- *               {@link CMSG_ENDIAN_NOTLOCAL}
+ * @param endian endian value of binary data, may be CMSG_ENDIAN_BIG,
+ *               CMSG_ENDIAN_LITTLE, CMSG_ENDIAN_LOCAL, or
+ *               CMSG_ENDIAN_NOTLOCAL
  *
  * @throws cMsgException if no memory, error in binary-to-text conversion, name already used,
  *                       improper name, src is null, size < 1, or endian improper value
@@ -1358,15 +1356,15 @@ void cMsgMessage::add(const string &name, const char *src, int size, int endian)
 /**
  * This method adds a named binary field to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than
- * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
+ * CMSG_PAYLOAD_NAME_LEN, or contain white space or quotes.
  *
  * @param name name of field to add
  * @param srcs  pointer to array of binary data arrays to add
  * @param number number of arrays of binary data to add
  * @param sizes array of sizes in bytes of binary data arrays to add
  * @param endians array of endian values of binary data arrays, may be
- *               {@link CMSG_ENDIAN_BIG}, {@link CMSG_ENDIAN_LITTLE},
- *               {@link CMSG_ENDIAN_LOCAL}, or {@link CMSG_ENDIAN_NOTLOCAL}
+ *               CMSG_ENDIAN_BIG, CMSG_ENDIAN_LITTLE,
+ *               CMSG_ENDIAN_LOCAL, or CMSG_ENDIAN_NOTLOCAL
  *
  * @throws cMsgException if no memory, error in binary-to-text conversion, name already used,
  *                       improper name, src is null, size < 1, or endian improper value
@@ -1392,7 +1390,7 @@ void cMsgMessage::add(const string &name, const char **srcs, int number,
 /**
  * This method adds a string to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than
- * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
+ * CMSG_PAYLOAD_NAME_LEN, or contain white space or quotes.
  *
  * @param name name of field to add
  * @param s string to add
@@ -1414,10 +1412,10 @@ void cMsgMessage::add(const string &name, const string &s) {
 /**
  * This method adds a string to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than
- * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
+ * CMSG_PAYLOAD_NAME_LEN, or contain white space or quotes.
  *
  * @param name name of field to add
- * @param pointer to s string to add
+ * @param s pointer to string to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -1430,7 +1428,7 @@ void cMsgMessage::add(const string &name, const string *s) {
 /**
  * This method adds an array of strings to the compound payload of a message.
   * Names may not begin with "cmsg" (case insensitive), be longer than
- * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
+ * CMSG_PAYLOAD_NAME_LEN, or contain white space or quotes.
  *
  * @param name name of field to add
  * @param strs array of C-style strings to add
@@ -1456,7 +1454,7 @@ void cMsgMessage::add(const string &name, const char **strs, int len) {
 /**
  * This method adds an array of strings to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than
- * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
+ * CMSG_PAYLOAD_NAME_LEN, or contain white space or quotes.
  *
  * @param name name of field to add
  * @param strs array of strings to add
@@ -1497,7 +1495,7 @@ void cMsgMessage::add(const string &name, const string *strs, int len) {
 /**
  * This method adds a vector of strings to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than
- * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
+ * CMSG_PAYLOAD_NAME_LEN, or contain white space or quotes.
  *
  * @param name name of field to add
  * @param strs vector of strings to add
@@ -1532,10 +1530,10 @@ void cMsgMessage::add(const string &name, const vector<string> &strs) {
 /**
  * This method adds a vector of strings to the compound payload of a message.
  * Names may not begin with "cmsg" (case insensitive), be longer than
- * {@link CMSG_PAYLOAD_NAME_LEN}, or contain white space or quotes.
+ * CMSG_PAYLOAD_NAME_LEN, or contain white space or quotes.
  *
  * @param name name of field to add
- * @param pointer to strs vector of strings to add
+ * @param strs pointer to vector of strings to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */
@@ -1678,7 +1676,7 @@ void cMsgMessage::add(const string &name, const cMsgMessage* *msg, int len) {
  * or contain white space or quotes.
  *
  * @param name name of field to add
- * @param vector of pointers to cMsgMessage to add (copy)
+ * @param msgPVec vector of pointers to cMsgMessage to add (copy)
  *
  * @throws cMsgException if no memory, name already used, improper name
  */   
@@ -1718,7 +1716,7 @@ void cMsgMessage::add(const string &name, const vector<cMsgMessage*> &msgPVec) {
  * or contain white space or quotes.
  *
  * @param name name of field to add
- * @param vector of cMsgMessage objects to add (copy)
+ * @param msgVec vector of cMsgMessage objects to add (copy)
  *
  * @throws cMsgException if no memory, name already used, improper name
  */   
@@ -1758,7 +1756,7 @@ void cMsgMessage::add(const string &name, const vector<cMsgMessage> &msgVec) {
  * or contain white space or quotes.
  *
  * @param name name of field to add
- * @param pointer to vector of pointers to cMsgMessage to add (copy)
+ * @param msgPVec pointer to vector of pointers to cMsgMessage to add (copy)
  *
  * @throws cMsgException if no memory, name already used, improper name
  */   
@@ -1776,7 +1774,7 @@ void cMsgMessage::add(const string &name, const vector<cMsgMessage*> *msgPVec) {
  * or contain white space or quotes.
  *
  * @param name name of field to add
- * @param pointer to vector of cMsgMessage objects to add (copy)
+ * @param msgVec pointer to vector of cMsgMessage objects to add (copy)
  *
  * @throws cMsgException if no memory, name already used, improper name
  */   
@@ -2182,7 +2180,6 @@ void cMsgMessage::add(const string &name, const int8_t *vals, int len) {
  *
  * @param name name of field to add
  * @param vals vector of 8-bit, signed ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2209,7 +2206,6 @@ void cMsgMessage::add(const string &name, const vector<int8_t> &vals) {
  *
  * @param name name of field to add
  * @param vals pointer to vector of 8-bit, signed ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2250,7 +2246,6 @@ void cMsgMessage::add(const string &name, const int16_t *vals, int len) {
  *
  * @param name name of field to add
  * @param vals vector of 16-bit, signed ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2276,7 +2271,6 @@ void cMsgMessage::add(const string &name, const vector<int16_t> &vals) {
  *
  * @param name name of field to add
  * @param vals pointer to vector of 16-bit, signed ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2317,7 +2311,6 @@ void cMsgMessage::add(const string &name, const int32_t *vals, int len) {
  *
  * @param name name of field to add
  * @param vals vector of 32-bit, signed ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2344,7 +2337,6 @@ void cMsgMessage::add(const string &name, const vector<int32_t> &vals) {
  *
  * @param name name of field to add
  * @param vals pointer to vector of 32-bit, signed ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2385,7 +2377,6 @@ void cMsgMessage::add(const string &name, const int64_t *vals, int len) {
  *
  * @param name name of field to add
  * @param vals vector of 64-bit, signed ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2412,7 +2403,6 @@ void cMsgMessage::add(const string &name, const vector<int64_t> &vals) {
  *
  * @param name name of field to add
  * @param vals pointer to vector of 64-bit, signed ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2454,7 +2444,6 @@ void cMsgMessage::add(const string &name, const uint8_t *vals, int len) {
  *
  * @param name name of field to add
  * @param vals vector of 8-bit, unsigned ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2481,7 +2470,6 @@ void cMsgMessage::add(const string &name, const vector<uint8_t> &vals) {
  *
  * @param name name of field to add
  * @param vals pointer to vector of 8-bit, unsigned ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2522,7 +2510,6 @@ void cMsgMessage::add(const string &name, const uint16_t *vals, int len) {
  *
  * @param name name of field to add
  * @param vals vector of 16-bit, unsigned ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2549,7 +2536,6 @@ void cMsgMessage::add(const string &name, const vector<uint16_t> &vals) {
  *
  * @param name name of field to add
  * @param vals pointer to vector of 16-bit, unsigned ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2590,7 +2576,6 @@ void cMsgMessage::add(const string &name, const uint32_t *vals, int len) {
  *
  * @param name name of field to add
  * @param vals vector of 32-bit, unsigned ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2617,7 +2602,6 @@ void cMsgMessage::add(const string &name, const vector<uint32_t> &vals) {
  *
  * @param name name of field to add
  * @param vals pointer to vector of 32-bit, unsigned ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2658,7 +2642,6 @@ void cMsgMessage::add(const string &name, const uint64_t *vals, int len) {
  *
  * @param name name of field to add
  * @param vals vector of 64-bit, unsigned ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
@@ -2685,7 +2668,6 @@ void cMsgMessage::add(const string &name, const vector<uint64_t> &vals) {
  *
  * @param name name of field to add
  * @param vals pointer to vector of 64-bit, unsigned ints to add (copy)
- * @param len number of ints from array to add
  *
  * @throws cMsgException if no memory, name already used, or improper name
  */   
