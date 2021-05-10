@@ -1103,7 +1103,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @param s string to be escaped
      * @return escaped string
      */
-    static final String escapeAllForXML(String s) {
+    static String escapeAllForXML(String s) {
         StringBuilder sb = new StringBuilder(s);
         for (int i=0; i<sb.length(); i++) {
             if (sb.charAt(i) == '<') {
@@ -1127,7 +1127,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @param s string to be escaped
      * @return escaped string
      */
-    static final String escapeQuotesForXML(String s) {
+    static String escapeQuotesForXML(String s) {
         StringBuilder sb = new StringBuilder(s);
         for (int i=0; i<sb.length(); i++) {
             if (sb.charAt(i) == '"') {
@@ -1161,7 +1161,7 @@ public class cMsgMessage implements Cloneable, Serializable {
     /**
      * <p>This method escapes CDATA constructs which will appear inside of XML CDATA sections.
      * It is not possible to have nested cdata sections. Actually the CDATA ending
-     * sequence, ]]> , is what cannot be containing in a surrounding CDATA section.
+     * sequence, ]]&gt; , is what cannot be containing in a surrounding CDATA section.
      * This restriction can be
      * cleverly circumvented by inserting "&lt;![CDATA[]]]]&gt;&lt;![CDATA[&gt;" after each CDATA ending
      * sequence. This creates independent CDATA sections which are not nested.</p>
@@ -1178,7 +1178,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @param s string to be escaped
      * @return escaped string
      */
-    static final String escapeCdataForXML(String s) {
+    static String escapeCdataForXML(String s) {
         // don't need to escape anything
         int index1 = s.indexOf("]]>");
         if (index1 < 0) return s;
@@ -1215,8 +1215,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * This method converts the message to a printable string in XML format.
      * Any binary data is encoded in the base64 format.
      *
-     * @return message as XML String object
-     * @return a blank string if any error occurs
+     * @return message as XML String object or a blank string if any error occurs
      */
     public String toString() {
         return toStringImpl(0, true, false, false, false, false, null);
@@ -1231,8 +1230,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @param compact if true, do not include attributes with null or default integer values
      * @param noSystemFields if true, do not include system (metadata) payload fields
      *
-     * @return message as XML String object
-     * @return a blank string if any error occurs
+     * @return message as XML String object or a blank string if any error occurs
      */
     public String toString(boolean binary, boolean compact, boolean noSystemFields) {
         return toStringImpl(0, binary, compact, false, false, noSystemFields, null);

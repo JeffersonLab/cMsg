@@ -407,6 +407,7 @@ public class Base64 {
      * Line breaks will be inserted every 76 characters.
      *
      * @param fIn File to be encoded (will be overwritten).
+     * @throws IOException if an input or output error occurs.
      *
      * @since ostermillerutils 1.00.00
      */
@@ -1121,6 +1122,7 @@ public class Base64 {
      * this method off the scent and cause it to return false.
      *
      * @param bytes data that could be in base64 format.
+     * @return true if give byte array is in base64 format, else false.
      *
      * @since ostermillerutils 1.00.00
      */

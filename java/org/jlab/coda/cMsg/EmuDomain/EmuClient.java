@@ -726,21 +726,21 @@ System.out.println("      Emu connect direct: socket " + i + " MADE TCP connecti
      * Make this able to extract an optional host (previously it was always multicast).
      *
      * Emu domain UDL is of the form:<p>
-     *   <b>emu://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?codaId=&lt;id&gt;?broad=&lt;ip&gt;&timeout=&lt;sec&gt;&bufSize=&lt;size&gt;&tcpSend=&lt;size&gt;&subnet=&lt;subnet&gt;&sockets=&lt;count&gt;&noDelay</b><p>
+     *   <b>emu://&lt;host&gt;:&lt;port&gt;/&lt;expid&gt;/&lt;compName&gt;?codaId=&lt;id&gt;&amp;broad=&lt;ip&gt;&amp;timeout=&lt;sec&gt;&amp;bufSize=&lt;size&gt;&amp;tcpSend=&lt;size&gt;&amp;subnet=&lt;subnet&gt;&amp;sockets=&lt;count&gt;&amp;noDelay</b><p>
      *
      * Remember that for this domain:
      *<ol>
-     *<li>host is optional and may be "multicast" (default) or in dotted decimal form<p>
-     *<li>port is required - UDP multicast port if host = "multicast", or TCP port<p>
-     *<li>expid is required, it is NOT taken from the environmental variable EXPID<p>
-     *<li>optional timeout for connecting to emu server, defaults to 3 seconds<p>
-     *<li>optional bufSize (max size in bytes of a single send) defaults to 2.1MB<p>
-     *<li>optional tcpSend is the TCP send buffer size in bytes<p>
-     *<li>optional subnet is the preferred subnet used to connect to server when multicasting,
-     *             or the subnet corresponding to the host IP address if directly connecting.<p>
-     *<li>optional sockets is the number of TCP sockets to use when connecting to server<p>
-     *<li>optional noDelay is the TCP no-delay parameter turned on<p>
-     *</ol><p>
+     *<li><p>host is optional and may be "multicast" (default) or in dotted decimal form</p>
+     *<li><p>port is required - UDP multicast port if host = "multicast", or TCP port</p>
+     *<li><p>expid is required, it is NOT taken from the environmental variable EXPID</p>
+     *<li><p>optional timeout for connecting to emu server, defaults to 3 seconds</p>
+     *<li><p>optional bufSize (max size in bytes of a single send) defaults to 2.1MB</p>
+     *<li><p>optional tcpSend is the TCP send buffer size in bytes</p>
+     *<li><p>optional subnet is the preferred subnet used to connect to server when multicasting,
+     *             or the subnet corresponding to the host IP address if directly connecting.</p>
+     *<li><p>optional sockets is the number of TCP sockets to use when connecting to server</p>
+     *<li><p>optional noDelay is the TCP no-delay parameter turned on</p>
+     *</ol>
      *
      * @param udlRemainder partial UDL to parse
      * @throws cMsgException if udlRemainder is null

@@ -518,7 +518,7 @@ System.out.println("RC server connect: complete");
     /**
      * Method for testing rc client communications with this test server.
      * Use this in conjunction with org.jlab.coda.emu.support.test.RcProtocolTest .
-     * First run this, then run that program with the UDP & TCP ports and IP
+     * First run this, then run that program with the UDP and TCP ports and IP
      * addresses printed out in the program below.
      */
     public void testConnect() {
@@ -579,7 +579,10 @@ System.out.println("RC test server: listening on TCP port = " + localTcpPort +
     }
 
 
-    /** Run as a stand-alone RC server to test incoming messages. */
+    /**
+     * Run as a stand-alone RC server to test incoming messages.
+     * @param args arguments.
+     */
     public static void main(String[] args) {
         try {
             RCServer server = new RCServer();
