@@ -39,42 +39,42 @@
  * that contains the item_name). There may be several spaces between the last 2
  * entries on these lines.<p></b>
  *
- *<pre>    item_count[nl]</pre><p>
+ *<pre>    item_count[nl]</pre>
  *
- *<b><i>for (arrays of) string items:</i></b><p/>
+ *<p><b><i>for (arrays of) string items:</i></b></p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
  *    string_length_1[nl]
  *    string_characters_1[nl]
- *     .
- *     .
- *     .
+ *     ~
+ *     ~
+ *     ~
  *    string_length_N[nl]
- *    string_characters_N</pre><p/>
+ *    string_characters_N</pre>
  *
- *<b><i>for (arrays of) binary (converted into text) items:</i></b><p>
+ *<p><b><i>for (arrays of) binary (converted into text) items:</i></b></p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
  *    string_length_1   original_binary_byte_length_1   endian_1[nl]
- *    string_characters_1[nl]</pre><p>
- *     .
- *     .
- *     .
+ *    string_characters_1[nl]
+ *     ~
+ *     ~
+ *     ~
  *    string_length_N   original_binary_byte_length_N   endian_N[nl]
- *    string_characters_N</pre><p>
+ *    string_characters_N</pre>
  *
- *<b><i>for primitive type items:</i></b><p/>
+ *<p><b><i>for primitive type items:</i></b></p>
  *<pre>    item_name   item_type   item_count   isSystemItem?   item_length[nl]
- *    value_1   value_2   ...   value_N[nl]</pre><p/>
+ *    value_1   value_2   ...   value_N[nl]</pre>
  *
- *<b>A cMsg message is formatted as a compound payload. Each message has
- *   a number of fields (payload items).<p/>
+ *<p><b>A cMsg message is formatted as a compound payload. Each message has
+ *   a number of fields (payload items).<br>
  *
- *  <i>for message items:</i></b><p/>
+ *  <i>for message items:</i></b></p>
  *<pre>                                                                            _
  *    item_name   item_type   item_count   isSystemItem?   item_length[nl]   /
- *    message_1_in_compound_payload_text_format[nl]                         <  field_count[nl]
- *        .                                                                  \ list_of_payload_format_items
- *        .                                                                   -
- *        .
+ *    message_1_in_compound_payload_text_format[nl]                         &lt;  field_count[nl]
+ *        ~                                                                  \ list_of_payload_format_items
+ *        ~                                                                   -
+ *        ~
  *    message_N_in_compound_payload_text_format[nl]</pre>
  *
  * <b>Notice that this format allows a message to store a message which stores a message
@@ -606,7 +606,7 @@ static void payloadItemFree(payloadItem *item, int freeData) {
 /**
  * This routine resets the payload to its initial condition (no payload),
  * but in a way which avoids mutex deadlock when recursively freeing a
- * payload's cMsgMessage items (ie. doesn't call {@link grabMutex}).
+ * payload's cMsgMessage items (ie. doesn't call {@link grabMutex()}).
  *
  * @param vmsg pointer to message
  */   
@@ -1363,7 +1363,7 @@ static int createPayloadText(const cMsgMessage_t *msg, payloadItem **pItems, int
 /**
  * Adds arguments to the history of senders, senderHosts, and senderTimes
  * of this message (in the payload).
- * This method only keeps {@link cMsgMessage_t.historyLengthMax} number of
+ * This method only keeps cMsgMessage_t.historyLengthMax number of
  * the most recent names.
  * This method is reserved for system use only.<p>
  * When a client sends the same message over and over again, we do <b>NOT</b> want the history
@@ -3795,7 +3795,6 @@ static int addBinary(void *vmsg, const char *name, const char *src, int size,
  * @param name name of field to add
  * @param src pointer to binary data to add
  * @param size size in bytes of data to add
- * @param isSystem if = 1 allows using names starting with "cmsg", else not
  * @param endian endian value of binary data, may be CMSG_ENDIAN_BIG, CMSG_ENDIAN_LITTLE,
  *               CMSG_ENDIAN_LOCAL, or CMSG_ENDIAN_NOTLOCAL
  *
@@ -5761,7 +5760,7 @@ static int addStringArray(void *vmsg, const char *name, const char **vals, int l
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param val strings to add
+ * @param vals strings to add
  * @param len number of strings to add
  *
  * @return CMSG_OK if successful
@@ -6160,7 +6159,7 @@ static int addMessage(void *vmsg, const char *name, const void *vmessage,
  *
  * @param vmsg pointer to message
  * @param name name of field to add
- * @param message cMsg message to add
+ * @param vmessage cMsg message to add
  *
  * @return CMSG_OK if successful
  * @return CMSG_BAD_ARGUMENT if any arg is NULL

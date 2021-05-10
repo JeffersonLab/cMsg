@@ -875,7 +875,7 @@ static int processUDL(const char *myUDL, char **newUDL, char **domainType,
  * If a reconnect is done, the new UDLs will be used in the connection(s).
  *
  * @param domainId domain connection id
- * @param udl new UDL
+ * @param UDL new UDL
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_ERROR if not successful reading file for configFile domain UDL
@@ -995,7 +995,7 @@ int cMsgGetServerHost(void *domainId, const char **ipAddress) {
 * network connection to its server.
 *
 * @param domainId id of the domain connection
-* @param udl pointer filled in with server TCP port
+* @param port pointer filled in with server TCP port
 *
 * @returns CMSG_OK if successful
 * @returns CMSG_NOT_IMPLEMENTED if not implemented in the given domain
@@ -1025,7 +1025,7 @@ int cMsgGetServerPort(void *domainId, int *port) {
 /**
 * This routine does general I/O and returns a string for each string argument.
 *
-* @param domain id of the domain connection
+* @param domainId id of the domain connection
 * @param command command whose value determines what is returned in string arg
 * @param string  pointer which gets filled in with a return string (may be NULL)
 *
@@ -3526,7 +3526,7 @@ int cMsgSetHistoryLengthMax(void *vmsg, int len) {
  * This routine returns whether a message has been sent over the wire or not. 
  *
  * @param vmsg pointer to message
- * @param hasPayload pointer which gets filled with 1 if msg has been sent, else 0
+ * @param hasBeenSent pointer which gets filled with 1 if msg has been sent, else 0
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
@@ -4110,6 +4110,7 @@ int cMsgGetByteArrayEndian(const void *vmsg, int *endian) {
  * that the data needs to be swapped. If so, a 0 is returned indicating
  * that no swap is needed.
  *
+ * @param vmsg pointer to message
  * @param swap int pointer to be filled with 1 if byte array needs swapping, else 0
  *
  * @returns CMSG_OK if successful
@@ -4802,25 +4803,25 @@ char* escapeQuotesForXML(char *s) {
 
 
 /**
- * This routine escapes CDATA constructs which will appear inside of XML CDATA sections.
- * It is not possible to have nested cdata sections. Actually the CDATA ending
- * sequence, ]]> , is what cannot be containing in a surrounding CDATA section.
- * This restriction can be
- * cleverly circumvented by inserting "<![CDATA[]]]]><![CDATA[>" after each CDATA ending
- * sequence. This creates independent CDATA sections which are not nested.</p>
- *
- * This routine assumes that there are no nested cdata sections in the input string.
- * Nothing is done to the string if:
- * <UL>
- * <LI>there is no ]]> so no escaping is necessary
- * <LI>there is no <![CDATA[ so s contains malformed XML
- * <LI>a particular <![CDATA[ has no corresponding ]]> so s contains malformed XML
- * <LI>]]> comes before <![CDATA[ so s contains malformed XML
- * </UL>
- *
- * @param s string to be escaped
- * @return escaped string, NULL if no memory or arg is NULL
- */
+* This routine escapes CDATA constructs which will appear inside of XML CDATA sections.
+* It is not possible to have nested cdata sections. Actually the CDATA ending
+* sequence, ]]&gt; , is what cannot be containing in a surrounding CDATA section.
+* This restriction can be
+* cleverly circumvented by inserting "&lt;![CDATA[]]]]&gt;&lt;![CDATA[&gt;" after each CDATA ending
+* sequence. This creates independent CDATA sections which are not nested.</p>
+*
+* This routine assumes that there are no nested cdata sections in the input string.
+* Nothing is done to the string if:
+* <UL>
+* <LI>there is no ]]&gt; so no escaping is necessary
+* <LI>there is no &lt;![CDATA[ so s contains malformed XML
+* <LI>a particular &lt;![CDATA[ has no corresponding ]]&gt; so s contains malformed XML
+* <LI>]]&gt; comes before &lt;![CDATA[ so s contains malformed XML
+* </UL>
+*
+* @param s string to be escaped
+* @return escaped string, NULL if no memory or arg is NULL
+*/
 char* escapeCdataForXML(char *s) {
     char *p1, *p2, *pchar=s, *newString, *pcharDest, *sub="<![CDATA[]]]]><![CDATA[>";
     int i, count=0;
@@ -6496,8 +6497,7 @@ int cMsgSubscribeSetStackSize(cMsgSubscribeConfig *config, size_t size) {
  * By default the stack size is unspecified (returns 0).
  *
  * @param config pointer to configuration
- * @param mpt integer pointer to be filled with the maximum number of
- *            unprocessed messages per thread before starting another thread
+ * @param size pointer to be filled with stack size in bytes of subscription thread
  *
  * @returns CMSG_OK if successful
  * @returns CMSG_BAD_ARGUMENT if either arg is NULL
