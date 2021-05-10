@@ -1215,8 +1215,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * This method converts the message to a printable string in XML format.
      * Any binary data is encoded in the base64 format.
      *
-     * @return message as XML String object
-     * @return a blank string if any error occurs
+     * @return message as XML String object or a blank string if any error occurs
      */
     public String toString() {
         return toStringImpl(0, true, false, false, false, false, null);
@@ -1231,8 +1230,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @param compact if true, do not include attributes with null or default integer values
      * @param noSystemFields if true, do not include system (metadata) payload fields
      *
-     * @return message as XML String object
-     * @return a blank string if any error occurs
+     * @return message as XML String object or a blank string if any error occurs
      */
     public String toString(boolean binary, boolean compact, boolean noSystemFields) {
         return toStringImpl(0, binary, compact, false, false, noSystemFields, null);
@@ -1250,8 +1248,7 @@ public class cMsgMessage implements Cloneable, Serializable {
      * @param noSystemFields if true, do not include system (metadata) payload fields
      * @param pItemName if in payload, name of payload item
      *
-     * @return message as XML String object
-     * @return a blank string if any error occurs
+     * @return message as XML String object or a blank string if any error occurs
      */
     private String toStringImpl(int margin,
                                 boolean binary, boolean compact,
