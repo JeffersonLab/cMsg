@@ -331,7 +331,7 @@ def generateDocs(env, doC=False, doCPP=False, doJava=False, javaDir=''):
         # Function that does the documentation creation
         def docGeneratorC(target, source, env):
             cmd = 'doxygen doc/doxygen/DoxyfileC'
-            pipe = Popen(cmd, shell=True, env={"TOPLEVEL": "./"}, stdout=PIPE).stdout
+            Popen(cmd, shell=True, env={"TOPLEVEL": "./"}, stdout=None)
             return
             
         # Doc files builders
@@ -346,7 +346,7 @@ def generateDocs(env, doC=False, doCPP=False, doJava=False, javaDir=''):
     if doCPP:
         def docGeneratorCC(target, source, env):
             cmd = 'doxygen doc/doxygen/DoxyfileCC'
-            pipe = Popen(cmd, shell=True, env={"TOPLEVEL": "./"}, stdout=PIPE).stdout
+            Popen(cmd, shell=True, env={"TOPLEVEL": "./"}, stdout=None)
             return
         
         docBuildCC = Builder(action = docGeneratorCC)
@@ -359,7 +359,7 @@ def generateDocs(env, doC=False, doCPP=False, doJava=False, javaDir=''):
     if doJava:
         def docGeneratorJava(target, source, env):
             cmd = 'ant javadoc'
-            output = os.popen(cmd).read()
+            os.popen(cmd).read()
             return
         
         docBuildJava = Builder(action = docGeneratorJava)
