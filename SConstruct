@@ -127,7 +127,7 @@ else:
 # Take care of 64/32 bit issues
 if is64bits:
     # Setup 64 bit machine to compile either 32 or 64 bit libs & executables
-    coda.configure32bits(env, use32bits, platform)
+    coda.configure32bits(env, use32bits, platform, machine)
 elif not use32bits:
     use32bits = True
 

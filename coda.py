@@ -112,7 +112,7 @@ def is64BitMachine(env, platform, machine):
 
 
 
-def configure32bits(env, use32bits, platform):
+def configure32bits(env, use32bits, platform, machine):
     """Setup environment on 64 bit machine to handle 32 or 64 bit libs and executables."""
     if platform == 'SunOS':
         if not use32bits:
