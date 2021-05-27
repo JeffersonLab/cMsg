@@ -1,5 +1,5 @@
 # scons build file for cMsg C library
-Import('env', 'libInstallDir', 'incInstallDir', 'archIncInstallDir', 'debugSuffix')
+Import('env', 'archDir', 'libInstallDir', 'incInstallDir', 'archIncInstallDir', 'debugSuffix')
 
 # Files to compile
 fileList = Glob('*.c',  strings=True)
@@ -7,9 +7,21 @@ fileList = Glob('*.c',  strings=True)
 # Headers to install
 headerList = Glob('cMsg*.h',  strings=True)
 
-env.AppendUnique(CPPPATH = ['.', '#src/regexp'])
-cmsgLib = env.SharedLibrary(target = 'cmsg'+debugSuffix, source = fileList)
+###################################################################
+# Because changes here to "env" are universal and affect
+# the building of the regex library, we need to COPY the
+# environment. This way the local setting of LIBS does NOT
+# result in trying to link against the regex lib while trying
+# to build that library!
+###################################################################
+
+envCopy = env.Clone()
+
+envCopy.AppendUnique(LIBS = ['cmsgRegex'+debugSuffix])
+envCopy.AppendUnique(LIBPATH = ['#/src/regexp/' + archDir])
+envCopy.AppendUnique(CPPPATH = ['.', '#src/regexp'])
+cmsgLib = envCopy.SharedLibrary(target = 'cmsg'+debugSuffix, source = fileList)
 
 if 'install' in COMMAND_LINE_TARGETS:
-    env.Alias("install", env.Install(target = [incInstallDir, archIncInstallDir], source = headerList))
-    env.Alias("install", env.Install(target = libInstallDir, source = cmsgLib))
+    envCopy.Alias("install", env.Install(target = [incInstallDir, archIncInstallDir], source = headerList))
+    envCopy.Alias("install", env.Install(target = libInstallDir, source = cmsgLib))

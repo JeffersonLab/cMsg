@@ -125,8 +125,7 @@ def configure32bits(env, use32bits, platform, machine):
 
     elif platform == 'Darwin':
         if not use32bits:
-            env.Append(CCFLAGS =   ['-arch x86_64'],
-                       LINKFLAGS = ['-arch x86_64', '-Wl', '-bind_at_load'])
+            env.Append(LINKFLAGS = ['-Wl', '-bind_at_load'])
 
     elif platform == 'Linux':
         if use32bits:

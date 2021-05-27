@@ -27,10 +27,12 @@
 #include <unistd.h>
 #include <time.h>
 #include <limits.h>
+#include <ctype.h>
 
 #include "cMsg.h"
 
-  void *msg,*msg2, *msgs[2], *domainId;
+  void *msg,*msg2, *domainId;
+  const void  *msgs[2];
   int delay=0, count=0;
 
 /******************************************************************/
@@ -105,7 +107,8 @@ int main(int argc,char **argv) {
   char       *vals[3];
   float      fvals[3];
   double     dvals[3];
-  char       binArray[256], *bins[3], b1[3], b2[3], b3[3];
+  char       binArray[256], b1[3], b2[3], b3[3];
+  const char *bins[3];
   int        switcher=0, sizes[3], endians[3];
   cMsgSubscribeConfig *config;
   void *unSubHandle;
@@ -307,7 +310,7 @@ int main(int argc,char **argv) {
 
      cMsgAddBinaryArray(msg, "array_of_bin_arrays", bins, 3, sizes, endians);
 
-     cMsgAddFloat (msg, "flt", -1.23456e-05);
+     cMsgAddFloat (msg, "flt", -1.23456e-05F);
      cMsgAddDouble(msg, "dbl", -1.23456789101012e-195);
 
      cMsgAddString (msg, "str", "string");
@@ -318,8 +321,8 @@ int main(int argc,char **argv) {
      cMsgAddStringArray(msg, "strA", (const char **) vals, 3);
 
      fvals[0] = -1234567;
-     fvals[1] = +234.;
-     fvals[2] = -12.3456e-35;
+     fvals[1] = +234.F;
+     fvals[2] = -12.3456e-35F;
      cMsgAddFloatArray(msg,  "fltA", fvals, 3);
 
      dvals[0] = -1234567;
@@ -339,17 +342,17 @@ int main(int argc,char **argv) {
 
      i1vals[0] = -128;
      i1vals[1] = 127;
-     i1vals[2] = 255;
+     i1vals[2] = (int8_t)255;
      cMsgAddInt8Array(msg, "int8A", i1vals, 3);
 
      i2vals[0] = -32768;
      i2vals[1] = 32767;
-     i2vals[2] = 65535;
+     i2vals[2] = (int16_t)65535;
      cMsgAddInt16Array(msg, "int16A", i2vals, 3);
 
      i3vals[0] = -2147483648;
      i3vals[1] = 2147483647;
-     i3vals[2] = 4294967295;
+     i3vals[2] = (int32_t)4294967295;
      cMsgAddInt32Array(msg, "int32A", i3vals, 3);
 
      i4vals[0] = -9223372036854775807LL;
