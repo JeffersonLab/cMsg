@@ -23,6 +23,7 @@
 #include "cMsg.h"
 #include "cMsgDomain.h"
 #include "cMsgCommonNetwork.h"
+#include "emuDomain.h"
 
 
 void *domainId;
@@ -98,15 +99,15 @@ int main(int argc,char **argv) {
         const char *baList[3] = {"132.8.9.255", "172.19.5.255", "129.57.29.255"};
 
         /* Create a cmsg message */
-        void *msg = cMsgCreateMessage();
+        void *msg2 = cMsgCreateMessage();
 
         /* Add 2 payloads of a string array each */
-        cMsgAddStringArray(msg, "ipList_Roc1", ipList, 3);
-        cMsgAddStringArray(msg, "baList_Roc1", baList, 3);
+        cMsgAddStringArray(msg2, "ipList_Roc1", ipList, 3);
+        cMsgAddStringArray(msg2, "baList_Roc1", baList, 3);
 
         /* Extract the 2 string arrays from the msg payloads */
-        cMsgGetStringArray(msg, "ipList_Roc1", &ipListArray, &len);
-        cMsgGetStringArray(msg, "baList_Roc1", &baListArray, &len);
+        cMsgGetStringArray(msg2, "ipList_Roc1", &ipListArray, &len);
+        cMsgGetStringArray(msg2, "baList_Roc1", &baListArray, &len);
 
         /* Put string arrays into a static location in lib so cMsgConnect can get to it. */
         setDirectConnectDestination(ipListArray, baListArray, len);

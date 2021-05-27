@@ -39,6 +39,7 @@
 #include "cMsgNetwork.h"
 #include "cMsgRegex.h"
 #include "cMsgDomain.h"
+#include "emuDomain.h"
 
 
 
@@ -157,8 +158,6 @@ domainTypeInfo emuDomainTypeInfo = {
   &functions
 };
 
-/* for emu domain */
-void setDirectConnectDestination(const char **ip, const char **broad, int count);
 
 
 /*-------------------------------------------------------------------*/

@@ -157,7 +157,7 @@ int main(int argc,char **argv) {
           
           else {
               if (debug-1) {
-                  char *subject, *type;
+                  const char *subject, *type;
                   cMsgGetSubject(replyMsg, &subject);
                   cMsgGetType(replyMsg, &type);
                   printf(" GOT A MESSAGE: subject = %s, type = %s\n", subject, type);

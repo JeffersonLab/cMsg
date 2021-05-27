@@ -15,6 +15,7 @@
  *----------------------------------------------------------------------------*/
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "cMsgDomain.h"
 #include "cMsgNetwork.h"
@@ -55,7 +56,7 @@ int main(int argc,char **argv) {
     udlLowerCase = strdup(UDL);
     len = strlen(udlLowerCase);
     for (i=0; i<len; i++) {
-        udlLowerCase[i] = tolower(udlLowerCase[i]);
+        udlLowerCase[i] = (char) tolower(udlLowerCase[i]);
     }
 
     /* strip off the beginning cMsg:cMsg:// */
@@ -194,11 +195,11 @@ int main(int argc,char **argv) {
 
     if (mustMulticast == 1) {
         pUdl->nameServerUdpPort = Port;
-        if(dbg) printf("parseUDL: UDP port = %hu\n", Port );
+        if(dbg) printf("parseUDL: UDP port = %d\n", Port );
     }
     else {
         pUdl->nameServerPort = Port;
-        if(dbg) printf("parseUDL: TCP port = %hu\n", Port );
+        if(dbg) printf("parseUDL: TCP port = %d\n", Port );
     }
 
 
