@@ -241,23 +241,43 @@ else()
 endif()
 
 
-# C Test and Example programs
-foreach(fileName ${C_TEST} ${C_EXAMPLE_FILES})
+# C Test programs
+foreach(fileName ${C_TEST})
     # Get file name with no directory or extension as executable name
     get_filename_component(execName ${fileName} NAME_WE)
     # Create executable from file
     add_executable(${execName} ${fileName})
     # Put debug extension on if applicable
     set_target_properties(${execName} PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
+    # look here for include files
+    include_directories(${execName} PUBLIC src/libsrc src/regexp)
     # Needs these libs
     target_link_libraries(${execName} cMsg cmsgRegex pthread)
 
     # Only install if installation directory has been defined
     if (DEFINED INSTALL_DIR_DEFINED)
-        # Install into bin/testC dir
+        # Install into bin/test dir
         install(TARGETS ${execName} RUNTIME DESTINATION bin/test)
     endif()
 endforeach(fileName)
+
+
+# Example Programs
+if(BUILD_EXAMPLES)
+    foreach(fileName ${C_EXAMPLE_FILES})
+        get_filename_component(execName ${fileName} NAME_WE)
+        add_executable(${execName} ${fileName})
+        set_target_properties(${execName} PROPERTIES DEBUG_POSTFIX ${CMAKE_DEBUG_POSTFIX})
+        include_directories(${execName} PUBLIC src/libsrc src/regexp)
+        target_link_libraries(${execName} cMsg cmsgRegex pthread)
+
+        if (DEFINED INSTALL_DIR_DEFINED)
+            install(TARGETS ${execName} RUNTIME DESTINATION bin/examples)
+        endif()
+    endforeach(fileName)
+else()
+    message(STATUS "NOT compiling C EXAMPLES!" )
+endif()
 
 
 # Only install if installation directory has been defined
