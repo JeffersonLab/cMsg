@@ -77,6 +77,12 @@ else:
 Help('\n-D                  build from subdirectory of package\n')
 Help('\nlocal scons OPTIONS:\n')
 
+# C compilation only option
+AddOption('--C', dest='onlyC', default=False, action='store_true')
+onlyC = GetOption('onlyC')
+if onlyC: print ("Compile C code only")
+Help('--C                 compile C code only\n')
+
 # debug option
 AddOption('--dbg', dest='ddebug', default=False, action='store_true')
 debug = GetOption('ddebug')
@@ -272,7 +278,10 @@ Help('install -c          uninstall libs, headers, and binaries\n')
 ###############################
 
 if 'doc' in COMMAND_LINE_TARGETS:
-    coda.generateDocs(env, True, True, True, "java/org/jlab/coda/cMsg")
+    if onlyC:
+        coda.generateDocs(env, True, False, True, "java/org/jlab/coda/cMsg")
+    else:
+        coda.generateDocs(env, True, True, True, "java/org/jlab/coda/cMsg")
 
 if 'undoc' in COMMAND_LINE_TARGETS:
     coda.removeDocs(env)
@@ -310,7 +319,9 @@ Export('env archDir incInstallDir libInstallDir binInstallDir archIncInstallDir 
 # Run lower level build files
 env.SConscript('src/regexp/SConscript',   variant_dir='src/regexp/'+archDir,   duplicate=0)
 env.SConscript('src/libsrc/SConscript',   variant_dir='src/libsrc/'+archDir,   duplicate=0)
-env.SConscript('src/libsrc++/SConscript', variant_dir='src/libsrc++/'+archDir, duplicate=0)
-env.SConscript('src/execsrc/SConscript',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
 env.SConscript('src/examples/SConscript', variant_dir='src/examples/'+archDir, duplicate=0)
-env.SConscript('src/test/SConscript',     variant_dir='src/test/'+archDir,     duplicate=0)
+
+if not onlyC:
+    env.SConscript('src/libsrc++/SConscript', variant_dir='src/libsrc++/'+archDir, duplicate=0)
+    env.SConscript('src/execsrc/SConscript',  variant_dir='src/execsrc/'+archDir,  duplicate=0)
+    env.SConscript('src/test/SConscript',     variant_dir='src/test/'+archDir,     duplicate=0)
