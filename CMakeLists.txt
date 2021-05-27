@@ -240,7 +240,7 @@ endif()
 
 
 # C Test programs
-foreach(fileName ${C_TEST})
+foreach(fileName ${C_TEST} ${C_EXAMPLE_FILES})
     # Get file name with no directory or extension as executable name
     get_filename_component(execName ${fileName} NAME_WE)
     # Create executable from file
