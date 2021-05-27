@@ -68,7 +68,7 @@ It consists of clients of the various underlying messaging systems.
 
 There are 2 different methods to build the C/C++ libraries and executables.
 The first uses scons, a Python-based build software package which is available at https://scons.org.
-The second uses cmake and make.
+The second uses cmake and make. Linux and MacOS are supported.
 
 
 ----- Scons -----
