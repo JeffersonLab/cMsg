@@ -4,7 +4,7 @@ Import('env', 'binInstallDir', 'archDir', 'execLibs', 'debugSuffix')
 cfileList  = Glob('*.c',  strings=True)
 ccfileList = Glob('*.cc', strings=True)
 
-# Compile C++ files and install that executable if "scons install" is run
+# Compile C files and install that executable if "scons install" is run
 for fileName in cfileList:
     compiledFile = env.Program(source  = fileName,
                                LIBS    = ['cmsg'+debugSuffix, 'cmsgRegex'+debugSuffix] + execLibs,
