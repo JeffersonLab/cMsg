@@ -147,7 +147,9 @@ set(CPP_TEST
 
 
 set(C_TEST
+        src/test/emuClient.c
         src/test/rcClient.c
+        src/test/udlTest.c
         )
 
 
@@ -239,8 +241,8 @@ else()
 endif()
 
 
-# C Test programs
-foreach(fileName ${C_TEST})
+# C Test and Example programs
+foreach(fileName ${C_TEST} ${C_EXAMPLE_FILES})
     # Get file name with no directory or extension as executable name
     get_filename_component(execName ${fileName} NAME_WE)
     # Create executable from file
