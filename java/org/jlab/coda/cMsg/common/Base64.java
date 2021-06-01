@@ -66,7 +66,7 @@ import java.text.MessageFormat;
  * characters with particular significance to SMTP (e.g., ".", CR, LF)
  * and to the multipart boundary delimiters defined in RFC 2046 (e.g.,
  * "-").</p>
- * <pre>
+ * <pre><code>
  *                  Table 1: The Base64 Alphabet
  *
  *   Value Encoding  Value Encoding  Value Encoding  Value Encoding
@@ -87,7 +87,7 @@ import java.text.MessageFormat;
  *      14 O            31 f            48 w         (pad) =
  *      15 P            32 g            49 x
  *      16 Q            33 h            50 y
- * </pre>
+ * </code></pre>
  * <p>The encoded output stream must be represented in lines of no more
  * than 76 characters each.  All line breaks or other characters not
  * found in Table 1 must be ignored by decoding software.  In base64
