@@ -29,7 +29,7 @@ you can skip the C/C++ installation.
 
 **The home page is:**
 
-  https://coda.jlab.org/drupal/content/messaging-cmsg/
+  https://coda.jlab.org/drupal/content/coda-messaging-cmsg/
 
 **All code is contained in the github repository linked below (cMsg-5.2 branch).**
 
