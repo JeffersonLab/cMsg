@@ -42,10 +42,10 @@ Documentation is contained in the repository but may also be accessed at the hom
 
 Documentation Type | Link
 ------------ | -------------
-PDF User's Guide | https://coda.jlab.org/drupal/content/cmsg-60-users-guide
-Javadoc | https://coda.jlab.org/drupal/content/cmsg-60-javadoc
-Doxygen doc for C | https://coda.jlab.org/drupal/content/cmsg-60-doxygen-c
-Doxygen doc for C++ | https://coda.jlab.org/drupal/content/cmsg-60-doxygen-c-0
+PDF User's Guide | https://coda.jlab.org/drupal/content/cmsg-52-users-guide
+Javadoc | https://coda.jlab.org/drupal/content/cmsg-52-javadoc
+Doxygen doc for C | https://coda.jlab.org/drupal/content/cmsg-52-doxygen-c
+Doxygen doc for C++ | https://coda.jlab.org/drupal/content/cmsg-52-doxygen-c-0
 
 
 ----------------------------
