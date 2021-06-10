@@ -34,6 +34,10 @@ you can skip the C/C++ installation.
 **All code is contained in the github repository linked below (cMsg-5.2 branch).**
 
   https://github.com/JeffersonLab/cMsg/tree/cMsg-5.2
+  
+**to clone it:**
+
+    git clone -b cMsg-5.2 https://github.com/JeffersonLab/cMsg.git
 
 -----------------------------
 ## **Documentation**
