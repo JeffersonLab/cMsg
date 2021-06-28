@@ -115,8 +115,8 @@ run _**scons -h**_ in the top-level directory to get this output:
 
 Although this is fairly self-explanatory, executing:
     
-    1. cd <cMsg dir>
-    2. scons install
+    cd <cMsg dir>
+    scons install
         
 Note that for C/C++, only Linux and Darwin (Mac OSX) operating systems are supported.
 By default, the libraries and executables are placed into the _**$CODA/[arch]/lib**_ and _**bin**_ subdirectories
@@ -134,11 +134,11 @@ To compile a debug version, execute:
 cMsg can also be compiled with cmake using the included CMakeLists.txt file.
 To build the C and C++ libraries and executables on the Mac:
     
-    1. cd <cMsg dir>
-    2. mkdir build
-    3. cd build
-    4. cmake .. –DCMAKE_BUILD_TYPE=Release
-    5. make
+    cd <cMsg dir>
+    mkdir build
+    cd build
+    cmake .. –DCMAKE_BUILD_TYPE=Release
+    make
         
 To build only C code, place –DC_ONLY=1 on the cmake command line.
 In order to compile all the examples as well, place –DMAKE_EXAMPLES=1 on the cmake command line.
@@ -148,13 +148,13 @@ files from mixing with the source and config files.
 In addition to a having a copy in the build directory, installing the library, binary and include
 files can be done by calling cmake in 2 ways:
     
-    1. cmake .. –DCMAKE_BUILD_TYPE=Release –DCODA_INSTALL=<install dir>
-    2. make install
+    cmake .. –DCMAKE_BUILD_TYPE=Release –DCODA_INSTALL=<install dir>
+    make install
         
 or
         
-    1. cmake .. –DCMAKE_BUILD_TYPE=Release
-    2. make install
+    cmake .. –DCMAKE_BUILD_TYPE=Release
+    make install
  
 The first option explicitly sets the installation directory. The second option installs in the directory
 given in the CODA environmental variable. If neither are defined, an error is given.
