@@ -27,7 +27,7 @@ Here are links to the documentation contained in the github repository
 ___________________________
 ## **Version 6.0**
 
-* [User's Guide PDF](https://jeffersonlab.github.io/cMsg/doc-6.0/users_guide/evio_Users_Guide.pdf)
+* [User's Guide PDF](https://jeffersonlab.github.io/cMsg/doc-6.0/users_guide/cMsg_Users_Guide.pdf)
 * [Javadoc for Java Library](https://jeffersonlab.github.io/cMsg/doc-6.0/javadoc/index.html)
 * [Doxygen for C Library](https://jeffersonlab.github.io/cMsg/doc-6.0/doxygen/C/html/index.html)
 * [Doxygen for C++ Library](https://jeffersonlab.github.io/cMsg/doc-6.0/doxygen/CC/html/index.html)
@@ -35,7 +35,7 @@ ___________________________
 ___________________________
 ## **Version 5.2**
 
-* [User's Guide PDF](https://jeffersonlab.github.io/cMsg/doc-5.2/users_guide/evio_Users_Guide.pdf)
+* [User's Guide PDF](https://jeffersonlab.github.io/cMsg/doc-5.2/users_guide/cMsg_Users_Guide.pdf)
 * [Javadoc for Java Library](https://jeffersonlab.github.io/cMsg/doc-5.2/javadoc/index.html)
 * [Doxygen for C Library](https://jeffersonlab.github.io/cMsg/doc-5.2/doxygen/C/html/index.html)
 * [Doxygen for C++ Library](https://jeffersonlab.github.io/cMsg/doc-5.2/doxygen/CC/html/index.html)
