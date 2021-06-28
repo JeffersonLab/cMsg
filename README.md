@@ -1,5 +1,7 @@
 ----------------------------
+
 # **cMsg 6.0 SOFTWARE PACKAGE**
+
 ----------------------------
 
 cMsg stands for CODA Message.
@@ -27,29 +29,41 @@ If you only plan to run C/C++ clients and there's a cMsg server running,
 you can skip the Java installation. If you only plan to use Java applications,
 you can skip the C/C++ installation.
 
-**The home page is:**
+----------------------------
 
-  https://coda.jlab.org/drupal/content/coda-messaging-cmsg/
+![cMsg Image](doc/images/cMsg.jpg)
 
-**All code is contained in the github repository linked below (master branch).**
-
-  https://github.com/JeffersonLab/cMsg
-
------------------------------
-## **Documentation**
-
-Documentation is contained in the repository but may also be accessed at the home site:
-
-Documentation Type | Link
------------- | -------------
-PDF User's Guide | https://coda.jlab.org/drupal/content/cmsg-60-users-guide
-Javadoc | https://coda.jlab.org/drupal/content/cmsg-60-javadoc
-Doxygen doc for C | https://coda.jlab.org/drupal/content/cmsg-60-doxygen-c
-Doxygen doc for C++ | https://coda.jlab.org/drupal/content/cmsg-60-doxygen-c-0
-
+### **cMsg figure showing subdomains and data flow**
 
 ----------------------------
+
+### **Main cMsg links:**
+
+  [cMsg Home Page](https://coda.jlab.org/drupal/content/coda-messaging-cmsg/)
+
+  [cMsg on GitHub](https://github.com/JeffersonLab/cMsg)
+
+-----------------------------
+
+# **Documentation**
+
+----------------------------
+
+Documentation on GitHub:
+
+* [All Documentation](https://jeffersonlab.github.io/cMsg)
+
+Documentation on the home page:
+
+* [User's Guide PDF](https://coda.jlab.org/drupal/content/cmsg-60-users-guide)
+* [Javadoc for Java Library](https://coda.jlab.org/drupal/content/cmsg-60-javadoc)
+* [Doxygen for C Library](https://coda.jlab.org/drupal/content/cmsg-60-doxygen-c)
+* [Doxygen for C++ Library](https://coda.jlab.org/drupal/content/cmsg-60-doxygen-c-0)
+
+----------------------------
+
 # **C/C++ Compilation**
+
 ----------------------------
 
 -----------------------------
@@ -60,11 +74,13 @@ since at the time of cMsg development, there was no such commonly available libr
 
 -----------------------------
 ## **C++ Library**
+
 The C++ library is called libcmsgxx.
 This is a simple wrapper of the C library.
 
 -----------------------------
 ## **C Library**
+
 The C library is called libcmsg.
 It consists of clients of the various underlying messaging systems.
 
@@ -153,7 +169,9 @@ To uninstall simply do:
         
 
 ----------------------------
+
 # **Java**
+
 ----------------------------
 
 The jar files necessary to compile an cMsg jar file are in the java/jars directory.
@@ -201,3 +219,11 @@ Although this is fairly self-explanatory, executing _**ant**_ is the same as ant
 That will compile all the java. All compiled code is placed in the generated _**build**_ directory.
 If the user wants a jar file, execute _**ant jar**_ to place the resulting file in the _**build/lib**_ directory.
 The java command in the user’s path will be the one used to do the compilation.
+
+----------------------------
+
+# **Copyright**
+
+----------------------------
+
+For any issues regarding use and copyright, read the [license](LICENSE.txt) file.
