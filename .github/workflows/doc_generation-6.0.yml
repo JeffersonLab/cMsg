@@ -4,7 +4,7 @@ name: Documentation generation CI
 
 on:
   push:
-    branches: [ cMsg-6.0 ]
+    branches: [ master ]
 
 jobs:
   build:
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # checkout the cMsg-6.0 branch
+      # checkout the master branch
       - uses: actions/checkout@v2
 
       # generate the C doxygen files
