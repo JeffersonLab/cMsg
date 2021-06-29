@@ -5,7 +5,7 @@
 #---------------------------------------------------------------------------
 PROJECT_NAME           = "cMsg Messaging System"
 PROJECT_NUMBER         = 5.2
-OUTPUT_DIRECTORY       = $(TOPLEVEL)/doc/doxygen/CC
+OUTPUT_DIRECTORY       = ./doc/doxygen/CC
 CREATE_SUBDIRS         = YES
 OUTPUT_LANGUAGE        = English
 USE_WINDOWS_ENCODING   = NO
@@ -68,7 +68,7 @@ WARN_LOGFILE           = doxyerrors.log
 #---------------------------------------------------------------------------
 # configuration options related to the input files
 #---------------------------------------------------------------------------
-INPUT                  = $(TOPLEVEL)/src/libsrc++/
+INPUT                  = ./src/libsrc++/
 FILE_PATTERNS          = *.c \
                          *.cc \
                          *.cxx \
@@ -185,7 +185,7 @@ ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = NO
 EXPAND_ONLY_PREDEF     = NO
 SEARCH_INCLUDES        = YES
-INCLUDE_PATH           = $(TOPLEVEL)/src/libsrc
+INCLUDE_PATH           = ./src/libsrc
 INCLUDE_FILE_PATTERNS  = *.h
 PREDEFINED             = 
 EXPAND_AS_DEFINED      = 
