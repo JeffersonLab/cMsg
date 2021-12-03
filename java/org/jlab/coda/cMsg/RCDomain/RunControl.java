@@ -1277,6 +1277,7 @@ System.out.println("RC connect: SUCCESSFUL");
             }
         }
         catch (IOException e) {
+            e.printStackTrace();
             throw new cMsgException("Cannot create or send message packet", e);
         }
         finally {

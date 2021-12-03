@@ -1832,6 +1832,7 @@ System.out.println("disconnect: IO error");
                 numUdpSends++;
             }
             catch (IOException e) {
+                e.printStackTrace();
                 // wait awhile for possible failover
                 if (failoverSuccessful(false)) {
                     continue;
