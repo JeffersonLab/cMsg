@@ -1276,6 +1276,7 @@ System.out.println("RC connect: SUCCESSFUL");
             }
         }
         catch (IOException e) {
+            e.printStackTrace();
             throw new cMsgException("Cannot create or send message packet", e);
         }
         finally {
@@ -1472,28 +1473,38 @@ System.out.println("RC connect: SUCCESSFUL");
                         // Place a delay between each.
                         Enumeration<NetworkInterface> enumer = NetworkInterface.getNetworkInterfaces();
 
+                        // Put network interfaces into a list with the loopback FIRST
+                        ArrayList<NetworkInterface> ifList = new ArrayList<>();
                         while (enumer.hasMoreElements()) {
                             NetworkInterface ni = enumer.nextElement();
-//System.out.println("RC client: found interface " + ni +
-//                   ", up = " + ni.isUp() +
-//                   ", loopback = " + ni.isLoopback() +
-//                   ", has multicast = " + ni.supportsMulticast());
-                            if (ni.isUp()) {
-System.out.println("RC client: sending packet #" + counter + " over " + ni.getName());
-                                multicastUdpSocket.setNetworkInterface(ni);
-                                multicastUdpSocket.send(packet);
-
-                                // Increment integer at very end of data to
-                                // indicate # of packet from this client. Big endian.
-                                counter++;
-                                data[counterOffset  ] = (byte)(counter >> 24);
-                                data[counterOffset+1] = (byte)(counter >> 16);
-                                data[counterOffset+2] = (byte)(counter >>  8);
-                                data[counterOffset+3] = (byte)(counter      );
-                                packet.setData(data);
-
-                                Thread.sleep(200);
+                            if (!ni.isUp()) continue;
+                            if (ni.isLoopback()) {
+                                ifList.add(0, ni);
                             }
+                            else {
+                                ifList.add(ni);
+                            }
+//                            System.out.println("RC client: found interface " + ni +
+//                                    ", up = " + ni.isUp() +
+//                                    ", loopback = " + ni.isLoopback() +
+//                                    ", has multicast = " + ni.supportsMulticast());
+                        }
+
+                        for (NetworkInterface ni : ifList) {
+System.out.println("RC client: sending packet #" + counter + " over " + ni.getName());
+                            multicastUdpSocket.setNetworkInterface(ni);
+                            multicastUdpSocket.send(packet);
+
+                            // Increment integer at very end of data to
+                            // indicate # of packet from this client. Big endian.
+                            counter++;
+                            data[counterOffset  ] = (byte)(counter >> 24);
+                            data[counterOffset+1] = (byte)(counter >> 16);
+                            data[counterOffset+2] = (byte)(counter >>  8);
+                            data[counterOffset+3] = (byte)(counter      );
+                            packet.setData(data);
+
+                            Thread.sleep(500);
                         }
 
                     }
