@@ -321,6 +321,15 @@ public class RCServer extends cMsgDomainAdapter {
         // Get all info about the network interfaces on this machine
         List<InterfaceAddress> ipInfoList = cMsgUtilities.getAllIpInfo();
 
+        // Is the client on the local host?
+        boolean clientIsLocal = false;
+        for (String hostname : clientIps) {
+            if (cMsgUtilities.isHostLocal(hostname)) {
+                clientIsLocal = true;
+                break;
+            }
+        }
+
         clientIpOrderedSet = new ArrayList<String>();
         serverIpOrderedSet = new ArrayList<String>();
 
@@ -329,7 +338,7 @@ public class RCServer extends cMsgDomainAdapter {
 
         // For each client (broadcast) address:
         // See if it shares its subnet with this host.
-        // If so, put at the top, else but at the bottom.
+        // If so, put at the top, else put at the bottom.
         for (int i=0; i < clientIps.size(); i++) {
 
             boolean onDifferentSubnet = true;
@@ -373,6 +382,12 @@ public class RCServer extends cMsgDomainAdapter {
                 serverIpOrderedSet.add(iAddr.getAddress().getHostAddress());
             }
         }
+
+        // If on local host, put the loopback address first
+        if (clientIsLocal) {
+            clientIpOrderedSet.add(0, "127.0.0.1");
+        }
+
     }
 
 
