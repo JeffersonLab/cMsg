@@ -52,10 +52,10 @@ class rcListeningThread extends Thread {
     /** Network interface on which this thread is listening. */
     private NetworkInterface networkInterface;
 
-    /** Hashmap to track which clients have attached and when.
-     *  Use this to prevent a client from attaching multiple times
-     *  in a short period. */
-    private HashMap<String, Long> clientFilter = new HashMap<String, Long>();
+//    /** Hashmap to track which clients have attached and when.
+//     *  Use this to prevent a client from attaching multiple times
+//     *  in a short period. */
+//    private HashMap<String, Long> clientFilter = new HashMap<String, Long>();
 
     /** Level of debug output for this class. */
     private int debug;
@@ -363,17 +363,17 @@ class rcListeningThread extends Thread {
                 }
                 // if connect request from client ...
                 else if (msgType == cMsgNetworkConstants.rcDomainMulticastClient) {
-                    // First check to see if this client recently connected
-                    if (clientFilter.containsKey(multicasterHost)) {
-                        long connectTime = clientFilter.get(multicasterHost);
-                        long now = System.currentTimeMillis();
-                        if (now - connectTime < 3000) {
-                            // If there was a connection less than 3 seconds ago, reject this one
-System.out.println("RC multicast listener: reject client packet #" + packetCounter + " from " +
-                    multicasterName + ", already connected");
-                            continue;
-                        }
-                    }
+//                    // First check to see if this client recently connected
+//                    if (clientFilter.containsKey(multicasterHost)) {
+//                        long connectTime = clientFilter.get(multicasterHost);
+//                        long now = System.currentTimeMillis();
+//                        if (now - connectTime < 3000) {
+//                            // If there was a connection less than 3 seconds ago, reject this one
+//System.out.println("RC multicast listener: reject client packet #" + packetCounter + " from " +
+//                    multicasterName + ", already connected");
+//                            continue;
+//                        }
+//                    }
 
                     // Read additional data now sent - list of all IP & broadcast addrs
 
@@ -420,8 +420,8 @@ System.out.println("RC multicast listener: got client packet #" + packetCounter 
                         continue;
                     }
 
-                    // Record that we're connected at this time
-                    clientFilter.put(multicasterName, System.currentTimeMillis());
+//                    // Record that we're connected at this time
+//                    clientFilter.put(multicasterName, System.currentTimeMillis());
                 }
                 // else if from server ...
                 else {
