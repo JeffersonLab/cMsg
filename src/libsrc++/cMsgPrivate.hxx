@@ -42,7 +42,7 @@ public:
    * @param t Object pointer
    * @param mfp Member function pointer
    */
-  cMsgDispatcher(T *t, void (T::*mfp)(cMsgMessage *msg, void* userArg)) throw(cMsgException*) : t(t), mfp(mfp) {}
+  cMsgDispatcher(T *t, void (T::*mfp)(cMsgMessage *msg, void* userArg)): t(t), mfp(mfp) {}
 
 
   /** Callback method dispatches to member function. 
@@ -50,7 +50,7 @@ public:
    * @param msg Message. 
    * @param userArg User arg.
    */
-  void callback(cMsgMessage *msg, void* userArg) throw(cMsgException) {
+  void callback(cMsgMessage *msg, void* userArg) {
     (t->*mfp)(msg,userArg);
   }
 

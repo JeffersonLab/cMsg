@@ -82,65 +82,65 @@ class cMsgMessage {
   
   
 public:
-  cMsgMessage(void)                   throw(cMsgException);
-  cMsgMessage(const cMsgMessage &m)   throw(cMsgException);
-  cMsgMessage(void *msgPointer) throw(cMsgException);
+  cMsgMessage(void)                  ;
+  cMsgMessage(const cMsgMessage &m)  ;
+  cMsgMessage(void *msgPointer);
   virtual ~cMsgMessage(void);
 
-  virtual string getSubject(void)               const throw(cMsgException);
-  virtual void   setSubject(const string &subject)    throw(cMsgException);
-  virtual string getType(void)                  const throw(cMsgException);
-  virtual void   setType(const string &type)          throw(cMsgException);
-  virtual string getText(void)                  const throw(cMsgException);
-  virtual void   setText(const string &text)          throw(cMsgException);
+  virtual string getSubject(void)               const;
+  virtual void   setSubject(const string &subject)   ;
+  virtual string getType(void)                  const;
+  virtual void   setType(const string &type)         ;
+  virtual string getText(void)                  const;
+  virtual void   setText(const string &text)         ;
   
-  virtual void   setByteArrayLength(int length)       throw(cMsgException);
+  virtual void   setByteArrayLength(int length)      ;
   virtual void   resetByteArrayLength();
   virtual int    getByteArrayLength(void);
   virtual int    getByteArrayLengthFull(void);
-  virtual void   setByteArrayOffset(int offset)       throw(cMsgException);
+  virtual void   setByteArrayOffset(int offset)      ;
   virtual int    getByteArrayOffset(void);  
   virtual int    getByteArrayEndian(void);
-  virtual void   setByteArrayEndian(int endian)       throw(cMsgException);
-  virtual bool   needToSwap(void)               const throw(cMsgException);  
+  virtual void   setByteArrayEndian(int endian)      ;
+  virtual bool   needToSwap(void)               const;  
   virtual char*  getByteArray(void);
-  virtual void   setByteArray(char *array, int length)       throw(cMsgException);
-  virtual void   setByteArrayNoCopy(char* array, int length) throw(cMsgException);
+  virtual void   setByteArray(char *array, int length)      ;
+  virtual void   setByteArrayNoCopy(char* array, int length);
 
-  virtual int    getUserInt(void)               const throw(cMsgException);
-  virtual void   setUserInt(int i)                    throw(cMsgException);
-  virtual struct timespec getUserTime(void)     const throw(cMsgException);
-  virtual void   setUserTime(const struct timespec &userTime) throw(cMsgException);
-  virtual int    getVersion(void)               const throw(cMsgException);
-  virtual string getDomain(void)                const throw(cMsgException);
-  virtual string getReceiver(void)              const throw(cMsgException);
-  virtual string getReceiverHost(void)          const throw(cMsgException);
-  virtual string getSender(void)                const throw(cMsgException);
-  virtual string getSenderHost(void)            const throw(cMsgException);
-  virtual struct timespec getReceiverTime(void) const throw(cMsgException);
-  virtual struct timespec getSenderTime(void)   const throw(cMsgException);
-  virtual bool   isGetRequest(void)             const throw(cMsgException);
-  virtual bool   isGetResponse(void)            const throw(cMsgException);
-  virtual bool   isNullGetResponse(void)        const throw(cMsgException);
+  virtual int    getUserInt(void)               const;
+  virtual void   setUserInt(int i)                   ;
+  virtual struct timespec getUserTime(void)     const;
+  virtual void   setUserTime(const struct timespec &userTime);
+  virtual int    getVersion(void)               const;
+  virtual string getDomain(void)                const;
+  virtual string getReceiver(void)              const;
+  virtual string getReceiverHost(void)          const;
+  virtual string getSender(void)                const;
+  virtual string getSenderHost(void)            const;
+  virtual struct timespec getReceiverTime(void) const;
+  virtual struct timespec getSenderTime(void)   const;
+  virtual bool   isGetRequest(void)             const;
+  virtual bool   isGetResponse(void)            const;
+  virtual bool   isNullGetResponse(void)        const;
 
-  virtual void   makeNullResponse(const cMsgMessage &msg)   throw(cMsgException);
-  virtual void   makeNullResponse(const cMsgMessage *msg)   throw(cMsgException);
-  virtual void   makeResponse(const cMsgMessage &msg)       throw(cMsgException);
-  virtual void   makeResponse(const cMsgMessage *msg)       throw(cMsgException);
+  virtual void   makeNullResponse(const cMsgMessage &msg)  ;
+  virtual void   makeNullResponse(const cMsgMessage *msg)  ;
+  virtual void   makeResponse(const cMsgMessage &msg)      ;
+  virtual void   makeResponse(const cMsgMessage *msg)      ;
 
-  virtual void   setGetResponse(bool b)               throw(cMsgException);
-  virtual void   setNullGetResponse(bool b)           throw(cMsgException);
-  virtual string toString(void)                 const throw(cMsgException);
-  virtual cMsgMessage *copy(void)               const throw(cMsgException);
-  virtual cMsgMessage *nullResponse(void)       const throw(cMsgException);
-  virtual cMsgMessage *response(void)           const throw(cMsgException);
-  virtual string getSubscriptionDomain()        const throw(cMsgException);
-  virtual string getSubscriptionSubject()       const throw(cMsgException);
-  virtual string getSubscriptionType()          const throw(cMsgException);
-  virtual string getSubscriptionUDL()           const throw(cMsgException);
-  virtual int    getSubscriptionCueSize(void)   const throw(cMsgException);
-  virtual bool   getReliableSend(void)          const throw(cMsgException);
-  virtual void   setReliableSend(bool b)              throw(cMsgException);
+  virtual void   setGetResponse(bool b)              ;
+  virtual void   setNullGetResponse(bool b)          ;
+  virtual string toString(void)                 const;
+  virtual cMsgMessage *copy(void)               const;
+  virtual cMsgMessage *nullResponse(void)       const;
+  virtual cMsgMessage *response(void)           const;
+  virtual string getSubscriptionDomain()        const;
+  virtual string getSubscriptionSubject()       const;
+  virtual string getSubscriptionType()          const;
+  virtual string getSubscriptionUDL()           const;
+  virtual int    getSubscriptionCueSize(void)   const;
+  virtual bool   getReliableSend(void)          const;
+  virtual void   setReliableSend(bool b)             ;
   
 
 
@@ -156,76 +156,76 @@ public:
   virtual void   payloadClear(void);
   virtual void   payloadReset(void);
   virtual void   payloadPrint(void) const;
-  virtual void   payloadCopy(const cMsgMessage &msg)            throw(cMsgException);
+  virtual void   payloadCopy(const cMsgMessage &msg)           ;
 
   virtual bool   payloadRemoveField(const string &name);
   virtual string payloadGetText() const;
-  virtual void   payloadSetFromText(const string &txt)          throw(cMsgException);
-  virtual string payloadGetFieldDescription(const string &name) const throw(cMsgException);  
+  virtual void   payloadSetFromText(const string &txt)         ;
+  virtual string payloadGetFieldDescription(const string &name) const;  
   
-  virtual map<string,int> *payloadGet()                         const throw(cMsgException);
+  virtual map<string,int> *payloadGet()                         const;
   virtual int    payloadGetCount()                              const;
   virtual bool   payloadContainsName (const string &name)       const;
-  virtual int    payloadGetType      (const string &name)       const throw(cMsgException);
-  virtual void   setHistoryLengthMax (int len)                  const throw(cMsgException);
+  virtual int    payloadGetType      (const string &name)       const;
+  virtual void   setHistoryLengthMax (int len)                  const;
   
 
   //
   // Methods to get a payload item's value
   //
   virtual void getBinary(const string &name, const char **val, int &len, int &endian)
-               const throw(cMsgException);
+               const;
   virtual void getBinaryArray(const string &name, const char ***vals, int **lens, int **endians, int &count)
-               const throw(cMsgException);
+               const;
 
-  virtual cMsgMessage          *getMessage(const string &name)        const throw(cMsgException);
-  virtual vector<cMsgMessage>  *getMessageVector(const string &name)  const throw(cMsgException);
-  virtual vector<cMsgMessage*> *getMessagePVector(const string &name) const throw(cMsgException);
-  virtual cMsgMessage          *getMessageArray (const string &name)  const throw(cMsgException);
-  virtual cMsgMessage*         *getMessagePArray (const string &name) const throw(cMsgException);
+  virtual cMsgMessage          *getMessage(const string &name)        const;
+  virtual vector<cMsgMessage>  *getMessageVector(const string &name)  const;
+  virtual vector<cMsgMessage*> *getMessagePVector(const string &name) const;
+  virtual cMsgMessage          *getMessageArray (const string &name)  const;
+  virtual cMsgMessage*         *getMessagePArray (const string &name) const;
 
-  virtual string          getString(const string &name)       const throw(cMsgException);
-  virtual vector<string> *getStringVector(const string &name) const throw(cMsgException);
-  virtual string         *getStringArray(const string &name)  const throw(cMsgException);
+  virtual string          getString(const string &name)       const;
+  virtual vector<string> *getStringVector(const string &name) const;
+  virtual string         *getStringArray(const string &name)  const;
   
-  virtual float           getFloat(const string &name)        const throw(cMsgException);
-  virtual vector<float>  *getFloatVector(const string &name)  const throw(cMsgException);
-  virtual float          *getFloatArray(const string &name)   const throw(cMsgException);
+  virtual float           getFloat(const string &name)        const;
+  virtual vector<float>  *getFloatVector(const string &name)  const;
+  virtual float          *getFloatArray(const string &name)   const;
 
-  virtual double          getDouble(const string &name)       const throw(cMsgException);
-  virtual vector<double> *getDoubleVector(const string &name) const throw(cMsgException);
-  virtual double         *getDoubleArray(const string &name)  const throw(cMsgException);
+  virtual double          getDouble(const string &name)       const;
+  virtual vector<double> *getDoubleVector(const string &name) const;
+  virtual double         *getDoubleArray(const string &name)  const;
   
-  virtual int8_t            getInt8  (const string &name)      const throw(cMsgException);
-  virtual int16_t           getInt16 (const string &name)      const throw(cMsgException);
-  virtual int32_t           getInt32 (const string &name)      const throw(cMsgException);
-  virtual int64_t           getInt64 (const string &name)      const throw(cMsgException);
+  virtual int8_t            getInt8  (const string &name)      const;
+  virtual int16_t           getInt16 (const string &name)      const;
+  virtual int32_t           getInt32 (const string &name)      const;
+  virtual int64_t           getInt64 (const string &name)      const;
 
-  virtual vector<int8_t>   *getInt8Vector (const string &name) const throw(cMsgException);
-  virtual vector<int16_t>  *getInt16Vector(const string &name) const throw(cMsgException);
-  virtual vector<int32_t>  *getInt32Vector(const string &name) const throw(cMsgException);
-  virtual vector<int64_t>  *getInt64Vector(const string &name) const throw(cMsgException);
+  virtual vector<int8_t>   *getInt8Vector (const string &name) const;
+  virtual vector<int16_t>  *getInt16Vector(const string &name) const;
+  virtual vector<int32_t>  *getInt32Vector(const string &name) const;
+  virtual vector<int64_t>  *getInt64Vector(const string &name) const;
 
-  virtual int8_t           *getInt8Array  (const string &name) const throw(cMsgException);
-  virtual int16_t          *getInt16Array (const string &name) const throw(cMsgException);
-  virtual int32_t          *getInt32Array (const string &name) const throw(cMsgException);
-  virtual int64_t          *getInt64Array (const string &name) const throw(cMsgException);
+  virtual int8_t           *getInt8Array  (const string &name) const;
+  virtual int16_t          *getInt16Array (const string &name) const;
+  virtual int32_t          *getInt32Array (const string &name) const;
+  virtual int64_t          *getInt64Array (const string &name) const;
 
 
-  virtual uint8_t           getUint8 (const string &name)       const throw(cMsgException);
-  virtual uint16_t          getUint16(const string &name)       const throw(cMsgException);
-  virtual uint32_t          getUint32(const string &name)       const throw(cMsgException);
-  virtual uint64_t          getUint64(const string &name)       const throw(cMsgException);
+  virtual uint8_t           getUint8 (const string &name)       const;
+  virtual uint16_t          getUint16(const string &name)       const;
+  virtual uint32_t          getUint32(const string &name)       const;
+  virtual uint64_t          getUint64(const string &name)       const;
   
-  virtual vector<uint8_t>  *getUint8Vector (const string &name) const throw(cMsgException);
-  virtual vector<uint16_t> *getUint16Vector(const string &name) const throw(cMsgException);
-  virtual vector<uint32_t> *getUint32Vector(const string &name) const throw(cMsgException);
-  virtual vector<uint64_t> *getUint64Vector(const string &name) const throw(cMsgException);
+  virtual vector<uint8_t>  *getUint8Vector (const string &name) const;
+  virtual vector<uint16_t> *getUint16Vector(const string &name) const;
+  virtual vector<uint32_t> *getUint32Vector(const string &name) const;
+  virtual vector<uint64_t> *getUint64Vector(const string &name) const;
 
-  virtual uint8_t          *getUint8Array  (const string &name) const throw(cMsgException);
-  virtual uint16_t         *getUint16Array (const string &name) const throw(cMsgException);
-  virtual uint32_t         *getUint32Array (const string &name) const throw(cMsgException);
-  virtual uint64_t         *getUint64Array (const string &name) const throw(cMsgException);
+  virtual uint8_t          *getUint8Array  (const string &name) const;
+  virtual uint16_t         *getUint16Array (const string &name) const;
+  virtual uint32_t         *getUint32Array (const string &name) const;
+  virtual uint64_t         *getUint64Array (const string &name) const;
   
 
   //
@@ -365,44 +365,44 @@ class cMsg {
 public:
   cMsg(const string &UDL, const string &name, const string &descr);
   virtual ~cMsg(void);
-  virtual void connect()              throw(cMsgException);
-  virtual void disconnect(void)       throw(cMsgException);
-  virtual void send(cMsgMessage &msg) throw(cMsgException);
-  virtual void send(cMsgMessage *msg) throw(cMsgException);
-  virtual int  syncSend(cMsgMessage &msg, const struct timespec *timeout = NULL) throw(cMsgException);
-  virtual int  syncSend(cMsgMessage *msg, const struct timespec *timeout = NULL) throw(cMsgException);
+  virtual void connect()             ;
+  virtual void disconnect(void)      ;
+  virtual void send(cMsgMessage &msg);
+  virtual void send(cMsgMessage *msg);
+  virtual int  syncSend(cMsgMessage &msg, const struct timespec *timeout = NULL);
+  virtual int  syncSend(cMsgMessage *msg, const struct timespec *timeout = NULL);
   virtual void *subscribe(const string &subject, const string &type, cMsgCallback *cb, void *userArg, 
-                          const cMsgSubscriptionConfig *cfg = NULL) throw(cMsgException);
+                          const cMsgSubscriptionConfig *cfg = NULL);
   virtual void *subscribe(const string &subject, const string &type, cMsgCallback &cb, void *userArg,
-                          const cMsgSubscriptionConfig *cfg = NULL) throw(cMsgException);
-  virtual void unsubscribe(void *handle) throw(cMsgException);
-  virtual void subscriptionPause(void *handle)         throw(cMsgException);
-  virtual void subscriptionResume(void *handle)        throw(cMsgException);
-  virtual void subscriptionQueueClear(void *handle)    throw(cMsgException);
-  virtual int  subscriptionQueueCount(void *handle)    throw(cMsgException);
-  virtual bool subscriptionQueueIsFull(void *handle)   throw(cMsgException);
-  virtual int  subscriptionMessagesTotal(void *handle) throw(cMsgException);
+                          const cMsgSubscriptionConfig *cfg = NULL);
+  virtual void unsubscribe(void *handle);
+  virtual void subscriptionPause(void *handle)        ;
+  virtual void subscriptionResume(void *handle)       ;
+  virtual void subscriptionQueueClear(void *handle)   ;
+  virtual int  subscriptionQueueCount(void *handle)   ;
+  virtual bool subscriptionQueueIsFull(void *handle)  ;
+  virtual int  subscriptionMessagesTotal(void *handle);
   virtual cMsgMessage *sendAndGet(cMsgMessage &sendMsg, const struct timespec *timeout = NULL)
-    throw(cMsgException);
+   ;
   virtual cMsgMessage *sendAndGet(cMsgMessage *sendMsg, const struct timespec *timeout = NULL)
-    throw(cMsgException);
+   ;
   virtual cMsgMessage *subscribeAndGet(const string &subject, const string &type, const struct timespec *timeout = NULL)
-    throw(cMsgException);
-  virtual void   flush(const struct timespec *timeout = NULL) throw(cMsgException);
-  virtual void   start(void) throw(cMsgException);
-  virtual void   stop(void)  throw(cMsgException);
-  virtual void   setUDL(const string &udl) throw(cMsgException);
+   ;
+  virtual void   flush(const struct timespec *timeout = NULL);
+  virtual void   start(void);
+  virtual void   stop(void) ;
+  virtual void   setUDL(const string &udl);
   virtual string getUDL(void)         const;
-  virtual string getCurrentUDL(void)  const throw(cMsgException);
+  virtual string getCurrentUDL(void)  const;
   virtual string getName(void)        const;
   virtual string getDescription(void) const;
-  virtual bool   isConnected(void)    const throw(cMsgException);
-  virtual bool   isReceiving(void)    const throw(cMsgException);
-  virtual void   setShutdownHandler(cMsgShutdownHandler *handler, void* userArg) throw(cMsgException);
-  virtual void   shutdownClients(const string &client, int flag) throw(cMsgException);
-  virtual void   shutdownServers(const string &server, int flag) throw(cMsgException);
-  virtual cMsgMessage *monitor(const string &monString)          throw(cMsgException);
-  virtual void setMonitoringString(const string &monString)      throw(cMsgException);
+  virtual bool   isConnected(void)    const;
+  virtual bool   isReceiving(void)    const;
+  virtual void   setShutdownHandler(cMsgShutdownHandler *handler, void* userArg);
+  virtual void   shutdownClients(const string &client, int flag);
+  virtual void   shutdownServers(const string &server, int flag);
+  virtual cMsgMessage *monitor(const string &monString)         ;
+  virtual void setMonitoringString(const string &monString)     ;
 
 
 private:

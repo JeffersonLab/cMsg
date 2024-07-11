@@ -146,7 +146,7 @@ namespace cmsg {
      * @throws cMsgException if no payload/field exists, or if name is NULL
      */
     int cMsgMessage::payloadGetType(const string &name) const
-            throw(cMsgException) {
+            {
         int err, type;
         err = cMsgPayloadGetType(myMsgPointer, name.c_str(), &type);
         if (err != CMSG_OK) {
@@ -167,7 +167,7 @@ namespace cmsg {
      * @param msg reference to message to copy payload from
      * @throws cMsgException if no memory
      */
-    void cMsgMessage::payloadCopy(const cMsgMessage &msg) throw(cMsgException) {
+    void cMsgMessage::payloadCopy(const cMsgMessage &msg) {
         int err = cMsgPayloadCopy(msg.myMsgPointer, myMsgPointer);
         if (err!= CMSG_OK) {
             throw(cMsgException(cMsgPerror(err),err));
@@ -199,7 +199,7 @@ namespace cmsg {
      * @param txt string representing payload
      */
     void cMsgMessage::payloadSetFromText(const string &txt)
-          throw(cMsgException) {
+          {
         int err = cMsgPayloadSetAllFieldsFromText(myMsgPointer, txt.c_str());
         if (err != CMSG_OK) {
             throw(cMsgException(cMsgPerror(err),err));
@@ -216,7 +216,7 @@ namespace cmsg {
      * @throws cMsgException if no such field in the payload
      */
     string cMsgMessage::payloadGetFieldDescription(const string &name) const
-            throw(cMsgException) {
+            {
         const char *field = cMsgPayloadFieldDescription(myMsgPointer, name.c_str());
         if (field == NULL) {
             string err("No such field as ");
@@ -237,7 +237,7 @@ namespace cmsg {
      * @return a pointer to a map containing all name/type pairs of the payload
      * @throws cMsgException if no payload exists, or if name is NULL
      */
-    map<string,int> *cMsgMessage::payloadGet() const throw(cMsgException) {
+    map<string,int> *cMsgMessage::payloadGet() const {
         char **names;
         int *types, len;
 
@@ -284,7 +284,7 @@ namespace cmsg {
      *
      * @throws cMsgException if len < 0 or > CMSG_HISTORY_LENGTH_ABS_MAX
      */
-    void cMsgMessage::setHistoryLengthMax(int len) const throw(cMsgException) {
+    void cMsgMessage::setHistoryLengthMax(int len) const {
         int err = cMsgSetHistoryLengthMax(myMsgPointer, len);
         if (err != CMSG_OK) throw (cMsgException("len must be >= 0 and < CMSG_HISTORY_LENGTH_ABS_MAX"));
     }
@@ -310,7 +310,7 @@ namespace cmsg {
  *                        or if any arg is NULL
  */
 void cMsgMessage::getBinary(const string &name, const char **val, int &len, int &endian)
-        const throw(cMsgException) {
+        const {
     int err = cMsgGetBinary(myMsgPointer, name.c_str(), val, &len, &endian);
     if (err != CMSG_OK) {
         if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
@@ -334,7 +334,7 @@ void cMsgMessage::getBinary(const string &name, const char **val, int &len, int 
  */
 void cMsgMessage::getBinaryArray(const string &name, const char ***vals,
                                  int **lens, int **endians, int &count)
-        const throw(cMsgException) {
+        const {
     int err = cMsgGetBinaryArray(myMsgPointer, name.c_str(), vals, lens, endians, &count);
     if (err != CMSG_OK) {
         if (err == CMSG_BAD_FORMAT) throw(cMsgException("Wrong field type"));
@@ -356,7 +356,7 @@ void cMsgMessage::getBinaryArray(const string &name, const char ***vals,
  * @return field's value as cMsg message
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-cMsgMessage *cMsgMessage::getMessage(const string &name) const throw(cMsgException) {
+cMsgMessage *cMsgMessage::getMessage(const string &name) const {
   const void *val;
   int err = cMsgGetMessage(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -386,7 +386,7 @@ cMsgMessage *cMsgMessage::getMessage(const string &name) const throw(cMsgExcepti
  * @return field's value as vector of pointers to cMsgMessage objects
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<cMsgMessage*> *cMsgMessage::getMessagePVector(const string &name) const throw(cMsgException) {
+vector<cMsgMessage*> *cMsgMessage::getMessagePVector(const string &name) const {
   int len;
   const void **vals;
   int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -417,7 +417,7 @@ vector<cMsgMessage*> *cMsgMessage::getMessagePVector(const string &name) const t
  * @return field's value as vector of cMsgMessage objects
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<cMsgMessage> *cMsgMessage::getMessageVector(const string &name) const throw(cMsgException) {
+vector<cMsgMessage> *cMsgMessage::getMessageVector(const string &name) const {
   int len;
   const void **vals;
   int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -448,7 +448,7 @@ vector<cMsgMessage> *cMsgMessage::getMessageVector(const string &name) const thr
  * @return field's value as array of pointers to cMsgMessage objects
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-cMsgMessage* *cMsgMessage::getMessagePArray(const string &name) const throw(cMsgException) {
+cMsgMessage* *cMsgMessage::getMessagePArray(const string &name) const {
   int len;
   const void **vals;
   int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -478,7 +478,7 @@ cMsgMessage* *cMsgMessage::getMessagePArray(const string &name) const throw(cMsg
  * @return field's value as array of cMsgMessage objects
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-cMsgMessage *cMsgMessage::getMessageArray(const string &name) const throw(cMsgException) {
+cMsgMessage *cMsgMessage::getMessageArray(const string &name) const {
   int len;
   const void **vals;
   int err = cMsgGetMessageArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -506,7 +506,7 @@ cMsgMessage *cMsgMessage::getMessageArray(const string &name) const throw(cMsgEx
  * @return field's value as string
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-string cMsgMessage::getString(const string &name) const throw(cMsgException) {
+string cMsgMessage::getString(const string &name) const {
   const char *val;
   int err = cMsgGetString(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -530,7 +530,7 @@ string cMsgMessage::getString(const string &name) const throw(cMsgException) {
  * @return field's value as vector of strings
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<string> *cMsgMessage::getStringVector(const string &name) const throw(cMsgException) {
+vector<string> *cMsgMessage::getStringVector(const string &name) const {
   int len;
   const char **vals;
   int err = cMsgGetStringArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -558,7 +558,7 @@ vector<string> *cMsgMessage::getStringVector(const string &name) const throw(cMs
  * @return field's value as vector of strings
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-string *cMsgMessage::getStringArray(const string &name) const throw(cMsgException) {
+string *cMsgMessage::getStringArray(const string &name) const {
   int len;
   const char **vals;
   int err = cMsgGetStringArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -585,7 +585,7 @@ string *cMsgMessage::getStringArray(const string &name) const throw(cMsgExceptio
  * @return field's value as a float
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-float cMsgMessage::getFloat(const string &name) const throw(cMsgException) {
+float cMsgMessage::getFloat(const string &name) const {
   float val;
   int err = cMsgGetFloat(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -604,7 +604,7 @@ float cMsgMessage::getFloat(const string &name) const throw(cMsgException) {
  * @return field's value as a double
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-double cMsgMessage::getDouble(const string &name) const throw(cMsgException) {
+double cMsgMessage::getDouble(const string &name) const {
   double val;
   int err = cMsgGetDouble(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -628,7 +628,7 @@ double cMsgMessage::getDouble(const string &name) const throw(cMsgException) {
  * @return field's value as vector of floats
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<float> *cMsgMessage::getFloatVector(const string &name) const throw(cMsgException) {
+vector<float> *cMsgMessage::getFloatVector(const string &name) const {
   int len;
   const float *vals;
   int err = cMsgGetFloatArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -655,7 +655,7 @@ vector<float> *cMsgMessage::getFloatVector(const string &name) const throw(cMsgE
  * @return field's value as array of floats
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-float *cMsgMessage::getFloatArray(const string &name) const throw(cMsgException) {
+float *cMsgMessage::getFloatArray(const string &name) const {
   int len;
   const float *vals;
   int err = cMsgGetFloatArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -683,7 +683,7 @@ float *cMsgMessage::getFloatArray(const string &name) const throw(cMsgException)
  * @return field's value as vector of doubles
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<double> *cMsgMessage::getDoubleVector(const string &name) const throw(cMsgException) {
+vector<double> *cMsgMessage::getDoubleVector(const string &name) const {
   int len;
   const double *vals;
   int err = cMsgGetDoubleArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -711,7 +711,7 @@ vector<double> *cMsgMessage::getDoubleVector(const string &name) const throw(cMs
  * @return field's value as array of doubles
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-double *cMsgMessage::getDoubleArray(const string &name) const throw(cMsgException) {
+double *cMsgMessage::getDoubleArray(const string &name) const {
   int len;
   const double *vals;
   int err = cMsgGetDoubleArray(myMsgPointer, name.c_str(), &vals, &len);
@@ -738,7 +738,7 @@ double *cMsgMessage::getDoubleArray(const string &name) const throw(cMsgExceptio
  * @return field's value as an 8-bit, signed integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int8_t cMsgMessage::getInt8(const string &name) const throw(cMsgException) {
+int8_t cMsgMessage::getInt8(const string &name) const {
   int8_t val;
   int err = cMsgGetInt8(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -757,7 +757,7 @@ int8_t cMsgMessage::getInt8(const string &name) const throw(cMsgException) {
  * @return field's value as an 16-bit, signed integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int16_t cMsgMessage::getInt16(const string &name) const throw(cMsgException) {
+int16_t cMsgMessage::getInt16(const string &name) const {
   int16_t val;
   int err = cMsgGetInt16(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -776,7 +776,7 @@ int16_t cMsgMessage::getInt16(const string &name) const throw(cMsgException) {
  * @return field's value as an 32-bit, signed integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int32_t cMsgMessage::getInt32(const string &name) const throw(cMsgException) {
+int32_t cMsgMessage::getInt32(const string &name) const {
   int32_t val;
   int err = cMsgGetInt32(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -795,7 +795,7 @@ int32_t cMsgMessage::getInt32(const string &name) const throw(cMsgException) {
  * @return field's value as an 64-bit, signed integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int64_t cMsgMessage::getInt64(const string &name) const throw(cMsgException) {
+int64_t cMsgMessage::getInt64(const string &name) const {
   int64_t val;
   int err = cMsgGetInt64(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -814,7 +814,7 @@ int64_t cMsgMessage::getInt64(const string &name) const throw(cMsgException) {
  * @return field's value as an 8-bit, unsigned integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint8_t cMsgMessage::getUint8(const string &name) const throw(cMsgException) {
+uint8_t cMsgMessage::getUint8(const string &name) const {
   uint8_t val;
   int err = cMsgGetUint8(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -833,7 +833,7 @@ uint8_t cMsgMessage::getUint8(const string &name) const throw(cMsgException) {
  * @return field's value as an 16-bit, unsigned integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint16_t cMsgMessage::getUint16(const string &name) const throw(cMsgException) {
+uint16_t cMsgMessage::getUint16(const string &name) const {
   uint16_t val;
   int err = cMsgGetUint16(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -852,7 +852,7 @@ uint16_t cMsgMessage::getUint16(const string &name) const throw(cMsgException) {
  * @return field's value as an 32-bit, unsigned integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint32_t cMsgMessage::getUint32(const string &name) const throw(cMsgException) {
+uint32_t cMsgMessage::getUint32(const string &name) const {
   uint32_t val;
   int err = cMsgGetUint32(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -871,7 +871,7 @@ uint32_t cMsgMessage::getUint32(const string &name) const throw(cMsgException) {
  * @return field's value as an 64-bit, unsigned integer
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint64_t cMsgMessage::getUint64(const string &name) const throw(cMsgException) {
+uint64_t cMsgMessage::getUint64(const string &name) const {
   uint64_t val;
   int err = cMsgGetUint64(myMsgPointer, name.c_str(), &val);
   if (err != CMSG_OK) {
@@ -894,7 +894,7 @@ uint64_t cMsgMessage::getUint64(const string &name) const throw(cMsgException) {
  * @return field's value as vector of 8 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<int8_t> *cMsgMessage::getInt8Vector(const string &name) const throw(cMsgException) {
+vector<int8_t> *cMsgMessage::getInt8Vector(const string &name) const {
   int len;
   const int8_t *vals;
   int err = cMsgGetInt8Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -921,7 +921,7 @@ vector<int8_t> *cMsgMessage::getInt8Vector(const string &name) const throw(cMsgE
  * @return field's value as vector of 8 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int8_t *cMsgMessage::getInt8Array(const string &name) const throw(cMsgException) {
+int8_t *cMsgMessage::getInt8Array(const string &name) const {
   int len;
   const int8_t *vals;
   int err = cMsgGetInt8Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -948,7 +948,7 @@ int8_t *cMsgMessage::getInt8Array(const string &name) const throw(cMsgException)
  * @return field's value as vector of 16 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<int16_t> *cMsgMessage::getInt16Vector(const string &name) const throw(cMsgException) {
+vector<int16_t> *cMsgMessage::getInt16Vector(const string &name) const {
   int len;
   const int16_t *vals;
   int err = cMsgGetInt16Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -975,7 +975,7 @@ vector<int16_t> *cMsgMessage::getInt16Vector(const string &name) const throw(cMs
  * @return field's value as array of 16 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int16_t *cMsgMessage::getInt16Array(const string &name) const throw(cMsgException) {
+int16_t *cMsgMessage::getInt16Array(const string &name) const {
   int len;
   const int16_t *vals;
   int err = cMsgGetInt16Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1002,7 +1002,7 @@ int16_t *cMsgMessage::getInt16Array(const string &name) const throw(cMsgExceptio
  * @return field's value as vector of 32 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<int32_t> *cMsgMessage::getInt32Vector(const string &name) const throw(cMsgException) {
+vector<int32_t> *cMsgMessage::getInt32Vector(const string &name) const {
   int len;
   const int32_t *vals;
   int err = cMsgGetInt32Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1029,7 +1029,7 @@ vector<int32_t> *cMsgMessage::getInt32Vector(const string &name) const throw(cMs
  * @return field's value as array of 32 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int32_t *cMsgMessage::getInt32Array(const string &name) const throw(cMsgException) {
+int32_t *cMsgMessage::getInt32Array(const string &name) const {
   int len;
   const int32_t *vals;
   int err = cMsgGetInt32Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1056,7 +1056,7 @@ int32_t *cMsgMessage::getInt32Array(const string &name) const throw(cMsgExceptio
  * @return field's value as vector of 64 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<int64_t> *cMsgMessage::getInt64Vector(const string &name) const throw(cMsgException) {
+vector<int64_t> *cMsgMessage::getInt64Vector(const string &name) const {
   int len;
   const int64_t *vals;
   int err = cMsgGetInt64Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1083,7 +1083,7 @@ vector<int64_t> *cMsgMessage::getInt64Vector(const string &name) const throw(cMs
  * @return field's value as array of 64 bit, signed ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-int64_t *cMsgMessage::getInt64Array(const string &name) const throw(cMsgException) {
+int64_t *cMsgMessage::getInt64Array(const string &name) const {
   int len;
   const int64_t *vals;
   int err = cMsgGetInt64Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1111,7 +1111,7 @@ int64_t *cMsgMessage::getInt64Array(const string &name) const throw(cMsgExceptio
  * @return field's value as vector of 8 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<uint8_t> *cMsgMessage::getUint8Vector(const string &name) const throw(cMsgException) {
+vector<uint8_t> *cMsgMessage::getUint8Vector(const string &name) const {
   int len;
   const uint8_t *vals;
   int err = cMsgGetUint8Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1139,7 +1139,7 @@ vector<uint8_t> *cMsgMessage::getUint8Vector(const string &name) const throw(cMs
  * @return field's value as array of 8 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint8_t *cMsgMessage::getUint8Array(const string &name) const throw(cMsgException) {
+uint8_t *cMsgMessage::getUint8Array(const string &name) const {
   int len;
   const uint8_t *vals;
   int err = cMsgGetUint8Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1167,7 +1167,7 @@ uint8_t *cMsgMessage::getUint8Array(const string &name) const throw(cMsgExceptio
  * @return field's value as vector of 16 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<uint16_t> *cMsgMessage::getUint16Vector(const string &name) const throw(cMsgException) {
+vector<uint16_t> *cMsgMessage::getUint16Vector(const string &name) const {
   int len;
   const uint16_t *vals;
   int err = cMsgGetUint16Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1195,7 +1195,7 @@ vector<uint16_t> *cMsgMessage::getUint16Vector(const string &name) const throw(c
  * @return field's value as array of 16 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint16_t *cMsgMessage::getUint16Array(const string &name) const throw(cMsgException) {
+uint16_t *cMsgMessage::getUint16Array(const string &name) const {
   int len;
   const uint16_t *vals;
   int err = cMsgGetUint16Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1222,7 +1222,7 @@ uint16_t *cMsgMessage::getUint16Array(const string &name) const throw(cMsgExcept
  * @return field's value as vector of 32 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<uint32_t> *cMsgMessage::getUint32Vector(const string &name) const throw(cMsgException) {
+vector<uint32_t> *cMsgMessage::getUint32Vector(const string &name) const {
   int len;
   const uint32_t *vals;
   int err = cMsgGetUint32Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1249,7 +1249,7 @@ vector<uint32_t> *cMsgMessage::getUint32Vector(const string &name) const throw(c
  * @return field's value as array of 32 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint32_t *cMsgMessage::getUint32Array(const string &name) const throw(cMsgException) {
+uint32_t *cMsgMessage::getUint32Array(const string &name) const {
   int len;
   const uint32_t *vals;
   int err = cMsgGetUint32Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1276,7 +1276,7 @@ uint32_t *cMsgMessage::getUint32Array(const string &name) const throw(cMsgExcept
  * @return field's value as vector of 64 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-vector<uint64_t> *cMsgMessage::getUint64Vector(const string &name) const throw(cMsgException) {
+vector<uint64_t> *cMsgMessage::getUint64Vector(const string &name) const {
   int len;
   const uint64_t *vals;
   int err = cMsgGetUint64Array(myMsgPointer, name.c_str(), &vals, &len);
@@ -1304,7 +1304,7 @@ vector<uint64_t> *cMsgMessage::getUint64Vector(const string &name) const throw(c
  * @return field's value as array of 64 bit, unsigned ints
  * @throws cMsgException if no payload/field exists or field is not right type
  */   
-uint64_t *cMsgMessage::getUint64Array(const string &name) const throw(cMsgException) {
+uint64_t *cMsgMessage::getUint64Array(const string &name) const {
   int len;
   const uint64_t *vals;
   int err = cMsgGetUint64Array(myMsgPointer, name.c_str(), &vals, &len);
