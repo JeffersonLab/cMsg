@@ -1021,14 +1021,18 @@ System.out.println("socket count = " + socketCount);
         try {
             // Type of message is in 1st int.
             // Total length of binary (not including this int) is in 2nd int
+//System.out.println("Emu write: user int =  "+ message.getUserInt() + ", len = " + (binaryLength & 0xffffffffL));
             domainOut[sendIndex].writeLong((long)message.getUserInt() << 32L | (binaryLength & 0xffffffffL));
 
             // Write byte array
             if (binaryLength > 0) {
+//System.out.println("Emu write: write binary");
                 domainOut[sendIndex].write(message.getByteArray(),
                                            message.getByteArrayOffset(),
                                            binaryLength);
             }
+//System.out.println("Emu write: flush");
+            domainOut[sendIndex].flush();
         }
         catch (UnsupportedEncodingException e) {
         }
