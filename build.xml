@@ -170,7 +170,15 @@
         </javac>
     </target>
 
-
+    <!-- Compile all source so it is java 8, be sure to precede "release" with 2 "-"s !!
+    <target name="compile" depends="CODA_cp,prepare" description="Compiles all source code.">
+        <javac srcdir="${src.dir}" destdir="${build.classes}" fork="true" executable="javac" debug="${javac.debug}" >
+            <classpath refid="classpath" />
+            <compilerarg value="-release" />
+            <compilerarg value="8" />
+        </javac>
+    </target>
+    -->
 
     <!-- ************************************************************* -->
     <!-- Javadoc -->
