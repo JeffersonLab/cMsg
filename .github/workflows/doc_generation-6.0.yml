@@ -80,4 +80,4 @@ jobs:
           author_email: timmer@jlab.org
           message: 'Update docs'
           branch: gh-pages
-          add: '["doc-6.0/doxygen/C/html/*", "doc-6.0/doxygen/CC/html/*", "doc-6.0/javadoc/", "doc-6.0/users_guide/cMsg_Users_Guide.pdf"]'
+          add: '["doc-6.0/doxygen/C/html/*", "doc-6.0/doxygen/CC/html/*", "doc-6.0/javadoc/", "doc-6.0/users_guide/cMsg_Users_Guide.pdf", "doc-6.0/users_guide/Remote_Execution_Guide.pdf", doc-6.0/developers_guide/cMsg_Developers_Guide.pdf"]'
