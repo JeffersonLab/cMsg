@@ -27,7 +27,9 @@ Here are links to the documentation contained in the github repository
 ___________________________
 ## **Version 6.0**
 
-* [User's Guide PDF](https://jeffersonlab.github.io/cMsg/doc-6.0/users_guide/cMsg_Users_Guide.pdf)
+* [User's Guide](https://jeffersonlab.github.io/cMsg/doc-6.0/users_guide/cMsg_Users_Guide.pdf)
+* [Developer's Guide](https://jeffersonlab.github.io/cMsg/doc-6.0/developers_guide/Developers_Users_Guide.pdf)
+* [Remote Execution Guide](https://jeffersonlab.github.io/cMsg/doc-6.0/users_guide/Remote_Execution_Guide.pdf)
 * [Javadoc for Java Library](https://jeffersonlab.github.io/cMsg/doc-6.0/javadoc/index.html)
 * [Doxygen for C Library](https://jeffersonlab.github.io/cMsg/doc-6.0/doxygen/C/html/index.html)
 * [Doxygen for C++ Library](https://jeffersonlab.github.io/cMsg/doc-6.0/doxygen/CC/html/index.html)
