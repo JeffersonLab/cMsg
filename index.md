@@ -38,6 +38,8 @@ ___________________________
 ## **Version 5.2**
 
 * [User's Guide PDF](https://jeffersonlab.github.io/cMsg/doc-5.2/users_guide/cMsg_Users_Guide.pdf)
+* [Developer's Guide](https://jeffersonlab.github.io/cMsg/doc-5.2/developers_guide/cMsg_Developers_Guide.pdf)
+* [Remote Execution Guide](https://jeffersonlab.github.io/cMsg/doc-5.2/users_guide/Remote_Execution_Guide.pdf)
 * [Javadoc for Java Library](https://jeffersonlab.github.io/cMsg/doc-5.2/javadoc/index.html)
 * [Doxygen for C Library](https://jeffersonlab.github.io/cMsg/doc-5.2/doxygen/C/html/index.html)
 * [Doxygen for C++ Library](https://jeffersonlab.github.io/cMsg/doc-5.2/doxygen/CC/html/index.html)
